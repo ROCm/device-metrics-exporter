@@ -1,0 +1,9 @@
+root: index
+defaults:
+  numbered: False
+  maxdepth: 6
+subtrees:
+  - caption: Integrations
+    entries:
+    - file: integrations/promethes-grafana
+    - file: integrations/slurm-integration  
