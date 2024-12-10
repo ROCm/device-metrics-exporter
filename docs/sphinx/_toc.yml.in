@@ -1,0 +1,18 @@
+root: index
+defaults:
+  numbered: False
+  maxdepth: 6
+subtrees:
+  - caption: Installation
+    entries:
+      - file: installation/docker
+      - file: installation/kubernetes-helm
+      - file: installation/gpu-operator
+  - caption: Configuration
+    entries:
+      - file: configuration/docker
+      - file: configuration/configmap
+  - caption: Integrations
+    entries:
+    - file: integrations/prometheus-grafana
+    - file: integrations/slurm-integration  

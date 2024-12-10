@@ -1,0 +1,7 @@
+kubernetes
+slurm
+prolog
+sudo
+conf
+grafana
+UI

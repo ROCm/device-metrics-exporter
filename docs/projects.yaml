@@ -1,0 +1,3 @@
+device-metrics-exporter:
+  name: AMD Metrics Exporter
+  url: https://dcgpu.docs.amd.com
