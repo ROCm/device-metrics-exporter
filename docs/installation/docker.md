@@ -29,7 +29,7 @@ docker run -d \
 curl http://localhost:5000/metrics
 ```
 
-- Review the [Prometheus and Grafana Integration Guide](../integrations/prometheus-grafana.md)
+- Review the [Prometheus and Grafana Integration Guide](../integrations/prometheus-grafana.md).
 
 ## Custom metrics
 
