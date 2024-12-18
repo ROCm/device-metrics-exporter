@@ -8,7 +8,7 @@ external_projects_current_project = "device-metrics-exporter"
 project = "AMD Instinct Hub"
 version = "1.0.0"
 release = version
-html_title = f"Device Metrics Exporter"
+html_title = f"AMD Device Metrics Exporter"
 author = "Advanced Micro Devices, Inc."
 copyright = "Copyright (c) 2024 Advanced Micro Devices, Inc. All rights reserved."
 
