@@ -1,4 +1,4 @@
-# Prometheus and Grafana
+# Prometheus and Grafana integration
 
 To ingest metrics into Prometheus, add the AMD Device Metrics Exporter endpoint to your Prometheus configuration:
 
