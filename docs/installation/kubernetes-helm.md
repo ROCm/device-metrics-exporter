@@ -1,6 +1,6 @@
 # Kubernetes (Helm) installation
 
-## Prerequisites
+## System requirements
 
 - ROCm 6.2.0
 - Ubuntu 22.04 or later
