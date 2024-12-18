@@ -1,6 +1,6 @@
 # AMD Device Metrics Exporter
 
-AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption.
+AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption.
 
 ## Features
 
@@ -11,57 +11,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Configurable service ports
 - Container-based deployment
 
-## Prerequisites
 
-### System Requirements
-
-- Ubuntu 22.04 or later
-- ROCm 6.2.0
-- Docker (or a Docker-compatible container runtime)
-
-## Installation Options
-
-### Container Deployment
-
-The Metrics Exporter container is hosted on Docker Hub at [rocm/device-metrics-exporter](https://hub.docker.com/r/rocm/device-metrics-exporter).
-
-Basic usage:
-
-```bash
-docker run -d \
-  --device=/dev/dri \
-  --device=/dev/kfd \
-  -p 5000:5000 \
-  --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.0.0
-```
-
-### Kubernetes Deployment
-
-For Kubernetes environments, we provide a Helm chart for easy deployment.
-
-- Prepare a `values.yaml` file:
-
-```yaml
-platform: k8s
-nodeSelector: {} # Optional: Add custom nodeSelector
-image:
-  repository: docker.io/rocm/device-metrics-exporter
-  tag: v1.0.0
-  pullPolicy: Always
-service:
-  type: ClusterIP  # or NodePort
-  ClusterIP:
-    port: 5000
-```
-
-- Install using Helm:
-
-```bash
-helm install exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.0.0/device-metrics-exporter-charts-v1.0.0.tgz \
-  -n mynamespace -f values.yaml --create-namespace
-```
 
 ## Configuration
 
