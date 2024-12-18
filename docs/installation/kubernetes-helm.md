@@ -2,13 +2,15 @@
 
 ## Prerequisites
 
+- ROCm 6.2.0
+- Ubuntu 22.04 or later
 - Kubernetes cluster v1.29.0 or later
 - Helm v3.2.0 or later
 - `kubectl` command-line tool configured with access to the cluster
 
 ## Installation
 
-For Kubernetes environments, we provide a Helm chart for easy deployment.
+For Kubernetes environments, a Helm chart is provided for easy deployment.
 
 - Prepare a `values.yaml` file:
 
