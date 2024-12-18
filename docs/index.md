@@ -1,8 +1,6 @@
 # AMD Device Metrics Exporter
 
-AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption.
-
-## Features
+AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption. This tool includes the following features:
 
 - Prometheus-compatible metrics endpoint
 - Rich GPU telemetry data
@@ -10,16 +8,6 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Slurm integration support
 - Configurable service ports
 - Container-based deployment
-
-
-
-## Configuration
-
-### Default Settings
-
-- Metrics endpoint: `http://localhost:5000/metrics`
-- Default configuration file: `/etc/metrics/config.json`
-
 
 ## Available Metrics
 
