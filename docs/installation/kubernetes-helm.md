@@ -1,4 +1,4 @@
-# Kubernetes (Helm)
+# Kubernetes (Helm) installation
 
 ## Prerequisites
 
