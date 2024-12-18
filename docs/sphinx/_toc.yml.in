@@ -10,6 +10,7 @@ subtrees:
       - file: installation/gpu-operator
   - caption: Configuration
     entries:
+       - file: configuration/configuration-settings   
       - file: configuration/docker
       - file: configuration/configmap
   - caption: Integrations
