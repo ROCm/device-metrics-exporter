@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- ROCm 6.2.0
+- ROCm 6.2.0.x
 - Docker (or a Docker-compatible container runtime)
 
 ## Installation
