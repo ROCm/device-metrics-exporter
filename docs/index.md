@@ -20,24 +20,6 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Metrics endpoint: `http://localhost:5000/metrics`
 - Default configuration file: `/etc/metrics/config.json`
 
-### Custom Configuration
-
-To use a custom configuration:
-
-1. Create your config file based on the [example config](https://raw.githubusercontent.com/ROCm/device-metrics-exporter/refs/heads/main/example/config.json)
-2. Mount it when starting the container:
-
-```bash
-docker run -d \
-  --device=/dev/dri \
-  --device=/dev/kfd \
-  -p 5000:5000 \
-  -v ./config:/etc/metrics \
-  --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.0.0
-```
-
-The exporter polls for configuration changes every minute, so updates take effect without container restarts.
 
 ## Available Metrics
 
