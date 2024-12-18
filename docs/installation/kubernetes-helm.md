@@ -1,5 +1,7 @@
 # Kubernetes (Helm) installation
 
+This page explains how to install AMD Device Metrics Exporter using Kubernetes.
+
 ## System requirements
 
 - ROCm 6.2.0
