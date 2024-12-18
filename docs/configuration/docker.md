@@ -1,6 +1,6 @@
-# Standalone Container
+# Standalone container configuration
 
-To use a custom configuration with the Metrics Exporter container:
+To use a custom configuration with the AMD Device Metrics Exporter container:
 
 1. Create a config file based on the provided example [config.json](https://raw.githubusercontent.com/ROCm/device-metrics-exporter/refs/heads/main/example/config.json)
 2. Save `config.json` in the `config/` folder
