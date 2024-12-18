@@ -37,7 +37,3 @@ helm install exporter \
   -n mynamespace -f values.yaml --create-namespace
 ```
 
-## Default Settings
-
-- Metrics endpoint: `http://localhost:5000/metrics`
-- Configuration file: `/etc/metrics/config.json`
