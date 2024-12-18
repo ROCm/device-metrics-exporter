@@ -1,13 +1,16 @@
-# Docker
+# Docker installation
 
-## Prerequisites
+This page explains how to install AMD Device Metrics Exporter using Docker. 
 
-- ROCm 6.2.0.x
+## System requirements
+
+- ROCm 6.2.0
+- Ubuntu 22.04 or later
 - Docker (or a Docker-compatible container runtime)
 
 ## Installation
 
-The Metrics Exporter container is hosted on Docker Hub at [rocm/device-metrics-exporter](https://hub.docker.com/r/rocm/device-metrics-exporter).
+The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-metrics-exporter](https://hub.docker.com/r/rocm/device-metrics-exporter).
 
 - Start the container:
 
@@ -30,4 +33,4 @@ curl http://localhost:5000/metrics
 
 ## Custom metrics
 
-Please refer to the [Standalone Container](../configuration/docker.md) configuration documentation for instructions.
+For information about custom metrics, see [Standalone Container](../configuration/docker.md) for instructions.
