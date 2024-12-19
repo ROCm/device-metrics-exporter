@@ -5,7 +5,7 @@ external_projects_remote_repository = ""
 external_projects = ["device-metrics-exporter"]
 external_projects_current_project = "device-metrics-exporter"
 
-project = "AMD Instinct Hub"
+# project = "AMD Instinct Hub"
 version = "1.0.0"
 release = version
 html_title = f"AMD Device Metrics Exporter"
