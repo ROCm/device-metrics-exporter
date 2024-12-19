@@ -1,5 +1,7 @@
 # Troubleshooting Device Metrics Exporter
 
+This topic provides an overview of troubleshooting options for Device Metrics Exporter.
+
 ## Logs
 
 You can view the container logs by executing the following command:
