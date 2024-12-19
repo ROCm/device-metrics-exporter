@@ -11,7 +11,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 
 ## Available Metrics
 
-The Device Metrics Exporter provides extensive GPU metrics including:
+Device Metrics Exporter provides extensive GPU metrics including:
 
 - Temperature metrics
   - Edge temperature
