@@ -36,4 +36,3 @@ helm install exporter \
   https://github.com/ROCm/device-metrics-exporter/releases/download/v1.0.0/device-metrics-exporter-charts-v1.0.0.tgz \
   -n mynamespace -f values.yaml --create-namespace
 ```
-

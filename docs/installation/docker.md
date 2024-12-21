@@ -1,6 +1,6 @@
 # Docker installation
 
-This page explains how to install AMD Device Metrics Exporter using Docker. 
+This page explains how to install AMD Device Metrics Exporter using Docker.
 
 ## System requirements
 
