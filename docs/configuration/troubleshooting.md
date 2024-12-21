@@ -11,6 +11,7 @@ docker logs device-metrics-exporter
 ```
 
 ## Common Issues
+
 This section describes common issues with AMD Device Metrics Exporter
 
 1. Port conflicts:
