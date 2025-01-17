@@ -154,7 +154,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "GPU current power usage",
+      "description": "GPU package power usage",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -210,13 +210,31 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "gpu_power_usage{gpu_uuid=\"$g_gpu_uuid\", hostname=\"$g_hostname\"}",
+          "expr": "gpu_average_package_power{gpu_uuid=\"$g_gpu_uuid\", hostname=\"$g_hostname\"}",
           "fullMetaSearch": false,
+          "hide": false,
           "includeNullMetadata": true,
           "instant": false,
           "legendFormat": "{{hostname}}[{{gpu_id}}]",
           "range": true,
           "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "gpu_package_power{gpu_uuid=\"$g_gpu_uuid\", hostname=\"$g_hostname\"}",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "{{hostname}}[{{gpu_id}}]",
+          "range": true,
+          "refId": "B",
           "useBackend": false
         }
       ],
@@ -1788,7 +1806,7 @@
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(gpu_id)",
+        "definition": "label_values({hostname=\"$g_hostname\"},gpu_id)",
         "hide": 0,
         "includeAll": false,
         "label": "GPU ID",
@@ -1797,7 +1815,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(gpu_id)",
+          "query": "label_values({hostname=\"$g_hostname\"},gpu_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
