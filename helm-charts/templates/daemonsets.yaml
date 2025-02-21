@@ -14,6 +14,7 @@ spec:
       labels:
         app: {{ .Release.Name }}-amdgpu-metrics-exporter
     spec:
+      serviceAccountName: amdgpu-metrics-exporter
       {{- if .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
@@ -24,7 +25,7 @@ spec:
         - -c
         - while [ ! -d /host-sys/class/kfd ] || [ ! -d /host-sys/module/amdgpu/drivers/
           ]; do echo "amdgpu driver is not loaded "; sleep 2 ;done
-        image: busybox:1.36
+        image: {{ .Values.image.initContainerImage }}
         imagePullPolicy: IfNotPresent
         name: driver-init
         securityContext:
@@ -64,6 +65,8 @@ spec:
             name: sys-volume
           - mountPath: /var/lib/kubelet/pod-resources
             name: pod-resources
+          - mountPath: /var/lib/amd-metrics-exporter
+            name: exporter-health-grpc-volume
           {{- if .Values.configMap }}
           - name: metrics-config-volume
             mountPath: /etc/metrics/
@@ -86,6 +89,10 @@ spec:
           path: /var/lib/kubelet/pod-resources
           type: Directory
         name: pod-resources
+      - hostPath:
+          path: /var/lib/amd-metrics-exporter
+          type: DirectoryOrCreate
+        name: exporter-health-grpc-volume
       {{- if .Values.configMap }}
       - name: metrics-config-volume
         configMap:

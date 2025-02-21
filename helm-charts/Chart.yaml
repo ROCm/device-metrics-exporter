@@ -11,8 +11,8 @@ keywords:
   - prometheus
 
 type: application
-version: v1.1.0
-appVersion: "v1.1.0"
+version: v1.2.0
+appVersion: "v1.2.0"
 kubeVersion: ">= 1.29.0-0"
 
 maintainers:

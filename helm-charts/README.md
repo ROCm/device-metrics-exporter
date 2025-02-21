@@ -1,6 +1,6 @@
-# amdgpu-metrics-exporter-charts
+# device-metrics-exporter-charts
 
-![Version: v1.1.0](https://img.shields.io/badge/Version-v1.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.1.0](https://img.shields.io/badge/AppVersion-v1.1.0-informational?style=flat-square)
+![Version: v1.2.0](https://img.shields.io/badge/Version-v1.2.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.2.0](https://img.shields.io/badge/AppVersion-v1.2.0-informational?style=flat-square)
 
 A Helm chart for AMD GPU Metric Exporter
 
@@ -24,7 +24,8 @@ Kubernetes: `>= 1.29.0-0`
 | image.pullPolicy | string | `"Always"` | metrics exporter image pullPolicy |
 | image.pullSecrets | string | `""` | metrics exporter image pullSecret name |
 | image.repository | string | `"docker.io/rocm/device-metrics-exporter"` | repository URL for the metrics exporter image |
-| image.tag | string | `"v1.1.0"` | metrics exporter image tag |
+| image.tag | string | `"v1.2.0"` | metrics exporter image tag |
+| image.initContainerImage | string | `"busybox:1.36"` | metrics exporter initContainer image |
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |
 | platform | string | `"k8s"` |  |
 | service.ClusterIP.port | int | `5000` | set port for ClusterIP type service |
