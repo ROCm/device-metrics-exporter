@@ -4,7 +4,7 @@
 
 Before installing the AMD GPU Metrics Exporter, you need to install the following:
 
-- **Operating System**: Ubuntu 22.04 LTS
+- **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
 - **ROCm Version**: 6.3.x (specific to each .deb pkg)
 
 Each Debian package release of the Standalone Metrics Exporter is dependent on a specific version of the ROCm amdgpu driver. Please see table below for more information:
@@ -66,10 +66,10 @@ For the most up-to-date information on installing dkms drivers please see the [R
     wget https://repo.radeon.com/amdgpu-exporter/x.x.x/ubuntu/jammy/amdgpu-exporter_0.1_amd64.deb
     ```
 
-2. Once you have the .deb package (obtained via AMD representative):
+2. Install the deb package:
 
     ```bash
-    sudo dpkg -i amdgpu-exporter_0.1_amd64.deb
+    sudo dpkg -i amdgpu-exporter_*.deb
     ```
 
 3. Enable and start services:
