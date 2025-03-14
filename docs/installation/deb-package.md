@@ -2,10 +2,12 @@
 
 ## System Requirements
 
+Before installing the AMD GPU Metrics Exporter, you need to install the following:
+
 - **Operating System**: Ubuntu 22.04 LTS
 - **ROCm Version**: 6.3.x (specific to each .deb pkg)
- 
- Each Debian package release of the Standalone Metrics Exporter is dependent on a specific version of the ROCm amdgpu driver. Please see table below for more information:
+
+Each Debian package release of the Standalone Metrics Exporter is dependent on a specific version of the ROCm amdgpu driver. Please see table below for more information:
 
 | Metrics Exporter Debian Version | ROCm Version | AMDGPU Driver Version |
 |---------------------------------|--------------|-----------------------|
@@ -13,30 +15,24 @@
 
 ## Installation
 
-Before installing the AMD GPU Metrics Exporter, you need to install the following:
-
-- **AMDGPU DKMS Driver**: Installed on the system - (see instructions below)
-- **RDC (ROCm Data Center Tool)**: Already installed and running - (see instructions below)
-
 ### Step 1: Install System Prerequisites
 
-Update the system:
+1. Update the system:
 
-```bash
-sudo apt update
-sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
-```
+    ```bash
+    sudo apt update
+    sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
+    ```
 
-Add user to required groups:
+2. Add user to required groups:
 
-```bash
-sudo usermod -a -G render,video $LOGNAME 
-```
-
+    ```bash
+    sudo usermod -a -G render,video $LOGNAME 
+    ```
 
 ### Step 2: Install AMDGPU Driver
 
-```{info}
+```{note}
 For the most up-to-date information on installing dkms drivers please see the [ROCm Install Quick Start](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html) page. The below instructions are the most current instructions as of ROCm 6.2.4.
 ```
 
@@ -46,9 +42,7 @@ For the most up-to-date information on installing dkms drivers please see the [R
     wget https://repo.radeon.com/amdgpu-install/6.3.4/ubuntu/jammy/amdgpu-install_6.3.60304-1_all.deb
     ```
 
-    ```{info}
-    Please note that the above url will be different depending on what the latest version of the drivers are and your Operating System
-    ```
+    Please note that the above url will be different depending on what version of the drivers you will be installing and type of Operating System you are using.
 
 2. Install the driver:
 
@@ -64,43 +58,28 @@ For the most up-to-date information on installing dkms drivers please see the [R
     sudo modprobe amdgpu
     ```
 
-### Step 3: Install RDC (ROCm Data Center Tool)
+### Step 3: Install the Metrics Exporter
 
-1. Install RDC package:
-
-    ```bash
-    sudo apt-get install rdc
-    ```
-
-2. Update your PATH environment variable:
+1. Download the Metrics Exporter standalone Debian pacakge from [repo.radeon.com](https://repo.radeon.com/amdgpu-exporter):
 
     ```bash
-    echo 'export PATH=$PATH:/opt/rocm-6.2.0/bin' >> ~/.bashrc
-    source ~/.bashrc
+    wget https://repo.radeon.com/amdgpu-exporter/x.x.x/ubuntu/jammy/amdgpu-exporter_0.1_amd64.deb
     ```
 
-3. Start the RDC service:
-
-    ```bash
-    sudo systemctl start rdc.service
-    ```
-
-### Step 4: Install Metrics Exporter
-
-1. Once you have the .deb package (obtained via AMD representative):
+2. Once you have the .deb package (obtained via AMD representative):
 
     ```bash
     sudo dpkg -i amdgpu-exporter_0.1_amd64.deb
     ```
 
-2. Enable and start services:
+3. Enable and start services:
 
     ```bash
     sudo systemctl enable amd-metrics-exporter.service
     sudo systemctl start amd-metrics-exporter.service
     ```
 
-3. Check service status:
+4. Check service status:
 
     ```bash
     sudo systemctl status amd-metrics-exporter.service
@@ -191,19 +170,10 @@ To remove this application, follow these commands in reverse order:
         ```bash
         sudo dpkg -r amdgpu-exporter
         sudo apt-get purge amdgpu-exporter
-        
+
         ```
 
-2. Uninstall RDC:
-
-    - Ensure the .deb package is removed:
-
-        ```bash
-       sudo dpkg -r rdc 
-        sudo apt-get purge rdc
-        ```
-
-3. (Optional) If you would also like to uninstall the AMDGPU Driver:
+2. (Optional) If you would also like to uninstall the AMDGPU Driver:
 
     - Uninstall any associated DKMS packages:
 
@@ -217,7 +187,7 @@ To remove this application, follow these commands in reverse order:
         sudo modprobe -r amdgpu
         ```
 
-4. (optional) If you would also like to remove the system prerequisites that were installed:
+3. (Optional) If you would also like to remove the system prerequisites that were installed:
 
     - Remove Linux header and module packages:
 
