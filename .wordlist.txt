@@ -34,4 +34,6 @@ VCN
 WAFL
 hbm
 mV
+Mhz
 pcie
+uJ
