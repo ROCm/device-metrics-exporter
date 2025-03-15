@@ -96,3 +96,23 @@ To package Helm charts:
 ```bash
 make helm-charts
 ```
+
+## GPU Agent Integration
+
+The AMD Device Metrics Exporter relies on [GPU Agent](https://github.com/ROCm/gpu-agent/), which provides programmable APIs to configure and monitor AMD Instinct GPUs. GPU Agent enables low-level interactions with the GPUs, facilitating the collection and reporting of device-specific metrics.
+
+### Building GPU Agent
+
+Developers can make changes directly in the GPU Agent repository, build the GPU Agent binary, and then integrate the built binaries into the Device Metrics Exporter project. Copy over the static binary into the `assets` folder in the AMD Device Metrics Exporter and follow these steps:
+
+```bash
+gzip -f assets/gpuagent_static.bin
+make all
+```
+
+Build a new docker image with the new gpuagent binary poackaged using:
+
+```bash
+make docker
+```
+

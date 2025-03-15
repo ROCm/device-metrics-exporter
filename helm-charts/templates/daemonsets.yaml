@@ -94,6 +94,7 @@ spec:
       - hostPath:
           path: /var/lib/amd-metrics-exporter
           type: DirectoryOrCreate
+        name: exporter-health-grpc-volume
       - hostPath:
           path: /var/run/exporter
           type: DirectoryOrCreate
