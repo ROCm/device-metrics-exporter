@@ -5,6 +5,11 @@ sudo
 conf
 grafana
 UI
+HealthThresholds
+Mhz
+pcie
+uJ
+ECC
 ATHUB
 BIF
 DF

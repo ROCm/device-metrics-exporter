@@ -8,6 +8,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Slurm integration support
 - Configurable service ports
 - Container-based deployment
+- GPU Health monitoring
 
 ## Available Metrics
 

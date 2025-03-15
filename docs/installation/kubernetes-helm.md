@@ -4,7 +4,7 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 
 ## System requirements
 
-- ROCm 6.2.0
+- ROCm 6.2.x, 6.3.x
 - Ubuntu 22.04 or later
 - Kubernetes cluster v1.29.0 or later
 - Helm v3.2.0 or later
@@ -14,25 +14,18 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 
 For Kubernetes environments, a Helm chart is provided for easy deployment.
 
-- Prepare a `values.yaml` file:
-
-```yaml
-platform: k8s
-nodeSelector: {} # Optional: Add custom nodeSelector
-image:
-  repository: docker.io/rocm/device-metrics-exporter
-  tag: v1.0.0
-  pullPolicy: Always
-service:
-  type: ClusterIP  # or NodePort
-  ClusterIP:
-    port: 5000
-```
-
-- Install using Helm:
+### Install Helm
 
 ```bash
-helm install exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.0.0/device-metrics-exporter-charts-v1.0.0.tgz \
-  -n mynamespace -f values.yaml --create-namespace
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+```
+
+### Install using Helm
+
+```bash
+helm repo add exporter https://rocm.github.io/device-metrics-exporter
+helm repo update
+helm install exporter exporter/device-metrics-exporter-charts --namespace kube-amd-gpu --create-namespace --version=v1.2.0
 ```
