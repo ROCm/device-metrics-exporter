@@ -83,10 +83,6 @@
   "links": [],
   "panels": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
       "description": "Name of the job ID or pod",
       "gridPos": {
         "h": 4,
@@ -403,7 +399,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(pcie_recovery_count{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(pcie_recovery_count{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -419,7 +415,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(pcie_recovery_count{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(pcie_recovery_count{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -435,7 +431,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_replay_count{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(pcie_replay_count{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Replay",
@@ -448,7 +444,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_replay_count{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(pcie_replay_count{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Replay",
@@ -461,7 +457,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_replay_rollover_count{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(pcie_replay_rollover_count{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Replay Rollover",
@@ -474,7 +470,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_replay_rollover_count{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(pcie_replay_rollover_count{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Replay Rollover",
@@ -487,7 +483,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_nack_received_count{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(pcie_nack_received_count{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "NACK Received",
@@ -500,7 +496,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_nack_received_count{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(pcie_nack_received_count{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "NACK Received",
@@ -513,7 +509,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_nack_sent_count{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(pcie_nack_sent_count{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "NACK Sent",
@@ -526,7 +522,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(pcie_nack_sent_count{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(pcie_nack_sent_count{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "NACK Sent",
@@ -946,7 +942,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Latest total power usage, in Watts",
+      "description": "Total package power usage, in Watts",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1000,11 +996,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(gpu_power_usage{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(gpu_average_package_power{job_id!=\"\", job_id=\"$g_job_id\"})",
           "fullMetaSearch": false,
+          "hide": true,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Power Usage",
+          "legendFormat": "Average Job Package Power Usage",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1016,15 +1013,69 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(gpu_power_usage{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(gpu_package_power{job_id!=\"\", job_id=\"$g_job_id\"})",
           "fullMetaSearch": false,
-          "hide": false,
+          "hide": true,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Power Usage",
+          "legendFormat": "Job Package Power Usage",
           "range": true,
           "refId": "B",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(gpu_average_package_power{pod!=\"\", pod=\"$g_pod\"})",
+          "fullMetaSearch": false,
+          "hide": true,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Average Pod Package Power Usage",
+          "range": true,
+          "refId": "C",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(gpu_package_power{pod!=\"\", pod=\"$g_pod\"})",
+          "fullMetaSearch": false,
+          "hide": true,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "Pod Package Power Usage",
+          "range": true,
+          "refId": "D",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "__expr__",
+            "uid": "${DS_EXPRESSION}"
+          },
+          "expression": "$A+$B",
+          "hide": false,
+          "refId": "Total Job Package Power Usage",
+          "type": "math"
+        },
+        {
+          "datasource": {
+            "type": "__expr__",
+            "uid": "${DS_EXPRESSION}"
+          },
+          "expression": "$C+$D",
+          "hide": false,
+          "refId": "Total Pod Package Power Usage",
+          "type": "math"
         }
       ],
       "title": "Total Power Usage",
@@ -1343,7 +1394,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(gpu_ecc_correct_total{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(gpu_ecc_correct_total{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": true,
@@ -1360,7 +1411,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(gpu_ecc_correct_total{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(gpu_ecc_correct_total{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1378,7 +1429,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(gpu_ecc_uncorrect_total{job_id!=\"\", job_id=\"$g_job_id\"})",
+          "expr": "sum(delta(gpu_ecc_uncorrect_total{job_id!=\"\", job_id=\"$g_job_id\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1396,7 +1447,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(gpu_ecc_uncorrect_total{pod!=\"\", pod=\"$g_pod\"})",
+          "expr": "sum(delta(gpu_ecc_uncorrect_total{pod!=\"\", pod=\"$g_pod\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2508,7 +2559,32 @@
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(job_id)",
+        "definition": "label_values(cluster_name)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Cluster",
+        "multi": false,
+        "name": "g_cluster_name",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(cluster_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 7,
+        "type": "query"
+      },
+      {
+        "allValue": "+",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values({cluster_name=\"$g_cluster_name\"},job_id)",
         "hide": 0,
         "includeAll": false,
         "label": "Job",
@@ -2517,22 +2593,23 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(job_id)",
+          "query": "label_values({cluster_name=\"$g_cluster_name\"},job_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
-        "sort": 0,
+        "sort": 7,
         "type": "query"
       },
       {
+        "allValue": "+",
         "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(pod)",
+        "definition": "label_values({cluster_name=\"$g_cluster_name\"},pod)",
         "hide": 0,
         "includeAll": false,
         "label": "Pod",
@@ -2541,13 +2618,13 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(pod)",
+          "query": "label_values({cluster_name=\"$g_cluster_name\"},pod)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
-        "sort": 0,
+        "sort": 7,
         "type": "query"
       }
     ]

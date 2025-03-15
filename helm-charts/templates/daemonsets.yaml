@@ -67,6 +67,8 @@ spec:
             name: pod-resources
           - mountPath: /var/lib/amd-metrics-exporter
             name: exporter-health-grpc-volume
+          - mountPath: /var/run/exporter
+            name: exporter-slurm-job
           {{- if .Values.configMap }}
           - name: metrics-config-volume
             mountPath: /etc/metrics/
@@ -92,7 +94,10 @@ spec:
       - hostPath:
           path: /var/lib/amd-metrics-exporter
           type: DirectoryOrCreate
-        name: exporter-health-grpc-volume
+      - hostPath:
+          path: /var/run/exporter
+          type: DirectoryOrCreate
+        name: exporter-slurm-job
       {{- if .Values.configMap }}
       - name: metrics-config-volume
         configMap:

@@ -139,6 +139,9 @@ for node in ${NODES}; do
 			${KUBECTL} cp ${EXPORTER_NS}/${pod}:"/run/$l" ${TECH_SUPPORT_FILE}/${node}/gpu-agent/$l >/dev/null || true
 		done
 	done
+	#exporter version 
+	log "   exporter version"
+	${KUBECTL} exec -it ${EXPORTER_PODS} -- sh -c "/home/amd/bin/server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt
 
 	${KUBECTL} get nodes -l "node-role.kubernetes.io/control-plane=NoSchedule" 2>/dev/null | grep ${node} && continue # skip master nodes
 done
