@@ -60,8 +60,7 @@ For the most up-to-date information on installing dkms drivers please see the [R
 
 ### Step 3: Install the Metrics Exporter
 
-1.  To install the Device Metrics Exporter you will first need to build the Debian package from source. To do so please refer to the [Device Metrics Exporter Developer Guide here](https://instinct.docs.amd.com/projects/device-metrics-exporter/en/latest/developerguide)
-    ```
+1. To install the Device Metrics Exporter you will first need to build the Debian package from source. To do so please refer to the [Device Metrics Exporter Developer Guide here](https://instinct.docs.amd.com/projects/device-metrics-exporter/en/latest/developerguide)
 
 2. Install the deb package that you just built:
 
