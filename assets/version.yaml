@@ -1,0 +1,20 @@
+assets:
+  - name    : gpuagent_mock.bin.gz
+    version : 1.107.0-1
+    branch  : master
+
+  - name    : gpuagent_static.bin.gz
+    version : 1.107.0-1
+    branch  : master
+
+  - name    : gpuctl.gobin
+    version : 1.107.0-1
+    branch  : master
+
+  - name    : amd_smi_lib
+    version : 1.105.0-42
+    branch  : master
+
+  - name    :  thirdparty
+    version : jammy
+    branch  : ubuntu 22.04 

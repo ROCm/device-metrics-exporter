@@ -1,0 +1,18 @@
+language: go
+warnings_are_errors: false
+dist: xenial
+
+addons:
+  apt:
+    sources:
+    - sourceline: 'deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/git-draft/xUbuntu_16.04/ ./'
+      key_url: 'http://download.opensuse.org/repositories/network:/messaging:/zeromq:/git-draft/xUbuntu_16.04/Release.key'
+    packages:
+    - libsodium-dev
+    - libczmq-dev
+
+go:
+        - 1.12.6
+script:
+        - go get -t -v ./...
+        - go test -v .

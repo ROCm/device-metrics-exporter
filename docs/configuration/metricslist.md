@@ -28,7 +28,7 @@ The following table contains a full list of GPU Metrics that are available using
 | PCIE_REPLAY_ROLLOVER_COUNT      | PCIe Replay accumulated count                                              |
 | PCIE_NACK_SENT_COUNT            | PCIe NAK sent accumulated count                                            |
 | PCIE_NAC_RECEIVED_COUNT         | PCIe NAK received accumulated count                                        |
-| GPU_CLOCK                       | Clock measure of the GPU in Mhz                                            |
+| GPU_CLOCK                       | Clock measure of the GPU in Mhz* ([See note below](#gpu_clock-measurements))|
 | GPU_POWER_USAGE                 | GPU power usage in Watts                                                   |
 | GPU_TOTAL_VRAM                  | Total VRAM available in MB                                                 |
 | GPU_ECC_CORRECT_TOTAL           | Total Correctable ECC error count                                          |
@@ -93,3 +93,23 @@ The following table contains a full list of GPU Metrics that are available using
 | GPU_ECC_UNCORRECT_IH            | Uncorrectable ECC error in IH                                              |
 | GPU_ECC_CORRECT_MPIO            | Correctable ECC error in MPIO                                              |
 | GPU_ECC_UNCORRECT_MPIO          | Uncorrectable ECC error in MPIO                                            |
+
+## GPU_CLOCK measurements
+
+The Device Metrics Exporter `gpu_clock` metric is a common field used for exporting different types of clocks. This metric has a `clock_type` label added to the metric to differentiate the different clock types:
+
+```json
+gpu_clock{clock_type="GPU_CLOCK_TYPE_DATA"}
+gpu_clock{clock_type="GPU_CLOCK_TYPE_SYSTEM"}
+gpu_clock{clock_type="GPU_CLOCK_TYPE_MEMORY"}
+gpu_clock{clock_type="GPU_CLOCK_TYPE_VIDEO"}
+```
+
+An example of this is shown below:
+
+```json
+gpu_clock{card_model="xxxx",clock_index="14",clock_type="GPU_CLOCK_TYPE_DATA",gpu_compute_partition_type="spx",gpu_id="3",gpu_partition_id="0",hostname="xxxx",serial_number="xxxx"} 22
+gpu_clock{card_model="xxxx",clock_index="2",clock_type="GPU_CLOCK_TYPE_SYSTEM",gpu_compute_partition_type="spx",gpu_id="0",gpu_partition_id="0",hostname="xxxx",serial_number="xxxx"} 132
+gpu_clock{card_model="xxxx",clock_index="8",clock_type="GPU_CLOCK_TYPE_MEMORY",gpu_compute_partition_type="spx",gpu_id="0",gpu_partition_id="0",hostname="xxxx",serial_number="xxxx"} 900
+gpu_clock{card_model="xxxx",clock_index="9",clock_type="GPU_CLOCK_TYPE_VIDEO",gpu_compute_partition_type="spx",gpu_id="5",gpu_partition_id="0",hostname="xxxx",serial_number="xxxx"} 29
+```
