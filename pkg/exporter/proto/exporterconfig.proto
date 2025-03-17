@@ -1,0 +1,197 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+
+//----------------------------------------------------------------------------
+///
+/// \file
+/// AMD Metrics Exporter configs
+///
+//----------------------------------------------------------------------------
+
+
+syntax = "proto3";
+option go_package = "gen/exportermetrics";
+package exportermetrics;
+
+enum GPUMetricField {
+    GPU_NODES_TOTAL             = 0;
+    GPU_PACKAGE_POWER           = 1;
+    GPU_AVERAGE_PACKAGE_POWER   = 2;
+    GPU_EDGE_TEMPERATURE        = 3;
+    GPU_JUNCTION_TEMPERATURE    = 4;
+    GPU_MEMORY_TEMPERATURE      = 5;
+    GPU_HBM_TEMPERATURE         = 6;
+    GPU_GFX_ACTIVITY            = 7;
+    GPU_UMC_ACTIVITY            = 8;
+    GPU_MMA_ACTIVITY            = 9;
+    GPU_VCN_ACTIVITY            = 10;
+    GPU_JPEG_ACTIVITY           = 11;
+    GPU_VOLTAGE                 = 12;
+    GPU_GFX_VOLTAGE             = 13;
+    GPU_MEMORY_VOLTAGE          = 14;
+    PCIE_SPEED                  = 15;
+    PCIE_MAX_SPEED              = 16;
+    PCIE_BANDWIDTH              = 17;
+    GPU_ENERGY_CONSUMED         = 18;
+    PCIE_REPLAY_COUNT           = 19;
+    PCIE_RECOVERY_COUNT         = 20;
+    PCIE_REPLAY_ROLLOVER_COUNT  = 21;
+    PCIE_NACK_SENT_COUNT        = 22;
+    PCIE_NAC_RECEIVED_COUNT     = 23;
+    GPU_CLOCK                   = 24;
+    GPU_POWER_USAGE             = 25;
+    GPU_TOTAL_VRAM              = 26;
+    GPU_ECC_CORRECT_TOTAL       = 27;
+    GPU_ECC_UNCORRECT_TOTAL     = 28;
+    GPU_ECC_CORRECT_SDMA        = 29;
+    GPU_ECC_UNCORRECT_SDMA      = 30;
+    GPU_ECC_CORRECT_GFX         = 31;
+    GPU_ECC_UNCORRECT_GFX       = 32;
+    GPU_ECC_CORRECT_MMHUB       = 33;
+    GPU_ECC_UNCORRECT_MMHUB     = 34;
+    GPU_ECC_CORRECT_ATHUB       = 35;
+    GPU_ECC_UNCORRECT_ATHUB     = 36;
+    GPU_ECC_CORRECT_BIF         = 37;
+    GPU_ECC_UNCORRECT_BIF       = 38;
+    GPU_ECC_CORRECT_HDP         = 39;
+    GPU_ECC_UNCORRECT_HDP       = 40;
+    GPU_ECC_CORRECT_XGMI_WAFL   = 41;
+    GPU_ECC_UNCORRECT_XGMI_WAFL = 42;
+    GPU_ECC_CORRECT_DF          = 43;
+    GPU_ECC_UNCORRECT_DF        = 44;
+    GPU_ECC_CORRECT_SMN         = 45;
+    GPU_ECC_UNCORRECT_SMN       = 46;
+    GPU_ECC_CORRECT_SEM         = 47;
+    GPU_ECC_UNCORRECT_SEM       = 48;
+    GPU_ECC_CORRECT_MP0         = 49;
+    GPU_ECC_UNCORRECT_MP0       = 50;
+    GPU_ECC_CORRECT_MP1         = 51;
+    GPU_ECC_UNCORRECT_MP1       = 52;
+    GPU_ECC_CORRECT_FUSE        = 53;
+    GPU_ECC_UNCORRECT_FUSE      = 54;
+    GPU_ECC_CORRECT_UMC         = 55;
+    GPU_ECC_UNCORRECT_UMC       = 56;
+    GPU_XGMI_NBR_0_NOP_TX       = 57;
+    GPU_XGMI_NBR_0_REQ_TX       = 58;
+    GPU_XGMI_NBR_0_RESP_TX      = 59;
+    GPU_XGMI_NBR_0_BEATS_TX     = 60;
+    GPU_XGMI_NBR_1_NOP_TX       = 61;
+    GPU_XGMI_NBR_1_REQ_TX       = 62;
+    GPU_XGMI_NBR_1_RESP_TX      = 63;
+    GPU_XGMI_NBR_1_BEATS_TX     = 64;
+    GPU_XGMI_NBR_0_TX_THRPUT    = 65;
+    GPU_XGMI_NBR_1_TX_THRPUT    = 66;
+    GPU_XGMI_NBR_2_TX_THRPUT    = 67;
+    GPU_XGMI_NBR_3_TX_THRPUT    = 68;
+    GPU_XGMI_NBR_4_TX_THRPUT    = 69;
+    GPU_XGMI_NBR_5_TX_THRPUT    = 70;
+    GPU_USED_VRAM               = 71;
+    GPU_FREE_VRAM               = 72;
+    GPU_TOTAL_VISIBLE_VRAM      = 73;
+    GPU_USED_VISIBLE_VRAM       = 74;
+    GPU_FREE_VISIBLE_VRAM       = 75;
+    GPU_TOTAL_GTT               = 76;
+    GPU_USED_GTT                = 77;
+    GPU_FREE_GTT                = 78;
+    GPU_ECC_CORRECT_MCA         = 79;
+    GPU_ECC_UNCORRECT_MCA       = 80;
+    GPU_ECC_CORRECT_VCN         = 81;
+    GPU_ECC_UNCORRECT_VCN       = 82;
+    GPU_ECC_CORRECT_JPEG        = 83;
+    GPU_ECC_UNCORRECT_JPEG      = 84;
+    GPU_ECC_CORRECT_IH          = 85;
+    GPU_ECC_UNCORRECT_IH        = 86;
+    GPU_ECC_CORRECT_MPIO        = 87;
+    GPU_ECC_UNCORRECT_MPIO      = 88;
+    // 1 - healthy, 0 unhealthy
+    GPU_HEALTH                  = 89;
+}
+
+message GPUHealthThresholds {
+    uint32 GPU_ECC_UNCORRECT_SDMA = 1;
+    uint32 GPU_ECC_UNCORRECT_GFX = 2;
+    uint32 GPU_ECC_UNCORRECT_MMHUB = 3;
+    uint32 GPU_ECC_UNCORRECT_ATHUB = 4;
+    uint32 GPU_ECC_UNCORRECT_BIF = 5;
+    uint32 GPU_ECC_UNCORRECT_HDP = 6;
+    uint32 GPU_ECC_UNCORRECT_XGMI_WAFL = 7;
+    uint32 GPU_ECC_UNCORRECT_DF = 8;
+    uint32 GPU_ECC_UNCORRECT_SMN = 9;
+    uint32 GPU_ECC_UNCORRECT_SEM = 10;
+    uint32 GPU_ECC_UNCORRECT_MP0 = 11;
+    uint32 GPU_ECC_UNCORRECT_MP1 = 12;
+    uint32 GPU_ECC_UNCORRECT_FUSE= 13;
+    uint32 GPU_ECC_UNCORRECT_UMC = 14;
+    uint32 GPU_ECC_UNCORRECT_MCA = 15;
+    uint32 GPU_ECC_UNCORRECT_VCN = 16;
+    uint32 GPU_ECC_UNCORRECT_JPEG = 17;
+    uint32 GPU_ECC_UNCORRECT_IH = 18;
+    uint32 GPU_ECC_UNCORRECT_MPIO = 19;
+}
+
+enum GPUMetricLabel {
+    GPU_UUID                   = 0;
+    // mandatory SERIAL_NUMBER cannot be disabled
+    SERIAL_NUMBER              = 1;
+    // mandatory field GPU_ID cannot be disabled
+    GPU_ID                     = 2;
+    POD                        = 3;
+    NAMESPACE                  = 4;
+    CONTAINER                  = 5;
+    JOB_ID                     = 6;
+    JOB_USER                   = 7;
+    JOB_PARTITION              = 8;
+    CLUSTER_NAME               = 9;
+    CARD_SERIES                = 10;
+    // mandatory CARD_MODEL cannot be disabled
+    CARD_MODEL                 = 11;
+    CARD_VENDOR                = 12;
+    DRIVER_VERSION             = 13;
+    VBIOS_VERSION              = 14;
+    // mandatory field HOSTNAME cannot be disabled
+    HOSTNAME                   = 15;
+    // mandatory field GPU_PARTITION_ID cannot be disabled
+    GPU_PARTITION_ID           = 16;
+    // mandatory field GPU_COMPUTE_PARTITION_TYPE cannot be disabled
+    GPU_COMPUTE_PARTITION_TYPE = 17;
+}
+
+message GPUMetricConfig {
+    // instance selector can include comma or range indices of format 0,2-3,7
+    string Selector        = 1;
+
+    // list of all GPUMetricField to be exported
+    repeated string Fields = 2;
+
+    // list of labels to be exported
+    repeated string Labels = 3;
+
+    // GPU Health Thresholds
+    GPUHealthThresholds HealthThresholds = 4;
+
+    // User Defined Custom Labels and values
+    map<string, string> CustomLabels = 5;
+}
+
+message MetricConfig {
+    // server config port
+    uint32 ServerPort         = 1;
+
+    // GPU Metric config for export
+    GPUMetricConfig GPUConfig = 2;
+
+}

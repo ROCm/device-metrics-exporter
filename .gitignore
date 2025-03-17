@@ -1,6 +1,16 @@
 .venv
 .vscode
+*.log
+.cache
+
+# build artifacts
 build
+bin
+*.tgz
+*.tar.gz
+*.tar
+pkg/bin
+pkg/slurm/sim/slurm-sim
 
 # documentation artifacts
 _build/

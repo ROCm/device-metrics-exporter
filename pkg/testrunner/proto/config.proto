@@ -1,0 +1,90 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+syntax = "proto3";
+package testrunner;
+option go_package="gen/testrunner";
+
+// TestCategory is all TestRunner supported types of test
+enum TestCategory {
+    // TestRunner will execute test for checking GPU Health
+    GPU_HEALTH_CHECK            = 0;
+}
+
+// TestTrigger is all supported triggers for TestRunner to start a test
+enum TestTrigger {
+    AUTO_UNHEALTHY_GPU_WATCH    = 0;
+    PRE_START_JOB_CHECK         = 1;
+    MANUAL                      = 2;
+}
+
+/// TestEventReason is the short string to represent the reason of raising event
+enum TestEventReason {
+    TestPassed                  = 0;
+    TestFailed                  = 1;
+    TestTimedOut                = 2;
+    LogsExportPassed		= 3;
+    LogsExportFailed		= 4;
+}
+
+// config specification of TestRunner
+message TestRunnerConfig {
+    // TestRunner test config
+    // key is test category and value is the struct for specific config
+    map<string, TestCategoryConfig>    TestConfig     = 1;
+}
+
+// Test category's specific config
+message TestCategoryConfig {
+    // define global or node specific test config 
+    // key is global or hostname, value is the struct for specifc config
+    map<string, TestTriggerConfig> TestLocationTrigger = 1;
+}
+
+// Test trigger's specific config
+message TestTriggerConfig {
+    // key is test trigger name, value is TestParameters
+    map<string, TestParameters>    TestParameters     = 1;
+}
+
+message TestParameters {
+    repeated TestParameter TestCases               = 1;
+    repeated TestLogsExportConfig LogsExportConfig = 2;
+}
+
+message TestParameter {
+    string             Recipe         = 1;
+    uint32             TimeoutSeconds = 2;
+    uint32             Iterations     = 3;
+    bool               StopOnFailure  = 4;
+    repeated string    DeviceIDs      = 5;
+}
+
+message TestLogsExportConfig {
+    enum CloudProvider {
+        Aws   = 0;
+        Azure = 1;
+    }
+    CloudProvider Provider = 1;
+    string BucketName      = 2;
+    string SecretName      = 3;
+}
+
+// maintain a tiny db to record TestRunner running status
+message TestRunnerStatus {
+    // key is GPU GUID and value is the test recipe name
+    map<string, string> TestStatus = 1;
+}

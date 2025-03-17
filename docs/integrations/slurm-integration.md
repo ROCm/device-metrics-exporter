@@ -36,6 +36,39 @@ sudo systemctl restart slurmctld  # On controller node
 sudo systemctl restart slurmd     # On compute nodes
 ```
 
+## Exporter Container Deployment
+
+### Directory Setup
+
+It's recommended to use the following directory structure to store persistent exporter data on the host:
+
+```
+$ tree -d exporter/
+     exporter/
+       - config/
+         - config.json
+```
+
+Create the directory required for tracking Slurm jobs:
+
+```bash
+mkdir -p /var/run/exporter
+```
+
+### Start Exporter Container
+
+Once the directory structure is ready, start the exporter container:
+
+```bash
+docker run -d \
+  --device=/dev/dri \
+  --device=/dev/kfd \
+  -v ./config:/etc/metrics \
+  -v /var/run/exporter/:/var/run/exporter/ \
+  -p 5000:5000 --name exporter \
+  rocm/device-metrics-exporter:v1.0.0
+```
+
 ## Verification
 
 - Submit a test job:
@@ -111,3 +144,27 @@ Epilog=/path/to/custom/slurm-epilog.sh
 ### Additional Job Information
 
 The integration script can be modified to include additional job-specific information in the metrics. Edit the script to add custom labels as needed.
+
+Slurm labels are disabled by default. To enable Slurm labels, add the following to your `config.json`:
+
+```
+{
+  "GPUConfig": {
+    "Labels": [
+      "GPU_UUID",
+      "SERIAL_NUMBER",
+      "GPU_ID",
+      "JOB_ID",
+      "JOB_USER",
+      "JOB_PARTITION",
+      "CLUSTER_NAME",
+      "CARD_SERIES",
+      "CARD_MODEL",
+      "CARD_VENDOR",
+      "DRIVER_VERSION",
+      "VBIOS_VERSION",
+      "HOSTNAME"
+    ]
+  }
+}
+```

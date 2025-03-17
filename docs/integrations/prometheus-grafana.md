@@ -1,5 +1,33 @@
 # Prometheus and Grafana integration
 
+Grafana dashboards provided visualize GPU metrics collected from AMD Device Metrics Exporter via Prometheus. Dashboard files are located in the grafana directory:
+
+- `dashboard_overview.json`: High-level GPU cluster overview.
+
+- `dashboard_gpu.json`: Detailed per-GPU metrics.
+
+- `dashboard_job.json`: GPU usage by job (Slurm and Kubernetes).
+
+- `dashboard_node.json`: Host-level GPU usage.
+
+### Run Prometheus (for Testing)
+
+```bash
+docker run -p 9090:9090 -v ./example/prometheus.yml:/etc/prometheus/prometheus.yml -v prometheus-data:/prometheus prom/prometheus
+```
+
+### Installing Grafana (for Testing)
+
+Follow the official [Grafana Debian Installation guide](https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/).
+
+Start Grafana Server:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start grafana-server
+sudo systemctl status grafana-server
+```
+
 To ingest metrics into Prometheus, add the AMD Device Metrics Exporter endpoint to your Prometheus configuration:
 
 ```yaml
