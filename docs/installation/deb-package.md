@@ -60,16 +60,13 @@ For the most up-to-date information on installing dkms drivers please see the [R
 
 ### Step 3: Install the Metrics Exporter
 
-1. Download the Metrics Exporter standalone Debian pacakge from [repo.radeon.com](https://repo.radeon.com/amdgpu-exporter):
-
-    ```bash
-    wget https://repo.radeon.com/amdgpu-exporter/x.x.x/ubuntu/jammy/amdgpu-exporter_0.1_amd64.deb
+1.  To install the Device Metrics Exporter you will first need to build the Debian package from source. To do so please refer to the [Device Metrics Exporter Developer Guide here](https://instinct.docs.amd.com/projects/device-metrics-exporter/en/latest/developerguide)
     ```
 
-2. Install the deb package:
+2. Install the deb package that you just built:
 
     ```bash
-    sudo dpkg -i amdgpu-exporter_*.deb
+   sudo dpkg -i bin/amdgpu*.deb
     ```
 
 3. Enable and start services:
