@@ -1,6 +1,8 @@
-* @ROCm/gpu-operator
+* @ROCm/device-metrics-exporter
+@spraveenio @yansun1996 @rchirakk @bhatnitish
+
 # Documentation files
-docs/ @ROCm/gpu-operator
+docs/ @ROCm/device-metrics-exporter
 
 docs/ @ROCm/rocm-documentation
 *.md @ROCm/rocm-documentation
