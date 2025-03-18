@@ -28,13 +28,14 @@ RUN apt-get update && apt-get install -y \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
   git && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# download go1.21
-RUN wget --no-check-certificate https://go.dev/dl/go1.21.6.linux-amd64.tar.gz && \
-    tar -C /usr/local/ -xzf go1.21.6.linux-amd64.tar.gz
+# download go1.23
+RUN wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz && \
+    rm go1.23.4.linux-amd64.tar.gz
 
 # download and install kubectl 
-RUN curl -k -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl && \
-    chmod +x kubectl && mv kubectl /usr/local/bin
+RUN curl -o /usr/local/bin/kubectl -LO 'https://dl.k8s.io/release/v1.30.4/bin/linux/amd64/kubectl' && \
+    chmod +x /usr/local/bin/kubectl
 
 # download and install helm
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 && \
