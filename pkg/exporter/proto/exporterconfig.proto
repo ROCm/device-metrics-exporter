@@ -119,6 +119,8 @@ enum GPUMetricField {
     GPU_ECC_UNCORRECT_MPIO      = 88;
     // 1 - healthy, 0 unhealthy
     GPU_HEALTH                  = 89;
+    GPU_XGMI_LINK_RX            = 90;
+    GPU_XGMI_LINK_TX            = 91;
 }
 
 message GPUHealthThresholds {

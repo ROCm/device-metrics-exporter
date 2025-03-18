@@ -97,7 +97,10 @@ data:
           "GPU_ECC_CORRECT_IH",
           "GPU_ECC_UNCORRECT_IH",
           "GPU_ECC_CORRECT_MPIO",
-          "GPU_ECC_UNCORRECT_MPIO"
+          "GPU_ECC_UNCORRECT_MPIO",
+          "GPU_HEALTH",
+          "GPU_XGMI_LINK_RX",
+          "GPU_XGMI_LINK_TX"
         ],
         "Labels": [
           "GPU_UUID",

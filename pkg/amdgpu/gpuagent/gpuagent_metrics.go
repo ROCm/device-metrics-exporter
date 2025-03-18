@@ -157,6 +157,9 @@ type metrics struct {
 	gpuEccUncorrectMPIO prometheus.GaugeVec
 
 	gpuHealth prometheus.GaugeVec
+
+	gpuXgmiLinkStatsRx prometheus.GaugeVec
+	gpuXgmiLinkStatsTx prometheus.GaugeVec
 }
 
 func (ga *GPUAgentClient) ResetMetrics() error {
@@ -250,6 +253,8 @@ func (ga *GPUAgentClient) ResetMetrics() error {
 	ga.m.gpuEccCorrectMPIO.Reset()
 	ga.m.gpuEccUncorrectMPIO.Reset()
 	ga.m.gpuHealth.Reset()
+	ga.m.gpuXgmiLinkStatsRx.Reset()
+	ga.m.gpuXgmiLinkStatsTx.Reset()
 	return nil
 }
 
@@ -488,6 +493,8 @@ func (ga *GPUAgentClient) initFieldMetricsMap() {
 		ga.m.gpuEccCorrectMPIO,
 		ga.m.gpuEccUncorrectMPIO,
 		ga.m.gpuHealth,
+		ga.m.gpuXgmiLinkStatsRx,
+		ga.m.gpuXgmiLinkStatsTx,
 	}
 
 }
@@ -946,6 +953,16 @@ func (ga *GPUAgentClient) initPrometheusMetrics() {
 			Help: "Health of the GPU (0 = Unhealthy | 1 = Healthy)",
 		},
 			labels),
+		gpuXgmiLinkStatsRx: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gpu_xgmi_link_rx",
+			Help: "XGMI Link Data Read in KB",
+		},
+			append([]string{"link_index"}, labels...)),
+		gpuXgmiLinkStatsTx: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gpu_xgmi_link_tx",
+			Help: "XGMI Link Data Write in KB",
+		},
+			append([]string{"link_index"}, labels...)),
 	}
 	ga.initFieldMetricsMap()
 
@@ -1300,6 +1317,15 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(wls map[string]scheduler.Worklo
 		ga.m.gpuTotalGTT.With(labels).Set(normalizeUint64(vramUsage.TotalGTT))
 		ga.m.gpuUsedGTT.With(labels).Set(normalizeUint64(vramUsage.UsedGTT))
 		ga.m.gpuFreeGTT.With(labels).Set(normalizeUint64(vramUsage.FreeGTT))
+	}
+	xgmiStats := stats.XGMILinkStats
+	if xgmiStats != nil {
+		for j, linkStat := range xgmiStats {
+			labelsWithIndex["link_index"] = fmt.Sprintf("%v", j)
+			ga.m.gpuXgmiLinkStatsRx.With(labelsWithIndex).Set(normalizeUint64(linkStat.DataRead))
+			ga.m.gpuXgmiLinkStatsTx.With(labelsWithIndex).Set(normalizeUint64(linkStat.DataWrite))
+		}
+		delete(labelsWithIndex, "link_index")
 	}
 }
 
