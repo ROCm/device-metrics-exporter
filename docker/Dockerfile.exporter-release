@@ -1,0 +1,40 @@
+#base template file: https://github.com/ROCm/ROCm-docker/blob/master/rocm-terminal/Dockerfile
+ARG BASE_IMAGE=ubuntu:22.04
+
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="AMD Inc"
+ARG ROCM_VERSION=6.2
+ARG AMDGPU_VERSION=6.2
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl gnupg && \
+  curl -sL http://repo.radeon.com/rocm/rocm.gpg.key | apt-key add - && \
+  sh -c 'echo deb [arch=amd64] http://repo.radeon.com/rocm/apt/$ROCM_VERSION/ jammy main > /etc/apt/sources.list.d/rocm.list' && \
+  sh -c 'echo deb [arch=amd64] https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/ubuntu jammy main > /etc/apt/sources.list.d/amdgpu.list' && \
+  apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  sudo \
+  libelf1 \
+  cmake-curses-gui \
+  kmod \
+  file \
+  python3 \
+  python3-pip \
+  libcap-dev \
+  rdc \
+  libdrm-amdgpu1 \
+  vim \
+  net-tools && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/
+RUN mkdir -p /home/amd/bin/
+RUN mkdir -p /home/amd/lib/
+ADD ./smilib/ /home/amd/lib/
+RUN mkdir -p /home/amd/tools/
+ADD ./gpuagent /home/amd/bin/gpuagent
+ADD ./gpuctl /home/amd/bin/gpuctl
+ADD ./amd-metrics-exporter /home/amd/bin/server
+ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+RUN chmod +x /home/amd/tools/entrypoint.sh
+
+ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]

@@ -1,0 +1,10 @@
+*.log
+*.tgz
+.cache
+gen
+*.tgz
+*.tar.gz
+*.tar
+bin
+internal/bin
+internal/slurm/sim/slurm-sim

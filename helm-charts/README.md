@@ -11,6 +11,7 @@ A Helm chart for AMD GPU Metric Exporter
 | Praveen Kumar Shanmugam | <prshanmug@amd.com> |  |
 | Yan Sun | <yan.sun3@amd.com> |  |
 | Shrey Ajmera | <shrey.ajmera@amd.com> |  |
+| Nitish Bhat | <nitish.bhat@amd.com> |  |
 
 ## Requirements
 

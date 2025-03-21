@@ -1,0 +1,15 @@
+# HELP gpu_average_package_power Average package power in Watts
+# TYPE gpu_average_package_power gauge
+gpu_average_package_power{GPU_UUID="6699c0a8-4200-4242-037f-f97e6cae0f09",SERIAL_NUMBER="692247001282"} 41
+# HELP gpu_nodes_total Number of nodes with GPUs
+# TYPE gpu_nodes_total gauge
+gpu_nodes_total 1
+# HELP gpu_power_usage power usage in Watts
+# TYPE gpu_power_usage gauge
+gpu_power_usage{GPU_UUID="6699c0a8-4200-4242-037f-f97e6cae0f09",SERIAL_NUMBER="692247001282"} 41
+# HELP gpu_total_memory total VRAM memory of the GPU (in MB)
+# TYPE gpu_total_memory gauge
+gpu_total_memory{GPU_UUID="6699c0a8-4200-4242-037f-f97e6cae0f09",SERIAL_NUMBER="692247001282"} 68702
+# HELP gpu_usage Current usage as percentage of time the GPU is busy.
+# TYPE gpu_usage gauge
+gpu_usage{GPU_UUID="6699c0a8-4200-4242-037f-f97e6cae0f09",SERIAL_NUMBER="692247001282"} 0
