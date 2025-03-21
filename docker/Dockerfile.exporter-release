@@ -1,0 +1,31 @@
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.4
+
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="AMD Inc"
+# unused for now revisit
+ARG ROCM_VERSION=6.3.1
+ARG AMDGPU_VERSION=6.3.1
+
+ADD rhelrepofiles/amdgpu.repo /etc/yum.repos.d/amdgpu.repo 
+ADD rhelrepofiles/rocm.repo /etc/yum.repos.d/rocm.repo
+
+RUN microdnf clean all && microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file libcap-devel amd-smi-lib libdrm-amdgpu vim net-tools && rm -rf /var/cache/yum && rm -rf /var/cache/dnf
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/
+RUN mkdir -p /home/amd/bin/
+RUN mkdir -p /home/amd/tools/
+RUN mkdir -p /licenses
+
+# override patch release fixes
+ADD ./libamd_smi.so.24.7.60300 /opt/rocm/lib/libamd_smi.so.24.7.60301
+ADD ./libamd_smi.so.24.7.60300 /opt/rocm-$ROCM_VERSION/lib/libamd_smi.so.24.7.60301
+
+ADD ./gpuagent /home/amd/bin/gpuagent
+ADD ./gpuctl /home/amd/bin/gpuctl
+ADD ./amd-metrics-exporter /home/amd/bin/server
+ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+ADD ./LICENSE /licenses/LICENSE
+RUN chmod +x /home/amd/tools/entrypoint.sh
+
+ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]

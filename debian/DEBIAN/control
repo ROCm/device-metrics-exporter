@@ -1,0 +1,6 @@
+Package: amdgpu-exporter
+Version: 1.0.0
+Maintainer: AMD Inc.
+Architecture: amd64
+Description: GPU Metrics Exporter
+Depends: rdc

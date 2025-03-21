@@ -1,0 +1,5 @@
+{
+    "ExporterName" : "test_exporter",
+    "E2EMode": "EXPORTER_MOCK",
+    "ImageName" : "docker.io/rocm/device-metrics-exporter-mock:v1"
+}

@@ -14,6 +14,13 @@
       "description": "",
       "type": "datasource",
       "pluginId": "__expr__"
+    },
+    {
+      "name": "VAR_G_MI300_MODEL",
+      "type": "constant",
+      "label": "MI300 Model",
+      "value": "102-G30211-00",
+      "description": ""
     }
   ],
   "__elements": {},
@@ -253,7 +260,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "\\# of GPUs allocated by jobs",
+      "description": "\\# of GPUs being used by jobs",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -291,7 +298,7 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
-        "orientation": "vertical",
+        "orientation": "auto",
         "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
@@ -301,9 +308,6 @@
           "values": false
         },
         "showPercentChange": false,
-        "text": {
-          "titleSize": 13
-        },
         "textMode": "auto",
         "wideLayout": true
       },
@@ -319,10 +323,9 @@
           "exemplar": false,
           "expr": "sum(group by(gpu_id) (gpu_gfx_activity{hostname=\"$g_hostname\", job_id!=\"\"}))",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
           "instant": true,
-          "legendFormat": "Allocated by Jobs",
+          "legendFormat": "Used GPUs (jobs)",
           "range": false,
           "refId": "A",
           "useBackend": false
@@ -340,7 +343,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": true,
-          "legendFormat": "Allocated by Pods",
+          "legendFormat": "Used GPUs (pods)",
           "range": false,
           "refId": "B",
           "useBackend": false
@@ -351,20 +354,20 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "code",
+          "editorMode": "builder",
           "exemplar": false,
-          "expr": "sum(group by(gpu_id) (gpu_gfx_activity{hostname=\"$g_hostname\"} > 0))",
+          "expr": "sum(group by(gpu_id) (gpu_gfx_activity{hostname=\"$g_hostname\"}))",
           "fullMetaSearch": false,
-          "hide": false,
+          "hide": true,
           "includeNullMetadata": true,
           "instant": true,
-          "legendFormat": "Busy GPUs",
+          "legendFormat": "Available GPUs",
           "range": false,
           "refId": "C",
           "useBackend": false
         }
       ],
-      "title": "Allocated GPUs",
+      "title": "Used GPUs",
       "type": "stat"
     },
     {
@@ -787,6 +790,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
           },
@@ -1618,26 +1625,13 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(gpu_package_power{hostname=\"$g_hostname\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+          "expr": "avg(gpu_package_power{hostname=\"$g_hostname\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "builder",
-          "expr": "avg(gpu_average_package_power{hostname=\"$g_hostname\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "B"
         }
       ],
       "title": "Average GPU Power",
@@ -1760,9 +1754,8 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(gpu_edge_temperature{hostname=\"$g_hostname\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+          "expr": "avg(gpu_edge_temperature{hostname=\"$g_hostname\", card_model!=\"$g_mi300_model\"})",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
           "legendFormat": "Edge Temperature",
           "range": true,
@@ -1776,7 +1769,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(gpu_junction_temperature{hostname=\"$g_hostname\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+          "expr": "avg(gpu_junction_temperature{hostname=\"$g_hostname\", card_model=\"$g_mi300_model\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2062,7 +2055,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           }
@@ -2230,6 +2224,26 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "hide": 2,
+        "label": "MI300 Model",
+        "name": "g_mi300_model",
+        "query": "${VAR_G_MI300_MODEL}",
+        "skipUrlSync": false,
+        "type": "constant",
+        "current": {
+          "value": "${VAR_G_MI300_MODEL}",
+          "text": "${VAR_G_MI300_MODEL}",
+          "selected": false
+        },
+        "options": [
+          {
+            "value": "${VAR_G_MI300_MODEL}",
+            "text": "${VAR_G_MI300_MODEL}",
+            "selected": false
+          }
+        ]
       }
     ]
   },
