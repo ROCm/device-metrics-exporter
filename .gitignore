@@ -14,3 +14,13 @@ _readthedocs/
 
 # avoid duplicating contributing.md due to conf.py
 docs/CHANGELOG.md
+
+# build artifacts
+*.log
+.cache
+*.tgz
+*.tar.gz
+*.tar
+bin
+pkg/bin
+pkg/slurm/sim/slurm-sim

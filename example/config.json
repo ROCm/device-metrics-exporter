@@ -90,7 +90,10 @@
       "GPU_ECC_CORRECT_IH",
       "GPU_ECC_UNCORRECT_IH",
       "GPU_ECC_CORRECT_MPIO",
-      "GPU_ECC_UNCORRECT_MPIO"
+      "GPU_ECC_UNCORRECT_MPIO",
+      "GPU_HEALTH",
+      "GPU_XGMI_LINK_RX",
+      "GPU_XGMI_LINK_TX"
     ],
     "Labels": [
       "GPU_UUID",
@@ -108,7 +111,30 @@
       "CARD_VENDOR",
       "DRIVER_VERSION",
       "VBIOS_VERSION",
-      "HOSTNAME"
-    ]
+      "HOSTNAME",
+      "GPU_PARTITION_ID",
+      "GPU_COMPUTE_PARTITION_TYPE"
+    ],
+    "HealthThresholds" : {
+      "GPU_ECC_UNCORRECT_SDMA" : 0,
+      "GPU_ECC_UNCORRECT_GFX" : 0,
+      "GPU_ECC_UNCORRECT_MMHUB" : 0,
+      "GPU_ECC_UNCORRECT_ATHUB" : 0,
+      "GPU_ECC_UNCORRECT_BIF" : 0,
+      "GPU_ECC_UNCORRECT_HDP" : 0,
+      "GPU_ECC_UNCORRECT_XGMI_WAFL" : 0,
+      "GPU_ECC_UNCORRECT_DF" : 0,
+      "GPU_ECC_UNCORRECT_SMN" : 0,
+      "GPU_ECC_UNCORRECT_SEM" : 0,
+      "GPU_ECC_UNCORRECT_MP0" : 0,
+      "GPU_ECC_UNCORRECT_MP1" : 0,
+      "GPU_ECC_UNCORRECT_FUSE" : 0,
+      "GPU_ECC_UNCORRECT_UMC" : 0,
+      "GPU_ECC_UNCORRECT_MCA" : 0,
+      "GPU_ECC_UNCORRECT_VCN" : 0,
+      "GPU_ECC_UNCORRECT_JPEG" : 0,
+      "GPU_ECC_UNCORRECT_IH" : 0,
+      "GPU_ECC_UNCORRECT_MPIO" : 0
+    }
   }
 }

@@ -1,0 +1,7 @@
+Package: amdgpu-exporter
+Priority: optional
+Section: utils
+Maintainer: AMD Inc.
+Architecture: amd64
+Description: AMD GPU Metrics Exporter for Ubuntu
+Version: BUILD_VER_ENV
