@@ -66,3 +66,7 @@ Device Metrics Exporter exports metrics from AMD GPUs to collectors like Prometh
     sudo systemctl start grafana-server
     sudo systemctl status grafana-server
     ```
+
+## Documentation
+
+For detailed documentation including installation guides, configuration options, and metric descriptions, see the [documentation](https://instinct.docs.amd.com/projects/device-metrics-exporter/en/latest).
