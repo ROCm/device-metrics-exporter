@@ -37,7 +37,7 @@ docker run -d \
 
 ## Documentation
 
-For detailed documentation including installation guides, configuration options, and metric descriptions, see the [documentation](https://dcgpu.docs.amd.com/projects/device-metrics-exporter/en/latest).
+For detailed documentation including installation guides, configuration options, and metric descriptions, see the [documentation](https://instinct.docs.amd.com/projects/device-metrics-exporter/en/latest).
 
 ## License
 
