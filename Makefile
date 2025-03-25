@@ -5,7 +5,7 @@
 DOCKER_REGISTRY ?= docker.io/rocm
 
 # Build Container environment
-DOCKER_BUILDER_TAG ?= v1.0
+DOCKER_BUILDER_TAG ?= v1.1
 BUILD_BASE_IMAGE ?= ubuntu:22.04
 BUILD_CONTAINER ?= $(DOCKER_REGISTRY)/device-metrics-exporter-build:$(DOCKER_BUILDER_TAG)
 
@@ -44,6 +44,7 @@ TOP_DIR := $(PWD)
 GEN_DIR := $(TOP_DIR)/pkg/amdgpu/
 MOCK_DIR := ${TOP_DIR}/pkg/amdgpu/mock_gen
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
+CONFIG_DIR := $(TOP_DIR)/example/
 GOINSECURE='github.com, google.golang.org, golang.org'
 GOFLAGS ='-buildvcs=false'
 BUILD_DATE ?= $(shell date   +%Y-%m-%dT%H:%M:%S%z)
@@ -322,6 +323,7 @@ k8s-e2e:
 
 .PHONY: helm-lint
 helm-lint:
+	jq 'del(.ServerPort, .GPUConfig.CustomLabels)' $(CONFIG_DIR)/config.json > $(HELM_CHARTS_DIR)/config.json
 	cd $(HELM_CHARTS_DIR); helm lint
 
 .PHONY: helm-build
