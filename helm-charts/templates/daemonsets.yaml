@@ -69,10 +69,8 @@ spec:
             name: exporter-health-grpc-volume
           - mountPath: /var/run/exporter
             name: exporter-slurm-job
-          {{- if .Values.configMap }}
           - name: metrics-config-volume
             mountPath: /etc/metrics/
-          {{- end }}
           workingDir: /root
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
@@ -99,8 +97,11 @@ spec:
           path: /var/run/exporter
           type: DirectoryOrCreate
         name: exporter-slurm-job
-      {{- if .Values.configMap }}
       - name: metrics-config-volume
         configMap:
+      {{- if .Values.configMap }}
           name: {{ .Values.configMap }}
+      {{ else }}
+          name: {{ .Release.Name }}-configmap
       {{- end}}
+

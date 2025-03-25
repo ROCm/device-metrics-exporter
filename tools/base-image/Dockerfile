@@ -12,7 +12,7 @@ RUN rm -rf /usr/local/go
 
 RUN apt-get update && apt-get install -y wget protobuf-compiler \
     curl locales ca-certificates build-essential git vim \
-    net-tools sudo cmake build-essential && \
+    net-tools sudo cmake build-essential jq && \
     install -m 0755 -d /etc/apt/keyrings && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
