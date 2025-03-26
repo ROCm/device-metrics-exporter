@@ -114,19 +114,20 @@ func (k *K8sClient) GetNodelLabel(nodeName string) (string, error) {
 	return fmt.Sprintf("%+v", node.Labels), nil
 }
 
-func (k *K8sClient) AddNodeLabel(nodeName, key, val string) error {
+func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) error {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	patch := []map[string]interface{}{
-		{
+	patch := []map[string]interface{}{}
+	for _, key := range keys {
+		patch = append(patch, map[string]interface{}{
 			"op":    "add",
 			"path":  fmt.Sprintf("/metadata/labels/%v", key),
 			"value": val,
-		},
+		})
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
@@ -134,23 +135,23 @@ func (k *K8sClient) AddNodeLabel(nodeName, key, val string) error {
 	}
 	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		logger.Log.Printf("failed to add label %+v to node %+v err %+v", key, nodeName, err)
+		logger.Log.Printf("failed to add label %+v to node %+v err %+v", keys, nodeName, err)
 	}
 	return err
 }
 
-func (k *K8sClient) RemoveNodeLabel(nodeName, key string) error {
+func (k *K8sClient) RemoveNodeLabel(nodeName string, keys []string) error {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	patch := []map[string]interface{}{
-		{
+	patch := []map[string]interface{}{}
+	for _, key := range keys {
+		patch = append(patch, map[string]interface{}{
 			"op":   "remove",
 			"path": fmt.Sprintf("/metadata/labels/%v", key),
-		},
+		})
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
@@ -158,7 +159,7 @@ func (k *K8sClient) RemoveNodeLabel(nodeName, key string) error {
 	}
 	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		logger.Log.Printf("failed to remove label %+v from node %+v err %+v", key, nodeName, err)
+		logger.Log.Printf("failed to remove label %+v from node %+v err %+v", keys, nodeName, err)
 	}
 	return err
 }

@@ -313,8 +313,12 @@ func BuildNoGPUTestSummary() []*types.IterationResult {
 	return result
 }
 
-func GetTestRunningLabelKeyValue(category, recipe string) (string, string) {
-	return strings.ToLower(fmt.Sprintf("testrunner.amd.com.%v.%v", category, recipe)), "running"
+func GetTestRunningLabelKeyValue(category, recipe string, indexes []string) ([]string, string) {
+	keys := []string{}
+	for _, idx := range indexes {
+		keys = append(keys, strings.ToLower(fmt.Sprintf("testrunner.amd.com.%v.%v.gpu%v", category, recipe, idx)))
+	}
+	return keys, "running"
 }
 
 func GetEventLabels(category, trigger, recipe, hostName string, gpuIndexes, kfdIDs []string) map[string]string {
