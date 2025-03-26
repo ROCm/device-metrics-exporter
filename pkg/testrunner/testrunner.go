@@ -525,7 +525,7 @@ func (tr *TestRunner) watchGPUState() {
 				logger.Log.Printf("found GPU with unhealthy state %+v", unHealthyGPUIDs)
 				go tr.testGPU(testrunnerGen.TestTrigger_AUTO_UNHEALTHY_GPU_WATCH.String(), unHealthyGPUIDs, false)
 			} else {
-				logger.Log.Printf("all GPUs are healthy, skip testing")
+				logger.Log.Printf("all GPUs are healthy or associated with workloads, skip testing")
 			}
 
 			tr.cleanupHealthyGPUTestStatus(healthyGPUIDs)
@@ -643,9 +643,6 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		logger.Log.Fatalf("failed to start test run, err: %+v", err)
 	}
 
-	tr.AddTestRunningLabel(parameters.TestCases[0].Recipe)
-	defer tr.RemoveTestRunningLabel(parameters.TestCases[0].Recipe)
-
 	if len(validIDs) == 0 {
 		// all devices were selected
 		ids, err := GetAllGUIDs(tr.rocmSMIPath)
@@ -664,6 +661,8 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 	}
 
 	gpuIndexes := tr.convertGUIDsToIndexes(validIDs)
+	tr.AddTestRunningLabel(parameters.TestCases[0].Recipe, gpuIndexes)
+	defer tr.RemoveTestRunningLabel(parameters.TestCases[0].Recipe, gpuIndexes)
 
 	select {
 	case <-time.After(time.Duration(parameters.TestCases[0].TimeoutSeconds) * time.Second * time.Duration(parameters.TestCases[0].Iterations)):
@@ -722,7 +721,6 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 }
 
 func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterface, ids []string, recipe string, gpuIndexes, validIDs []string) {
-	logger.Log.Printf("DEBUG: handler.Result() %v", handler.Result())
 	for _, res := range handler.Result() {
 		var filesToExport []string
 		resultsJson, err := ExtractLogFile(res.Stdout)
@@ -863,20 +861,20 @@ func (tr *TestRunner) ReadPodInfo() {
 	}
 }
 
-func (tr *TestRunner) AddTestRunningLabel(recipe string) {
+func (tr *TestRunner) AddTestRunningLabel(recipe string, indexes []string) {
 	if !tr.isK8s {
 		return
 	}
-	key, val := GetTestRunningLabelKeyValue(tr.testCategory, recipe)
-	tr.k8sClient.AddNodeLabel(tr.hostName, key, val)
+	keys, val := GetTestRunningLabelKeyValue(tr.testCategory, recipe, indexes)
+	tr.k8sClient.AddNodeLabel(tr.hostName, keys, val)
 }
 
-func (tr *TestRunner) RemoveTestRunningLabel(recipe string) {
+func (tr *TestRunner) RemoveTestRunningLabel(recipe string, indexes []string) {
 	if !tr.isK8s {
 		return
 	}
-	key, _ := GetTestRunningLabelKeyValue(tr.testCategory, recipe)
-	tr.k8sClient.RemoveNodeLabel(tr.hostName, key)
+	keys, _ := GetTestRunningLabelKeyValue(tr.testCategory, recipe, indexes)
+	tr.k8sClient.RemoveNodeLabel(tr.hostName, keys)
 }
 
 func (tr *TestRunner) normalizeConfig() {
