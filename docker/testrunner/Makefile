@@ -29,4 +29,4 @@ docker-cicd:
 .PHONY: docker-save
 docker-save: ## save the container
 	@echo "saving docker image to $(DOCKER_CONTAINER_IMAGE).tar.gz"
-	@docker save $(IMG) | gzip > $(DOCKER_CONTAINER_IMAGE).tar.gz
+	@docker save $(TESTRUNNER_IMAGE) | gzip > $(DOCKER_CONTAINER_IMAGE).tar.gz
