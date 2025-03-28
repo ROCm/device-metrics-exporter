@@ -161,8 +161,10 @@ func (ga *GPUAgentClient) updateNewHealthState(newGPUState map[string]*metricssv
 }
 
 func (ga *GPUAgentClient) processHealthValidation() error {
-	wls := make(map[string]scheduler.Workload)
-	wls, _ = ga.ListWorkloads()
+	wls, err := ga.ListWorkloads()
+	if err != nil {
+		logger.Log.Printf("Error listing workloads: %v", err)
+	}
 
 	ga.Lock()
 	if !ga.computeNodeHealthState { // unhealthy
@@ -177,7 +179,6 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 	var gpumetrics *amdgpu.GPUGetResponse
 	var evtData *amdgpu.EventResponse
 	var newGPUState map[string]*metricssvc.GPUState
-	var err error
 
 	errOccured := false
 

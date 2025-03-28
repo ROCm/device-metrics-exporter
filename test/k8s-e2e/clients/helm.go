@@ -32,7 +32,6 @@ type HelmClientOpt func(client *HelmClient)
 
 type HelmClient struct {
 	client     helm.Client
-	chart      string
 	cache      string
 	config     string
 	ns         string
