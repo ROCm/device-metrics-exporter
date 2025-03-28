@@ -490,54 +490,51 @@ func (tr *TestRunner) watchGPUState() {
 	}
 
 	go tr.watchConfigFile()
-	for {
-		select {
-		case <-watchTicker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), globals.GPUStateReqTimeout)
-			r, err := c.List(ctx, &emptypb.Empty{})
-			if err != nil {
-				logger.Log.Printf("could not list GPU state: %v", err)
-				cancel()
-				continue
-			}
-			logger.Log.Printf("GPU State: %s", r.String())
+	for range watchTicker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), globals.GPUStateReqTimeout)
+		r, err := c.List(ctx, &emptypb.Empty{})
+		if err != nil {
+			logger.Log.Printf("could not list GPU state: %v", err)
 			cancel()
+			continue
+		}
+		logger.Log.Printf("GPU State: %s", r.String())
+		cancel()
 
-			healthyGPUIDs := []string{}
-			unHealthyGPUIDs := []string{}
-			if r != nil {
-				for _, state := range r.GPUState {
-					// TODO: currently exporter with gpuagent just returns GPU index number
-					// we need to convert it to GUID per rvs's request
-					// modify this after rvs starts to accept index number as ID
-					id, err := GetGUIDFromIndex(state.ID, tr.rocmSMIPath)
-					if err != nil {
-						logger.Log.Printf("failed to fetch GUID for GPU card%v, err: %+v", state.ID, err)
-						continue
-					}
-					// if any GPU is not healthy, start a test against those GPUs
-					if !strings.EqualFold(state.Health, metricssvc.GPUHealth_HEALTHY.String()) {
-						if len(state.AssociatedWorkload) == 0 {
-							unHealthyGPUIDs = append(unHealthyGPUIDs, id)
-						} else {
-							logger.Log.Printf("found GPU %+v unhealthy but still associated with workload %+v", id, state.AssociatedWorkload)
-						}
+		healthyGPUIDs := []string{}
+		unHealthyGPUIDs := []string{}
+		if r != nil {
+			for _, state := range r.GPUState {
+				// TODO: currently exporter with gpuagent just returns GPU index number
+				// we need to convert it to GUID per rvs's request
+				// modify this after rvs starts to accept index number as ID
+				id, err := GetGUIDFromIndex(state.ID, tr.rocmSMIPath)
+				if err != nil {
+					logger.Log.Printf("failed to fetch GUID for GPU card%v, err: %+v", state.ID, err)
+					continue
+				}
+				// if any GPU is not healthy, start a test against those GPUs
+				if !strings.EqualFold(state.Health, metricssvc.GPUHealth_HEALTHY.String()) {
+					if len(state.AssociatedWorkload) == 0 {
+						unHealthyGPUIDs = append(unHealthyGPUIDs, id)
 					} else {
-						healthyGPUIDs = append(healthyGPUIDs, id)
+						logger.Log.Printf("found GPU %+v unhealthy but still associated with workload %+v", id, state.AssociatedWorkload)
 					}
+				} else {
+					healthyGPUIDs = append(healthyGPUIDs, id)
 				}
 			}
-
-			// start test on unhealthy GPU
-			if len(unHealthyGPUIDs) > 0 {
-				logger.Log.Printf("found GPU with unhealthy state %+v", unHealthyGPUIDs)
-				go tr.testGPU(testrunnerGen.TestTrigger_AUTO_UNHEALTHY_GPU_WATCH.String(), unHealthyGPUIDs, false)
-			} else {
-				logger.Log.Printf("all GPUs are healthy or associated with workloads, skip testing")
-			}
-
-			tr.cleanupHealthyGPUTestStatus(healthyGPUIDs)
 		}
+
+		// start test on unhealthy GPU
+		if len(unHealthyGPUIDs) > 0 {
+			logger.Log.Printf("found GPU with unhealthy state %+v", unHealthyGPUIDs)
+			go tr.testGPU(testrunnerGen.TestTrigger_AUTO_UNHEALTHY_GPU_WATCH.String(), unHealthyGPUIDs, false)
+		} else {
+			logger.Log.Printf("all GPUs are healthy or associated with workloads, skip testing")
+		}
+
+		tr.cleanupHealthyGPUTestStatus(healthyGPUIDs)
 	}
 }
 
@@ -545,7 +542,9 @@ func (tr *TestRunner) watchConfigFile() {
 	// if config file doesn't exist, create dir in case it doesn't exist
 	// so that fsnotify file watcher won't fail to init the watcher
 	directory := path.Dir(tr.testCfgPath)
-	os.MkdirAll(directory, 0755)
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		logger.Log.Fatal(err)
+	}
 	logger.Log.Printf("starting file watcher for %v", directory)
 
 	// Create new watcher.
@@ -611,7 +610,9 @@ func (tr *TestRunner) cleanupHealthyGPUTestStatus(ids []string) {
 		writeBack = true
 	}
 	if writeBack {
-		SaveRunnerStatus(statusObj, tr.statusDBPath)
+		if err := SaveRunnerStatus(statusObj, tr.statusDBPath); err != nil {
+			logger.Log.Printf("Error saving runner status: %+v", err)
+		}
 	}
 }
 
@@ -655,6 +656,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		// all devices were selected
 		ids, err := GetAllGUIDs(tr.rocmSMIPath)
 		if err != nil {
+			logger.Log.Printf("Error selecting devices: %v", err)
 			// TODO: add more error handling when failed to get all GUIDs
 		}
 		validIDs = ids
@@ -665,6 +667,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 
 	err = SaveRunnerStatus(statusObj, tr.statusDBPath)
 	if err != nil {
+		logger.Log.Printf("Error saving runner status: %v", err)
 		//TODO: add error handling here if new running status failed to be saved
 	}
 
@@ -725,7 +728,9 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 			statusObj.TestStatus[id] = types.TestCompleted.String()
 		}
 	}
-	SaveRunnerStatus(statusObj, tr.statusDBPath)
+	if err := SaveRunnerStatus(statusObj, tr.statusDBPath); err != nil {
+		logger.Log.Fatalf("Error saving runner status: %v", err)
+	}
 }
 
 func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterface, ids []string, recipe string, gpuIndexes, validIDs []string) {
@@ -874,7 +879,9 @@ func (tr *TestRunner) AddTestRunningLabel(recipe string, indexes []string) {
 		return
 	}
 	keys, val := GetTestRunningLabelKeyValue(tr.testCategory, recipe, indexes)
-	tr.k8sClient.AddNodeLabel(tr.hostName, keys, val)
+	if err := tr.k8sClient.AddNodeLabel(tr.hostName, keys, val); err != nil {
+		logger.Log.Printf("Failed to add node label: %+v", err)
+	}
 }
 
 func (tr *TestRunner) RemoveTestRunningLabel(recipe string, indexes []string) {
@@ -882,7 +889,9 @@ func (tr *TestRunner) RemoveTestRunningLabel(recipe string, indexes []string) {
 		return
 	}
 	keys, _ := GetTestRunningLabelKeyValue(tr.testCategory, recipe, indexes)
-	tr.k8sClient.RemoveNodeLabel(tr.hostName, keys)
+	if err := tr.k8sClient.RemoveNodeLabel(tr.hostName, keys); err != nil {
+		logger.Log.Printf("Failed to remove node label: %+v", err)
+	}
 }
 
 func (tr *TestRunner) normalizeConfig() {
@@ -996,6 +1005,8 @@ func (tr *TestRunner) generateK8sEvent(testRecipe, evtType, reason string, summa
 			Component: globals.EventSourceComponentName,
 		},
 	}
-	// TODO: handle error for failing to generate event
-	tr.k8sClient.CreateEvent(evtObj)
+	// TODO: handle error properly for failing to generate event
+	if err := tr.k8sClient.CreateEvent(evtObj); err != nil {
+		logger.Log.Printf("create event failed. err: %+v", err)
+	}
 }

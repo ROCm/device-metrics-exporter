@@ -54,6 +54,7 @@ type clockCommon struct {
 	DeepSleep string `json:"deep_sleep"`
 }
 
+// nolint:unused // clockVideoData is kept for future use
 type clockVideoData struct {
 	Clk struct {
 		Value int    `json:"value"`
@@ -401,7 +402,9 @@ func main() {
 func clearTerminal() {
 	cmd := exec.Command("clear") // Use "cls" for Windows
 	cmd.Stdout = os.Stdout
-	cmd.Run()
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("failed to clear terminal: %v\n", err)
+	}
 }
 
 func getValue(m *dto.MetricFamily) string {
@@ -411,7 +414,7 @@ func getValue(m *dto.MetricFamily) string {
 	case dto.MetricType_GAUGE:
 		return fmt.Sprintf("%d", int(*m.Metric[0].Gauge.Value))
 	case dto.MetricType_HISTOGRAM:
-		return fmt.Sprintf("%s", m.Metric[0].Histogram.String())
+		return m.Metric[0].Histogram.String()
 	}
 	return ""
 }
@@ -856,18 +859,30 @@ func watchMetric(input, outCurr, outLast, outSMI string, interval time.Duration)
 
 		writer := tabwriter.NewWriter(os.Stdout, 5, 1, 1, ' ', 0)
 
-		writer.Write([]byte("\n"))
-		writer.Write([]byte("Metric\tLast Iteration\tCurrent Iteration\t|\tMetric\tExporter\tAMD-SMI\n"))
+		if _, err := writer.Write([]byte("\n")); err != nil {
+			fmt.Printf("Error writing newline: %v\n", err)
+		}
+		if _, err := writer.Write([]byte("Metric\tLast Iteration\tCurrent Iteration\t|\tMetric\tExporter\tAMD-SMI\n")); err != nil {
+			fmt.Printf("Error writing header: %v\n", err)
+		}
 		for _, items := range diff {
 			for i, item := range items {
-				writer.Write([]byte(item))
+				if _, err := writer.Write([]byte(item)); err != nil {
+					fmt.Printf("Error writing item: %v\n", err)
+				}
 				switch i {
 				case len(items) - 1:
-					writer.Write([]byte("\n"))
+					if _, err := writer.Write([]byte("\n")); err != nil {
+						fmt.Printf("Error writing newline: %v\n", err)
+					}
 				case 2:
-					writer.Write([]byte("\t|\t"))
+					if _, err := writer.Write([]byte("\t|\t")); err != nil {
+						fmt.Printf("Error writing tab: %v\n", err)
+					}
 				default:
-					writer.Write([]byte("\t"))
+					if _, err := writer.Write([]byte("\t")); err != nil {
+						fmt.Printf("Error writing tab: %v\n", err)
+					}
 				}
 			}
 		}

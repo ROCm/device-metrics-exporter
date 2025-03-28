@@ -398,7 +398,6 @@ func initFieldConfig(config *exportermetrics.GPUMetricConfig) {
 			logger.Log.Printf("%v field is disabled", k)
 		}
 	}
-	return
 }
 
 func (ga *GPUAgentClient) initFieldMetricsMap() {
@@ -1002,7 +1001,6 @@ func getGPUInstanceID(gpu *amdgpu.GPU) int {
 
 func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 	// send the req to gpuclient
-	wls := make(map[string]scheduler.Workload)
 	resp, err := ga.getGPUs()
 	if err != nil {
 		return err
@@ -1011,7 +1009,10 @@ func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 		logger.Log.Printf("resp status :%v", resp.ApiStatus)
 		return fmt.Errorf("%v", resp.ApiStatus)
 	}
-	wls, _ = ga.ListWorkloads()
+	wls, err := ga.ListWorkloads()
+	if err != nil {
+		logger.Log.Printf("Error listing workloads: %v", err)
+	}
 	ga.m.gpuNodesTotal.Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
 	// update periodically. this is required only for first state

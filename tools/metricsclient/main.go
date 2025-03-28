@@ -22,12 +22,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/testsvc"
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -60,16 +58,6 @@ func prettyPrintGPUState(resp *metricssvc.GPUStateResponse) {
 	fmt.Println("------------------------------------------------")
 }
 
-func prettyPrint(resp interface{}) {
-	jsonData, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	fmt.Println(string(jsonData))
-	return
-}
-
 func prettyPrintErrResponse(resp *metricssvc.GPUErrorResponse) {
 	jsonData, err := json.Marshal(resp)
 	if err != nil {
@@ -77,11 +65,10 @@ func prettyPrintErrResponse(resp *metricssvc.GPUErrorResponse) {
 		return
 	}
 	fmt.Println(string(jsonData))
-	return
 }
 
 func send(socketPath string) error {
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		socketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure credentials for simplicity
 	)
@@ -103,7 +90,7 @@ func send(socketPath string) error {
 }
 
 func get(socketPath, id string) error {
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		socketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure credentials for simplicity
 	)
@@ -135,60 +122,11 @@ func get(socketPath, id string) error {
 	return nil
 }
 
-func sendTestResult(socketPath string) error {
-	conn, err := grpc.Dial(
-		socketPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure credentials for simplicity
-	)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	// create a new gRPC echo client through the compiled stub
-	client := testsvc.NewTestServiceClient(conn)
-
-	req := &testsvc.TestPostRequest{
-		ID:   "uuid",
-		Name: "mock_test",
-	}
-	resp, err := client.SubmitTestResult(context.Background(), req)
-	if err != nil {
-		return err
-	}
-	prettyPrint(resp)
-
-	return nil
-
-}
-
-func listTestResult(socketPath string) error {
-	conn, err := grpc.Dial(
-		socketPath,
-		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure credentials for simplicity
-	)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	// create a new gRPC echo client through the compiled stub
-	client := testsvc.NewTestServiceClient(conn)
-
-	resp, err := client.List(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		return err
-	}
-	prettyPrint(resp)
-
-	return nil
-
-}
 func setError(socketPath, filepath string) error {
 
 	// send an metricssvcrequest
 	gpuUpdate := &metricssvc.GPUErrorRequest{}
-	eccConfigs, err := ioutil.ReadFile(filepath)
+	eccConfigs, err := os.ReadFile(filepath)
 	if err != nil {
 		fmt.Printf("err: %+v", err)
 		return err
@@ -200,7 +138,7 @@ func setError(socketPath, filepath string) error {
 		}
 	}
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		socketPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure credentials for simplicity
 	)
@@ -311,6 +249,9 @@ func main() {
 	}
 
 	if *eccFile != "" {
-		setError(*socketPath, *eccFile)
+		if err := setError(*socketPath, *eccFile); err != nil {
+			fmt.Printf("err: %+v", err)
+			return
+		}
 	}
 }
