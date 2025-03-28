@@ -242,6 +242,14 @@ func (tr *TestRunner) validateTestTrigger() {
 		fmt.Printf("Trigger %+v cannot find corresponding test config file %+v, err: %+v\n", tr.testTrigger, testCfgPath, err)
 		os.Exit(1)
 	}
+	if testParams.TestCases[0].Iterations == 0 {
+		fmt.Printf("Trigger %+v has been configured to run with 0 iteration, should be non-zero iterations\n", tr.testTrigger)
+		os.Exit(1)
+	}
+	if testParams.TestCases[0].TimeoutSeconds == 0 {
+		fmt.Printf("Trigger %+v has been configured to run with 0 TimeoutSeconds, should be non-zero TimeoutSeconds\n", tr.testTrigger)
+		os.Exit(1)
+	}
 }
 
 func (tr *TestRunner) initLogger() {
