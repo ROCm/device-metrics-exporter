@@ -31,6 +31,9 @@ import (
 // DefaultTestTimeout is default test timeout
 const DefaultTestTimeout = 600 // 10 min
 
+// DefaultTestIteration is the default number of iteration to run test
+const DefaultTestIteration = 1
+
 // TestResults is map where test name is key and value is result
 type TestResults map[string]TestResult
 
@@ -110,15 +113,16 @@ type TestHandler struct {
 // NewTestHandler returns instance of TestHandler
 func NewTestHandler(testname string, logger *log.Logger, args []string, opts ...TOption) TestHandlerInterface {
 	hldr := &TestHandler{
-		testname: testname,
-		args:     args,
-		wg:       sync.WaitGroup{},
-		logger:   logger,
-		timeout:  DefaultTestTimeout,
-		status:   TestNotStarted,
-		rwLock:   sync.RWMutex{},
-		doneChan: make(chan struct{}),
-		parser:   defaultParser,
+		testname:   testname,
+		args:       args,
+		wg:         sync.WaitGroup{},
+		logger:     logger,
+		iterations: DefaultTestIteration,
+		timeout:    DefaultTestTimeout,
+		status:     TestNotStarted,
+		rwLock:     sync.RWMutex{},
+		doneChan:   make(chan struct{}),
+		parser:     defaultParser,
 	}
 
 	for _, o := range opts {
