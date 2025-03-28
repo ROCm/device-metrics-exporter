@@ -186,7 +186,7 @@ clean: pkg-clean
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.1)
+	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8)
 
 # go-get-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -225,7 +225,7 @@ gopkglist:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	go install go.uber.org/mock/mockgen@v0.5.0
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.1
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	go install golang.org/x/tools/cmd/goimports@latest
 
 amdexporter-lite:
@@ -281,7 +281,7 @@ docker-azure: gen amdexporter
 	${MAKE} -C docker docker-save TOP_DIR=$(CURDIR) DOCKER_CONTAINER_IMAGE=${EXPORTER_IMAGE_NAME}-${EXPORTER_IMAGE_TAG}-azure
 
 .PHONY:checks
-checks: gen vet
+checks: gen vet lint
 
 .PHONY: docker-publish
 docker-publish:

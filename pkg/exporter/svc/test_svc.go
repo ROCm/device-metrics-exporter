@@ -45,8 +45,10 @@ func (t *TestSvcImpl) List(ctx context.Context, e *emptypb.Empty) (*testsvc.Test
 	return &testsvc.TestGetResponse{}, nil
 }
 
+// nolint:unused // mustEmbedUnimplementedTestServiceServer is kept for future use
 func (t *TestSvcImpl) mustEmbedUnimplementedTestServiceServer() {}
 
+// nolint:unused // newTestServer is kept for future use
 func newTestServer() *TestSvcImpl {
 	t := &TestSvcImpl{}
 	return t

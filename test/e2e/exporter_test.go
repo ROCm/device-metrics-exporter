@@ -49,10 +49,7 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	//log.Print(response)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
@@ -80,10 +77,7 @@ func (s *E2ESuite) Test002NonMandatoryLabelUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -101,10 +95,7 @@ func (s *E2ESuite) Test003InvalidLabel(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -129,10 +120,7 @@ func (s *E2ESuite) Test004FieldUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -163,10 +151,7 @@ func (s *E2ESuite) Test005InvalidFieldUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -188,10 +173,7 @@ func (s *E2ESuite) Test006ServerPortUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 10*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -208,10 +190,7 @@ func (s *E2ESuite) Test007DeleteConfig(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -230,10 +209,7 @@ func (s *E2ESuite) Test008RecreateConfigFile(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -250,10 +226,7 @@ func (s *E2ESuite) Test009ServerPortAfterRecreateConfig(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -269,10 +242,7 @@ func (s *E2ESuite) Test010ServerInvalidPortUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -288,12 +258,12 @@ func (s *E2ESuite) Test011ContainerWithoutConfig(c *C) {
 
 	log.Printf("cleaning up any old instances of same name %v", cname)
 	_ = tc.Stop()
-	time.Sleep(2)
+	time.Sleep(2 * time.Second)
 
 	pMap := map[int]int{
 		5003: 5000,
 	}
-	tc.SetPortMap(pMap)
+	assert.Nil(c, tc.SetPortMap(pMap))
 	tc.SkipConfigMount()
 	err := tc.Start()
 	assert.Nil(c, err)
@@ -317,10 +287,7 @@ func (s *E2ESuite) Test011ContainerWithoutConfig(c *C) {
 			return false
 		}
 		response = string(bytes)
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 5*time.Second, 1*time.Second)
 
 	// check if we have valid payload
@@ -328,7 +295,7 @@ func (s *E2ESuite) Test011ContainerWithoutConfig(c *C) {
 	assert.Nil(c, err)
 	// Stopping newly created container
 	log.Printf("deleting container %v", cname)
-	tc.Stop()
+	assert.Nil(c, tc.Stop())
 
 }
 
@@ -345,10 +312,7 @@ func (s *E2ESuite) Test012CustomLabelUpdate(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -372,10 +336,7 @@ func (s *E2ESuite) Test013MandatoryLabelsAsCustomLabels(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -403,10 +364,7 @@ func (s *E2ESuite) Test014ExistingLabelsAsCustomLabels(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -474,9 +432,6 @@ func (s *E2ESuite) validateCluster(c *C) {
 
 	assert.Eventually(c, func() bool {
 		response := s.GetExporter()
-		if response != "" {
-			return true
-		}
-		return false
+		return response != ""
 	}, 3*time.Second, 1*time.Second)
 }

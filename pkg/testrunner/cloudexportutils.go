@@ -46,15 +46,13 @@ const (
 func loadSecretKeyAsEnvVariable(secretName, key string) error {
 	dat, err := os.ReadFile(filepath.Join(cloudSecretPrefixPath, secretName, strings.ToLower(key)))
 	if err != nil {
-		errStr := fmt.Sprintf("Secret %s does not contain %s key", secretName, strings.ToLower(key))
-		logger.Log.Printf(errStr)
-		return fmt.Errorf(errStr)
+		logger.Log.Printf("Secret %s does not contain %s key", secretName, strings.ToLower(key))
+		return fmt.Errorf("Secret %s does not contain %s key", secretName, strings.ToLower(key))
 	}
 	err = os.Setenv(key, string(dat))
 	if err != nil {
-		errStr := fmt.Sprintf("Unable to set env variable %s. Error:%v", key, err)
-		logger.Log.Printf(errStr)
-		return fmt.Errorf(errStr)
+		logger.Log.Printf("Unable to set env variable %s. Error:%v", key, err)
+		return fmt.Errorf("Unable to set env variable %s. Error:%v", key, err)
 	}
 	return nil
 }
@@ -67,9 +65,8 @@ func setEnvVariablesFromSecretVolumeMount(cloudProvider, secretName string) erro
 	case trproto.TestLogsExportConfig_Aws.String():
 		envs = []string{awsAccessKeyId, awsSecretAccessKey, awsRegion}
 	default:
-		errStr := fmt.Sprintf("cloud provider %s is not supported", cloudProvider)
-		logger.Log.Printf(errStr)
-		return fmt.Errorf(errStr)
+		logger.Log.Printf("cloud provider %s is not supported", cloudProvider)
+		return fmt.Errorf("cloud provider %s is not supported", cloudProvider)
 	}
 	for _, env := range envs {
 		err := loadSecretKeyAsEnvVariable(secretName, env)
@@ -110,7 +107,12 @@ func UploadFileToCloudBucket(cloudProvider, cloudBucket, cloudFolder, cloudFileN
 	if err != nil {
 		return err
 	}
-	defer unsetEnvVariables(cloudProvider)
+	defer func() {
+		if err := unsetEnvVariables(cloudProvider); err != nil {
+			logger.Log.Printf("failed to unset env variables: %v", err)
+		}
+	}()
+
 	switch cloudProvider {
 	case trproto.TestLogsExportConfig_Azure.String():
 		cloudPrefix = "azblob"
