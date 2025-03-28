@@ -21,6 +21,7 @@ import (
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -54,14 +55,20 @@ func (mh *MetricsHandler) RegisterMetricsClient(client MetricsInterface) {
 
 func (mh *MetricsHandler) InitConfig() {
 	mh.reg = prometheus.NewRegistry()
-	mh.runConf.RefreshConfig()
+	if err := mh.runConf.RefreshConfig(); err != nil {
+		logger.Log.Printf("failed to refresh config: %v", err)
+	}
 	var wg sync.WaitGroup
 	for _, client := range mh.clients {
 		wg.Add(1)
 		go func(client MetricsInterface) {
 			defer wg.Done()
-			client.InitConfigs()
-			client.UpdateStaticMetrics()
+			if err := client.InitConfigs(); err != nil {
+				logger.Log.Printf("failed to init configs: %v", err)
+			}
+			if err := client.UpdateStaticMetrics(); err != nil {
+				logger.Log.Printf("failed to update static metrics: %v", err)
+			}
 		}(client)
 	}
 	wg.Wait()
@@ -74,8 +81,12 @@ func (mh *MetricsHandler) UpdateMetrics() error {
 		wg.Add(1)
 		go func(client MetricsInterface) {
 			defer wg.Done()
-			client.ResetMetrics()
-			client.UpdateMetricsStats()
+			if err := client.ResetMetrics(); err != nil {
+				logger.Log.Printf("failed to resetb metrics: %v", err)
+			}
+			if err := client.UpdateStaticMetrics(); err != nil {
+				logger.Log.Printf("failed to update static metrics: %v", err)
+			}
 		}(client)
 	}
 	wg.Wait()

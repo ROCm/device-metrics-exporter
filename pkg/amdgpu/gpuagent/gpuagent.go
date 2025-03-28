@@ -157,8 +157,12 @@ func (ga *GPUAgentClient) StartMonitor() {
 					continue
 				}
 			}
-			ga.processHealthValidation()
-			ga.sendNodeLabelUpdate()
+			if err := ga.processHealthValidation(); err != nil {
+				logger.Log.Printf("gpuagent health validation failed %v", err)
+			}
+			if err := ga.sendNodeLabelUpdate(); err != nil {
+				logger.Log.Printf("gpuagent failed to send node label update %v", err)
+			}
 		}
 	}
 }
@@ -203,7 +207,9 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 
 func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, error) {
 	if !ga.isActive() {
-		ga.reconnect()
+		if err := ga.reconnect(); err != nil {
+			return nil, err
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)

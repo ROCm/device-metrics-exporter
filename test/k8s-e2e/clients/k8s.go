@@ -165,7 +165,7 @@ func (k *K8sClient) GetMetricsCmdFromPod(ctx context.Context, rc *restclient.Con
 	}
 
 	buf := &bytes.Buffer{}
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdout: buf,
 		Tty:    false,
 	})

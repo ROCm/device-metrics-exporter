@@ -98,6 +98,7 @@ func (m *MetricsSvcImpl) SetError(ctx context.Context, req *metricssvc.GPUErrorR
 	return resp, nil
 }
 
+// nolint:unused // mustEmbedUnimplementedMetricsServiceServer is kept for future use
 func (m *MetricsSvcImpl) mustEmbedUnimplementedMetricsServiceServer() {}
 
 func newMetricsServer(enableDebugAPI bool) *MetricsSvcImpl {

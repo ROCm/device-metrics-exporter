@@ -53,7 +53,8 @@ func setupTest(t *testing.T) func(t *testing.T) {
 
 	dir := path.Dir(globals.SlurmDir)
 	t.Logf("setting up slurmdir %v", dir)
-	os.MkdirAll(dir, 0644)
+	err := os.MkdirAll(dir, 0644)
+	assert.Assert(t, err == nil, "error setting up slurmdir : %v", err)
 
 	mockCtl = gomock.NewController(t)
 
