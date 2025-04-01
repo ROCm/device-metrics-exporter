@@ -13,9 +13,10 @@ AMD Device Metrics Exporter integrates with Slurm workload manager to track GPU 
 - Copy the integration script:
 
 ```bash
-sudo cp /usr/local/etc/metrics/slurm/slurm-prolog.sh /etc/slurm/
-sudo cp /usr/local/etc/metrics/slurm/slurm-epilog.sh /etc/slurm/
-sudo chmod +x /etc/slurm/slurm-*.sh
+cp ${TOP_DIR}/example/slurm/exporter-prolog.sh /etc/slurm/epilog.d/exporter-prolog.sh
+cp ${TOP_DIR}/example/slurm/exporter-epilog.sh /etc/slurm/epilog.d/exporter-epilog.sh
+sudo chmod +x /etc/slurm/epilog.d/exporter-prolog.sh
+sudo chmod +x /etc/slurm/epilog.d/exporter-epilog.sh
 ```
 
 - Configure Slurm:
@@ -25,14 +26,13 @@ sudo vi /etc/slurm/slurm.conf
 
 # Add these lines:
 prologFlags=Alloc
-Prolog=/etc/slurm/slurm-prolog.sh
-Epilog=/etc/slurm/slurm-epilog.sh
+Prolog="/etc/slurm/prolog.d/*"
+Epilog="/etc/slurm/epilog.d/*"
 ```
 
 - Restart Slurm services to apply changes:
 
 ```bash
-sudo systemctl restart slurmctld  # On controller node
 sudo systemctl restart slurmd     # On compute nodes
 ```
 
@@ -113,7 +113,7 @@ When Slurm integration is enabled, the following job-specific labels are added t
 4. Check service status:
 
 ```bash
-systemctl status rdc.service gpuagent.service amd-metrics-exporter.service
+systemctl status gpuagent.service amd-metrics-exporter.service
 ```
 
 ### Logs
@@ -127,7 +127,7 @@ sudo tail -f /var/log/slurm/slurmd.log
 View service logs:
 
 ```bash
-journalctl -u rdc.service -u gpuagent.service -u amd-metrics-exporter.service
+journalctl -u gpuagent.service -u amd-metrics-exporter.service
 ```
 
 ## Advanced Configuration

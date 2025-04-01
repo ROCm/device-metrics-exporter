@@ -32,7 +32,7 @@ docker run -d \
 ## Requirements
 
 - Ubuntu 22.04 or later
-- ROCm 6.2.0
+- ROCm 6.2.x, 6.3.x
 - Docker (or compatible container runtime)
 
 ## Documentation
