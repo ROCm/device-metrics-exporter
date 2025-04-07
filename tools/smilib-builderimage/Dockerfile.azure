@@ -1,0 +1,16 @@
+ARG BASE_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="AMD Inc"
+LABEL OS=${BUILD_BASE_IMAGE}
+ENV RPM_BUILD="amd-smi-lib-*99999-local*.rpm"
+
+WORKDIR /usr/src/github.com/ROCm/device-metrics-exporter/libamdsmi
+
+RUN tdnf clean all && tdnf install -y findutils build-essential cmake file git gcc gcc-c++ libdrm-devel && \
+    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && tdnf clean all
+
+ADD tools/smilib-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]

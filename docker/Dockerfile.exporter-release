@@ -5,8 +5,8 @@ FROM ${BASE_IMAGE}
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.4"
 
-ARG ROCM_VERSION=6.3.1
-ARG AMDGPU_VERSION=6.3.1
+ARG ROCM_VERSION=6.3.3
+ARG AMDGPU_VERSION=6.3.3
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 RUN microdnf clean all && \
@@ -32,9 +32,9 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/
 RUN mkdir -p /home/amd/bin/
 RUN mkdir -p /home/amd/tools/
 
-# override patch release fixes
-ADD ./libamd_smi.so.24.7.60300 /opt/rocm/lib/libamd_smi.so.24.7.60301
-ADD ./libamd_smi.so.24.7.60300 /opt/rocm-$ROCM_VERSION/lib/libamd_smi.so.24.7.60301
+# override built libraries
+ADD ./libamd_smi.so.24.6 /opt/rocm/lib/libamd_smi.so.24.7.60303
+ADD ./libamd_smi.so.24.6 /opt/rocm-$ROCM_VERSION/lib/libamd_smi.so.24.7.60303
 
 ADD ./gpuagent /home/amd/bin/gpuagent
 ADD ./gpuctl /home/amd/bin/gpuctl

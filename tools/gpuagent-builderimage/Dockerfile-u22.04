@@ -1,0 +1,70 @@
+ARG BUILD_BASE_IMAGE=ubuntu:22.04
+FROM ${BUILD_BASE_IMAGE}
+
+RUN DEBIAN_FRONTEND=noninteractive \
+  apt-get update && \
+  apt-get install -y build-essential python-pip curl wget libev-dev && \
+  apt-get install -y wget vim unzip zip cmake automake git libtool pkg-config libz-dev && \
+  apt-get install -y python3 && \
+  apt-get install -y libboost-all-dev libzmq3-dev gdb && \
+  echo 'Install golang' && \
+  curl -sSL https://dl.google.com/go/go1.17.8.linux-amd64.tar.gz | tar xz -C /usr/local && \
+  export PATH=/usr/local/go/bin:$PATH && \
+  export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && \
+  echo 'export PATH=/usr/local/go/bin:$PATH' >> ~/.bashrc && \
+  echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.bashrc && \
+  echo 'Build and install protobuf v3.19.6' && \
+  cd / && git clone --recurse-submodules -b v3.19.6 https://github.com/protocolbuffers/protobuf.git && \
+  cd protobuf && \
+  ./autogen.sh && \
+  ./configure && \
+  make check && \
+  make -j16 install && \
+  ldconfig && \
+  cd / && rm -rf /protobuf && \
+  echo 'Download grpc v1.44.0' && \
+  GRPC_INSTALLATION_DIR=/root/.local && \
+  echo 'Build and install grpc' && \
+  mkdir -p $GRPC_INSTALLATION_DIR && \
+  export PATH=$GRPC_INSTALLATION_DIR/bin:$PATH && \
+  cd / && git clone --recurse-submodules -b v1.44.0 https://github.com/grpc/grpc && \
+  echo 'Install grpc v1.44.0' && \
+  cd grpc && \
+  mkdir -p cmake/build && \
+  cd cmake/build && \
+  cmake -DgRPC_INSTALL=ON \
+        -DgRPC_BUILD_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=$GRPC_INSTALLATION_DIR \
+        ../.. && \
+  make -j16 && \
+  make install && \
+  cd /grpc && \
+  cp -ar $GRPC_INSTALLATION_DIR/bin/grpc_*_plugin /usr/local/bin && \
+  cp -ar $GRPC_INSTALLATION_DIR/lib/lib[agucsr]* /usr/local/lib && \
+  cp -ar $GRPC_INSTALLATION_DIR/include/grpc* /usr/local/include/ && \
+  cp -ar /grpc/third_party/abseil-cpp/absl /usr/local/include/ && \
+  /sbin/ldconfig && \
+  cd / && rm -rf grpc && cd && rm -rf .local && \
+  echo 'Install go protoc plugins for gogo and doc gen + cleanup' && \
+  export GOPATH=/usr/local && \
+  export PATH=$PATH:/usr/local/go/bin:/root/go/bin && \
+  go get github.com/gogo/protobuf/protoc-gen-gogofast && \
+  go get github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc && \
+  touch /usr/local/bin/protoc-gen-doc && chmod 777 /usr/local/bin/protoc-gen-doc && \
+  rm -rf /var/lib/apt/lists/* && \
+  rm -rf /usr/lib/locale && \
+  rm -rf /usr/share/locale && \
+  rm -rf /usr/local/src && \
+  rm -rf /root/.cache && \
+  ranlib /usr/local/lib/*.a && \
+  apt-get clean && \
+  apt-get autoclean
+
+RUN DEBIAN_FRONTEND=noninteractive \
+  apt-get update && \
+  apt-get install -y libdrm-dev
+
+ADD tools/gpuagent-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]

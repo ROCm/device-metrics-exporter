@@ -1,0 +1,73 @@
+# holds all the compilation targets from source
+
+#compiles the library code from source on respective OS platforms
+.PHONY: amdsmi-compile
+amdsmi-compile:
+ifeq ($(OS), RHEL9)
+	$(eval BUILD_IMAGE_OS=$(AMDSMI_BUILDER_IMAGE))
+else ifeq ($(OS), UBUNTU22)
+	$(eval BUILD_IMAGE_OS=$(AMDSMI_BUILDER_UB22_IMAGE))
+else ifeq ($(OS), UBUNTU24)
+	$(eval BUILD_IMAGE_OS=$(AMDSMI_BUILDER_UB24_IMAGE))
+else ifeq ($(OS), AZURE3)
+	$(eval BUILD_IMAGE_OS=$(AMDSMI_BUILDER_AZURE_IMAGE))
+else
+	$(error unsupported os)
+endif
+	@echo "Building amdsmi library for $(BUILD_IMAGE_OS)"
+	@docker run --rm -it --privileged \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		-e "BRANCH=$(AMDSMI_BRANCH)" \
+		-e "COMMIT=$(AMDSMI_COMMIT)" \
+	    --name smibuild -v $(AMDMSMI_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
+		-w $(SMILIB_CONTAINER_WORKDIR) $(BUILD_IMAGE_OS)
+	@echo 'Copying amdsmi assets to ${TOP_DIR}/build/assets/${OS}'
+	@mkdir -p ${TOP_DIR}/build/assets/${OS}/
+	@cp -rvf ${TOP_DIR}/libamdsmi/build/exporterout ${TOP_DIR}/build/assets/${OS}/
+
+.PHONY: amdsmi-compile-rhel
+amdsmi-compile-rhel:
+	OS=RHEL9 ${MAKE} amdsmi-compile
+
+.PHONY: amdsmi-compile-ub22
+amdsmi-compile-ub22:
+	OS=UBUNTU22 ${MAKE} amdsmi-compile
+
+.PHONY: amdsmi-compile-ub24
+amdsmi-compile-ub24:
+	OS=UBUNTU24 ${MAKE} amdsmi-compile
+
+.PHONY: amdsmi-compile-azure
+amdsmi-compile-azure:
+	OS=AZURE3 ${MAKE} amdsmi-compile
+
+# compiles the gpuagent from source
+# gpuagent is a static go binary which is agnostic of platform, so we can
+# build it once with any of the prebuilt libamdsmi library file we support
+# RHEL9 being default. workspace built binary is being used if exists else revert to
+# prebuilt one from repo
+.PHONY: gpuagent-compile
+gpuagent-compile:
+	@docker run --rm -it --privileged \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		--name gpuagentbuild -v $(GPUAGENT_SRC_DIR):$(GPUAGENT_CONTAINER_WORKDIR) \
+		-w $(GPUAGENT_CONTAINER_WORKDIR) $(GPUAGENT_BUILDER_IMAGE)
+	@cd $(TOP_DIR)/gpuagent && git checkout sw/nic/third-party/rocm/amd_smi_lib
+
+.PHONY: gpuagent-compile-full
+gpuagent-compile-full: 
+	TOP_DIR=$(TOP_DIR) OS=RHEL9 $(ASSET_COPY_SCRIPT) || true
+	${MAKE} gpuagent-compile
+	@if [ $$? -ne 0 ]; then \
+		echo "gpuagent-compile failed"; \
+		exit 1; \
+	else \
+		echo "Copying gpuagent to assets"; \
+		mkdir -p ${TOP_DIR}/build/assets/ || true; \\
+		cp -vf $(GPUAGENT_OUT_DIR)/gpuagent $(TOP_DIR)/build/assets/gpuagent; \
+		echo "file copied successfully to $(TOP_DIR)/build/assets/gpuagent"; \
+	fi

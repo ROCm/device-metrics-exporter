@@ -1,0 +1,60 @@
+DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
+BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
+GPUAGENT_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
+PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
+PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics/
+LUA_PROTO := ${TOP_DIR}/pkg/amdgpu/proto/luaplugin.proto
+PKG_LUA_PATH := ${TOP_DIR}/debian/usr/local/etc/metrics/slurm
+GPUAGENT_BUILT_BIN := ${TOP_DIR}/build/assets/gpuagent
+BUILT_LIB_PATH := ${TOP_DIR}/build/assets/${OS}/exporterout/
+
+.PHONY: pkg pkg-clean
+pkg-clean:
+	rm -rf ${TOP_DIR}/bin/*.deb
+	rm -rf ${PKG_LIB_PATH} ${PKG_PATH}
+
+
+pkg: pkg-clean
+	${MAKE} gen amdexporter-lite metricsclient
+	@echo "Building debian for $(BUILD_VER_ENV)"
+	@mkdir -p ${PKG_LIB_PATH}
+	@mkdir -p ${PKG_PATH}
+	@if [ -f ${GPUAGENT_BUILT_BIN} ]; then \
+		echo "Copying newly built gpuagent";\
+		cp -rvf ${GPUAGENT_BUILT_BIN} ${PKG_PATH}/; \
+	else \
+		echo "Copying prebuilt gpuagent";\
+		tar -xf ${ASSETS_PATH}/gpuagent_static.bin.gz -C ${PKG_PATH}/; \
+	fi
+	@if [ -d ${BUILT_LIB_PATH} ]; then \
+		echo "Copying newly built amdsmi and dependent libraries";\
+		mkdir -p ${PKG_LIB_PATH}/lib/;\
+		cp -rvf ${BUILT_LIB_PATH}/ ${PKG_LIB_PATH}/lib/;\
+	else \
+		echo "Copy prebuilt libraries"; \
+		cp -rvf ${GPUAGENT_LIBS}/ ${PKG_LIB_PATH}; \
+	fi
+	# list all the files
+	ls -lart ${PKG_LIB_PATH}/lib
+	#copy and strip files
+	chmod +x ${PKG_PATH}/gpuagent
+	ls -alsh ${PKG_PATH}/gpuagent
+	#strip prebuilt binaries
+	strip ${PKG_PATH}/gpuagent
+	ls -alsh ${PKG_PATH}/gpuagent
+	cd ${PKG_PATH} && strip ${PKG_PATH}/gpuagent
+	cp -vf ${LUA_PROTO} ${PKG_LUA_PATH}/plugin.proto
+	cp -vf ${ASSETS_PATH}/gpuctl.gobin ${PKG_PATH}/gpuctl
+	cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
+	cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
+	cd ${TOP_DIR}
+	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
+	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
+	#remove copied files
+	rm -rf ${PKG_LIB_PATH}
+	rm -rf ${PKG_LUA_PATH}/plugin.proto
+	# revert the dynamic version set file
+	git checkout $(DEBIAN_CONTROL)
+	# rename for internal build
+	mv -vf ${TOP_DIR}/bin/amdgpu-exporter_*~${UBUNTU_VERSION_NUMBER}_amd64.deb ${TOP_DIR}/bin/amdgpu-exporter_${UBUNTU_VERSION_NUMBER}_amd64.deb
+

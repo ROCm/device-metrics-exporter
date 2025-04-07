@@ -1,19 +1,19 @@
-/*
-Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the \"License\");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an \"AS IS\" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
+//
+// Copyright(C) Advanced Micro Devices, Inc. All rights reserved.
+//
+// You may not use this software and documentation (if any) (collectively,
+// the "Materials") except in compliance with the terms and conditions of
+// the Software License Agreement included with the Materials or otherwise as
+// set forth in writing and signed by you and an authorized signatory of AMD.
+// If you do not have a copy of the Software License Agreement, contact your
+// AMD representative for a copy.
+//
+// You agree that you will not reverse engineer or decompile the Materials,
+// in whole or in part, except as allowed by applicable law.
+//
+// THE MATERIALS ARE DISTRIBUTED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR
+// REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
 //----------------------------------------------------------------------------
 ///
 /// \file
@@ -37,6 +37,10 @@ service GPUSvc {
   rpc GPUComputePartitionSet(GPUComputePartitionSetRequest) returns (GPUComputePartitionSetResponse) {}
   // GPU partition get API
   rpc GPUComputePartitionGet(GPUComputePartitionGetRequest) returns (GPUComputePartitionGetResponse) {}
+  // GPU memory partition create/update API
+  rpc GPUMemoryPartitionSet(GPUMemoryPartitionSetRequest) returns (GPUMemoryPartitionSetResponse) {}
+  // GPU memory partition get API
+  rpc GPUMemoryPartitionGet(GPUMemoryPartitionGetRequest) returns (GPUMemoryPartitionGetResponse) {}
 
   // operational APIs or tasks
   // GPU reset API
@@ -133,27 +137,43 @@ enum GPUComputePartitionType {
   GPU_COMPUTE_PARTITION_TYPE_CPX  = 5;
 }
 
+// GPU memory partition type
+enum GPUMemoryPartitionType {
+  // unknown/invalid memory partition type
+  GPU_MEMORY_PARTITION_TYPE_NONE = 0;
+  // one NUMA per socket
+  GPU_MEMORY_PARTITION_TYPE_NPS1 = 1;
+  // two NUMA per socket
+  GPU_MEMORY_PARTITION_TYPE_NPS2 = 2;
+  // four NUMA per socket
+  GPU_MEMORY_PARTITION_TYPE_NPS4 = 3;
+  // eight NUMA per socket
+  GPU_MEMORY_PARTITION_TYPE_NPS8 = 4;
+}
+
 // config specification of physical GPU
 message GPUSpec {
   // uuid identifying the GPU
   // this uuid is generated and will be unique across the GPU cluster
-  bytes                           Id               = 1;
+  bytes                           Id                   = 1;
   // admin state of the GPU device
-  GPUAdminState                   AdminState       = 2;
+  GPUAdminState                   AdminState           = 2;
   // GPU clock overdrive level (as percentage)
-  uint32                          OverDriveLevel   = 3;
+  uint32                          OverDriveLevel       = 3;
   // max package power (in Watts) GPU can consume (i.e power cap)
-  uint64                          GPUPowerCap      = 4;
+  uint64                          GPUPowerCap          = 4;
   // GPU performance level
-  GPUPerformanceLevel             PerformanceLevel = 5;
+  GPUPerformanceLevel             PerformanceLevel     = 5;
   // GPU clock speed/frequency setting
-  repeated GPUClockFrequencyRange ClockFrequency   = 6;
+  repeated GPUClockFrequencyRange ClockFrequency       = 6;
   // fan speed; allowed range 0 - 255
-  uint64                          FanSpeed         = 7;
+  uint64                          FanSpeed             = 7;
   // RAS configuration
   GPURASSpec                      RASSpec              = 8;
   // GPU compute partition type; partition type SPX means unpartitioned GPU
   GPUComputePartitionType         ComputePartitionType = 9;
+  // GPU memory partition type; partition type NPS1 means unpartitioned memory
+  GPUMemoryPartitionType          MemoryPartitionType  = 10;
 }
 
 // operational status of GPU
@@ -394,6 +414,14 @@ message GPUStatus {
   uint64                        FWTimestamp       = 21;
   // GPU compute partition id; only valid when partition type is not SPX
   uint32                        PartitionId       = 22;
+  // GPU partitions (aka. child GPUs)
+  // NOTE:
+  // only valid for physical GPUs which have been partitioned
+  repeated bytes                GPUPartition      = 23;
+  // physical GPU (aka. parent GPU)
+  // NOTE:
+  // only valid for GPU partitions (child GPUs)
+  bytes                         PhysicalGPU       = 24;
 }
 
 // GPU temperature information
@@ -487,134 +515,150 @@ message GPUXGMILinkStats {
   uint64 DataWrite = 2;
 }
 
+// GPU violation stats
+message GPUViolationStats {
+  // current acummulated counter
+  uint64 CurrentAccumulatedCounter         = 1;
+  // processor hot residency accumulated
+  uint64 ProcessorHotResidencyAccumulated  = 2;
+  // Package Power Tracking (PPT) residency accumulated
+  uint64 PPTResidencyAccumulated           = 3;
+  // socket thermal residency accumulated
+  uint64 SocketThermalResidencyAccumulated = 4;
+  // Voltage Rail (VR) thermal residency accumulated
+  uint64 VRThermalResidencyAccumulated     = 5;
+  // High Bandwidth Memory (HBM) thermal residency accumulated
+  uint64 HBMThermalResidencyAccumulated    = 6;
+}
+
 // GPU statistics
 message GPUStats {
   // current graphics package power (in Watts)
-  uint64                 PackagePower                = 1;
+  uint64                     PackagePower                = 1;
   // avg. graphics package power (in Watts)
-  uint64                 AvgPackagePower             = 2;
+  uint64                     AvgPackagePower             = 2;
   // current temperature
-  GPUTemperatureStats    Temperature                 = 3;
+  GPUTemperatureStats        Temperature                 = 3;
   // current GPU usage
-  GPUUsage               Usage                       = 4;
+  GPUUsage                   Usage                       = 4;
   // current voltage in milli volts (mV)
-  GPUVoltage             Voltage                     = 5;
+  GPUVoltage                 Voltage                     = 5;
   // PCIe statistics
-  GPUPCIeStats           PCIeStats                   = 6;
+  GPUPCIeStats               PCIeStats                   = 6;
   // accumulated energy consumed (in uJ)
-  double                 EnergyConsumed              = 7;
+  double                     EnergyConsumed              = 7;
   // total correctable errors
-  uint64                 TotalCorrectableErrors      = 8;
+  uint64                     TotalCorrectableErrors      = 8;
   // total uncorrectable errors
-  uint64                 TotalUncorrectableErrors    = 9;
+  uint64                     TotalUncorrectableErrors    = 9;
   // SDMA correctable errors
-  uint64                 SDMACorrectableErrors       = 10;
+  uint64                     SDMACorrectableErrors       = 10;
   // SDMA uncorrectable errors
-  uint64                 SDMAUncorrectableErrors     = 11;
+  uint64                     SDMAUncorrectableErrors     = 11;
   // GFX correctable errors
-  uint64                 GFXCorrectableErrors        = 12;
+  uint64                     GFXCorrectableErrors        = 12;
   // GFX uncorrectable errors
-  uint64                 GFXUncorrectableErrors      = 13;
+  uint64                     GFXUncorrectableErrors      = 13;
   // MMHUB correctable errors
-  uint64                 MMHUBCorrectableErrors      = 14;
+  uint64                     MMHUBCorrectableErrors      = 14;
   // MMHUB uncorrectable errors
-  uint64                 MMHUBUncorrectableErrors    = 15;
+  uint64                     MMHUBUncorrectableErrors    = 15;
   // ATHUB correctable errors
-  uint64                 ATHUBCorrectableErrors      = 16;
+  uint64                     ATHUBCorrectableErrors      = 16;
   // ATHUB uncorrectable errors
-  uint64                 ATHUBUncorrectableErrors    = 17;
+  uint64                     ATHUBUncorrectableErrors    = 17;
   // BIF correctable errors
-  uint64                 BIFCorrectableErrors        = 18;
+  uint64                     BIFCorrectableErrors        = 18;
   // BIF uncorrectable errors
-  uint64                 BIFUncorrectableErrors      = 19;
+  uint64                     BIFUncorrectableErrors      = 19;
   // HDP correctable errors
-  uint64                 HDPCorrectableErrors        = 20;
+  uint64                     HDPCorrectableErrors        = 20;
   // HDP uncorrectable errors
-  uint64                 HDPUncorrectableErrors      = 21;
+  uint64                     HDPUncorrectableErrors      = 21;
   // XGMI WAFL correctable errors
-  uint64                 XGMIWAFLCorrectableErrors   = 22;
+  uint64                     XGMIWAFLCorrectableErrors   = 22;
   // XGMI WAFL uncorrectable errors
-  uint64                 XGMIWAFLUncorrectableErrors = 23;
+  uint64                     XGMIWAFLUncorrectableErrors = 23;
   // DF correctable errors
-  uint64                 DFCorrectableErrors         = 24;
+  uint64                     DFCorrectableErrors         = 24;
   // DF uncorrectable errors
-  uint64                 DFUncorrectableErrors       = 25;
+  uint64                     DFUncorrectableErrors       = 25;
   // SMN correctable errors
-  uint64                 SMNCorrectableErrors        = 26;
+  uint64                     SMNCorrectableErrors        = 26;
   // SMN uncorrectable errors
-  uint64                 SMNUncorrectableErrors      = 27;
+  uint64                     SMNUncorrectableErrors      = 27;
   // SEM correctable errors
-  uint64                 SEMCorrectableErrors        = 28;
+  uint64                     SEMCorrectableErrors        = 28;
   // SEM uncorrectable errors
-  uint64                 SEMUncorrectableErrors      = 29;
+  uint64                     SEMUncorrectableErrors      = 29;
   // MP0 correctable errors
-  uint64                 MP0CorrectableErrors        = 30;
+  uint64                     MP0CorrectableErrors        = 30;
   // MP0 uncorrectable errors
-  uint64                 MP0UncorrectableErrors      = 31;
+  uint64                     MP0UncorrectableErrors      = 31;
   // MP1 correctable errors
-  uint64                 MP1CorrectableErrors        = 32;
+  uint64                     MP1CorrectableErrors        = 32;
   // MP1 uncorrectable errors
-  uint64                 MP1UncorrectableErrors      = 33;
+  uint64                     MP1UncorrectableErrors      = 33;
   // FUSE correctable errors
-  uint64                 FUSECorrectableErrors       = 34;
+  uint64                     FUSECorrectableErrors       = 34;
   // FUSE uncorrectable errors
-  uint64                 FUSEUncorrectableErrors     = 35;
+  uint64                     FUSEUncorrectableErrors     = 35;
   // UMC correctable errors
-  uint64                 UMCCorrectableErrors        = 36;
+  uint64                     UMCCorrectableErrors        = 36;
   // UMC uncorrectable errors
-  uint64                 UMCUncorrectableErrors      = 37;
+  uint64                     UMCUncorrectableErrors      = 37;
   // UMC correctable errors
-  uint64                 MCACorrectableErrors        = 38;
+  uint64                     MCACorrectableErrors        = 38;
   // UMC uncorrectable errors
-  uint64                 MCAUncorrectableErrors      = 39;
+  uint64                     MCAUncorrectableErrors      = 39;
   // UMC correctable errors
-  uint64                 VCNCorrectableErrors        = 40;
+  uint64                     VCNCorrectableErrors        = 40;
   // UMC uncorrectable errors
-  uint64                 VCNUncorrectableErrors      = 41;
+  uint64                     VCNUncorrectableErrors      = 41;
   // UMC correctable errors
-  uint64                 JPEGCorrectableErrors       = 42;
+  uint64                     JPEGCorrectableErrors       = 42;
   // UMC uncorrectable errors
-  uint64                 JPEGUncorrectableErrors     = 43;
+  uint64                     JPEGUncorrectableErrors     = 43;
   // UMC correctable errors
-  uint64                 IHCorrectableErrors         = 44;
+  uint64                     IHCorrectableErrors         = 44;
   // UMC uncorrectable errors
-  uint64                 IHUncorrectableErrors      = 45;
+  uint64                     IHUncorrectableErrors       = 45;
   // UMC correctable errors
-  uint64                 MPIOCorrectableErrors       = 46;
+  uint64                     MPIOCorrectableErrors       = 46;
   // UMC uncorrectable errors
-  uint64                 MPIOUncorrectableErrors     = 47;
+  uint64                     MPIOUncorrectableErrors     = 47;
   // XGMI counters
   // NOPs sent to neighbor0
-  uint64                 XGMINeighbor0TxNOPs         = 48;
+  uint64                     XGMINeighbor0TxNOPs         = 48;
   // outgoing requests to neighbor0
-  uint64                 XGMINeighbor0TxRequests     = 49;
+  uint64                     XGMINeighbor0TxRequests     = 49;
   // outgoing responses to neighbor0
-  uint64                 XGMINeighbor0TxResponses    = 50;
+  uint64                     XGMINeighbor0TxResponses    = 50;
   // data beats sent to neighbor0 (each beat = 32 Bytes)
-  uint64                 XGMINeighbor0TXBeats        = 51;
+  uint64                     XGMINeighbor0TXBeats        = 51;
   // NOPs sent to neighbor1
-  uint64                 XGMINeighbor1TxNOPs         = 52;
+  uint64                     XGMINeighbor1TxNOPs         = 52;
   // outgoing requests to neighbor1
-  uint64                 XGMINeighbor1TxRequests     = 53;
+  uint64                     XGMINeighbor1TxRequests     = 53;
   // outgoing responses to neighbor1
-  uint64                 XGMINeighbor1TxResponses    = 54;
+  uint64                     XGMINeighbor1TxResponses    = 54;
   // data beats sent to neighbor1 (each beat = 32 Bytes)
-  uint64                 XGMINeighbor1TXBeats        = 55;
+  uint64                     XGMINeighbor1TXBeats        = 55;
   // TODO: are there be above like stats for Neighbors 2,3,4 and 5?
   // transmit throughput to XGMI neighbor 0 (in Bytes per second)
-  uint64                 XGMINeighbor0TxThroughput   = 56;
+  uint64                     XGMINeighbor0TxThroughput   = 56;
   // transmit throughput to XGMI neighbor 1 (in Bytes per second)
-  uint64                 XGMINeighbor1TxThroughput   = 57;
+  uint64                     XGMINeighbor1TxThroughput   = 57;
   // transmit throughput to XGMI neighbor 2 (in Bytes per second)
-  uint64                 XGMINeighbor2TxThroughput   = 58;
+  uint64                     XGMINeighbor2TxThroughput   = 58;
   // transmit throughput to XGMI neighbor 3 (in Bytes per second)
-  uint64                 XGMINeighbor3TxThroughput   = 59;
+  uint64                     XGMINeighbor3TxThroughput   = 59;
   // transmit throughput to XGMI neighbor 4 (in Bytes per second)
-  uint64                 XGMINeighbor4TxThroughput   = 60;
+  uint64                     XGMINeighbor4TxThroughput   = 60;
   // transmit throughput to XGMI neighbor 5 (in Bytes per second)
-  uint64                 XGMINeighbor5TxThroughput   = 61;
+  uint64                     XGMINeighbor5TxThroughput   = 61;
   // power usage (in Watts)
-  uint64                 PowerUsage                  = 62;
+  uint64                     PowerUsage                  = 62;
   // VRAM usage
   GPUVRAMUsage               VRAMUsage                   = 63;
   // current fan speed in RPMs
@@ -625,6 +669,8 @@ message GPUStats {
   uint64                     MemoryActivityAccumulated   = 66;
   // GPU XGMI link statistics
   repeated GPUXGMILinkStats  XGMILinkStats               = 67;
+  // GPU violation statistics
+  GPUViolationStats          ViolationStats              = 68;
 }
 
 // GPU captures config, operational status and stat of GPU object
@@ -721,16 +767,21 @@ message GPUComputePartitionSetResponse {
 
 // GPU compute partition GET request
 message GPUComputePartitionGetRequest {
-  // list of GPU uuids
+  // list of physical GPU uuids which have been partitioned
+  // NOTE:
+  // if a child GPU or non-partitoned GPU uuid is specified, rpc will return
+  // error code suggesting entry not found
   repeated bytes Id = 1;
 }
 
 // GPU compute partition information
 message GPUComputePartition {
-  // GPU uuid
+  // physical GPU uuid
   bytes Id                              = 1;
   // compute partition type
   GPUComputePartitionType PartitionType = 2;
+  // partitioned GPUs
+  repeated bytes          GPUPartition  = 3;
 }
 
 // response to GPU compute partition GET request
@@ -741,4 +792,44 @@ message GPUComputePartitionGetResponse {
   types.ErrorCode              ErrorCode = 2;
   // list of per GPU information
   repeated GPUComputePartition Response  = 3;
+}
+
+// GPU memory partition create/update request
+message GPUMemoryPartitionSetRequest {
+  // list of GPU uuids
+  repeated bytes          Id           = 1;
+  // memory partitioning type to create or updated to
+  GPUMemoryPartitionType PartitionType = 2;
+}
+
+// GPU memory partition create/update response
+message GPUMemoryPartitionSetResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+}
+
+// GPU memory partition GET request
+message GPUMemoryPartitionGetRequest {
+  // list of GPU uuids
+  repeated bytes Id = 1;
+}
+
+// GPU memory partition information
+message GPUMemoryPartition {
+  // GPU uuid
+  bytes Id                             = 1;
+  // memory partition type
+  GPUMemoryPartitionType PartitionType = 2;
+}
+
+// response to GPU memory partition GET request
+message GPUMemoryPartitionGetResponse {
+  // result of the API processing
+  types.ApiStatus             ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode             ErrorCode = 2;
+  // list of per GPU information
+  repeated GPUMemoryPartition Response  = 3;
 }

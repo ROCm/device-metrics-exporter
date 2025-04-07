@@ -1,0 +1,20 @@
+ARG BUILD_BASE_IMAGE=ubuntu22.04
+FROM ${BUILD_BASE_IMAGE}
+
+
+LABEL maintainer="AMD Inc"
+LABEL OS=${BUILD_BASE_IMAGE}
+ENV DEB_BUILD="amd-smi-lib-*99999-local*.deb"
+WORKDIR /usr/src/github.com/ROCm/device-metrics-exporter/libamdsmi
+
+RUN apt update && apt-get install -y git build-essential rpm pkg-config g++ libdrm-dev python3-pip python3-wheel
+
+RUN python3 -m pip install --upgrade pip setuptools && \
+    python3 -m pip install cmake virtualenv
+
+ADD tools/smilib-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]
+

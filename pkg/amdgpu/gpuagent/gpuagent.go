@@ -211,7 +211,23 @@ func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, error) {
 
 	req := &amdgpu.GPUGetRequest{}
 	res, err := ga.gpuclient.GPUGet(ctx, req)
-	return res, err
+	if err != nil {
+		return res, err
+	}
+	// filter out logical GPU
+	nres := &amdgpu.GPUGetResponse{
+		ApiStatus: res.ApiStatus,
+		Response:  []*amdgpu.GPU{},
+		ErrorCode: res.ErrorCode,
+	}
+	for _, gpu := range res.Response {
+		if len(gpu.Status.GPUPartition) != 0 {
+			// skip logical gpu objects
+			continue
+		}
+		nres.Response = append(nres.Response, gpu)
+	}
+	return nres, err
 }
 
 func (ga *GPUAgentClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.EventResponse, error) {

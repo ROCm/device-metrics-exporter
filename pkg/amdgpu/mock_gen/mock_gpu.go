@@ -118,6 +118,46 @@ func (mr *MockGPUSvcClientMockRecorder) GPUGet(ctx, in any, opts ...any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUGet", reflect.TypeOf((*MockGPUSvcClient)(nil).GPUGet), varargs...)
 }
 
+// GPUMemoryPartitionGet mocks base method.
+func (m *MockGPUSvcClient) GPUMemoryPartitionGet(ctx context.Context, in *amdgpu.GPUMemoryPartitionGetRequest, opts ...grpc.CallOption) (*amdgpu.GPUMemoryPartitionGetResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GPUMemoryPartitionGet", varargs...)
+	ret0, _ := ret[0].(*amdgpu.GPUMemoryPartitionGetResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GPUMemoryPartitionGet indicates an expected call of GPUMemoryPartitionGet.
+func (mr *MockGPUSvcClientMockRecorder) GPUMemoryPartitionGet(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUMemoryPartitionGet", reflect.TypeOf((*MockGPUSvcClient)(nil).GPUMemoryPartitionGet), varargs...)
+}
+
+// GPUMemoryPartitionSet mocks base method.
+func (m *MockGPUSvcClient) GPUMemoryPartitionSet(ctx context.Context, in *amdgpu.GPUMemoryPartitionSetRequest, opts ...grpc.CallOption) (*amdgpu.GPUMemoryPartitionSetResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GPUMemoryPartitionSet", varargs...)
+	ret0, _ := ret[0].(*amdgpu.GPUMemoryPartitionSetResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GPUMemoryPartitionSet indicates an expected call of GPUMemoryPartitionSet.
+func (mr *MockGPUSvcClientMockRecorder) GPUMemoryPartitionSet(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUMemoryPartitionSet", reflect.TypeOf((*MockGPUSvcClient)(nil).GPUMemoryPartitionSet), varargs...)
+}
+
 // GPUReset mocks base method.
 func (m *MockGPUSvcClient) GPUReset(ctx context.Context, in *amdgpu.GPUResetRequest, opts ...grpc.CallOption) (*amdgpu.GPUResetResponse, error) {
 	m.ctrl.T.Helper()
@@ -225,6 +265,36 @@ func (m *MockGPUSvcServer) GPUGet(arg0 context.Context, arg1 *amdgpu.GPUGetReque
 func (mr *MockGPUSvcServerMockRecorder) GPUGet(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUGet", reflect.TypeOf((*MockGPUSvcServer)(nil).GPUGet), arg0, arg1)
+}
+
+// GPUMemoryPartitionGet mocks base method.
+func (m *MockGPUSvcServer) GPUMemoryPartitionGet(arg0 context.Context, arg1 *amdgpu.GPUMemoryPartitionGetRequest) (*amdgpu.GPUMemoryPartitionGetResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GPUMemoryPartitionGet", arg0, arg1)
+	ret0, _ := ret[0].(*amdgpu.GPUMemoryPartitionGetResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GPUMemoryPartitionGet indicates an expected call of GPUMemoryPartitionGet.
+func (mr *MockGPUSvcServerMockRecorder) GPUMemoryPartitionGet(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUMemoryPartitionGet", reflect.TypeOf((*MockGPUSvcServer)(nil).GPUMemoryPartitionGet), arg0, arg1)
+}
+
+// GPUMemoryPartitionSet mocks base method.
+func (m *MockGPUSvcServer) GPUMemoryPartitionSet(arg0 context.Context, arg1 *amdgpu.GPUMemoryPartitionSetRequest) (*amdgpu.GPUMemoryPartitionSetResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GPUMemoryPartitionSet", arg0, arg1)
+	ret0, _ := ret[0].(*amdgpu.GPUMemoryPartitionSetResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GPUMemoryPartitionSet indicates an expected call of GPUMemoryPartitionSet.
+func (mr *MockGPUSvcServerMockRecorder) GPUMemoryPartitionSet(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GPUMemoryPartitionSet", reflect.TypeOf((*MockGPUSvcServer)(nil).GPUMemoryPartitionSet), arg0, arg1)
 }
 
 // GPUReset mocks base method.

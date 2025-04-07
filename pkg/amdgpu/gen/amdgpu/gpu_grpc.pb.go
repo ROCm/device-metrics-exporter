@@ -1,18 +1,19 @@
 //
-//Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+// Copyright(C) Advanced Micro Devices, Inc. All rights reserved.
 //
-//Licensed under the Apache License, Version 2.0 (the \"License\");
-//you may not use this file except in compliance with the License.
-//You may obtain a copy of the License at
+// You may not use this software and documentation (if any) (collectively,
+// the "Materials") except in compliance with the terms and conditions of
+// the Software License Agreement included with the Materials or otherwise as
+// set forth in writing and signed by you and an authorized signatory of AMD.
+// If you do not have a copy of the Software License Agreement, contact your
+// AMD representative for a copy.
 //
-//http://www.apache.org/licenses/LICENSE-2.0
+// You agree that you will not reverse engineer or decompile the Materials,
+// in whole or in part, except as allowed by applicable law.
 //
-//Unless required by applicable law or agreed to in writing, software
-//distributed under the License is distributed on an \"AS IS\" BASIS,
-//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//See the License for the specific language governing permissions and
-//limitations under the License.
-
+// THE MATERIALS ARE DISTRIBUTED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR
+// REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
 //----------------------------------------------------------------------------
 ///
 /// \file
@@ -25,6 +26,22 @@
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v3.12.4
 // source: gpu.proto
+
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package amdgpu
 
@@ -45,6 +62,8 @@ const (
 	GPUSvc_GPUUpdate_FullMethodName              = "/amdgpu.GPUSvc/GPUUpdate"
 	GPUSvc_GPUComputePartitionSet_FullMethodName = "/amdgpu.GPUSvc/GPUComputePartitionSet"
 	GPUSvc_GPUComputePartitionGet_FullMethodName = "/amdgpu.GPUSvc/GPUComputePartitionGet"
+	GPUSvc_GPUMemoryPartitionSet_FullMethodName  = "/amdgpu.GPUSvc/GPUMemoryPartitionSet"
+	GPUSvc_GPUMemoryPartitionGet_FullMethodName  = "/amdgpu.GPUSvc/GPUMemoryPartitionGet"
 	GPUSvc_GPUReset_FullMethodName               = "/amdgpu.GPUSvc/GPUReset"
 )
 
@@ -62,6 +81,10 @@ type GPUSvcClient interface {
 	GPUComputePartitionSet(ctx context.Context, in *GPUComputePartitionSetRequest, opts ...grpc.CallOption) (*GPUComputePartitionSetResponse, error)
 	// GPU partition get API
 	GPUComputePartitionGet(ctx context.Context, in *GPUComputePartitionGetRequest, opts ...grpc.CallOption) (*GPUComputePartitionGetResponse, error)
+	// GPU memory partition create/update API
+	GPUMemoryPartitionSet(ctx context.Context, in *GPUMemoryPartitionSetRequest, opts ...grpc.CallOption) (*GPUMemoryPartitionSetResponse, error)
+	// GPU memory partition get API
+	GPUMemoryPartitionGet(ctx context.Context, in *GPUMemoryPartitionGetRequest, opts ...grpc.CallOption) (*GPUMemoryPartitionGetResponse, error)
 	// operational APIs or tasks
 	// GPU reset API
 	GPUReset(ctx context.Context, in *GPUResetRequest, opts ...grpc.CallOption) (*GPUResetResponse, error)
@@ -115,6 +138,26 @@ func (c *gPUSvcClient) GPUComputePartitionGet(ctx context.Context, in *GPUComput
 	return out, nil
 }
 
+func (c *gPUSvcClient) GPUMemoryPartitionSet(ctx context.Context, in *GPUMemoryPartitionSetRequest, opts ...grpc.CallOption) (*GPUMemoryPartitionSetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GPUMemoryPartitionSetResponse)
+	err := c.cc.Invoke(ctx, GPUSvc_GPUMemoryPartitionSet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gPUSvcClient) GPUMemoryPartitionGet(ctx context.Context, in *GPUMemoryPartitionGetRequest, opts ...grpc.CallOption) (*GPUMemoryPartitionGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GPUMemoryPartitionGetResponse)
+	err := c.cc.Invoke(ctx, GPUSvc_GPUMemoryPartitionGet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *gPUSvcClient) GPUReset(ctx context.Context, in *GPUResetRequest, opts ...grpc.CallOption) (*GPUResetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GPUResetResponse)
@@ -139,6 +182,10 @@ type GPUSvcServer interface {
 	GPUComputePartitionSet(context.Context, *GPUComputePartitionSetRequest) (*GPUComputePartitionSetResponse, error)
 	// GPU partition get API
 	GPUComputePartitionGet(context.Context, *GPUComputePartitionGetRequest) (*GPUComputePartitionGetResponse, error)
+	// GPU memory partition create/update API
+	GPUMemoryPartitionSet(context.Context, *GPUMemoryPartitionSetRequest) (*GPUMemoryPartitionSetResponse, error)
+	// GPU memory partition get API
+	GPUMemoryPartitionGet(context.Context, *GPUMemoryPartitionGetRequest) (*GPUMemoryPartitionGetResponse, error)
 	// operational APIs or tasks
 	// GPU reset API
 	GPUReset(context.Context, *GPUResetRequest) (*GPUResetResponse, error)
@@ -163,6 +210,12 @@ func (UnimplementedGPUSvcServer) GPUComputePartitionSet(context.Context, *GPUCom
 }
 func (UnimplementedGPUSvcServer) GPUComputePartitionGet(context.Context, *GPUComputePartitionGetRequest) (*GPUComputePartitionGetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPUComputePartitionGet not implemented")
+}
+func (UnimplementedGPUSvcServer) GPUMemoryPartitionSet(context.Context, *GPUMemoryPartitionSetRequest) (*GPUMemoryPartitionSetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPUMemoryPartitionSet not implemented")
+}
+func (UnimplementedGPUSvcServer) GPUMemoryPartitionGet(context.Context, *GPUMemoryPartitionGetRequest) (*GPUMemoryPartitionGetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GPUMemoryPartitionGet not implemented")
 }
 func (UnimplementedGPUSvcServer) GPUReset(context.Context, *GPUResetRequest) (*GPUResetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPUReset not implemented")
@@ -260,6 +313,42 @@ func _GPUSvc_GPUComputePartitionGet_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GPUSvc_GPUMemoryPartitionSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPUMemoryPartitionSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GPUSvcServer).GPUMemoryPartitionSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GPUSvc_GPUMemoryPartitionSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GPUSvcServer).GPUMemoryPartitionSet(ctx, req.(*GPUMemoryPartitionSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GPUSvc_GPUMemoryPartitionGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPUMemoryPartitionGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GPUSvcServer).GPUMemoryPartitionGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GPUSvc_GPUMemoryPartitionGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GPUSvcServer).GPUMemoryPartitionGet(ctx, req.(*GPUMemoryPartitionGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _GPUSvc_GPUReset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GPUResetRequest)
 	if err := dec(in); err != nil {
@@ -300,6 +389,14 @@ var GPUSvc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GPUComputePartitionGet",
 			Handler:    _GPUSvc_GPUComputePartitionGet_Handler,
+		},
+		{
+			MethodName: "GPUMemoryPartitionSet",
+			Handler:    _GPUSvc_GPUMemoryPartitionSet_Handler,
+		},
+		{
+			MethodName: "GPUMemoryPartitionGet",
+			Handler:    _GPUSvc_GPUMemoryPartitionGet_Handler,
 		},
 		{
 			MethodName: "GPUReset",

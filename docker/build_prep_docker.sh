@@ -23,10 +23,23 @@
 if [ "$MOCK" == "1" ]; then
     tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
 else
-    tar -xf $TOP_DIR/assets/gpuagent_static.bin.gz -C $TOP_DIR/docker/
+    if [ -f $TOP_DIR/build/assets/gpuagent ]; then
+        echo "Copying newly built gpuagent to docker"
+        cp -vf $TOP_DIR/build/assets/gpuagent $TOP_DIR/docker/
+    else
+        echo "Copying prebuilt gpuagent to docker"
+        tar -xf $TOP_DIR/assets/gpuagent_static.bin.gz -C $TOP_DIR/docker/
+    fi
 fi
 chmod +x $TOP_DIR/docker/gpuagent
-cp $TOP_DIR/assets/patch/$OS/libamd_smi.so.24.7.60300 $TOP_DIR/docker/
+if [ -d $TOP_DIR/build/assets/$OS/exporterout ]; then
+    # copy built artifacts for the OS else revert to prebuilt files
+    echo "Copying newly built amdsmi to docker"
+    cp -vf $TOP_DIR/build/assets/$OS/exporterout/libamd_smi.so.* $TOP_DIR/docker/
+else
+    echo "Copying prebuilt amdsmi to docker"
+    cp -vf $TOP_DIR/assets/amd_smi_lib/x86_64/$OS/lib/libamd_smi.so.24.6 $TOP_DIR/docker/
+fi
 ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
 ln -f $TOP_DIR/bin/amd-metrics-exporter $TOP_DIR/docker/amd-metrics-exporter
 ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient

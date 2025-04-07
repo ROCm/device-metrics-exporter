@@ -1,0 +1,20 @@
+ARG BUILD_BASE_IMAGE=registry.access.redhat.com/ubi9/ubi:9.4 
+FROM ${BUILD_BASE_IMAGE}
+
+
+LABEL maintainer="AMD Inc"
+LABEL OS=${BUILD_BASE_IMAGE}
+ENV RPM_BUILD="amd-smi-lib-*99999-local*.rpm"
+WORKDIR /usr/src/github.com/ROCm/device-metrics-exporter/libamdsmi
+
+RUN dnf install -y 'dnf-command(config-manager)' && \
+    dnf config-manager --add-repo=https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/ && \
+    rpm --import https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official && \
+    dnf update -y && dnf install -y findutils git gcc-c++ libdrm-devel cmake
+
+ADD tools/smilib-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]
+

@@ -20,17 +20,47 @@ TESTRUNNER_IMAGE_TAG ?= latest
 TESTRUNNER_IMAGE_NAME ?= test-runner
 RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
 
+# External repo builders
+GPUAGENT_BASE_IMAGE ?= ubuntu:22.04
+GPUAGENT_BUILDER_IMAGE ?= gpuagent-builder:v1
+AMDSMI_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
+AMDSMI_BASE_UBUNTU22 ?= ubuntu:22.04
+AMDSMI_BASE_UBUNTU24 ?= ubuntu:24.04
+AMDSMi_BASE_AZURE ?= mcr.microsoft.com/azurelinux/base/core:3.0
+AMDSMI_BUILDER_IMAGE ?= amdsmi-builder:rhel9
+AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder:ub22
+AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder:ub24
+AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder:azure
+
 # export environment variables used across project
 export DOCKER_REGISTRY
 export BUILD_CONTAINER
 export BUILD_BASE_IMAGE
 export EXPORTER_IMAGE_NAME
 export EXPORTER_IMAGE_TAG
+
+# testrunner base images
 export TESTRUNNER_IMAGE_NAME
 export TESTRUNNER_IMAGE_TAG
+
+# exporter base container images
 export RHEL_BASE_IMAGE
 export RHEL_BASE_MIN_IMAGE
 export AZURE_BASE_IMAGE
+
+# amdsmi builder base images and tags
+export AMDSMI_BASE_IMAGE
+export AMDSMI_BASE_UBUNTU22
+export AMDSMI_BASE_UBUNTU24
+export AMDSMI_BASE_AZURE
+export GPUAGENT_BUILDER_IMAGE
+
+# gpuagent builder base images and tags
+export AMDSMI_BUILDER_IMAGE
+export AMDSMI_BUILDER_UB22_IMAGE
+export AMDSMI_BUILDER_UB24_IMAGE
+export AMDSMI_BUILDER_AZURE_IMAGE
+export GPUAGENT_BASE_IMAGE
 
 TO_GEN := pkg/amdgpu/proto pkg/exporter/proto
 TO_MOCK := pkg/amdgpu/mock
@@ -52,6 +82,10 @@ GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
 VERSION ?=$(RELEASE)
 KUBECONFIG ?= ~/.kube/config
 
+# library branch to build amdsmi libraries for gpuagent
+AMDSMI_BRANCH ?= amd-mainline
+AMDSMI_COMMIT ?= 0e0623a
+
 export ${GOROOT}
 export ${GOPATH}
 export ${OUT_DIR}
@@ -61,30 +95,29 @@ export ${GOINSECURE}
 export ${KUBECONFIG}
 export ${AZURE_DOCKER_CONTAINER_IMG}
 export ${BUILD_VER_ENV}
+export ${AMDSMI_BRANCH}
+export ${AMDSMI_COMMIT}
 
 ASSETS_PATH :=${TOP_DIR}/assets
 # 22.04 - jammy
 # 24.04 - noble
 UBUNTU_VERSION ?= jammy
 UBUNTU_VERSION_NUMBER = 22.04
+UBUNTU_LIBDIR = UBUNTU22
 ifeq (${UBUNTU_VERSION}, noble)
 UBUNTU_VERSION_NUMBER = 24.04
+UBUNTU_LIBDIR = UBUNTU24
 endif
 
 DEBIAN_VERSION := "1.2.0"
 
-DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
-BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
-PATCH_LIBS := ${ASSETS_PATH}/patch/ubuntu/${UBUNTU_VERSION}
-GPUAGENT_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_VERSION}/lib
-THIRDPARTY_LIBS := ${ASSETS_PATH}/thirdparty/x86_64-linux-gnu/${UBUNTU_VERSION}/lib/
-PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
-PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics/
-LUA_PROTO := ${TOP_DIR}/pkg/amdgpu/proto/luaplugin.proto
-PKG_LUA_PATH := ${TOP_DIR}/debian/usr/local/etc/metrics/slurm
 
 TO_GEN_TESTRUNNER := pkg/testrunner/proto
 GEN_DIR_TESTRUNNER := $(TOP_DIR)/pkg/testrunner/
+
+include Makefile.build
+include Makefile.compile
+include Makefile.package
 
 ##################
 # Makefile targets
@@ -139,45 +172,6 @@ gen: gopkglist gen-test-runner
 gen-test-runner: gopkglist
 	@for c in ${TO_GEN_TESTRUNNER}; do printf "\n+++++++++++++++++ Generating $${c} +++++++++++++++++\n"; PATH=$$PATH make -C $${c} GEN_DIR=$(GEN_DIR_TESTRUNNER) || exit 1; done
 
-.PHONY: pkg pkg-clean
-
-pkg-clean:
-	rm -rf ${TOP_DIR}/bin/*.deb
-
-
-pkg: pkg-clean
-	${MAKE} gen amdexporter-lite metricsclient
-	@echo "Building debian for $(BUILD_VER_ENV)"
-	#copy precompiled libs
-	mkdir -p ${PKG_LIB_PATH}
-	cp -rvf ${GPUAGENT_LIBS}/ ${PKG_LIB_PATH}
-	cp -rvf ${THIRDPARTY_LIBS}/ ${PKG_LIB_PATH}
-	#override patch files
-	cp -vf ${PATCH_LIBS}/libamd_smi.so.24.7.60300 ${PKG_LIB_PATH}/lib/libamd_smi.so.24.7.60301
-	#copy and strip files
-	mkdir -p ${PKG_PATH}
-	tar -xf ${ASSETS_PATH}/gpuagent_static.bin.gz -C ${PKG_PATH}/
-	chmod +x ${PKG_PATH}/gpuagent
-	ls -alsh ${PKG_PATH}/gpuagent
-	#strip prebuilt binaries
-	strip ${PKG_PATH}/gpuagent
-	ls -alsh ${PKG_PATH}/gpuagent
-	cd ${PKG_PATH} && strip ${PKG_PATH}/gpuagent
-	cp -vf ${LUA_PROTO} ${PKG_LUA_PATH}/plugin.proto
-	cp -vf ${ASSETS_PATH}/gpuctl.gobin ${PKG_PATH}/gpuctl
-	cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
-	cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
-	cd ${TOP_DIR}
-	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
-	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
-	#remove copied files
-	rm -rf ${PKG_LIB_PATH}
-	rm -rf ${PKG_LUA_PATH}/plugin.proto
-	# revert the dynamic version set file
-	git checkout $(DEBIAN_CONTROL)
-	# rename for internal build
-	mv -vf ${TOP_DIR}/bin/amdgpu-exporter_*~${UBUNTU_VERSION_NUMBER}_amd64.deb ${TOP_DIR}/bin/amdgpu-exporter_${UBUNTU_VERSION_NUMBER}_amd64.deb
-
 .PHONY:clean
 clean: pkg-clean
 	rm -rf pkg/amdgpu/gen
@@ -187,6 +181,7 @@ clean: pkg-clean
 	rm -rf docker/*.tar
 	rm -rf docker/*.tar.gz
 	rm -rf ${PKG_PATH}
+	rm -rf build
 
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: golangci-lint
@@ -203,6 +198,9 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 }
 endef
 
+EXCLUDE_PATTERN := "libamdsmi|gpuagent.sw|gpuagent.sw.nic|gpuagent.sw.nic.gpuagent"
+GO_PKG := $(shell go list ./...  2>/dev/null | grep github.com/ROCm/device-metrics-exporter | egrep -v ${EXCLUDE_PATTERN})
+
 GOFILES_NO_VENDOR = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
@@ -214,13 +212,13 @@ lint: golangci-lint ## Run golangci-lint against code.
 	$(GOLANGCI_LINT) run -v --timeout 5m0s
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
+fmt:## Run go fmt against code.
+	go fmt $(GO_PKG)
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
-
+	$(info +++ govet sources)
+	go vet -source $(GO_PKG)
 
 .PHONY: gopkglist
 gopkglist:
@@ -308,6 +306,11 @@ base-image:
 copyrights:
 	GOFLAGS=-mod=mod go run tools/build/copyright/main.go && ${MAKE} fmt && ./tools/build/check-local-files.sh
 
+# target to update remote submodule repo for amdsmi and gpuagent
+.PHONY: update-submodules
+update-submodules:
+	git submodule update --remote --recursive
+
 .PHONY: e2e-test
 e2e-test:
 	$(MAKE) -C test/e2e
@@ -339,3 +342,11 @@ slurm-sim:
 .PHONY: build-dev-container
 build-dev-container:
 	${MAKE} -C tools/base-image all INSECURE_REGISTRY=$(INSECURE_REGISTRY)
+
+.PHONY: build-all
+build-all: 
+	${MAKE} amdsmi-compile-rhel amdsmi-compile-ub22 amdsmi-compile-ub24 amdsmi-compile-azure
+	${MAKE} gpuagent-compile
+	@echo "Docker image build is available under docker/ directory"
+	${MAKE} docker
+

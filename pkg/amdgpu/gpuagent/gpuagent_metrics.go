@@ -44,6 +44,7 @@ var (
 		exportermetrics.GPUMetricLabel_HOSTNAME.String(),
 		exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String(),
 		exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String(),
+		exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String(),
 	}
 	// List of suppported labels that can be customized
 	allowedCustomLabels = []string{
@@ -1103,6 +1104,10 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 		case exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String():
 			partitionType := gpu.Spec.ComputePartitionType
 			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_COMPUTE_PARTITION_TYPE_")
+			labels[key] = strings.ToLower(trimmedValue)
+		case exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String():
+			partitionType := gpu.Spec.MemoryPartitionType
+			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_MEMORY_PARTITION_TYPE_")
 			labels[key] = strings.ToLower(trimmedValue)
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)
