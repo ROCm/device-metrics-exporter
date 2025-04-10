@@ -3,6 +3,9 @@ platform: k8s
 # -- Add node selector for the daemonset of metrics exporter
 nodeSelector: {}
 
+# -- Add tolerations for deploying metrics exporter on tainted nodes
+tolerations: []
+
 image:
   # -- repository URL for the metrics exporter image
   repository: docker.io/rocm/device-metrics-exporter
