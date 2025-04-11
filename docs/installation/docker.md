@@ -20,7 +20,7 @@ docker run -d \
   --device=/dev/kfd \
   -p 5000:5000 \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.0.0
+  rocm/device-metrics-exporter:v1.1.0
 ```
 
 - Confirm metrics are accessible:

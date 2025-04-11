@@ -32,7 +32,13 @@ service:
 - Install using Helm:
 
 ```bash
-helm install exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.1.0/device-metrics-exporter-charts-v1.1.0.tgz \
-  -n mynamespace -f values.yaml --create-namespace
+# Install Helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
+# Install Helm Charts
+helm repo add exporter https://rocm.github.io/device-metrics-exporter
+helm repo update
+helm install exporter exporter/device-metrics-exporter-charts --namespace kube-amd-gpu --create-namespace --version=v1.1.0 -f values.yaml
 ```
