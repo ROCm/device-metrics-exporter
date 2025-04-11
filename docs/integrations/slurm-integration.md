@@ -66,7 +66,7 @@ docker run -d \
   -v ./config:/etc/metrics \
   -v /var/run/exporter/:/var/run/exporter/ \
   -p 5000:5000 --name exporter \
-  rocm/device-metrics-exporter:v1.0.0
+  rocm/device-metrics-exporter:v1.2.1
 ```
 
 ## Verification
