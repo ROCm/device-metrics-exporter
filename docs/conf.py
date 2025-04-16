@@ -23,3 +23,6 @@ extensions = ["rocm_docs"]
 external_toc_path = "./sphinx/_toc.yml"
 
 exclude_patterns = ['.venv']
+
+# Supported linux version numbers
+ubuntu_version_numbers = [('24.04', 'noble'), ('22.04', 'jammy')]
