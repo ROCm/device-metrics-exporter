@@ -8,6 +8,7 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
 - `GPUConfig`:
   - Fields: An array of strings specifying what metrics field to be exported.
   - Labels: `CARD_MODEL`, `GPU_UUID` and `SERIAL_NUMBER` are always set and cannot be removed. Labels supported are available in the provided example `configmap.yml`.
+  - CustomLabels: A map of user-defined labels and their values. Users can set up to 10 custom labels. From the `GPUMetricLabel` list, only `CLUSTER_NAME` is allowed to be set in `CustomLabels`. Any other labels from this list cannot be set. Users can define other custom labels outside of this restriction. These labels will be exported with every metric, ensuring consistent metadata across all metrics.
 
 ## Setting custom values
 
