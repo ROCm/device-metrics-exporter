@@ -33,3 +33,18 @@ service:
 # -- configMap name for the customizing configs and mount into metrics exporter container
 configMap: ""
 
+# -- ServiceMonitor configuration
+serviceMonitor:
+  # -- Whether to create a ServiceMonitor resource for Prometheus Operator
+  enabled: false
+  # -- Scrape interval for the ServiceMonitor
+  interval: "30s"
+  # -- Honor labels configuration for ServiceMonitor
+  honorLabels: true
+  # -- Honor timestamps configuration for ServiceMonitor
+  honorTimestamps: true
+  # -- Additional labels for the ServiceMonitor
+  labels: {}
+  # -- RelabelConfigs to apply to samples before scraping
+  relabelings: []
+
