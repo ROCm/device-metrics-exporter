@@ -8,6 +8,7 @@ subtrees:
       - file: installation/docker
       - file: installation/kubernetes-helm
       - file: installation/gpu-operator
+      - file: installation/deb-package
   - caption: Configuration
     entries:
       - file: configuration/configuration-settings   
@@ -17,4 +18,4 @@ subtrees:
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana
-    - file: integrations/slurm-integration  
+    - file: integrations/slurm-integration

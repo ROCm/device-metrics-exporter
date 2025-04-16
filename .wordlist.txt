@@ -5,3 +5,6 @@ sudo
 conf
 grafana
 UI
+Mhz
+pcie
+uJ
