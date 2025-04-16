@@ -19,3 +19,7 @@ subtrees:
     entries:
     - file: integrations/prometheus-grafana
     - file: integrations/slurm-integration
+  - caption: Developer Guide
+    entries:
+    - file: developerguide
+      title: Building from Source       
