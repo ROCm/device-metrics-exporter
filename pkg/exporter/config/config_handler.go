@@ -19,7 +19,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
@@ -80,7 +80,7 @@ func (c *ConfigHandler) GetServerPort() uint32 {
 func readConfig(filepath string) (*exportermetrics.MetricConfig, error) {
 	var config_fields exportermetrics.MetricConfig
 	pmConfigs := &config_fields
-	mConfigs, err := ioutil.ReadFile(filepath)
+	mConfigs, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	} else {

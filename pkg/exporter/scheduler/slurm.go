@@ -64,7 +64,9 @@ func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error
 	}
 
 	go func() {
-		os.MkdirAll(path.Dir(globals.SlurmDir), 0644)
+		if err := os.MkdirAll(path.Dir(globals.SlurmDir), 0644); err != nil {
+			logger.Log.Printf("error creating slurm dir %v err: %v", globals.SlurmDir, err)
+		}
 
 		// Create new watcher.
 		watcher, err := fsnotify.NewWatcher()

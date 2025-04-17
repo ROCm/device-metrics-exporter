@@ -241,7 +241,10 @@ func removeIDsWithExistingTest(trigger, statusDBPath string, ids []string, param
 	if err != nil {
 		logger.Log.Printf("failed to load test runner status %+v, err: %+v", statusDBPath, err)
 		if os.IsNotExist(err) {
-			os.Create(statusDBPath)
+			if _, err := os.Create(statusDBPath); err != nil {
+				logger.Log.Printf("failed to create status db file at %+v, err: %+v", statusDBPath, err)
+				// TODO: add error handling
+			}
 		}
 		// TODO: add more error handling when failed to load runner running status
 	}

@@ -79,7 +79,10 @@ func (k *K8sClient) reConnect() error {
 }
 
 func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
-	k.reConnect()
+	if err := k.reConnect(); err != nil {
+		logger.Log.Printf("err: %v", err)
+		return err
+	}
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(k.ctx)
@@ -99,7 +102,10 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 }
 
 func (k *K8sClient) GetNodelLabel(nodeName string) (string, error) {
-	k.reConnect()
+	if err := k.reConnect(); err != nil {
+		logger.Log.Printf("err: %v", err)
+		return "", err
+	}
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(k.ctx)
@@ -115,7 +121,10 @@ func (k *K8sClient) GetNodelLabel(nodeName string) (string, error) {
 }
 
 func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) error {
-	k.reConnect()
+	if err := k.reConnect(); err != nil {
+		logger.Log.Printf("err: %v", err)
+		return err
+	}
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -141,7 +150,9 @@ func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) err
 }
 
 func (k *K8sClient) RemoveNodeLabel(nodeName string, keys []string) error {
-	k.reConnect()
+	if err := k.reConnect(); err != nil {
+		return fmt.Errorf("reconnect failed: %v", err)
+	}
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -165,7 +176,9 @@ func (k *K8sClient) RemoveNodeLabel(nodeName string, keys []string) error {
 }
 
 func (k *K8sClient) UpdateHealthLabel(nodeName string, newHealthMap map[string]string) error {
-	k.reConnect()
+	if err := k.reConnect(); err != nil {
+		return fmt.Errorf("reconnect failed: %v", err)
+	}
 	k.Lock()
 	defer k.Unlock()
 

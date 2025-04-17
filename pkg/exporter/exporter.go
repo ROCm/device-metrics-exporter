@@ -116,7 +116,9 @@ func foreverWatcher() {
 	var srvHandler *http.Server
 	configPath := runConf.GetMetricsConfigPath()
 	directory := path.Dir(configPath)
-	os.MkdirAll(directory, 0755)
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		logger.Log.Printf("Error opening metrics config path: %v", err)
+	}
 	logger.Log.Printf("config directory for watch : %v", directory)
 
 	serverRunning := func() bool {
@@ -220,7 +222,9 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	svcHandler := metricsserver.InitSvcs(enableDebugAPI)
 	go func() {
 		logger.Log.Printf("metrics service starting")
-		svcHandler.Run()
+		if err := svcHandler.Run(); err != nil {
+			logger.Log.Printf("metrics service start failed: %+v", err)
+		}
 		logger.Log.Printf("metrics service stopped")
 		os.Exit(0)
 	}()
@@ -238,7 +242,9 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 
 	go gpuclient.StartMonitor()
 
-	svcHandler.RegisterHealthClient(gpuclient)
+	if err := svcHandler.RegisterHealthClient(gpuclient); err != nil {
+		logger.Log.Printf("health client registration err: %+v", err)
+	}
 
 	foreverWatcher()
 }

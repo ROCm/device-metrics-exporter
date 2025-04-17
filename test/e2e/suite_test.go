@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -53,7 +52,7 @@ var _ = Suite(&E2ESuite{})
 func (s *E2ESuite) ReadConfig() *exportermetrics.MetricConfig {
 	var config exportermetrics.MetricConfig
 	pmConfig := &config
-	mConfigs, err := ioutil.ReadFile(s.configPath)
+	mConfigs, err := os.ReadFile(s.configPath)
 	if err == nil {
 		_ = json.Unmarshal(mConfigs, pmConfig)
 	}
@@ -68,7 +67,7 @@ func (s *E2ESuite) WriteConfig(data *exportermetrics.MetricConfig) error {
 	}
 
 	// Write the JSON data to a file
-	err = ioutil.WriteFile(s.configPath, jsonData, 0644)
+	err = os.WriteFile(s.configPath, jsonData, 0644)
 	if err != nil {
 		fmt.Println("Error writing JSON file:", err)
 		return err
@@ -179,7 +178,7 @@ func (s *E2ESuite) SetUpSuite(c *C) {
 	s.name = e2eConfig.ContainerName
 	if *skipSetup == false {
 		_ = s.exporter.Stop()
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 
 		err := s.exporter.Start()
 		if err != nil {
@@ -209,6 +208,6 @@ func (s *E2ESuite) TearDownSuite(c *C) {
 	if *cleanAfterTest {
 		log.Print("cleaning setup after test")
 		s.tu.LocalCommandOutput(fmt.Sprintf("docker stop %v", s.name))
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 	}
 }

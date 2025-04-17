@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -32,7 +31,6 @@ import (
 type SvcHandler struct {
 	grpc      *grpc.Server
 	healthSvc *MetricsSvcImpl
-	config    *config.ConfigHandler
 }
 
 func InitSvcs(enableDebugAPI bool) *SvcHandler {
@@ -54,7 +52,9 @@ func (s *SvcHandler) Run() error {
 		return fmt.Errorf("Failed to remove socket file: %v", err)
 	}
 
-	os.MkdirAll(path.Dir(socketPath), 0755)
+	if err := os.MkdirAll(path.Dir(socketPath), 0755); err != nil {
+		return fmt.Errorf("Failed to create socket file: %v", err)
+	}
 
 	logger.Log.Printf("starting listening on socket : %v", socketPath)
 	lis, err := net.Listen("unix", socketPath)
@@ -62,7 +62,7 @@ func (s *SvcHandler) Run() error {
 		return fmt.Errorf("failed to listen on port: %v", err)
 	}
 	// world readable socket
-	if err = os.Chmod(socketPath, 777); err != nil {
+	if err = os.Chmod(socketPath, 0777); err != nil {
 		logger.Log.Printf("socket %v chmod to 777 failed, set it on host", socketPath)
 	}
 	logger.Log.Printf("Listening on socket %v", socketPath)

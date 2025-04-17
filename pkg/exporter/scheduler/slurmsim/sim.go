@@ -40,7 +40,7 @@ func main() {
 	sock := zmq.NewPush(context.Background())
 
 	if err := sock.Dial("tcp://127.0.0.1:6601"); err != nil {
-		log.Fatalf(fmt.Sprintf("failed to dial %v", err))
+		log.Fatalf("failed to dial %v", err)
 	}
 
 	msg := luaplugin.Notification{
@@ -57,6 +57,6 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := sock.Send(zmq.NewMsg(data)); err != nil {
-		log.Fatal(fmt.Sprintf("failed to send %v", err))
+		log.Fatalf("failed to send %v", err)
 	}
 }
