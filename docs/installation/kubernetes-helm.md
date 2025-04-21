@@ -27,6 +27,14 @@ service:
   type: ClusterIP  # or NodePort
   ClusterIP:
     port: 5000
+# ServiceMonitor configuration for Prometheus Operator integration
+serviceMonitor:
+  enabled: false
+  interval: "30s"
+  honorLabels: true
+  honorTimestamps: true
+  labels: {}
+  relabelings: []
 ```
 
 - Install using Helm:

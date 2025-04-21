@@ -21,13 +21,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
 	"github.com/ROCm/device-metrics-exporter/test/utils"
 	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
+
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 )
 
 var (
@@ -458,6 +463,95 @@ func (s *E2ESuite) Test103HelmUninstall(c *C) {
 	if err != nil {
 		assert.Fail(c, err.Error())
 		return
+	}
+}
+
+func (s *E2ESuite) Test200DeployWithServiceMonitorDynamic(c *C) {
+	ctx := context.Background()
+	exporterNS := s.ns
+	smName := "e2e-test-k8s-amd-metrics-exporter"
+	smLabelKey := "metrics-exporter"
+	smLabelVal := "enabled"
+	installedCRD := false
+
+	// Ensure CRD for ServiceMonitor exists
+	dyn, err := dynamic.NewForConfig(s.restConfig)
+	assert.NoError(c, err)
+
+	crdGVR := schema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}
+	_, err = dyn.Resource(crdGVR).Get(ctx, "servicemonitors.monitoring.coreos.com", metav1.GetOptions{})
+	if err != nil {
+		cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", s.kubeconfig, "apply", "-f", "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml")
+		out, cmdErr := cmd.CombinedOutput()
+		assert.NoError(c, cmdErr, string(out))
+		time.Sleep(5 * time.Second)
+		installedCRD = true
+	}
+
+	// Install the exporter chart with ServiceMonitor enabled
+	values := []string{
+		fmt.Sprintf("image.repository=%v", s.registry),
+		fmt.Sprintf("image.tag=%v", s.imageTag),
+		"service.type=ClusterIP",
+		"service.ClusterIP.port=5000",
+		"serviceMonitor.enabled=true",
+		"serviceMonitor.interval=15s",
+		"serviceMonitor.honorLabels=true",
+		"serviceMonitor.honorTimestamps=true",
+		fmt.Sprintf("serviceMonitor.labels.%s=%s", smLabelKey, smLabelVal),
+	}
+	releaseName, err := s.helmClient.InstallChart(ctx, s.helmChart, values)
+	assert.NoError(c, err)
+
+	// Verify the ServiceMonitor CR exists and is configured correctly
+	smGVR := schema.GroupVersionResource{
+		Group:    "monitoring.coreos.com",
+		Version:  "v1",
+		Resource: "servicemonitors",
+	}
+	assert.Eventually(c, func() bool {
+		obj, err := dyn.Resource(smGVR).Namespace(exporterNS).Get(ctx, smName, metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		metadata := obj.Object["metadata"].(map[string]interface{})
+		spec := obj.Object["spec"].(map[string]interface{})
+		labels := metadata["labels"].(map[string]interface{})
+		selector := spec["selector"].(map[string]interface{})
+		matchLabels := selector["matchLabels"].(map[string]interface{})
+		endpoints := spec["endpoints"].([]interface{})
+		if len(endpoints) == 0 || endpoints[0].(map[string]interface{})["port"] != "http" {
+			return false
+		}
+
+		// Verify ServiceMonitor label
+		if labels[smLabelKey] != smLabelVal {
+			return false
+		}
+
+		// Verify Service selector matches pod label
+		pods, _ := s.k8sclient.GetPodsByLabel(ctx, exporterNS, map[string]string{"app": releaseName + "-amdgpu-metrics-exporter"})
+		if len(pods) == 0 || pods[0].Labels["app"] != releaseName+"-amdgpu-metrics-exporter" {
+			return false
+		}
+
+		// Verify ServiceMonitor selector matches the pod label via service
+		return matchLabels["app"] == releaseName+"-amdgpu-metrics-exporter"
+	}, 1*time.Minute, 5*time.Second)
+
+	// Uninstall exporter chart
+	err = s.helmClient.UninstallChart()
+	assert.NoError(c, err)
+
+	// Uninstall Servicemonitor CRD if the test installed it
+	if installedCRD {
+		cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig", s.kubeconfig, "delete", "-f", "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml")
+		out, cmdErr := cmd.CombinedOutput()
+		assert.NoError(c, cmdErr, string(out))
 	}
 }
 
