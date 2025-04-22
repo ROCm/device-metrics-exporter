@@ -20,6 +20,7 @@ subtrees:
     entries:
     - file: integrations/prometheus-grafana
     - file: integrations/slurm-integration  
+    - file: integrations/prometheus-servicemonitor
   - caption: Developer Guide
     entries:
     - file: developerguide
