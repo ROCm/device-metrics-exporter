@@ -3,9 +3,9 @@ entries:
   device-metrics-exporter-charts:
   - apiVersion: v2
     appVersion: v1.2.1
-    created: "2025-04-11T19:08:21.836122238-07:00"
+    created: "2025-04-22T17:55:58.668119492Z"
     description: A Helm chart for AMD Device Metric Exporter
-    digest: 49d0c630269894e90f90b2f0aa9eecf2f4eb3d1c372303be0e3761022aaf1013
+    digest: 64b47c8936a70d8e2c5551035ddf6a155912f7e99e278caf616d9e1098bb2919
     keywords:
     - kubernetes
     - cluster
@@ -29,7 +29,7 @@ entries:
     version: v1.2.1
   - apiVersion: v2
     appVersion: v1.2.0
-    created: "2025-04-11T19:08:21.835173212-07:00"
+    created: "2025-04-22T17:55:58.667584057Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: deababca2e37d7a6be219a3a77f614e35628945e2c478e3b35cd84b81026e895
     keywords:
@@ -55,7 +55,7 @@ entries:
     version: v1.2.0
   - apiVersion: v2
     appVersion: v1.1.0
-    created: "2025-04-11T19:08:21.834622197-07:00"
+    created: "2025-04-22T17:55:58.667070439Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: aba669201efadb314755d51533ba67b8c97252cb16470203064dbf82b20d2627
     keywords:
@@ -81,7 +81,7 @@ entries:
     version: v1.1.0
   - apiVersion: v2
     appVersion: v1.0.0
-    created: "2025-04-11T19:08:21.833922259-07:00"
+    created: "2025-04-22T17:55:58.666613731Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 92248d77d603969493fc00b836ea2f008cc2a38c12188630b1ee5d80a5622fee
     keywords:
@@ -105,4 +105,4 @@ entries:
     urls:
     - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.0.0.tgz
     version: v1.0.0
-generated: "2025-04-11T19:08:21.833171255-07:00"
+generated: "2025-04-22T17:55:58.665969125Z"
