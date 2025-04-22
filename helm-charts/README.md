@@ -33,6 +33,12 @@ Kubernetes: `>= 1.29.0-0`
 | service.NodePort.port | int | `5000` | set port for NodePort type service    |
 | service.type | string | `"ClusterIP"` | metrics exporter service type, could be ClusterIP or NodePort |
 | tolerations | list | `[]` | Add tolerations for deploying metrics exporter on tainted nodes |
+| serviceMonitor.enabled | bool | `false` | Create a ServiceMonitor resource for Prometheus Operator |
+| serviceMonitor.interval | string | `"30s"` | Scrape interval for the ServiceMonitor|
+| serviceMonitor.honorLabels | bool | `true` | Honor labels configuration for ServiceMonitor|
+| serviceMonitor.honorTimestamps | bool | `true`| Honor timestamps configuration for ServiceMonitor |
+| serviceMonitor.labels | list | `[]` | Additional labels for the ServiceMonitor |
+| serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
 
 
 ----------------------------------------------
