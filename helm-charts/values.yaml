@@ -43,8 +43,13 @@ serviceMonitor:
   honorLabels: true
   # -- Honor timestamps configuration for ServiceMonitor
   honorTimestamps: true
+  # -- Adds node metadata to discovered targets for node-based filtering
+  attachMetadata:
+    node: false
   # -- Additional labels for the ServiceMonitor
   labels: {}
   # -- RelabelConfigs to apply to samples before scraping
   relabelings: []
+  # -- Relabeling rules applied to individual scraped metrics
+  metricRelabelings: []
 

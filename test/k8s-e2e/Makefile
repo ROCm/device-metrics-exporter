@@ -10,6 +10,7 @@ ifdef KUBECONFIG
 endif
 
 all:
+	# add -chck.f <testname> to run specific test
 	go test -failfast -helmchart $(TOP_DIR)/helm-charts/ -test.timeout=30m -registry $(DOCKER_REGISTRY)/$(EXPORTER_IMAGE_NAME) -imagetag $(EXPORTER_IMAGE_TAG) -v $(TEST_ARGS);
 
 lint:

@@ -502,6 +502,7 @@ func (s *E2ESuite) Test200DeployWithServiceMonitorDynamic(c *C) {
 		"serviceMonitor.interval=15s",
 		"serviceMonitor.honorLabels=true",
 		"serviceMonitor.honorTimestamps=true",
+		"serviceMonitor.attachMetadata.node=true",
 		fmt.Sprintf("serviceMonitor.labels.%s=%s", smLabelKey, smLabelVal),
 	}
 	releaseName, err := s.helmClient.InstallChart(ctx, s.helmChart, values)
@@ -518,18 +519,39 @@ func (s *E2ESuite) Test200DeployWithServiceMonitorDynamic(c *C) {
 		if err != nil {
 			return false
 		}
-		metadata := obj.Object["metadata"].(map[string]interface{})
-		spec := obj.Object["spec"].(map[string]interface{})
-		labels := metadata["labels"].(map[string]interface{})
-		selector := spec["selector"].(map[string]interface{})
-		matchLabels := selector["matchLabels"].(map[string]interface{})
-		endpoints := spec["endpoints"].([]interface{})
-		if len(endpoints) == 0 || endpoints[0].(map[string]interface{})["port"] != "http" {
+		log.Printf("ServiceMonitor object: %+v", obj)
+		metadata := obj.Object["metadata"].(map[string]any)
+		spec := obj.Object["spec"].(map[string]any)
+		labels := metadata["labels"].(map[string]any)
+		selector := spec["selector"].(map[string]any)
+		matchLabels := selector["matchLabels"].(map[string]any)
+		endpoints := spec["endpoints"].([]any)
+		if len(endpoints) == 0 || endpoints[0].(map[string]any)["port"] != "http" {
 			return false
 		}
 
 		// Verify ServiceMonitor label
 		if labels[smLabelKey] != smLabelVal {
+			return false
+		}
+
+		// Verify attachMetadata.node is set to true
+		attachMetadata, exists := spec["attachMetadata"].(map[string]any)
+		if !exists || attachMetadata["node"] != true {
+			log.Printf("attachMetadata.node not properly set: %v", attachMetadata)
+			return false
+		}
+
+		// Verify namespaceSelector is set correctly to match the release namespace
+		nsSelector, exists := spec["namespaceSelector"].(map[string]any)
+		if !exists {
+			log.Printf("namespaceSelector not found")
+			return false
+		}
+
+		matchNames, exists := nsSelector["matchNames"].([]any)
+		if !exists || len(matchNames) != 1 || matchNames[0].(string) != exporterNS {
+			log.Printf("namespaceSelector.matchNames not properly set: %v", nsSelector)
 			return false
 		}
 

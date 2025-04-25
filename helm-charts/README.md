@@ -37,8 +37,10 @@ Kubernetes: `>= 1.29.0-0`
 | serviceMonitor.interval | string | `"30s"` | Scrape interval for the ServiceMonitor|
 | serviceMonitor.honorLabels | bool | `true` | Honor labels configuration for ServiceMonitor|
 | serviceMonitor.honorTimestamps | bool | `true`| Honor timestamps configuration for ServiceMonitor |
+| serviceMonitor.attachMetadata.node | bool | `false` | Add node metadata as labels |
 | serviceMonitor.labels | list | `[]` | Additional labels for the ServiceMonitor |
 | serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
+| serviceMonitor.metricRelabelings | list | `[]` | Relabeling rules applied to individual scraped metrics |
 
 
 ----------------------------------------------
