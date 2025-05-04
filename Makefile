@@ -18,7 +18,7 @@ AZURE_BASE_IMAGE ?= mcr.microsoft.com/azurelinux/base/core:3.0
 # Test runner container environment
 TESTRUNNER_IMAGE_TAG ?= latest
 TESTRUNNER_IMAGE_NAME ?= test-runner
-RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.4
+TEST_RUNNER_RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.5
 
 # External repo builders
 GPUAGENT_BASE_IMAGE ?= ubuntu:22.04
@@ -44,7 +44,7 @@ export TESTRUNNER_IMAGE_NAME
 export TESTRUNNER_IMAGE_TAG
 
 # exporter base container images
-export RHEL_BASE_IMAGE
+export TEST_RUNNER_RHEL_BASE_IMAGE
 export RHEL_BASE_MIN_IMAGE
 export AZURE_BASE_IMAGE
 
@@ -265,12 +265,12 @@ docker-mock: gen amdexporter
 
 .PHONY: docker-test-runner
 docker-test-runner: gen-test-runner amdtestrunner
-	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) INTERNAL_TESTRUNNER_BUILD=$(INTERNAL_TESTRUNNER_BUILD) docker
+	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker
 
 .PHOHY: docker-test-runner-cicd
 docker-test-runner-cicd: gen-test-runner amdtestrunner
 	echo "Building test runner cicd docker for publish"
-	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) INTERNAL_TESTRUNNER_BUILD=$(INTERNAL_TESTRUNNER_BUILD) docker-cicd
+	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-cicd
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-save
 
 .PHONY: docker-azure
