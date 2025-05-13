@@ -745,7 +745,7 @@ func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterfac
 			filesToExport = append(filesToExport, resultsJson)
 		}
 		now := time.Now().UTC()
-		timestamp := now.Format("2006-01-02T15_04_05Z")
+		timestamp := now.Format("2006-01-02T15-04-05.000000Z")
 		if res.Stdout != "" {
 			stdoutFilePath := GetLogFilePath(tr.logDir, timestamp, tr.testTrigger, recipe, "stdout")
 			SaveTestResultToGz(res.Stdout, stdoutFilePath)
