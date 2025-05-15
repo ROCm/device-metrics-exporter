@@ -1,0 +1,45 @@
+ARG BASE_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0
+
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="AMD Inc"
+LABEL OS="mcr.microsoft.com/azurelinux/base/core:3.0"
+
+ARG ROCM_VERSION=6.3.1
+ARG AMDGPU_VERSION=6.3.1
+ARG AMDGPU_REPO_URL=https://repo.radeon.com
+
+RUN tdnf clean all && tdnf install -y ca-certificates && \
+    echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
+    echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "baseurl=${AMDGPU_REPO_URL}/amdgpu/${AMDGPU_VERSION}/azurelinux/3.0/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
+    echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
+    echo "baseurl=${AMDGPU_REPO_URL}/rocm/azurelinux3/${AMDGPU_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
+    echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
+    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
+    tdnf install -y sudo findutils procps elfutils-libelf cmake kmod file libcap-devel amd-smi-lib libdrm-amdgpu vim net-tools && \
+    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && tdnf clean all
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/
+RUN mkdir -p /home/amd/bin/
+RUN mkdir -p /home/amd/tools/
+
+# override patch release fixes
+ADD ./libamd_smi.so.24.7.60300 /opt/rocm/lib/libamd_smi.so.24.7.60301
+ADD ./libamd_smi.so.24.7.60300 /opt/rocm-$ROCM_VERSION/lib/libamd_smi.so.24.7.60301
+
+ADD ./gpuagent /home/amd/bin/gpuagent
+ADD ./gpuctl /home/amd/bin/gpuctl
+ADD ./amd-metrics-exporter /home/amd/bin/server
+ADD ./metricsclient /home/amd/bin/metricsclient
+ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+RUN chmod +x /home/amd/tools/entrypoint.sh
+
+ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]

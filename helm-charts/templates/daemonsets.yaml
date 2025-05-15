@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Release.Name }}-amdgpu-metrics-exporter
+  labels:
+    app: amdgpu-metrics-exporter
+  {{- include "helm-charts-exporter.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-amdgpu-metrics-exporter
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-amdgpu-metrics-exporter
+    spec:
+      serviceAccountName: amdgpu-metrics-exporter
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - while [ ! -d /host-sys/class/kfd ] || [ ! -d /host-sys/module/amdgpu/drivers/
+          ]; do echo "amdgpu driver is not loaded "; sleep 2 ;done
+        image: {{ .Values.image.initContainerImage }}
+        imagePullPolicy: IfNotPresent
+        name: driver-init
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /host-sys
+          name: sys-volume
+      containers:
+        - name: amdgpu-metrics-exporter-container
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          {{- if eq .Values.service.type "NodePort" }}
+          - name: METRICS_EXPORTER_PORT
+            value: "{{ .Values.service.NodePort.port }}"
+          ports:
+            - containerPort: {{ .Values.service.NodePort.port }}
+              protocol: TCP
+          {{- end }}
+          {{- if eq .Values.service.type "ClusterIP" }}
+          - name: METRICS_EXPORTER_PORT
+            value: "{{ .Values.service.ClusterIP.port }}"
+          ports:
+            - containerPort: {{ .Values.service.ClusterIP.port }}
+              protocol: TCP
+          {{- end }}
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - mountPath: /dev
+            name: dev-volume
+          - mountPath: /sys
+            name: sys-volume
+          - mountPath: /var/lib/kubelet/pod-resources
+            name: pod-resources
+          - mountPath: /var/lib/amd-metrics-exporter
+            name: exporter-health-grpc-volume
+          - mountPath: /var/run/exporter
+            name: exporter-slurm-job
+          {{- if .Values.configMap }}
+          - name: metrics-config-volume
+            mountPath: /etc/metrics/
+          {{- end }}
+          workingDir: /root
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecrets }}
+      {{- end }}
+      volumes:
+      - hostPath:
+          path: /dev
+          type: Directory
+        name: dev-volume
+      - hostPath:
+          path: /sys
+          type: Directory
+        name: sys-volume
+      - hostPath:
+          path: /var/lib/kubelet/pod-resources
+          type: Directory
+        name: pod-resources
+      - hostPath:
+          path: /var/lib/amd-metrics-exporter
+          type: DirectoryOrCreate
+        name: exporter-health-grpc-volume
+      - hostPath:
+          path: /var/run/exporter
+          type: DirectoryOrCreate
+        name: exporter-slurm-job
+      {{- if .Values.configMap }}
+      - name: metrics-config-volume
+        configMap:
+          name: {{ .Values.configMap }}
+      {{- end}}

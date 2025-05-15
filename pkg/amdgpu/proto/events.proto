@@ -1,0 +1,190 @@
+
+//
+// Copyright(C) Advanced Micro Devices, Inc. All rights reserved.
+//
+// You may not use this software and documentation (if any) (collectively,
+// the "Materials") except in compliance with the terms and conditions of
+// the Software License Agreement included with the Materials or otherwise as
+// set forth in writing and signed by you and an authorized signatory of AMD.
+// If you do not have a copy of the Software License Agreement, contact your
+// AMD representative for a copy.
+//
+// You agree that you will not reverse engineer or decompile the Materials,
+// in whole or in part, except as allowed by applicable law.
+//
+// THE MATERIALS ARE DISTRIBUTED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR
+// REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+//
+
+
+//------------------------------------------------------------------------------
+///
+/// \file
+/// protobuf specification for events
+///
+//------------------------------------------------------------------------------
+
+syntax = "proto3";
+package amdgpu;
+option go_package="gen/amdgpu";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/descriptor.proto";
+import "types.proto";
+
+service EventSvc {
+  // EventGet() API will return either all events that happened in the
+  // system until that moment or only events of interest based on the
+  // EventRequest
+  // The client is expected to periodically or on-need basis query and
+  // get the event information using this API
+  rpc EventGet(EventRequest) returns (EventResponse) {}
+  // EventSubscribe API is used to subscribe to events of interest which
+  // will result in streaming event notifications as and when events happen
+  // TODO: mockgen is erroring out, revisit
+  // rpc EventSubscribe(EventSubscribeRequest) returns (stream Event) {}
+}
+
+// experimental debug event APIs, internal debug tools and not for
+// external consumption
+service DebugEventSvc {
+  // EventGen() API will generate events
+  rpc EventGen (EventGenRequest) returns (EventGenResponse) {}
+}
+
+// event categories
+enum EventCategory {
+  EVENT_CATEGORY_NONE  = 0;
+  // catch-all event category
+  EVENT_CATEGORY_OTHER = 255;
+}
+
+// severity level of the event
+enum EventSeverity {
+  EVENT_SEVERITY_NONE     = 0;
+  EVENT_SEVERITY_DEBUG    = 1; // only for debugging purposes
+  EVENT_SEVERITY_INFO     = 2; // no action needed
+  EVENT_SEVERITY_WARN     = 3; // no immediate action needed
+  EVENT_SEVERITY_CRITICAL = 4; // immediate attention required
+}
+
+extend google.protobuf.EnumValueOptions {
+  // event category
+  EventCategory Category    = 100001;
+  // event severity
+  EventSeverity Severity    = 100002;
+  // description for the event
+  string        Description = 100003;
+}
+
+// event identifiers
+enum EventId {
+  EVENT_ID_NONE                               = 0    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_DEBUG,
+                                                      (Description) = "Invalid event"];
+  EVENT_ID_VM_PAGE_FAULT                      = 1    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_DEBUG,
+                                                      (Description) = "VM page fault occured"];
+  EVENT_ID_THERMAL_THROTTLE                   = 2    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_INFO,
+                                                      (Description) = "Clock frequency has decreased due to temperature rise"];
+  EVENT_ID_GPU_PRE_RESET                      = 3    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_INFO,
+                                                      (Description) = "GPU reset about to happen"];
+  EVENT_ID_GPU_POST_RESET                     = 4    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_WARN,
+                                                      (Description) = "GPU reset happened"];
+  EVENT_ID_RING_HANG                          = 5    [(Category)    = EVENT_CATEGORY_NONE,
+                                                      (Severity)    = EVENT_SEVERITY_WARN,
+                                                      (Description) = "GPU command ring hang"];
+}
+
+// list of events
+message EventList {
+  // list of events
+  repeated EventId Id = 1;
+}
+
+// attributes used to filter out events based
+// NOTE:
+// one of the following must be specified always or all events will be reported
+// if no attributes are specified
+message EventMatchAttrs {
+  // severity of events of interest
+  EventSeverity Severity = 1;
+  // category of events of interest
+  EventCategory Category = 2;
+}
+
+// filter criteria for events
+// NOTE:
+// 1. if no filters specified, all events are considered
+// 2. events matching with all specified filter criteria will be returned,
+//    partail matching of specified filter criteria will not be considered
+message EventFilter {
+  oneof filter {
+    // list of events of interest
+    EventList       Events     = 1;
+    // event attributes that are used to filter the events of interest
+    EventMatchAttrs MatchAttrs = 2;
+  }
+  // list of GPUs of interest
+  repeated bytes    Gpu        = 3;
+}
+
+// EventRequest is list of events of interest or some other matching criteria
+// NOTE: if list of events is empty, all events are returned by EventGet()
+message EventRequest {
+  // event filter expreses the events of interest
+  EventFilter Filter = 1;
+}
+
+// when subscribing for events, client is expected to send a list of all events
+// of interest in one shot
+message EventSubscribeRequest {
+  // event filter expreses the events of interest
+  EventFilter Filter = 1 ;
+}
+
+// event record
+message Event {
+  // unique event identifier
+  EventId                   Id          = 1;
+  // event category
+  EventCategory             Category    = 2;
+  // event severity
+  EventSeverity             Severity    = 3;
+  // event timestamp indicating when the event happened
+  google.protobuf.Timestamp Time        = 4 ;
+  // uuid of the GPU device
+  bytes                     GPU         = 5;
+  // description of the event
+  string                    Description = 6;
+  // any event specific information
+  //oneof event_info {
+  //}
+}
+
+// response to EventRequest
+message EventResponse {
+  // result of the API operation
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+  // list of events if Status is OK
+  repeated Event  Event     = 3;
+}
+
+// event generate request
+message EventGenRequest {
+  // event identifier list
+  repeated EventId Id  = 1;
+  // GPUs on which events are reported on
+  repeated bytes   GPU = 2;
+}
+
+// response to EventGenRequest
+message EventGenResponse {
+  // result of the API operation
+  types.ApiStatus ApiStatus = 1;
+}

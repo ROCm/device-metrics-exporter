@@ -1,0 +1,95 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+
+//----------------------------------------------------------------------------
+///
+/// \file
+/// AMD Metrics Services
+///
+//----------------------------------------------------------------------------
+
+
+syntax = "proto3";
+option go_package = "gen/metricssvc"; 
+
+package metricssvc;
+
+import "google/protobuf/empty.proto";
+
+enum GPUHealth {
+	UNKNOWN     = 0;
+	HEALTHY     = 1;
+	UNHEALTHY   = 2;
+}
+
+message GPUState { 
+    // id of the GPU
+    string ID = 1;
+
+    // uuid of the GPU
+    string UUID = 2;
+
+    // health state string value of GPUHealth enum
+    string Health = 3;
+
+    // Workload associated with GPU
+    repeated string AssociatedWorkload = 4;
+
+    // PCIe Bus ID refers to device ID in amd device plugin
+    string Device = 5;
+} 
+
+message GPUGetRequest {
+    // list of id of the GPU
+    repeated string ID = 1;
+}
+
+message GPUUpdateRequest {
+    // list of id of the GPU
+    repeated string ID = 1;
+    // set health state string value of GPUHealth enum
+    repeated string Health = 2;
+}
+
+message GPUStateResponse {
+    // list of requested GPU States
+    repeated GPUState GPUState = 1;
+}
+
+// only for testing ecc error simulation
+message GPUErrorRequest {
+    // id of the GPU
+    string ID = 1;
+    // list of error fields to set, this doesn't override the previous set bit
+    repeated string Fields = 2;
+    // list of error values for the respective fiels, to remove set it to 0
+    repeated uint32 Counts = 3;
+}
+
+message GPUErrorResponse {
+    string ID = 1;
+    repeated string Fields = 2;
+}
+
+service MetricsService {
+    // GPUState get API
+    rpc GetGPUState(GPUGetRequest) returns (GPUStateResponse) {}
+
+    rpc List(google.protobuf.Empty) returns (GPUStateResponse) {}
+
+    rpc SetError(GPUErrorRequest) returns (GPUErrorResponse) {}
+}

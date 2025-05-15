@@ -1,0 +1,5 @@
+Package: amdgpu-exporter
+Maintainer: AMD Inc.
+Architecture: amd64
+Description: GPU Metrics Exporter for Ubuntu
+Version: BUILD_VER_ENV

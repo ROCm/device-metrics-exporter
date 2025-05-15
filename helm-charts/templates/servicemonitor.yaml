@@ -1,0 +1,42 @@
+{{- if and .Values.serviceMonitor.enabled ($.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-amd-metrics-exporter
+  labels:
+    app: {{ .Release.Name }}-amdgpu-metrics-exporter
+    {{- if .Values.serviceMonitor.labels }}
+{{ toYaml .Values.serviceMonitor.labels | indent 4 }}
+    {{- else }}
+    release: prometheus-operator
+    {{- end }}
+spec:
+  jobLabel: app
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-amdgpu-metrics-exporter
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  attachMetadata:
+    node: {{ .Values.serviceMonitor.attachMetadata.node }}
+  endpoints:
+    - port: http
+      {{- if .Values.serviceMonitor.interval }}
+      interval: {{ .Values.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.serviceMonitor.honorLabels }}
+      honorLabels: {{ .Values.serviceMonitor.honorLabels }}
+      {{- end }}
+      {{- if .Values.serviceMonitor.honorTimestamps }}
+      honorTimestamps: {{ .Values.serviceMonitor.honorTimestamps }}
+      {{- end }}
+      {{- if .Values.serviceMonitor.relabelings }}
+      relabelings:
+{{ toYaml .Values.serviceMonitor.relabelings | indent 8 }}
+      {{- end }}
+      {{- if .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+{{ toYaml .Values.serviceMonitor.metricRelabelings | indent 8 }}
+      {{- end }}
+{{- end }}

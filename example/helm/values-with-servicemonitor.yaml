@@ -1,0 +1,47 @@
+# Sample Helm values file that enables ServiceMonitor integration
+platform: k8s
+
+nodeSelector:
+  # You can specify node selectors if needed
+  # amd.com/gpu: "true"
+
+# Add tolerations for deploying metrics exporter on tainted nodes
+tolerations:
+  #- key: "amd.com/gpu"
+  #  operator: "Exists"
+  #  effect: "NoSchedule"
+
+image:
+  repository: docker.io/rocm/device-metrics-exporter
+  tag: v1.2.0
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  ClusterIP:
+    port: 5000
+
+# Enable and configure ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  # Enable ServiceMonitor creation
+  enabled: true
+  # Scrape interval (how often Prometheus should scrape the metrics)
+  interval: "15s"
+  # Honor labels from the scraped target
+  honorLabels: true
+  # Honor timestamps from the scraped target
+  honorTimestamps: true
+  # Additional labels for the ServiceMonitor
+  labels:
+    release: prometheus
+    # This label is commonly used to match with a specific Prometheus instance
+    prometheus: kube-prometheus
+  # RelabelConfig examples for target labels (before scraping)
+  relabelings:
+    # Example 1: Add a source label to identify the target
+    - sourceLabels: [__meta_kubernetes_pod_label_app]
+      targetLabel: app_name
+      replacement: device-metrics-exporter
+    # Example 2: Add node name as a label to the target
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node_name

@@ -1,0 +1,6 @@
+#!/bin/bash
+systemctl stop amd-metrics-exporter.service
+systemctl stop gpuagent.service
+
+systemctl disable gpuagent.service
+systemctl disable amd-metrics-exporter.service

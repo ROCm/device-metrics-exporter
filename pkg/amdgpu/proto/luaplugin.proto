@@ -1,0 +1,58 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+//----------------------------------------------------------------------------
+///
+/// \file
+/// AMD Metrics Exporter configs
+///
+//----------------------------------------------------------------------------
+
+
+syntax = "proto3";
+option go_package = "gen/luaplugin";
+package luaplugin;
+
+enum Stages {
+    TaskInit = 0;
+    TaskExit = 1;
+    TaskEpilog = 2;
+}
+
+message SpankData {
+    uint32 JobID = 1;
+    uint32 JobGID = 2;
+    uint32 JobUID = 3;
+    uint32 JobStepID = 4;
+    uint32 NNodes = 5;
+    uint32 NodeID = 6;
+    uint32 NCPus = 7;
+    uint32 TaskID = 8;
+    uint32 TaskPID = 9;
+    repeated string AllocCores = 10;
+    repeated string AllocGPUs = 11;
+    uint32 GroupID = 12;
+}
+
+message Notification {
+    string Hostname = 1;
+    string UID = 2;
+    string GID = 3;
+    string Cgroup = 4;
+    string Context = 5;
+    Stages Type = 6;
+    SpankData SData = 7;
+}
