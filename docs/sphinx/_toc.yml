@@ -10,6 +10,10 @@ subtrees:
       - file: installation/gpu-operator
       - file: installation/deb-package
       - file: installation/singularity.md
+  - caption: Release Notes
+    entries:
+      - file: releasenotes
+        title: Release Notes
   - caption: Configuration
     entries:
       - file: configuration/configuration-settings   
