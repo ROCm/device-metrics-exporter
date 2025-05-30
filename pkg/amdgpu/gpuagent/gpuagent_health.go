@@ -197,7 +197,7 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 		}
 	}
 
-	gpumetrics, err = ga.getGPUs()
+	gpumetrics, _, err = ga.getGPUs()
 	if err != nil || (gpumetrics != nil && gpumetrics.ApiStatus != 0) {
 		errOccured = true
 		logger.Log.Printf("gpuagent get metrics failed %v", err)
@@ -320,7 +320,7 @@ func (ga *GPUAgentClient) updateAllGPUsHealthState(healthStr string) {
 	logger.Log.Printf("fetch GPUs and set health state")
 	// If health state is not set, fetch GPUs and mark them as unhealthy
 	wls, _ := ga.ListWorkloads()
-	gpus, err := ga.getGPUs()
+	gpus, _, err := ga.getGPUs()
 	if err != nil || (gpus != nil && gpus.ApiStatus != 0) {
 		logger.Log.Printf("gpuagent get GPUs failed %v", err)
 		return

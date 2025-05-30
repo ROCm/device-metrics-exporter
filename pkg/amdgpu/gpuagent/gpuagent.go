@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -237,7 +238,7 @@ func (ga *GPUAgentClient) getProfilerMetrics() (map[string]map[string]float64, e
 
 func (ga *GPUAgentClient) getMetricsAll() error {
 	// send the req to gpuclient
-	resp, err := ga.getGPUs()
+	resp, partitionMap, err := ga.getGPUs()
 	if err != nil {
 		return err
 	}
@@ -259,16 +260,16 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 			//nolint
 			gpuProfMetrics, _ = pmetrics[gpuid]
 		}
-		ga.updateGPUInfoToMetrics(wls, gpu, gpuProfMetrics)
+		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, gpuProfMetrics)
 	}
 
 	return nil
 }
 
-func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, error) {
+func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdgpu.GPU, error) {
 	if !ga.isActive() {
 		if err := ga.reconnect(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -278,7 +279,7 @@ func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, error) {
 	req := &amdgpu.GPUGetRequest{}
 	res, err := ga.gpuclient.GPUGet(ctx, req)
 	if err != nil {
-		return res, err
+		return res, nil, err
 	}
 	// filter out logical GPU
 	nres := &amdgpu.GPUGetResponse{
@@ -286,14 +287,23 @@ func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, error) {
 		Response:  []*amdgpu.GPU{},
 		ErrorCode: res.ErrorCode,
 	}
+	partitionMap := make(map[string]*amdgpu.GPU)
 	for _, gpu := range res.Response {
+		if gpu.Status.PCIeStatus != nil {
+			gpuPcieAddr := strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
+			pcieBaseAddr := utils.GetPCIeBaseAddress(gpuPcieAddr)
+			// parent gpu map is created only for partitioned gpu
+			if (pcieBaseAddr != gpuPcieAddr) && (gpu.Status.GetPartitionId() == 0) {
+				partitionMap[pcieBaseAddr] = gpu
+			}
+		}
 		if len(gpu.Status.GPUPartition) != 0 {
 			// skip logical gpu objects
 			continue
 		}
 		nres.Response = append(nres.Response, gpu)
 	}
-	return nres, err
+	return nres, partitionMap, err
 }
 
 func (ga *GPUAgentClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.EventResponse, error) {

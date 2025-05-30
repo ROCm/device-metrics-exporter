@@ -19,6 +19,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 )
@@ -78,4 +79,13 @@ func IsKubernetes() bool {
 		return true
 	}
 	return false
+}
+
+// GetPCIeBaseAddress extracts the base address (domain:bus:device) from a full PCIe address.
+func GetPCIeBaseAddress(fullAddr string) string {
+	parts := strings.Split(fullAddr, ".")
+	if len(parts) == 2 {
+		return parts[0]
+	}
+	return fullAddr // If malformed or no function, return as-is
 }

@@ -1422,7 +1422,7 @@ func getGPUInstanceID(gpu *amdgpu.GPU) int {
 
 func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 	// send the req to gpuclient
-	resp, err := ga.getGPUs()
+	resp, partitionMap, err := ga.getGPUs()
 	if err != nil {
 		return err
 	}
@@ -1453,7 +1453,7 @@ func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 	newGPUState := ga.processEccErrorMetrics(resp.Response, wls)
 	_ = ga.updateNewHealthState(newGPUState)
 	for _, gpu := range resp.Response {
-		ga.updateGPUInfoToMetrics(wls, gpu, nil)
+		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, nil)
 	}
 	return nil
 }
@@ -1485,7 +1485,7 @@ func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu
 	return nil
 }
 
-func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workload, gpu *amdgpu.GPU) map[string]string {
+func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, partitionMap map[string]*amdgpu.GPU) map[string]string {
 	var podInfo scheduler.PodResourceInfo
 	var jobInfo scheduler.JobInfo
 
@@ -1496,8 +1496,16 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 			jobInfo = wl.Info.(scheduler.JobInfo)
 		}
 	}
-
 	labels := make(map[string]string)
+	var parentPartition *amdgpu.GPU
+
+	if partitionMap != nil && gpu.Status.PCIeStatus != nil {
+		gpuPcieAddr := strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
+		pcieBaseAddr := utils.GetPCIeBaseAddress(gpuPcieAddr)
+		if p, ok := partitionMap[pcieBaseAddr]; ok {
+			parentPartition = p
+		}
+	}
 
 	for ckey, enabled := range exportLables {
 		if !enabled {
@@ -1506,8 +1514,8 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 		key := strings.ToLower(ckey)
 		switch ckey {
 		case exportermetrics.GPUMetricLabel_GPU_UUID.String():
-			uuid, _ := uuid.FromBytes(gpu.Spec.Id)
-			labels[key] = uuid.String()
+			guuid, _ := uuid.FromBytes(gpu.Spec.Id)
+			labels[key] = guuid.String()
 		case exportermetrics.GPUMetricLabel_GPU_ID.String():
 			labels[key] = fmt.Sprintf("%v", getGPUInstanceID(gpu))
 		case exportermetrics.GPUMetricLabel_POD.String():
@@ -1525,13 +1533,29 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 		case exportermetrics.GPUMetricLabel_CLUSTER_NAME.String():
 			labels[key] = jobInfo.Cluster
 		case exportermetrics.GPUMetricLabel_SERIAL_NUMBER.String():
-			labels[key] = gpu.Status.SerialNum
+			if parentPartition != nil {
+				labels[key] = parentPartition.Status.SerialNum
+			} else {
+				labels[key] = gpu.Status.SerialNum
+			}
 		case exportermetrics.GPUMetricLabel_CARD_SERIES.String():
-			labels[key] = gpu.Status.CardSeries
+			if parentPartition != nil {
+				labels[key] = parentPartition.Status.CardSeries
+			} else {
+				labels[key] = gpu.Status.CardSeries
+			}
 		case exportermetrics.GPUMetricLabel_CARD_MODEL.String():
-			labels[key] = gpu.Status.CardModel
+			if parentPartition != nil {
+				labels[key] = parentPartition.Status.CardModel
+			} else {
+				labels[key] = gpu.Status.CardModel
+			}
 		case exportermetrics.GPUMetricLabel_CARD_VENDOR.String():
-			labels[key] = gpu.Status.CardVendor
+			if parentPartition != nil {
+				labels[key] = parentPartition.Status.CardVendor
+			} else {
+				labels[key] = gpu.Status.CardVendor
+			}
 		case exportermetrics.GPUMetricLabel_DRIVER_VERSION.String():
 			labels[key] = gpu.Status.DriverVersion
 		case exportermetrics.GPUMetricLabel_VBIOS_VERSION.String():
@@ -1542,10 +1566,16 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 			labels[key] = fmt.Sprintf("%v", gpu.Status.PartitionId)
 		case exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String():
 			partitionType := gpu.Spec.ComputePartitionType
+			if parentPartition != nil {
+				partitionType = parentPartition.Spec.ComputePartitionType
+			}
 			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_COMPUTE_PARTITION_TYPE_")
 			labels[key] = strings.ToLower(trimmedValue)
 		case exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String():
 			partitionType := gpu.Spec.MemoryPartitionType
+			if parentPartition != nil {
+				partitionType = parentPartition.Spec.MemoryPartitionType
+			}
 			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_MEMORY_PARTITION_TYPE_")
 			labels[key] = strings.ToLower(trimmedValue)
 		default:
@@ -1622,13 +1652,13 @@ func normalizeUint64(x interface{}) float64 {
 	return 0
 }
 
-func (ga *GPUAgentClient) updateGPUInfoToMetrics(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, profMetrics map[string]float64) {
+func (ga *GPUAgentClient) updateGPUInfoToMetrics(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, partitionMap map[string]*amdgpu.GPU, profMetrics map[string]float64) {
 	if !ga.exporterEnabledGPU(getGPUInstanceID(gpu)) {
 		return
 	}
 
-	labels := ga.populateLabelsFromGPU(wls, gpu)
-	labelsWithIndex := ga.populateLabelsFromGPU(wls, gpu)
+	labels := ga.populateLabelsFromGPU(wls, gpu, partitionMap)
+	labelsWithIndex := ga.populateLabelsFromGPU(wls, gpu, partitionMap)
 	status := gpu.Status
 	stats := gpu.Stats
 	ga.m.gpuPackagePower.With(labels).Set(normalizeUint64(stats.PackagePower))
