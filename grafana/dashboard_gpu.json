@@ -33,7 +33,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "11.2.2"
+      "version": "12.0.0"
     },
     {
       "type": "datasource",
@@ -45,6 +45,12 @@
       "type": "panel",
       "id": "stat",
       "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
       "version": ""
     },
     {
@@ -100,7 +106,7 @@
         "content": "##### VENDOR\n${g_card_vendor}\n\n##### SERIES\n${g_card_series}\n\n##### MODEL\n${g_card_model}\n\n##### SERIAL\n${g_serial_number}\n\n##### UUID\n${g_gpu_uuid}",
         "mode": "markdown"
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "type": "text"
     },
     {
@@ -120,7 +126,7 @@
         "content": "#### HOST\n${g_hostname}\n\n#### GPU ID\n${g_gpu_id}\n\n#### PARTITION\n${g_gpu_partition_id}",
         "mode": "markdown"
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "type": "text"
     },
     {
@@ -139,8 +145,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -174,7 +179,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -244,8 +249,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -278,7 +282,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -329,8 +333,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -365,7 +368,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -492,8 +495,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           }
@@ -524,7 +526,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -596,8 +598,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -625,10 +626,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -666,8 +669,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -704,7 +706,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -769,8 +771,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -805,7 +806,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -844,8 +845,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -878,7 +878,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -902,76 +902,24 @@
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 2,
+        "h": 4,
         "w": 3,
         "x": 3,
         "y": 6
       },
-      "id": 42,
+      "id": 25,
       "options": {
-        "colorMode": "none",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^vbios_version$/",
-          "values": false
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
+        "content": "#### VBIOS\n${g_gpu_vbios}\n\n#### DRIVER\n${g_driver}",
+        "mode": "markdown"
       },
-      "pluginVersion": "11.2.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "group by (vbios_version) ({\"${g_metrics_prefix}gpu_health\", gpu_uuid=\"$g_gpu_uuid\"})",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "VBIOS VERSION",
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {}
-        }
-      ],
-      "type": "stat"
+      "pluginVersion": "12.0.0",
+      "type": "text"
     },
     {
       "datasource": {
@@ -990,8 +938,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1027,7 +974,7 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1076,8 +1023,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1112,7 +1058,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1133,78 +1079,6 @@
         }
       ],
       "title": "Total Uncorrectable ECC",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 3,
-        "y": 8
-      },
-      "id": 43,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^driver_version$/",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.2.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "group by (driver_version) ({\"${g_metrics_prefix}gpu_health\", gpu_uuid=\"$g_gpu_uuid\"})",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "DRIVER VERSION",
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {}
-        }
-      ],
       "type": "stat"
     },
     {
@@ -1257,8 +1131,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1286,10 +1159,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1361,8 +1236,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1390,11 +1264,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1496,8 +1371,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1525,10 +1399,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1613,8 +1489,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1642,10 +1517,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1653,7 +1530,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "expr": "${g_metrics_prefix}gpu_edge_temperature{gpu_uuid=\"$g_gpu_uuid\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1734,8 +1611,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1763,10 +1639,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1837,8 +1715,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1866,10 +1743,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "datasource": {
@@ -1930,11 +1809,249 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 148
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error Name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 210
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 72
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Driver"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 74
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compute Partition"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 152
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory Partition"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 152
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU ID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Host"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 43,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 0,
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Error Name"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.0",
+      "targets": [
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "{__name__=~\".*ecc.*\", gpu_uuid=\"$g_gpu_uuid\", hostname=\"$g_hostname\"}",
+          "format": "table",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ],
+      "title": "GPU Errors",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "card_model": true,
+              "card_series": false,
+              "card_vendor": true,
+              "cluster_name": true,
+              "container": true,
+              "endpoint": true,
+              "gpu_uuid": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "serial_number": true,
+              "service": true,
+              "vbios_version": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "Time": 0,
+              "Value": 2,
+              "__name__": 1,
+              "card_model": 20,
+              "card_series": 5,
+              "card_vendor": 19,
+              "cluster_name": 11,
+              "container": 17,
+              "driver_version": 4,
+              "endpoint": 12,
+              "gpu_compute_partition_type": 7,
+              "gpu_id": 6,
+              "gpu_memory_partition_type": 8,
+              "gpu_partition_id": 9,
+              "gpu_uuid": 10,
+              "hostname": 3,
+              "instance": 13,
+              "job": 15,
+              "namespace": 14,
+              "pod": 16,
+              "serial_number": 21,
+              "service": 18,
+              "vbios_version": 22
+            },
+            "renameByName": {
+              "__name__": "Error Name",
+              "card_series": "Card Series",
+              "cluster_name": "",
+              "driver_version": "Driver",
+              "gpu_compute_partition_type": "Compute Partition",
+              "gpu_id": "GPU ID",
+              "gpu_memory_partition_type": "Memory Partition",
+              "gpu_partition_id": "Partition ID",
+              "gpu_uuid": "",
+              "hostname": "Host"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
       "gridPos": {
         "h": 2,
         "w": 2,
         "x": 22,
-        "y": 24
+        "y": 33
       },
       "id": 40,
       "options": {
@@ -1943,22 +2060,21 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "v1.2.1",
+        "content": "main",
         "mode": "markdown"
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.0.0",
       "title": "Version",
       "type": "text"
     }
   ],
   "refresh": "",
-  "schemaVersion": 39,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
           "text": "",
           "value": ""
         },
@@ -1974,7 +2090,6 @@
           }
         ],
         "query": "",
-        "skipUrlSync": false,
         "type": "textbox"
       },
       {
@@ -1987,7 +2102,6 @@
         "hide": 2,
         "includeAll": false,
         "label": "GPU UUID",
-        "multi": false,
         "name": "g_gpu_uuid",
         "options": [],
         "query": {
@@ -1997,7 +2111,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 7,
         "type": "query"
       },
@@ -2008,10 +2121,8 @@
           "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(cluster_name)",
-        "hide": 0,
         "includeAll": false,
         "label": "Cluster",
-        "multi": false,
         "name": "g_cluster_name",
         "options": [],
         "query": {
@@ -2021,7 +2132,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 7,
         "type": "query"
       },
@@ -2032,10 +2142,8 @@
           "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({cluster_name=\"$g_cluster_name\"},hostname)",
-        "hide": 0,
         "includeAll": false,
         "label": "Hostname",
-        "multi": false,
         "name": "g_hostname",
         "options": [],
         "query": {
@@ -2045,7 +2153,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 7,
         "type": "query"
       },
@@ -2056,10 +2163,8 @@
           "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({hostname=\"$g_hostname\"},gpu_id)",
-        "hide": 0,
         "includeAll": false,
         "label": "GPU ID",
-        "multi": false,
         "name": "g_gpu_id",
         "options": [],
         "query": {
@@ -2069,7 +2174,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 7,
         "type": "query"
       },
@@ -2080,10 +2184,8 @@
           "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values({hostname=\"$g_hostname\", gpu_id=\"$g_gpu_id\"},gpu_partition_id)",
-        "hide": 0,
         "includeAll": true,
         "label": "Partition",
-        "multi": false,
         "name": "g_gpu_partition_id",
         "options": [],
         "query": {
@@ -2093,7 +2195,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
         "sort": 7,
         "type": "query"
       },
@@ -2106,7 +2207,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},vbios_version)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_gpu_vbios",
         "options": [],
         "query": {
@@ -2116,8 +2216,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
@@ -2129,7 +2227,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},driver_version)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_driver",
         "options": [],
         "query": {
@@ -2139,8 +2236,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
@@ -2152,7 +2247,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},card_vendor)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_card_vendor",
         "options": [],
         "query": {
@@ -2162,8 +2256,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
@@ -2175,7 +2267,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},card_series)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_card_series",
         "options": [],
         "query": {
@@ -2185,8 +2276,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
@@ -2198,7 +2287,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},card_model)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_card_model",
         "options": [],
         "query": {
@@ -2208,8 +2296,6 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       },
       {
@@ -2221,7 +2307,6 @@
         "definition": "label_values({gpu_uuid=\"$g_gpu_uuid\"},serial_number)",
         "hide": 2,
         "includeAll": false,
-        "multi": false,
         "name": "g_serial_number",
         "options": [],
         "query": {
@@ -2231,14 +2316,12 @@
         },
         "refresh": 2,
         "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
         "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
