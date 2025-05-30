@@ -2060,7 +2060,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "main",
+        "content": "v1.2.1",
         "mode": "markdown"
       },
       "pluginVersion": "12.0.0",
@@ -2321,7 +2321,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
