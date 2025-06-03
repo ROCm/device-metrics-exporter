@@ -252,6 +252,10 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 		//continue as this may not be available at this time
 		pmetrics = nil
 	}
+	usedVRAM, err := ga.fsysDeviceHandler.GetAllUsedVRAM()
+	if err != nil {
+		logger.Log.Printf("GetAllUsedVRAM failed with err : %v", err)
+	}
 	for _, gpu := range resp.Response {
 		var gpuProfMetrics map[string]float64
 		// if available use the data
@@ -260,7 +264,7 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 			//nolint
 			gpuProfMetrics, _ = pmetrics[gpuid]
 		}
-		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, gpuProfMetrics)
+		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, gpuProfMetrics, usedVRAM)
 	}
 
 	return nil

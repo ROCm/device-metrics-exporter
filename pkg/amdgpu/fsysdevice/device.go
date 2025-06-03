@@ -36,6 +36,64 @@ var (
 	once sync.Once
 )
 
+func getUsedVRAM(nodeid string) (float64, error) {
+	if nodeid == "" {
+		return 0, fmt.Errorf("nodeid is empty")
+	}
+
+	filePath := filepath.Join("/sys/class/kfd/kfd/topology/nodes", nodeid, "mem_banks/0/used_memory")
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to stat file: %w", err)
+	}
+	if fileInfo.IsDir() {
+		return 0, fmt.Errorf("expected file but found directory: %s", filePath)
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	strVal := string(data)
+	strVal = regexp.MustCompile(`\s+`).ReplaceAllString(strVal, "")
+	if strVal == "" {
+		return 0, fmt.Errorf("file is empty: %s", filePath)
+	}
+
+	uintVal, err := strconv.ParseUint(strVal, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse uint64 from file: %w", err)
+	}
+
+	usedVRAM := float64(uintVal) / (1024 * 1024)
+	return usedVRAM, nil
+}
+
+func getAllUsedVRAM() (map[string]float64, error) {
+	result := make(map[string]float64)
+	nodesPath := "/sys/class/kfd/kfd/topology/nodes"
+
+	entries, err := os.ReadDir(nodesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read nodes directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		nodeid := entry.Name()
+		usedVRAM, err := getUsedVRAM(nodeid)
+		if err != nil {
+			// Optionally log error and continue
+			continue
+		}
+		result[nodeid] = usedVRAM
+	}
+	return result, nil
+}
+
 // FindAMDGPUDevices scans the system for AMDGPU XCP devices and returns a map
 // where the key is "gpu_id" and value is device name "amdgpu_xcp_N"
 func FindAMDGPUDevices() (map[string]string, error) {
@@ -78,6 +136,7 @@ func FindAMDGPUDevices() (map[string]string, error) {
 }
 
 type FsysDevice struct {
+	mu      sync.Mutex
 	lgpuMap map[string]string
 }
 
@@ -102,9 +161,21 @@ func (fs *FsysDevice) init() {
 	fs.lgpuMap = lgpuMap
 }
 
-func (fs *FsysDevice) GetDeviceNameFromID(gpuid string) (string, error) {
-	if devicename, ok := fs.lgpuMap[gpuid]; ok {
+func (fs *FsysDevice) GetDeviceNameFromRenderID(renderId string) (string, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if devicename, ok := fs.lgpuMap[renderId]; ok {
 		return devicename, nil
 	}
 	return "", fmt.Errorf("device not found")
+}
+
+func (fs *FsysDevice) GetUsedVRAM(nodeid string) (float64, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return getUsedVRAM(nodeid)
+}
+
+func (fs *FsysDevice) GetAllUsedVRAM() (map[string]float64, error) {
+	return getAllUsedVRAM()
 }

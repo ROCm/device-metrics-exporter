@@ -1451,9 +1451,13 @@ func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 	// update periodically. this is required only for first state
 	// of the metrics pull response from prometheus
 	newGPUState := ga.processEccErrorMetrics(resp.Response, wls)
+	usedVRAM, err := ga.fsysDeviceHandler.GetAllUsedVRAM()
+	if err != nil {
+		logger.Log.Printf("GetAllUsedVRAM failed with err : %v", err)
+	}
 	_ = ga.updateNewHealthState(newGPUState)
 	for _, gpu := range resp.Response {
-		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, nil)
+		ga.updateGPUInfoToMetrics(wls, gpu, partitionMap, nil, usedVRAM)
 	}
 	return nil
 }
@@ -1652,7 +1656,13 @@ func normalizeUint64(x interface{}) float64 {
 	return 0
 }
 
-func (ga *GPUAgentClient) updateGPUInfoToMetrics(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, partitionMap map[string]*amdgpu.GPU, profMetrics map[string]float64) {
+func (ga *GPUAgentClient) updateGPUInfoToMetrics(
+	wls map[string]scheduler.Workload,
+	gpu *amdgpu.GPU,
+	partitionMap map[string]*amdgpu.GPU,
+	profMetrics map[string]float64,
+	usedPartitionVram map[string]float64,
+) {
 	if !ga.exporterEnabledGPU(getGPUInstanceID(gpu)) {
 		return
 	}
@@ -1823,18 +1833,22 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(wls map[string]scheduler.Worklo
 		ga.m.gpuUsedGTT.With(labels).Set(normalizeUint64(vramUsage.UsedGTT))
 		ga.m.gpuFreeGTT.With(labels).Set(normalizeUint64(vramUsage.FreeGTT))
 	}
-	if vramStatus != nil && vramUsage != nil {
-		// use if its valid
-		if totalVRAM = normalizeUint64(vramStatus.Size); totalVRAM != 0 {
-			usedVRAM = normalizeUint64(vramUsage.UsedVRAM)
-			freeVRAM = totalVRAM - usedVRAM
-		} else if vramUsage != nil {
-			if totalVRAM = normalizeUint64(vramUsage.TotalVRAM); totalVRAM != 0 {
-				usedVRAM = normalizeUint64(vramUsage.UsedVRAM)
-				freeVRAM = totalVRAM - usedVRAM
-			}
+	vramFound := false
+	if vramStatus != nil {
+		totalVRAM = normalizeUint64(vramStatus.Size)
+	}
+	// populare from drm sysfs
+	if gpu.Status.PartitionId != 0 && usedPartitionVram != nil {
+		nodeID := fmt.Sprintf("%v", gpu.Status.NodeId)
+		if v, ok := usedPartitionVram[nodeID]; ok {
+			usedVRAM = v
+			vramFound = true
 		}
 	}
+	if !vramFound && vramUsage != nil {
+		usedVRAM = normalizeUint64(vramUsage.UsedVRAM)
+	}
+	freeVRAM = totalVRAM - usedVRAM
 	if totalVRAM != 0 {
 		ga.m.gpuTotalVram.With(labels).Set(totalVRAM)
 		ga.m.gpuUsedVram.With(labels).Set(usedVRAM)
