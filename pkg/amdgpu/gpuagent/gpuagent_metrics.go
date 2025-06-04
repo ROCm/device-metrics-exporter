@@ -1837,8 +1837,8 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(
 	if vramStatus != nil {
 		totalVRAM = normalizeUint64(vramStatus.Size)
 	}
-	// populare from drm sysfs
-	if gpu.Status.PartitionId != 0 && usedPartitionVram != nil {
+	// populate from drm sysfs
+	if usedPartitionVram != nil {
 		nodeID := fmt.Sprintf("%v", gpu.Status.NodeId)
 		if v, ok := usedPartitionVram[nodeID]; ok {
 			usedVRAM = v
