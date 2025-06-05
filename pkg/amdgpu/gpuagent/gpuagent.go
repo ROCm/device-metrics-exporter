@@ -19,7 +19,6 @@ package gpuagent
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -252,10 +251,16 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 		//continue as this may not be available at this time
 		pmetrics = nil
 	}
+	k8PodLabelsMap, err = ga.FetchPodLabelsForNode()
+	if err != nil {
+		logger.Log.Printf("FetchPodLabelsForNode failed with err : %v", err)
+	}
 	usedVRAM, err := ga.fsysDeviceHandler.GetAllUsedVRAM()
 	if err != nil {
 		logger.Log.Printf("GetAllUsedVRAM failed with err : %v", err)
 	}
+	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
+	ga.m.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	for _, gpu := range resp.Response {
 		var gpuProfMetrics map[string]float64
 		// if available use the data
@@ -393,24 +398,14 @@ func (ga *GPUAgentClient) Close() {
 	ga.cancel()
 }
 
-func (ga *GPUAgentClient) FetchPodLabelsForNode(nodeName string) (map[PodUniqueKey]map[string]string, error) {
-	// Initialize the resulting map
-	k8PodLabelsMap := make(map[PodUniqueKey]map[string]string)
-
-	pods, err := ga.k8sLabelClient.GetAllPods(nodeName)
-	if err != nil {
-		log.Printf("Error fetching pods for node %v: %v", nodeName, err)
-		return nil, err
-	}
-
-	// Process each pod and populate the map
-	for _, pod := range pods.Items {
-		podKey := PodUniqueKey{
-			PodName:   pod.Name,
-			Namespace: pod.Namespace,
+func (ga *GPUAgentClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
+	listMap := make(map[string]map[string]string)
+	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
+		hostname, err := ga.getHostName()
+		if err != nil {
+			logger.Log.Printf("Error fetching hostname to filter pod labels: %v", err)
 		}
-		k8PodLabelsMap[podKey] = pod.Labels
+		return ga.k8sLabelClient.GetAllPods(hostname)
 	}
-
-	return k8PodLabelsMap, nil
+	return listMap, nil
 }

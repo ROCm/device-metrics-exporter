@@ -31,6 +31,7 @@ import (
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -226,6 +227,7 @@ func main() {
 		setId        = flag.String("id", "1", "gpu id")
 		getNodeLabel = flag.Bool("label", false, "get k8s node label")
 		podRes       = flag.Bool("pod", false, "get node resource info")
+		nodePod      = flag.Bool("npod", false, "get pod labels from node")
 		devMap       = flag.Bool("gpu", false, "show logical gpu device map")
 		eccFile      = flag.String("ecc-file-path", "", "json ecc err file")
 	)
@@ -248,13 +250,29 @@ func main() {
 		return
 	}
 
+	if *nodePod {
+		nodeName := utils.GetNodeName()
+		if nodeName == "" {
+			fmt.Println("not a k8s deployment")
+			return
+		}
+		kc := k8sclient.NewClient(context.Background())
+		labels, err := kc.GetAllPods(nodeName)
+		if err != nil {
+			fmt.Printf("err: %+v", err)
+			return
+		}
+		fmt.Printf("node[%v] labels[%+v]", nodeName, labels)
+		return
+	}
+
 	if *devMap {
 		getDeviceMap()
 		return
 	}
 
 	if *getNodeLabel {
-		nodeName := os.Getenv("NODE_NAME")
+		nodeName := utils.GetNodeName()
 		if nodeName == "" {
 			fmt.Println("not a k8s deployment")
 			return

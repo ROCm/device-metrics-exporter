@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -34,11 +35,6 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-type PodUniqueKey struct {
-	PodName   string
-	Namespace string
-}
 
 type FieldMeta struct {
 	Metric prometheus.GaugeVec
@@ -66,7 +62,7 @@ var (
 	gpuSelectorMap    map[int]bool
 	customLabelMap    map[string]string
 	extraPodLabelsMap map[string]string
-	k8PodLabelsMap    map[PodUniqueKey]map[string]string
+	k8PodLabelsMap    map[string]map[string]string
 )
 
 const (
@@ -77,7 +73,7 @@ const (
 )
 
 type metrics struct {
-	gpuNodesTotal              prometheus.Gauge
+	gpuNodesTotal              prometheus.GaugeVec
 	gpuPackagePower            prometheus.GaugeVec
 	gpuAvgPkgPower             prometheus.GaugeVec
 	gpuEdgeTemp                prometheus.GaugeVec
@@ -250,6 +246,17 @@ func (ga *GPUAgentClient) ResetMetrics() error {
 	return nil
 }
 
+func (ga *GPUAgentClient) GetExporterNonGPULabels() []string {
+	labelList := []string{
+		strings.ToLower(exportermetrics.GPUMetricLabel_HOSTNAME.String()),
+	}
+	// Add custom labels
+	for label, _ := range customLabelMap {
+		labelList = append(labelList, strings.ToLower(label))
+	}
+	return labelList
+}
+
 func (ga *GPUAgentClient) GetExportLabels() []string {
 	labelList := []string{}
 	for key, enabled := range exportLables {
@@ -334,7 +341,7 @@ func (ga *GPUAgentClient) initProfilerMetrics(config *exportermetrics.GPUMetricC
 func initPodExtraLabels(config *exportermetrics.GPUMetricConfig) {
 	// Map of pod labels
 	extraPodLabelsMap = make(map[string]string)
-	k8PodLabelsMap = make(map[PodUniqueKey]map[string]string)
+	k8PodLabelsMap = make(map[string]map[string]string)
 
 	if config != nil && config.GetExtraPodLabels() != nil {
 		extraLabels := config.GetExtraPodLabels()
@@ -446,6 +453,7 @@ func initFieldConfig(config *exportermetrics.GPUMetricConfig) {
 func (ga *GPUAgentClient) initFieldMetricsMap() {
 	//nolint
 	fieldMetricsMap = map[string]FieldMeta{
+		exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String():                                    FieldMeta{Metric: ga.m.gpuNodesTotal},
 		exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String():                                  FieldMeta{Metric: ga.m.gpuPackagePower},
 		exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String():                          FieldMeta{Metric: ga.m.gpuAvgPkgPower},
 		exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String():                               FieldMeta{Metric: ga.m.gpuEdgeTemp},
@@ -629,14 +637,14 @@ func (ga *GPUAgentClient) initProfilerMetricsField() {
 }
 
 func (ga *GPUAgentClient) initPrometheusMetrics() {
+	nonGpuLabels := ga.GetExporterNonGPULabels()
 	labels := ga.GetExportLabels()
 	ga.m = &metrics{
-		gpuNodesTotal: prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Name: "gpu_nodes_total",
-				Help: "Number of GPUs in the node",
-			},
-		),
+		gpuNodesTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gpu_nodes_total",
+			Help: "Number of GPUs in the node",
+		},
+			nonGpuLabels),
 		gpuPackagePower: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gpu_package_power",
 			Help: "Current socket power in Watts",
@@ -1384,13 +1392,6 @@ func (ga *GPUAgentClient) initFieldRegistration() error {
 		}
 		prommetric, ok := fieldMetricsMap[field]
 		if !ok {
-			// handle one special non vector field
-			if field == exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String() {
-				if err := ga.mh.RegisterMetric(ga.m.gpuNodesTotal); err != nil {
-					logger.Log.Printf("Field %v registration failed with err : %v", field, err)
-				}
-				continue
-			}
 			logger.Log.Printf("invalid field found ignore %v", field)
 			continue
 		}
@@ -1416,6 +1417,13 @@ func (ga *GPUAgentClient) InitConfigs() error {
 	return ga.initFieldRegistration()
 }
 
+func getGPURenderId(gpu *amdgpu.GPU) string {
+	if gpu != nil && gpu.Status != nil {
+		return fmt.Sprintf("%v", gpu.Status.DRMRenderId)
+	}
+	return ""
+}
+
 func getGPUInstanceID(gpu *amdgpu.GPU) int {
 	return int(gpu.Status.Index)
 }
@@ -1435,18 +1443,9 @@ func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 		logger.Log.Printf("Error listing workloads: %v", err)
 	}
 
-	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
-		hostname, err := ga.getHostName()
-		if err != nil {
-			logger.Log.Printf("Error fetching hostname to filter pod labels: %v", err)
-		}
-		k8PodLabelsMap, err = ga.FetchPodLabelsForNode(hostname)
-		if err != nil {
-			logger.Log.Printf("Error fetching all pods for the given hostname to filter pod labels: %v", err)
-		}
-	}
-
-	ga.m.gpuNodesTotal.Set(float64(len(resp.Response)))
+	k8PodLabelsMap, err = ga.FetchPodLabelsForNode()
+	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
+	ga.m.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
 	// update periodically. this is required only for first state
 	// of the metrics pull response from prometheus
@@ -1467,6 +1466,9 @@ func (ga *GPUAgentClient) UpdateMetricsStats() error {
 }
 
 func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, filter bool) *scheduler.Workload {
+	if gpu == nil || gpu.Status == nil {
+		return nil
+	}
 	if filter && !ga.checkExportLabels(exportLables) {
 		// return empty if labels are not set to be exportered
 		return nil
@@ -1489,7 +1491,10 @@ func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu
 	return nil
 }
 
-func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, partitionMap map[string]*amdgpu.GPU) map[string]string {
+func (ga *GPUAgentClient) populateLabelsFromGPU(
+	wls map[string]scheduler.Workload,
+	gpu *amdgpu.GPU,
+	partitionMap map[string]*amdgpu.GPU) map[string]string {
 	var podInfo scheduler.PodResourceInfo
 	var jobInfo scheduler.JobInfo
 
@@ -1503,7 +1508,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 	labels := make(map[string]string)
 	var parentPartition *amdgpu.GPU
 
-	if partitionMap != nil && gpu.Status.PCIeStatus != nil {
+	if partitionMap != nil && gpu != nil && gpu.Status.PCIeStatus != nil {
 		gpuPcieAddr := strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
 		pcieBaseAddr := utils.GetPCIeBaseAddress(gpuPcieAddr)
 		if p, ok := partitionMap[pcieBaseAddr]; ok {
@@ -1518,83 +1523,123 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(wls map[string]scheduler.Workloa
 		key := strings.ToLower(ckey)
 		switch ckey {
 		case exportermetrics.GPUMetricLabel_GPU_UUID.String():
-			guuid, _ := uuid.FromBytes(gpu.Spec.Id)
-			labels[key] = guuid.String()
+			if gpu != nil {
+				guuid, _ := uuid.FromBytes(gpu.Spec.Id)
+				labels[key] = guuid.String()
+			}
 		case exportermetrics.GPUMetricLabel_GPU_ID.String():
-			labels[key] = fmt.Sprintf("%v", getGPUInstanceID(gpu))
+			if gpu != nil {
+				labels[key] = fmt.Sprintf("%v", getGPUInstanceID(gpu))
+			}
 		case exportermetrics.GPUMetricLabel_POD.String():
-			labels[key] = podInfo.Pod
+			if gpu != nil {
+				labels[key] = podInfo.Pod
+			}
 		case exportermetrics.GPUMetricLabel_NAMESPACE.String():
-			labels[key] = podInfo.Namespace
+			if gpu != nil {
+				labels[key] = podInfo.Namespace
+			}
 		case exportermetrics.GPUMetricLabel_CONTAINER.String():
-			labels[key] = podInfo.Container
+			if gpu != nil {
+				labels[key] = podInfo.Container
+			}
 		case exportermetrics.GPUMetricLabel_JOB_ID.String():
-			labels[key] = jobInfo.Id
+			if gpu != nil {
+				labels[key] = jobInfo.Id
+			}
 		case exportermetrics.GPUMetricLabel_JOB_USER.String():
-			labels[key] = jobInfo.User
+			if gpu != nil {
+				labels[key] = jobInfo.User
+			}
 		case exportermetrics.GPUMetricLabel_JOB_PARTITION.String():
-			labels[key] = jobInfo.Partition
+			if gpu != nil {
+				labels[key] = jobInfo.Partition
+			}
 		case exportermetrics.GPUMetricLabel_CLUSTER_NAME.String():
-			labels[key] = jobInfo.Cluster
+			if gpu != nil {
+				labels[key] = jobInfo.Cluster
+			}
 		case exportermetrics.GPUMetricLabel_SERIAL_NUMBER.String():
-			if parentPartition != nil {
-				labels[key] = parentPartition.Status.SerialNum
-			} else {
-				labels[key] = gpu.Status.SerialNum
+			if gpu != nil {
+				if parentPartition != nil {
+					labels[key] = parentPartition.Status.SerialNum
+				} else {
+					labels[key] = gpu.Status.SerialNum
+				}
 			}
 		case exportermetrics.GPUMetricLabel_CARD_SERIES.String():
-			if parentPartition != nil {
-				labels[key] = parentPartition.Status.CardSeries
-			} else {
-				labels[key] = gpu.Status.CardSeries
+			if gpu != nil {
+				if parentPartition != nil {
+					labels[key] = parentPartition.Status.CardSeries
+				} else {
+					labels[key] = gpu.Status.CardSeries
+				}
 			}
 		case exportermetrics.GPUMetricLabel_CARD_MODEL.String():
-			if parentPartition != nil {
-				labels[key] = parentPartition.Status.CardModel
-			} else {
-				labels[key] = gpu.Status.CardModel
+			if gpu != nil {
+				if parentPartition != nil {
+					labels[key] = parentPartition.Status.CardModel
+				} else {
+					labels[key] = gpu.Status.CardModel
+				}
 			}
 		case exportermetrics.GPUMetricLabel_CARD_VENDOR.String():
-			if parentPartition != nil {
-				labels[key] = parentPartition.Status.CardVendor
-			} else {
-				labels[key] = gpu.Status.CardVendor
+			if gpu != nil {
+				if parentPartition != nil {
+					labels[key] = parentPartition.Status.CardVendor
+				} else {
+					labels[key] = gpu.Status.CardVendor
+				}
 			}
 		case exportermetrics.GPUMetricLabel_DRIVER_VERSION.String():
-			labels[key] = gpu.Status.DriverVersion
+			if gpu != nil {
+				labels[key] = gpu.Status.DriverVersion
+			}
 		case exportermetrics.GPUMetricLabel_VBIOS_VERSION.String():
-			labels[key] = gpu.Status.VBIOSVersion
+			if gpu != nil {
+				labels[key] = gpu.Status.VBIOSVersion
+			}
 		case exportermetrics.GPUMetricLabel_HOSTNAME.String():
 			labels[key] = ga.staticHostLabels[exportermetrics.GPUMetricLabel_HOSTNAME.String()]
 		case exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String():
-			labels[key] = fmt.Sprintf("%v", gpu.Status.PartitionId)
+			if gpu != nil {
+				labels[key] = fmt.Sprintf("%v", gpu.Status.PartitionId)
+			}
 		case exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String():
-			partitionType := gpu.Spec.ComputePartitionType
-			if parentPartition != nil {
-				partitionType = parentPartition.Spec.ComputePartitionType
+			if gpu != nil {
+				partitionType := gpu.Spec.ComputePartitionType
+				if parentPartition != nil {
+					partitionType = parentPartition.Spec.ComputePartitionType
+				}
+				trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_COMPUTE_PARTITION_TYPE_")
+				labels[key] = strings.ToLower(trimmedValue)
 			}
-			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_COMPUTE_PARTITION_TYPE_")
-			labels[key] = strings.ToLower(trimmedValue)
 		case exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String():
-			partitionType := gpu.Spec.MemoryPartitionType
-			if parentPartition != nil {
-				partitionType = parentPartition.Spec.MemoryPartitionType
+			if gpu != nil {
+				partitionType := gpu.Spec.MemoryPartitionType
+				if parentPartition != nil {
+					partitionType = parentPartition.Spec.MemoryPartitionType
+				}
+				trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_MEMORY_PARTITION_TYPE_")
+				labels[key] = strings.ToLower(trimmedValue)
 			}
-			trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_MEMORY_PARTITION_TYPE_")
-			labels[key] = strings.ToLower(trimmedValue)
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)
 		}
 	}
 
 	// Add extra pod labels only if config has mapped any
-	if len(extraPodLabelsMap) > 0 {
+	if gpu != nil && len(extraPodLabelsMap) > 0 {
 		podName := podInfo.Pod
 		podNs := podInfo.Namespace
 
 		var podLabels map[string]string
 		if podName != "" && podNs != "" {
-			if labels, exists := k8PodLabelsMap[PodUniqueKey{PodName: podName, Namespace: podNs}]; exists {
+			pKey := k8sclient.PodUniqueKey{
+				PodName:   podName,
+				Namespace: podNs,
+			}
+			if labels, exists := k8PodLabelsMap[pKey.String()]; exists {
 				// Cached pod labels
 				podLabels = labels
 			} else {

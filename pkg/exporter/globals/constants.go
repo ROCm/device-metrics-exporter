@@ -42,5 +42,5 @@ const (
 	MaxSupportedCustomLabels = 10
 
 	// max number of extra pod labels that will be exported in the logs
-	MaxSupportedPodLabels = 10
+	MaxSupportedPodLabels = 20
 )

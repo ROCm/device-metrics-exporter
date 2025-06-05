@@ -40,6 +40,15 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
+type PodUniqueKey struct {
+	PodName   string
+	Namespace string
+}
+
+func (p *PodUniqueKey) String() string {
+	return fmt.Sprintf("%v-%v", p.Namespace, p.PodName)
+}
+
 type K8sClient struct {
 	sync.Mutex
 	ctx       context.Context
@@ -215,12 +224,15 @@ func (k *K8sClient) UpdateHealthLabel(nodeName string, newHealthMap map[string]s
 	return nil
 }
 
-func (k *K8sClient) GetAllPods(nodeName string) (*v1.PodList, error) {
+func (k *K8sClient) GetAllPods(nodeName string) (map[string]map[string]string, error) {
 	k.reConnect()
 	k.Lock()
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(k.ctx)
 	defer cancel()
+
+	// Initialize the resulting map
+	k8PodLabelsMap := make(map[string]map[string]string)
 
 	pods, err := k.clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
@@ -229,5 +241,14 @@ func (k *K8sClient) GetAllPods(nodeName string) (*v1.PodList, error) {
 		log.Printf("Error fetching pods for node %v: %v", nodeName, err)
 		return nil, err
 	}
-	return pods, nil
+
+	// Process each pod and populate the map
+	for _, pod := range pods.Items {
+		podKey := PodUniqueKey{
+			PodName:   pod.Name,
+			Namespace: pod.Namespace,
+		}
+		k8PodLabelsMap[podKey.String()] = pod.Labels
+	}
+	return k8PodLabelsMap, nil
 }

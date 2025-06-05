@@ -200,8 +200,8 @@
       "CLUSTER_NAME" : "amdgpu-k8s-metrics-exporter"
     },
     "ExtraPodLabels" : {
-      "WORKLOAD_ID"   : "amd/workload-id",
-      "USERGROUP_ID"  : "amd/usergroup-id"
+      "WORKLOAD_ID"   : "amd-workload-id",
+      "USERGROUP_ID"  : "amd-usergroup-id"
     },
     "ProfilerMetrics" : {
         "all"       : true, 
