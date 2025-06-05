@@ -53,16 +53,21 @@ main(int argc, char** argv)
     if(ndevice > ntotdevice) ndevice = ntotdevice;
     if(ndevice < 1) ndevice = ntotdevice;
 
-	// build the metrics vector argument
-	for (int i = 1; i < argc; ++i) {
-		metric_fields.push_back(argv[i]);
-	}
+	try {
+		// build the metrics vector argument
+		for (int i = 1; i < argc; ++i) {
+			metric_fields.push_back(argv[i]);
+		}
 
-    //printf("[%s] Number of devices used: %li\n", exe_name, ndevice);
-    int rc = amd::rocp::CounterSampler::runSample(metric_fields);
-    if (rc != 0) {
-	    std::cerr << "run sample err: " << rc << "\n"; 
-	    return -1;
-    }
+		//printf("[%s] Number of devices used: %li\n", exe_name, ndevice);
+		int rc = amd::rocp::CounterSampler::runSample(metric_fields);
+		if (rc != 0) {
+			std::cerr << "run sample err: " << rc << "\n"; 
+			return -1;
+		}
+	} catch (...) {
+		std::exception_ptr p = std::current_exception();
+		std::cerr <<(p ? p.__cxa_exception_type()->name() : "null") << std::endl;
+	}
     return 0;
 }

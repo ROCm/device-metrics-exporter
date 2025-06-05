@@ -17,14 +17,20 @@
 package rocprofiler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+)
+
+const (
+	rocprofilerTimeout = 15
 )
 
 type ROCProfilerClient struct {
@@ -61,11 +67,17 @@ func (rpc *ROCProfilerClient) GetMetrics() (*amdgpu.GpuProfiler, error) {
 		return &gpus, nil
 	}
 
-	gpuMetrics, err := exec.Command("/bin/bash", "-c", rpc.cmd).Output()
-	if err != nil {
-		logger.Log.Printf("exec error :%v", err)
-		return nil, err
+	// Create a context with a 15s timeout
+	ctx, cancel := context.WithTimeout(context.Background(), rocprofilerTimeout*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", rpc.cmd)
+	gpuMetrics, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Log.Printf("command timed out after 15s: %v", rpc.cmd)
+		return nil, ctx.Err()
 	}
+
 	err = json.Unmarshal(gpuMetrics, &gpus)
 	if err != nil {
 		logger.Log.Printf("error unmarshaling port statistics err :%v -> data: %v", err, string(gpuMetrics))
