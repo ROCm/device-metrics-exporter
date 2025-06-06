@@ -8,9 +8,6 @@
   - Easy integration with Prometheus Operator
 - **K8s Toleration and Selector**
   - Added capability to add tolerations and nodeSelector during helm install
-- **Custom Prefix for Exporter**
-  - Adds more flexibility to add custome prefix to better identify AMD GPU on
-  	multi cluster deployment, through configmap `CommonConfig`
 
 ### Platform Support
 ROCm 6.3.x
