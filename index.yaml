@@ -2,8 +2,34 @@ apiVersion: v1
 entries:
   device-metrics-exporter-charts:
   - apiVersion: v2
+    appVersion: v1.3.0
+    created: "2025-06-07T00:01:16.263214768Z"
+    description: A Helm chart for AMD Device Metric Exporter
+    digest: 26727b5b512f7039442dcd5f7315b285ad457b1231bd67b13c66c6ab174a7a4a
+    keywords:
+    - kubernetes
+    - cluster
+    - hardware
+    - amd
+    - gpu
+    - monitoring
+    - prometheus
+    kubeVersion: '>= 1.29.0-0'
+    maintainers:
+    - email: prshanmug@amd.com
+      name: Praveen Kumar Shanmugam
+    - email: yan.sun3@amd.com
+      name: Yan Sun
+    - email: shrey.ajmera@amd.com
+      name: Shrey Ajmera
+    name: device-metrics-exporter-charts
+    type: application
+    urls:
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.3.0.tgz
+    version: v1.3.0
+  - apiVersion: v2
     appVersion: v1.2.1
-    created: "2025-04-25T22:40:41.539734518Z"
+    created: "2025-06-07T00:01:16.262622992Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 98c8344d17476de09ffa74f798e5a2ea307888b161c6cb44b6d7a761504dc941
     keywords:
@@ -29,7 +55,7 @@ entries:
     version: v1.2.1
   - apiVersion: v2
     appVersion: v1.2.0
-    created: "2025-04-25T22:40:41.539134035Z"
+    created: "2025-06-07T00:01:16.262067873Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: deababca2e37d7a6be219a3a77f614e35628945e2c478e3b35cd84b81026e895
     keywords:
@@ -55,7 +81,7 @@ entries:
     version: v1.2.0
   - apiVersion: v2
     appVersion: v1.1.0
-    created: "2025-04-25T22:40:41.538667691Z"
+    created: "2025-06-07T00:01:16.261622348Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: aba669201efadb314755d51533ba67b8c97252cb16470203064dbf82b20d2627
     keywords:
@@ -81,7 +107,7 @@ entries:
     version: v1.1.0
   - apiVersion: v2
     appVersion: v1.0.0
-    created: "2025-04-25T22:40:41.538171153Z"
+    created: "2025-06-07T00:01:16.261185576Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 92248d77d603969493fc00b836ea2f008cc2a38c12188630b1ee5d80a5622fee
     keywords:
@@ -105,4 +131,4 @@ entries:
     urls:
     - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.0.0.tgz
     version: v1.0.0
-generated: "2025-04-25T22:40:41.537521715Z"
+generated: "2025-06-07T00:01:16.260392472Z"
