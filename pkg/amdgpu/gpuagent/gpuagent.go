@@ -361,7 +361,7 @@ func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workload, er
 
 func (ga *GPUAgentClient) checkExportLabels(exportLabels map[string]bool) bool {
 	if ga.isKubernetes {
-		if ga.k8sScheduler.CheckExportLabels(exportLabels) {
+		if ga.k8sScheduler != nil && ga.k8sScheduler.CheckExportLabels(exportLabels) {
 			return true
 		}
 	}
