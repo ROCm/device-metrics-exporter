@@ -3,12 +3,26 @@
 This topic provides an overview of troubleshooting options for Device Metrics Exporter.
 
 ## Logs
-
 You can view the container logs by executing the following command:
+
+### Docker deployment
 
 ```bash
 docker logs device-metrics-exporter
 ```
+
+### K8s deployment
+```bash
+kubectl logs -n <namespace> <exporter-container-on-node>
+```
+
+### Debian deployment
+
+```bash
+sudo journalctl -xu amd-metrics-exporter
+```
+
+logs are collected in file `/var/run/exporter.log`
 
 ## Common Issues
 

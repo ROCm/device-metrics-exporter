@@ -50,10 +50,18 @@ func main() {
 		}
 	}()
 
+	deploymentType := "container deployment (not k8s)"
+	if utils.IsKubernetes() {
+		deploymentType = "k8s deployment"
+	} else if utils.IsDebianInstall() {
+		deploymentType = "debian package deployment"
+	}
+
 	if *versionOpt {
 		fmt.Printf("Version : %v\n", Version)
 		fmt.Printf("BuildDate: %v\n", BuildDate)
 		fmt.Printf("GitCommit: %v\n", GitCommit)
+		fmt.Printf("Deployment: %v\n", deploymentType)
 		os.Exit(0)
 	}
 
@@ -67,6 +75,7 @@ func main() {
 	logger.Log.Printf("Version : %v", Version)
 	logger.Log.Printf("BuildDate: %v", BuildDate)
 	logger.Log.Printf("GitCommit: %v", GitCommit)
+	logger.Log.Printf("Deployment: %v", deploymentType)
 
 	exporterHandler := exporter.NewExporter(*agentGrpcPort, *metricsConfig)
 

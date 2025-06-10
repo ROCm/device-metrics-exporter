@@ -157,6 +157,7 @@ func (ga *GPUAgentClient) StartMonitor() {
 	pollTimer := time.NewTicker(refreshInterval)
 	defer pollTimer.Stop()
 
+	// nolint
 	for {
 		select {
 		case <-pollTimer.C:

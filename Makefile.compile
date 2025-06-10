@@ -80,9 +80,59 @@ rocprofiler-compile:
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
+		-e "ROCM_VERSION=$(ROCM_VERSION)" \
 		--name rocprofilerbuild -v $(ROCPROFILER_SRC_DIR):$(ROCPROFILER_CONTAINER_WORKDIR) \
 		-w $(ROCPROFILER_CONTAINER_WORKDIR) $(ROCPROFILER_BUILDER_IMAGE)
 	@echo "Copy newly built assets"
 	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/librocpclient.so $(ROCPROFILER_ASSET_DIR)/
 	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/rocpctl $(ROCPROFILER_ASSET_DIR)/
+
+LIBBUILDER_DIR := $(TOP_DIR)/tools/rocprofiler-libbuilder/
+.PHONY: libcopy-assets
+libcopy-assets:
+ifeq ($(OS), UBUNTU22)
+	$(eval BUILDER_IMAGE="proflib-ub22")
+	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU22})
+	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.ubuntu22)
+else ifeq ($(OS), UBUNTU24)
+	$(eval BUILDER_IMAGE="proflib-ub24")
+	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU24})
+	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.ubuntu24)
+else
+	$(error unsupported os)
+endif
+	@echo "Building profiler library builder $(OS), $(DOCKERFILE), $(BUILDER_IMAGE), $(BASE_IMAGE)"
+	@echo "Building profiler dependency libraries for $(BUILD_IMAGE_OS)"
+
+	@docker image rm $(BUILDER_IMAGE) || true
+	@docker build --build-arg BUILD_BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg ROCM_VERSION=${ROCM_VERSION} \
+		--build-arg AMDGPU_VERSION=${ROCM_VERSION} \
+		-t $(BUILDER_IMAGE) . -f $(DOCKERFILE)
+	@docker run --rm -it --privileged \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		-e "BRANCH=$(AMDSMI_BRANCH)" \
+		-e "COMMIT=$(AMDSMI_COMMIT)" \
+	    --name libdebbuild -v $(TOP_DIR):$(WORK_DIR) \
+		-w $(WORK_DIR) $(BUILDER_IMAGE)
+	@echo 'Copying profiler lib assets to ${TOP_DIR}/build/assets/${OS}/profilerlibs/'
+	@rm -rf  ${TOP_DIR}/build/assets/${OS}/profilerlibs/ || true
+	@mkdir -p ${TOP_DIR}/build/assets/${OS}/profilerlibs/
+	@cp -rvf ${TOP_DIR}/build/rocprofilerdeplib/ ${TOP_DIR}/build/assets/${OS}/profilerlibs/
+
+.PHONY: libcopy-assets-UBUNTU22
+libcopy-assets-UBUNTU22:
+	OS=UBUNTU22 ${MAKE} libcopy-assets
+
+.PHONY: libcopy-assets-UBUNTU24
+libcopy-assets-UBUNTU24:
+	OS=UBUNTU24 ${MAKE} libcopy-assets
+
+.PHONY: profiler-libdependent-assets
+profiler-libdependent-assets:
+	${MAKE} libcopy-assets-UBUNTU22
+	${MAKE} libcopy-assets-UBUNTU24
+
 
