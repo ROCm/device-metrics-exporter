@@ -12,7 +12,7 @@ The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-me
 
 ```bash
 bootstrap: docker
-From: rocm/device-metrics-exporter:v1.3.0
+From: rocm/device-metrics-exporter:v1.3.1
 
 %post
     chmod +x /home/amd/tools/entrypoint.sh

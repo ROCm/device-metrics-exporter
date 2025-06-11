@@ -21,7 +21,7 @@ platform: k8s
 nodeSelector: {} # Optional: Add custom nodeSelector
 image:
   repository: docker.io/rocm/device-metrics-exporter
-  tag: v1.3.0
+  tag: v1.3.1
   pullPolicy: Always
 service:
   type: ClusterIP  # or NodePort
@@ -49,6 +49,6 @@ chmod 700 get_helm.sh
 helm repo add exporter https://rocm.github.io/device-metrics-exporter
 helm repo update
 helm install exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.3.0/device-metrics-exporter-charts-v1.3.0.tgz \
+  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.3.1/device-metrics-exporter-charts-v1.3.1.tgz \
   -n mynamespace -f values.yaml --create-namespace
 ```
