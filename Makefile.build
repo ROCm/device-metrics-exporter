@@ -83,6 +83,8 @@ gpuagent-shell:
 rocprofiler-build:
 	@docker image rm $(ROCPROFILER_BUILDER_IMAGE) || true
 	@docker build --build-arg BUILD_BASE_IMAGE=$(ROCPROFILER_BASE_UBUNTU22) \
+		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		--build-arg AMDGPU_VERSION=$(ROCM_VERSION) \
 		-t $(ROCPROFILER_BUILDER_IMAGE) \
 		 . -f $(ROCPROFILER_BUILD_DIR)/Dockerfile.ubuntu22
 

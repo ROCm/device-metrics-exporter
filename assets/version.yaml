@@ -4,11 +4,11 @@ assets:
     branch  : master
 
   - name    : gpuagent_static.bin.gz
-    version : 1.116.0-23 (private build)
+    version : 1.116.0-24 (private build)
     branch  : master
 
   - name    : gpuctl.gobin
-    version : 1.116.0-23 (private build)
+    version : 1.116.0-24 (private build)
     branch  : master
 
   - name    : amd_smi_lib
@@ -16,5 +16,9 @@ assets:
     branch  : amd-mainline
 
   - name    : rocprofiler
-    version : 6.4.0
+    version : 6.4.1
+    branch  : na
+
+  - name    : profiler_lib
+    version : 6.4.1
     branch  : na

@@ -8,7 +8,7 @@ System Requirements
 Before installing the AMD GPU Metrics Exporter, you need to install the following:
 
 - **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
-- **ROCm Version**: 6.3.x (specific to each .deb pkg)
+- **ROCm Version**: 6.4.1 (specific to each .deb pkg)
 
 Each Debian package release of the Standalone Metrics Exporter is dependent on a specific version of the ROCm amdgpu driver. Please see table below for more information:
 
@@ -167,12 +167,12 @@ The Exporter HTTP port is configurable via the `ServerPort` field in the configu
 Metrics Exporter Custom Configuration
 ======================================
 
-Using a custom config.json
+Make changes to config.json
 ---------------------------
 
 If you need to customize ports or settings:
 
-1. Download a copy of the default `config.json <https://github.com/ROCm/device-metrics-exporter/blob/main/example/config.json>`_ from the Metrics Exporter Repo. Note that you can change the path to save the config.json file into a different direct. Just be sure to also update the path in the server ExecStart command in step 3.
+1. Installation creates a default configuration under `/etc/metrics/config.json`. Note that you can change the path to save the config.json file into a different direct. Just be sure to also update the path in the server ExecStart command in step 3.
 
    .. code-block:: bash
 

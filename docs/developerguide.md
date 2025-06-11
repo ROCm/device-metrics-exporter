@@ -77,6 +77,12 @@ This command builds:
 
 To build a Debian package for Ubuntu:
 
+#### Build dependent libraries for packaging (once)
+```bash
+make profiler-libdependent-assets
+```
+
+#### Build package with all dependent libraries
 ```bash
 make pkg
 ```
@@ -133,6 +139,16 @@ make gpuagent-build
 make gpuagent-compile
 ```
 
+## Build ROC Profiler Module
+
+set the correct rocm version and run the target to create new libraries
+assocaited with specific rocm version
+
+```bash
+ROCM_VERSION=6.4.1 make profiler-libdependent-assets
+ROCM_VERSION=6.4.1 make rocprofiler-build
+ROCM_VERSION=6.4.1 make rocprofiler-compile
+```
 
 ## Build AMD SMI
 This is a built out of [AMD SMI Lib](git@github.com:ROCm/amdsmi.git), to

@@ -89,6 +89,8 @@ KUBECONFIG ?= ~/.kube/config
 AMDSMI_BRANCH ?= amd-mainline
 AMDSMI_COMMIT ?= rocm-6.4.1
 
+ROCM_VERSION ?= 6.4.1
+
 export ${GOROOT}
 export ${GOPATH}
 export ${OUT_DIR}
@@ -112,8 +114,8 @@ UBUNTU_VERSION_NUMBER = 24.04
 UBUNTU_LIBDIR = UBUNTU24
 endif
 
-PACKAGE_VERSION := "1.3.0"
-DEBIAN_VERSION := "1.3.0"
+PACKAGE_VERSION := "1.3.1"
+DEBIAN_VERSION := "1.3.1"
 REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
 HELM_VERSION := $(REL_IMAGE_TAG)
 
@@ -243,11 +245,6 @@ gopkglist:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 	go install golang.org/x/tools/cmd/goimports@latest
 
-amdexporter-lite:
-	@echo "building lite version of metrics exporter"
-	go build -C cmd/exporter -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildDate=${BUILD_DATE} -X main.Publish=${DISABLE_DEBUG} " -o $(CURDIR)/bin/amd-metrics-exporter
-
-
 amdexporter: metricsclient
 	@echo "building amd metrics exporter"
 	CGO_ENABLED=0 go build  -C cmd/exporter -ldflags "-X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildDate=${BUILD_DATE} -X main.Publish=${DISABLE_DEBUG}" -o $(CURDIR)/bin/amd-metrics-exporter
@@ -344,7 +341,8 @@ k8s-e2e:
 
 .PHONY: helm-lint
 helm-lint:
-	jq 'del(.ServerPort, .GPUConfig.CustomLabels)' $(CONFIG_DIR)/config.json > $(HELM_CHARTS_DIR)/config.json
+	#copy default config
+	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config.json > $(HELM_CHARTS_DIR)/config.json
 	cd $(HELM_CHARTS_DIR); helm lint
 
 .PHONY: helm-build

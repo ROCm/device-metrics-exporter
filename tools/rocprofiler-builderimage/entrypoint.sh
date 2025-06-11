@@ -5,7 +5,7 @@ outdir=$dir/build/
 cd $dir
 
 rm -rf build 2>&1 || true
-cmake -B build ./ -DCMAKE_PREFIX_PATH=/opt/rocm -DCMAKE_HIP_COMPILER=/opt/rocm-6.4.0/lib/llvm/bin/clang++
+cmake -B build ./ -DCMAKE_PREFIX_PATH=/opt/rocm -DCMAKE_HIP_COMPILER=/opt/rocm-$ROCM_VERSION/lib/llvm/bin/clang++
 cmake --build build --target all
 
 if [ $? -ne 0 ]; then

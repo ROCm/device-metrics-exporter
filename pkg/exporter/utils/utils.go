@@ -27,6 +27,7 @@ import (
 const (
 	MaxGPUPerServer     = 16 // current max is 8, gpuagent mock has 16
 	NodeGPUHealthPrefix = "metricsexporter.amd.com.gpu.%v.state"
+	ServiceFile         = "/usr/lib/systemd/system/amd-metrics-exporter.service"
 )
 
 // ParseNodeHealthLabel - converts k8s nod label to gpu,health map
@@ -71,9 +72,17 @@ func GetNodeName() string {
 	return ""
 }
 
+func IsDebianInstall() bool {
+	_, err := os.Stat(ServiceFile)
+	return err == nil
+}
+
 func IsKubernetes() bool {
 	if s := os.Getenv("KUBERNETES_SERVICE_HOST"); s != "" {
 		return true
+	}
+	if IsDebianInstall() {
+		return false
 	}
 	if _, err := os.Stat(globals.PodResourceSocket); err == nil {
 		return true

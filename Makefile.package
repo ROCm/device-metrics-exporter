@@ -1,12 +1,18 @@
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 GPUAGENT_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
+PROFILER_DEB_LIBS := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/profilerlibs/
+ROCPROFILER_ASSETS := ${ASSETS_PATH}/rocprofiler
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
-PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics/
+PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics
+ROCPROFLER_SDK_ASSETS :=  ${ASSETS_PATH}/rocprofiler-sdk
+SDK_COUNTER_DEF := ${TOP_DIR}/debian/usr/local/metrics/share/rocprofiler-sdk
 LUA_PROTO := ${TOP_DIR}/pkg/amdgpu/proto/luaplugin.proto
 PKG_LUA_PATH := ${TOP_DIR}/debian/usr/local/etc/metrics/slurm
+METRICS_CONF_DIR := ${TOP_DIR}/debian/etc
+METRICS_CONF_PATH := ${METRICS_CONF_DIR}/metrics
 GPUAGENT_BUILT_BIN := ${TOP_DIR}/build/assets/gpuagent
-BUILT_LIB_PATH := ${TOP_DIR}/build/assets/${OS}/exporterout/
+BUILT_LIB_PATH := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/exporterout/
 
 .PHONY: pkg pkg-clean
 pkg-clean:
@@ -15,10 +21,13 @@ pkg-clean:
 
 
 pkg: pkg-clean
-	${MAKE} gen amdexporter-lite metricsclient
+	${MAKE} gen amdexporter metricsclient
 	@echo "Building debian for $(BUILD_VER_ENV)"
+	@echo "library assets build path $(PROFILER_DEB_LIBS)"
 	@mkdir -p ${PKG_LIB_PATH}
+	@mkdir -p ${METRICS_CONF_PATH}
 	@mkdir -p ${PKG_PATH}
+	@mkdir -p ${SDK_COUNTER_DEF}
 	@if [ -f ${GPUAGENT_BUILT_BIN} ]; then \
 		echo "Copying newly built gpuagent";\
 		cp -rvf ${GPUAGENT_BUILT_BIN} ${PKG_PATH}/; \
@@ -34,24 +43,44 @@ pkg: pkg-clean
 		echo "Copy prebuilt libraries"; \
 		cp -rvf ${GPUAGENT_LIBS}/ ${PKG_LIB_PATH}; \
 	fi
+	@if [ ! -d $(PROFILER_DEB_LIBS) ]; then \
+		echo "profiler dependent assets not built, run target libcopy-assets-${UBUNTU_LIBDIR}";\
+		exit 1;\
+	fi
+	@echo "Copying profiler dependent libraries form ${PROFILER_DEB_LIBS}"
+	@cp -vaf $(PROFILER_DEB_LIBS)/. ${PKG_LIB_PATH}/lib/
+	ls -lart ${PKG_LIB_PATH}/lib
+	@echo "Copying rocprofiler client library and binary"
+	@cp -vf ${ROCPROFILER_ASSETS}/librocpclient* ${PKG_LIB_PATH}/lib/
+	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${PKG_PATH}/rocpctl
+	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${SDK_COUNTER_DEF}/
+	#copy default config
+	@jq 'del(.GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
+	@cat ${METRICS_CONF_PATH}/config.json
 	# list all the files
 	ls -lart ${PKG_LIB_PATH}/lib
 	#copy and strip files
 	chmod +x ${PKG_PATH}/gpuagent
 	ls -alsh ${PKG_PATH}/gpuagent
+	chmod +x ${PKG_PATH}/rocpctl
+	ls -alsh ${PKG_PATH}/rocpctl
 	#strip prebuilt binaries
 	strip ${PKG_PATH}/gpuagent
+	strip ${PKG_PATH}/rocpctl
 	ls -alsh ${PKG_PATH}/gpuagent
+	ls -alsh ${PKG_PATH}/rocpctl
 	cd ${PKG_PATH} && strip ${PKG_PATH}/gpuagent
 	cp -vf ${LUA_PROTO} ${PKG_LUA_PATH}/plugin.proto
 	cp -vf ${ASSETS_PATH}/gpuctl.gobin ${PKG_PATH}/gpuctl
 	cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
+	strip ${PKG_PATH}/amd-metrics-exporter
 	cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
 	cd ${TOP_DIR}
 	sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
 	dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
 	#remove copied files
 	rm -rf ${PKG_LIB_PATH}
+	rm -rf ${METRICS_CONF_DIR}
 	rm -rf ${PKG_LUA_PATH}/plugin.proto
 	# revert the dynamic version set file
 	git checkout $(DEBIAN_CONTROL)
