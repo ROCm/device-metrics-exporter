@@ -219,11 +219,17 @@ enum GPUMetricLabel {
     SERIAL_NUMBER              = 1;
     // mandatory field GPU_ID cannot be disabled
     GPU_ID                     = 2;
+    // mandatory field POD cannot be disabled
     POD                        = 3;
+    // mandatory field NAMESPACE cannot be disabled
     NAMESPACE                  = 4;
+    // mandatory field CONTAINER cannot be disabled
     CONTAINER                  = 5;
+    // mandatory field JOB_ID cannot be disabled
     JOB_ID                     = 6;
+    // mandatory field JOB_USER cannot be disabled
     JOB_USER                   = 7;
+    // mandatory field JOB_PARTITION cannot be disabled
     JOB_PARTITION              = 8;
     CLUSTER_NAME               = 9;
     CARD_SERIES                = 10;

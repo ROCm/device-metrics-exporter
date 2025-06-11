@@ -46,6 +46,12 @@ var (
 	mandatoryLables = []string{
 		exportermetrics.GPUMetricLabel_GPU_ID.String(),
 		exportermetrics.GPUMetricLabel_SERIAL_NUMBER.String(),
+		exportermetrics.GPUMetricLabel_POD.String(),
+		exportermetrics.GPUMetricLabel_NAMESPACE.String(),
+		exportermetrics.GPUMetricLabel_CONTAINER.String(),
+		exportermetrics.GPUMetricLabel_JOB_ID.String(),
+		exportermetrics.GPUMetricLabel_JOB_USER.String(),
+		exportermetrics.GPUMetricLabel_JOB_PARTITION.String(),
 		exportermetrics.GPUMetricLabel_CARD_MODEL.String(),
 		exportermetrics.GPUMetricLabel_HOSTNAME.String(),
 		exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String(),

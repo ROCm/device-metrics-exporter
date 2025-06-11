@@ -543,12 +543,18 @@ const (
 	// mandatory SERIAL_NUMBER cannot be disabled
 	GPUMetricLabel_SERIAL_NUMBER GPUMetricLabel = 1
 	// mandatory field GPU_ID cannot be disabled
-	GPUMetricLabel_GPU_ID        GPUMetricLabel = 2
-	GPUMetricLabel_POD           GPUMetricLabel = 3
-	GPUMetricLabel_NAMESPACE     GPUMetricLabel = 4
-	GPUMetricLabel_CONTAINER     GPUMetricLabel = 5
-	GPUMetricLabel_JOB_ID        GPUMetricLabel = 6
-	GPUMetricLabel_JOB_USER      GPUMetricLabel = 7
+	GPUMetricLabel_GPU_ID GPUMetricLabel = 2
+	// mandatory field POD cannot be disabled
+	GPUMetricLabel_POD GPUMetricLabel = 3
+	// mandatory field NAMESPACE cannot be disabled
+	GPUMetricLabel_NAMESPACE GPUMetricLabel = 4
+	// mandatory field CONTAINER cannot be disabled
+	GPUMetricLabel_CONTAINER GPUMetricLabel = 5
+	// mandatory field JOB_ID cannot be disabled
+	GPUMetricLabel_JOB_ID GPUMetricLabel = 6
+	// mandatory field JOB_USER cannot be disabled
+	GPUMetricLabel_JOB_USER GPUMetricLabel = 7
+	// mandatory field JOB_PARTITION cannot be disabled
 	GPUMetricLabel_JOB_PARTITION GPUMetricLabel = 8
 	GPUMetricLabel_CLUSTER_NAME  GPUMetricLabel = 9
 	GPUMetricLabel_CARD_SERIES   GPUMetricLabel = 10
