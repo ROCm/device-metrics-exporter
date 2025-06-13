@@ -85,6 +85,11 @@ GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
 VERSION ?=$(RELEASE)
 KUBECONFIG ?= ~/.kube/config
 
+# docs build settings
+DOCS_DIR := ${TOP_DIR}/docs
+BUILD_DIR := $(DOCS_DIR)/_build
+HTML_DIR := $(BUILD_DIR)/html
+
 # library branch to build amdsmi libraries for gpuagent
 AMDSMI_BRANCH ?= amd-mainline
 AMDSMI_COMMIT ?= rocm-6.4.1
@@ -327,6 +332,18 @@ mod:
 	#CVE-2024-24790 fix of trivy scan
 	@go mod edit -replace golang.org/x/net@v0.29.0=golang.org/x/net@v0.36.0
 	@go mod vendor
+
+.PHONY: docs clean-docs dep-docs
+dep-docs:
+	pip install -r $(DOCS_DIR)/sphinx/requirements.txt
+
+docs: dep-docs
+	sphinx-build -b html $(DOCS_DIR) $(HTML_DIR)
+	@echo "Docs built at $(HTML_DIR)/index.html"
+
+clean-docs:
+	rm -rf $(BUILD_DIR)
+
 
 .PHONY: base-image
 base-image:

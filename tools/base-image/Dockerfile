@@ -26,6 +26,7 @@ RUN echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://downlo
 
 RUN apt-get update && apt-get install -y \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+  make python3-sphinx python3-pip \
   git && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # download go1.24.2
