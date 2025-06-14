@@ -19,7 +19,6 @@
 ### Platform Support
 ROCm 6.4.x MI3xx
 
-
 ## v1.2.1
 
 ### Release Highlights

@@ -510,8 +510,10 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 	assert.Nil(c, err)
 
 	// Write JSON to file
-	err = os.WriteFile("slurm_job.json", jsonBytes, 0644)
+	jobFile := "slurm_job.json"
+	err = os.WriteFile(jobFile, jsonBytes, 0644)
 	assert.Nil(c, err)
+	defer os.Remove(jobFile)
 	_, _ = s.exporter.CopyFileTo("slurm_job.json", "/var/run/exporter/3")
 	time.Sleep(5 * time.Second) // 5 second timer for job to be picked up
 	assert.Eventually(c, func() bool {

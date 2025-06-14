@@ -52,7 +52,7 @@ type GPUAgentClient struct {
 	evtclient              amdgpu.EventSvcClient
 	rocpclient             *rocprofiler.ROCProfilerClient
 	m                      *metrics // client specific metrics
-	k8sLabelClient         *k8sclient.K8sClient
+	k8sApiClient           *k8sclient.K8sClient
 	k8sScheduler           scheduler.SchedulerClient
 	slurmScheduler         scheduler.SchedulerClient
 	isKubernetes           bool
@@ -80,15 +80,13 @@ func initclients(mh *metricsutil.MetricsHandler) (conn *grpc.ClientConn, gpuclie
 	return
 }
 
-func NewAgent(mh *metricsutil.MetricsHandler, enableZmq bool, enableProfiler bool) *GPUAgentClient {
+func NewAgent(mh *metricsutil.MetricsHandler, k8sclient *k8sclient.K8sClient, enableZmq bool) *GPUAgentClient {
 	ga := &GPUAgentClient{mh: mh, enableZmq: enableZmq, computeNodeHealthState: true}
 	ga.healthState = make(map[string]*metricssvc.GPUState)
 	ga.mockEccField = make(map[string]map[string]uint32)
-	if enableProfiler {
-		logger.Log.Printf("Profiler metrics client enabled")
-		ga.rocpclient = rocprofiler.NewRocProfilerClient("rocpclient")
-		ga.enableProfileMetrics = true
-	}
+	ga.rocpclient = rocprofiler.NewRocProfilerClient("rocpclient")
+	ga.enableProfileMetrics = true
+	ga.k8sApiClient = k8sclient
 	ga.fsysDeviceHandler = fsysdevice.GetFsysDeviceHandler()
 	mh.RegisterMetricsClient(ga)
 	return ga
@@ -123,9 +121,6 @@ func (ga *GPUAgentClient) Init() error {
 		return err
 	}
 	ga.slurmScheduler = slurmScl
-	if ga.isKubernetes {
-		ga.k8sLabelClient = k8sclient.NewClient(ga.ctx)
-	}
 
 	if err := ga.populateStaticHostLabels(); err != nil {
 		return fmt.Errorf("error in populating static host labels, %v", err)
@@ -193,7 +188,7 @@ func (ga *GPUAgentClient) sendNodeLabelUpdate() error {
 		gpuHealthStates[gpuid] = hs.Health
 	}
 	ga.Unlock()
-	_ = ga.k8sLabelClient.UpdateHealthLabel(nodeName, gpuHealthStates)
+	_ = ga.k8sApiClient.UpdateHealthLabel(nodeName, gpuHealthStates)
 	return nil
 }
 
@@ -359,21 +354,6 @@ func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workload, er
 	return
 }
 
-func (ga *GPUAgentClient) checkExportLabels(exportLabels map[string]bool) bool {
-	if ga.isKubernetes {
-		if ga.k8sScheduler != nil && ga.k8sScheduler.CheckExportLabels(exportLabels) {
-			return true
-		}
-	}
-	if ga.slurmScheduler == nil {
-		return false
-	}
-	if ga.slurmScheduler.CheckExportLabels(exportLabels) {
-		return true
-	}
-	return false
-}
-
 func (ga *GPUAgentClient) Close() {
 	ga.Lock()
 	defer ga.Unlock()
@@ -401,11 +381,7 @@ func (ga *GPUAgentClient) Close() {
 func (ga *GPUAgentClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
 	listMap := make(map[string]map[string]string)
 	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
-		hostname, err := ga.getHostName()
-		if err != nil {
-			logger.Log.Printf("Error fetching hostname to filter pod labels: %v", err)
-		}
-		return ga.k8sLabelClient.GetAllPods(hostname)
+		return ga.k8sApiClient.GetAllPods()
 	}
 	return listMap, nil
 }

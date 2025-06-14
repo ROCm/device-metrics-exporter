@@ -151,7 +151,12 @@ func NewTestRunner(rvsPath, rvsTestCaseDir, rocmSMIPath, exporterSocketPath, tes
 	runner.initTestRunnerConfig()
 	if utils.IsKubernetes() {
 		runner.isK8s = true
-		runner.k8sClient = k8sclient.NewClient(context.Background())
+		k8sClient, err := k8sclient.NewClient(context.Background(), runner.hostName)
+		if err != nil {
+			logger.Log.Printf("failed to create k8s client: %v", err)
+			logger.Log.Fatal(err)
+		}
+		runner.k8sClient = k8sClient
 	}
 	logger.Log.Printf("Test runner isKubernetes: %+v config: %+v", runner.isK8s, runner.globalTestRunnerConfig)
 	return runner

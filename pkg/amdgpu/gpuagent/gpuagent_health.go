@@ -74,7 +74,7 @@ func (ga *GPUAgentClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[str
 		}
 		workloadInfo := []string{} // only one per gpu
 
-		if wl := ga.getWorkloadInfo(wls, gpu, false); wl != nil {
+		if wl := ga.getWorkloadInfo(wls, gpu); wl != nil {
 			if wl.Type == scheduler.Kubernetes {
 				podInfo := wl.Info.(scheduler.PodResourceInfo)
 				workloadInfo = append(workloadInfo, fmt.Sprintf("pod : %v, namespace : %v, container: %v",
@@ -336,7 +336,7 @@ func (ga *GPUAgentClient) updateAllGPUsHealthState(healthStr string) {
 		}
 
 		workloadInfo := []string{} // only one per gpu
-		if wl := ga.getWorkloadInfo(wls, gpu, false); wl != nil {
+		if wl := ga.getWorkloadInfo(wls, gpu); wl != nil {
 			if wl.Type == scheduler.Kubernetes {
 				podInfo := wl.Info.(scheduler.PodResourceInfo)
 				workloadInfo = append(workloadInfo, fmt.Sprintf("pod : %v, namespace : %v, container: %v",

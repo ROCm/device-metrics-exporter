@@ -98,3 +98,17 @@ func GetPCIeBaseAddress(fullAddr string) string {
 	}
 	return fullAddr // If malformed or no function, return as-is
 }
+
+func GetHostName() (string, error) {
+	hostname := ""
+	var err error
+	if nodeName := GetNodeName(); nodeName != "" {
+		hostname = nodeName
+	} else {
+		hostname, err = os.Hostname()
+		if err != nil {
+			return "", err
+		}
+	}
+	return hostname, nil
+}

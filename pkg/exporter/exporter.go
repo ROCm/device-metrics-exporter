@@ -33,7 +33,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
-	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/rocprofiler"
+	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -47,10 +47,10 @@ const (
 )
 
 var (
-	mh         *metricsutil.MetricsHandler
-	gpuclient  *gpuagent.GPUAgentClient
-	rocpclient *rocprofiler.ROCProfilerClient
-	runConf    *config.ConfigHandler
+	mh               *metricsutil.MetricsHandler
+	gpuclient        *gpuagent.GPUAgentClient
+	runConf          *config.ConfigHandler
+	debounceDuration = 3 * time.Second // debounce duration for file watcher
 )
 
 // ExporterOption set desired option
@@ -61,6 +61,9 @@ type Exporter struct {
 	agentGrpcPort int
 	configFile    string
 	zmqDisable    bool
+	k8sApiClient  *k8sclient.K8sClient
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // get the info from gpu agent and update the current metrics registery
@@ -114,7 +117,7 @@ func startMetricsServer(c *config.ConfigHandler) *http.Server {
 	return srv
 }
 
-func foreverWatcher() {
+func foreverWatcher(ctx context.Context) {
 	var srvHandler *http.Server
 	configPath := runConf.GetMetricsConfigPath()
 	directory := path.Dir(configPath)
@@ -159,24 +162,33 @@ func foreverWatcher() {
 	}
 	defer watcher.Close()
 
-	ctx := context.Background()
 	// Start listening for events.
 	go func() {
+		debounce := time.NewTimer(0)
+		if !debounce.Stop() {
+			<-debounce.C
+		}
+		debounce.Reset(debounceDuration)
+
 		for ctx.Err() == nil {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
-				// k8s has to many cases to handle because of symlink, to be
-				// safe handle all cases
 				if event.Has(fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename) {
-					logger.Log.Printf("loading new config on %v", configPath)
-					// stop server if running
-					stopServer()
-					// start server
-					startServer()
+					if !debounce.Stop() {
+						select {
+						case <-debounce.C:
+						default:
+						}
+					}
+					debounce.Reset(debounceDuration)
 				}
+			case <-debounce.C:
+				logger.Log.Printf("loading new config on %v", configPath)
+				stopServer()
+				startServer()
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					logger.Log.Printf("error: %v", err)
@@ -189,21 +201,42 @@ func foreverWatcher() {
 	// Add a path.
 	err = watcher.Add(directory)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal(err)
 	}
 
 	logger.Log.Printf("starting file watcher for %v", configPath)
 
-	<-make(chan struct{})
+	<-ctx.Done()
+	stopServer()
+	logger.Log.Printf("file watcher stopped due to context cancellation")
 }
 
 func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *Exporter {
+	ctx, cancel := context.WithCancel(context.Background())
+	logger.Log.Printf("creating exporter with grpc port %d and config file %s", agentGrpcport, configFile)
 	exporter := &Exporter{
 		agentGrpcPort: agentGrpcport,
 		configFile:    configFile,
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 	for _, o := range opts {
 		o(exporter)
+	}
+	if utils.IsKubernetes() {
+		hostname, _ := utils.GetHostName()
+		k8sApiClient, err := k8sclient.NewClient(ctx, hostname)
+		if err != nil {
+			logger.Log.Fatalf("failed to create k8s client: %v", err)
+			// if k8s client creation fails, we return nil to indicate that exporter is not ready
+			// this will prevent the exporter from starting and allow the caller to handle the error
+			// gracefully, e.g., by retrying or logging the error.
+			// This is important because the exporter relies on the k8s client for various operations,
+			return nil
+		} else {
+			exporter.k8sApiClient = k8sApiClient
+			logger.Log.Printf("k8s client created successfully")
+		}
 	}
 
 	return exporter
@@ -214,6 +247,31 @@ func ExporterWithZmqDisable(zmqDisable bool) ExporterOption {
 		logger.Log.Printf("zmq server disabled")
 		e.zmqDisable = zmqDisable
 	}
+}
+
+func (e *Exporter) GetK8sApiClient() *k8sclient.K8sClient {
+	if utils.IsKubernetes() {
+		return e.k8sApiClient
+	}
+	return nil
+}
+
+func (e *Exporter) startWatchers() {
+	if e.k8sApiClient == nil {
+		logger.Log.Printf("k8s client is not initialized, skipping watchers")
+		return
+	}
+
+	if err := e.k8sApiClient.Watch(); err != nil {
+		logger.Log.Printf("failed to start k8s watchers: %v", err)
+	} else {
+		logger.Log.Printf("k8s watchers started successfully")
+	}
+	if gpuclient == nil {
+		logger.Log.Fatalf("gpuclient is not initialized, skipping gpu watchers")
+		return
+	}
+	go gpuclient.StartMonitor()
 }
 
 // StartMain - doesn't return it exits only on failure
@@ -236,19 +294,31 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	mh, _ = metricsutil.NewMetrics(runConf)
 	mh.InitConfig()
 
-	gpuclient = gpuagent.NewAgent(mh, !e.zmqDisable, true)
+	gpuclient = gpuagent.NewAgent(mh, e.GetK8sApiClient(), !e.zmqDisable)
 	if err := gpuclient.Init(); err != nil {
 		logger.Log.Printf("gpuclient init err :%+v", err)
 	}
 	defer gpuclient.Close()
 
-	go gpuclient.StartMonitor()
+	e.startWatchers()
 
 	if err := svcHandler.RegisterHealthClient(gpuclient); err != nil {
 		logger.Log.Printf("health client registration err: %+v", err)
 	}
 
-	foreverWatcher()
+	foreverWatcher(e.ctx)
+}
+
+// Close - closes the exporter and all its resources
+func (e *Exporter) Close() error {
+	e.cancel()
+	if gpuclient != nil {
+		gpuclient.Close()
+	}
+	if e.k8sApiClient != nil {
+		e.k8sApiClient.Stop()
+	}
+	return nil
 }
 
 // SetComputeNodeHealth sets the compute node health

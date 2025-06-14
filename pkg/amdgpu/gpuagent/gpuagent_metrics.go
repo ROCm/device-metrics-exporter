@@ -19,7 +19,6 @@ package gpuagent
 import (
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strings"
 
@@ -328,7 +327,7 @@ func (ga *GPUAgentClient) initLabelConfigs(config *exportermetrics.GPUMetricConf
 }
 
 func (ga *GPUAgentClient) initProfilerMetrics(config *exportermetrics.GPUMetricConfig) {
-	curNodeName, _ := ga.getHostName()
+	curNodeName, _ := utils.GetHostName()
 	// perf metrics are disabled by default as it has a cost associated
 	ga.enableProfileMetrics = false
 	// check for disable state else enable profiler metrics
@@ -1471,16 +1470,13 @@ func (ga *GPUAgentClient) UpdateMetricsStats() error {
 	return ga.getMetricsAll()
 }
 
-func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu *amdgpu.GPU, filter bool) *scheduler.Workload {
+func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu *amdgpu.GPU) *scheduler.Workload {
 	if gpu == nil || gpu.Status == nil {
 		return nil
 	}
-	if filter && !ga.checkExportLabels(exportLables) {
-		// return empty if labels are not set to be exportered
-		return nil
-	}
 	gpu_id := fmt.Sprintf("%v", getGPUInstanceID(gpu))
-	deviceName, _ := ga.fsysDeviceHandler.GetDeviceNameFromID(gpu_id)
+	gpuRenderId := getGPURenderId(gpu)
+	deviceName, _ := ga.fsysDeviceHandler.GetDeviceNameFromRenderID(gpuRenderId)
 	// populate with workload info
 	if gpu.Status.PCIeStatus != nil {
 		if workload, ok := wls[strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)]; ok {
@@ -1504,7 +1500,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 	var podInfo scheduler.PodResourceInfo
 	var jobInfo scheduler.JobInfo
 
-	if wl := ga.getWorkloadInfo(wls, gpu, true); wl != nil {
+	if wl := ga.getWorkloadInfo(wls, gpu); wl != nil {
 		if wl.Type == scheduler.Kubernetes {
 			podInfo = wl.Info.(scheduler.PodResourceInfo)
 		} else {
@@ -2038,27 +2034,13 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(
 
 func (ga *GPUAgentClient) populateStaticHostLabels() error {
 	ga.staticHostLabels = map[string]string{}
-	hostname, err := ga.getHostName()
+	hostname, err := utils.GetHostName()
 	if err != nil {
 		return err
 	}
 	logger.Log.Printf("hostame %v", hostname)
 	ga.staticHostLabels[exportermetrics.GPUMetricLabel_HOSTNAME.String()] = hostname
 	return nil
-}
-
-func (ga *GPUAgentClient) getHostName() (string, error) {
-	hostname := ""
-	var err error
-	if nodeName := utils.GetNodeName(); nodeName != "" {
-		hostname = nodeName
-	} else {
-		hostname, err = os.Hostname()
-		if err != nil {
-			return "", err
-		}
-	}
-	return hostname, nil
 }
 
 func GetGPUAgentMandatoryLabels() []string {

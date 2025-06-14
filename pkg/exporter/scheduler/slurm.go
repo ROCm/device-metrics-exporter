@@ -44,15 +44,18 @@ type client struct {
 	zmqSock zmq.Socket
 	GpuJobs map[string]JobInfo
 	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 // NewSlurmClient - creates a slurm schedler client
 func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	sock := zmq.NewPull(ctx)
 
 	if enableZmq {
 		logger.Log.Printf("Starting Listen on port %v", globals.ZmqPort)
 		if err := sock.Listen(fmt.Sprintf("tcp://*:%v", globals.ZmqPort)); err != nil {
+			cancel()
 			return nil, fmt.Errorf("failed to listen on port %v, %v ", globals.ZmqPort, err)
 		}
 	}
@@ -61,6 +64,7 @@ func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error
 		zmqSock: sock,
 		GpuJobs: make(map[string]JobInfo),
 		ctx:     ctx,
+		cancel:  cancel,
 	}
 
 	go func() {
@@ -77,7 +81,7 @@ func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error
 
 		// Start listening for events.
 		go func() {
-			for ctx.Err() == nil {
+			for cl.ctx.Err() == nil {
 				select {
 				case event, ok := <-watcher.Events:
 					if !ok {
@@ -126,7 +130,8 @@ func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error
 		}
 
 		// Block main goroutine forever.
-		<-make(chan struct{})
+		<-cl.ctx.Done()
+		logger.Log.Printf("slurm job watcher stopped")
 	}()
 
 	logger.Log.Printf("created slurm scheduler client")
@@ -187,6 +192,9 @@ func (cl *client) CheckExportLabels(labels map[string]bool) bool {
 }
 func (cl *client) Close() error {
 	cl.zmqSock.Close()
+	if cl.ctx != nil {
+		cl.cancel()
+	}
 	return nil
 }
 

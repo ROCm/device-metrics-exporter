@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -35,8 +36,25 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/kubelet/pkg/apis/podresources/v1alpha1"
 )
+
+// printLabels prints labels in key=value format, sorted by key
+func printLabels(labels map[string]string) {
+	if len(labels) == 0 {
+		fmt.Println("  (none)")
+		return
+	}
+	var keys []string
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Printf("  %s=%s\n", k, labels[k])
+	}
+}
 
 func prettyPrintGPUState(resp *metricssvc.GPUStateResponse) {
 	if *jout {
@@ -52,11 +70,13 @@ func prettyPrintGPUState(resp *metricssvc.GPUStateResponse) {
 	for _, gs := range resp.GPUState {
 		sortOp[gs.ID] = gs
 	}
-	fmt.Println("ID\tHealth\tAssociated Workload\t")
+	fmt.Printf("%-10s %-40s %-10s %-30s\n",
+		"ID", "UUID", "Health", "Associated Workload")
 	fmt.Println("------------------------------------------------")
 	for i := 0; i < len(sortOp); i++ {
 		gs := sortOp[fmt.Sprintf("%d", i)]
-		fmt.Printf("%v\t%v\t%+v\t\r\n", gs.ID, gs.Health, gs.AssociatedWorkload)
+		fmt.Printf("%-10v %-40s %-10v %+v\n", gs.ID, gs.UUID,
+			gs.Health, gs.AssociatedWorkload)
 	}
 	fmt.Println("------------------------------------------------")
 }
@@ -256,13 +276,31 @@ func main() {
 			fmt.Println("not a k8s deployment")
 			return
 		}
-		kc := k8sclient.NewClient(context.Background())
-		labels, err := kc.GetAllPods(nodeName)
+		kc, err := k8sclient.NewClient(context.Background(), nodeName)
 		if err != nil {
 			fmt.Printf("err: %+v", err)
 			return
 		}
-		fmt.Printf("node[%v] labels[%+v]", nodeName, labels)
+		clientset := kc.GetClientSet()
+		if clientset == nil {
+			fmt.Printf("Invalid clientset")
+			return
+		}
+		// List pods scheduled on the node
+		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+		})
+		if err != nil {
+			log.Fatalf("Failed to list pods on node: %v", err)
+		}
+
+		fmt.Printf("\nPods scheduled on node %s:\n", nodeName)
+		for _, pod := range podList.Items {
+			fmt.Printf("- %s/%s (Phase: %s)\n", pod.Namespace, pod.Name, pod.Status.Phase)
+			fmt.Println("  Labels:")
+			printLabels(pod.Labels)
+			fmt.Println()
+		}
 		return
 	}
 
@@ -277,13 +315,25 @@ func main() {
 			fmt.Println("not a k8s deployment")
 			return
 		}
-		kc := k8sclient.NewClient(context.Background())
-		labels, err := kc.GetNodelLabel(nodeName)
+		kc, err := k8sclient.NewClient(context.Background(), nodeName)
 		if err != nil {
 			fmt.Printf("err: %+v", err)
 			return
 		}
-		fmt.Printf("node[%v] labels[%+v]", nodeName, labels)
+		clientset := kc.GetClientSet()
+		if clientset == nil {
+			fmt.Printf("Invalid clientset")
+			return
+		}
+		node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("err: %+v", err)
+			return
+		}
+		// Extract and print the labels
+		for key, value := range node.Labels {
+			fmt.Printf("Label %s = %s\n", key, value)
+		}
 	}
 
 	if *eccFile != "" {
