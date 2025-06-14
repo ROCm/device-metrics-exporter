@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
@@ -34,7 +33,6 @@ const (
 )
 
 type ROCProfilerClient struct {
-	sync.Mutex
 	Name         string
 	MetricFields []string
 	cmd          string
@@ -49,18 +47,12 @@ func NewRocProfilerClient(name string) *ROCProfilerClient {
 }
 
 func (rpc *ROCProfilerClient) SetFields(fields []string) {
-	rpc.Lock()
-	defer rpc.Unlock()
-
 	logger.Log.Printf("rocprofiler fields pulled for %v", strings.Join(fields, ","))
 	rpc.MetricFields = fields
 	rpc.cmd = fmt.Sprintf("rocpctl %v", strings.Join(fields, " "))
 }
 
 func (rpc *ROCProfilerClient) GetMetrics() (*amdgpu.GpuProfiler, error) {
-	rpc.Lock()
-	defer rpc.Unlock()
-
 	gpus := amdgpu.GpuProfiler{}
 
 	if len(rpc.MetricFields) == 0 {
