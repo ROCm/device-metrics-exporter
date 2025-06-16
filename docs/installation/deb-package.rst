@@ -21,6 +21,9 @@ Each Debian package release of the Standalone Metrics Exporter is dependent on a
    * - amdgpu-exporter-1.2.0
      - ROCm 6.3.x
      - 6.10.5
+   * - amdgpu-exporter-1.3.0
+     - ROCm 6.4.x
+     - 6.12.12
 
 Installation
 ===================
@@ -45,13 +48,13 @@ Step 2: Install AMDGPU Driver
 ------------------------------
 
 .. note::
-   For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page. The below instructions are the most current instructions as of ROCm 6.2.4.
+   For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page. The below instructions are the most current instructions as of ROCm 6.4.1.
 
-1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example if you want to get the latest ROCm 6.3.4 drivers for Ubuntu 22.04 you would run the following command:
+1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example if you want to get the latest ROCm 6.4.1 drivers for Ubuntu 22.04 you would run the following command:
 
    .. code-block:: bash
 
-      wget https://repo.radeon.com/amdgpu-install/6.3.4/ubuntu/jammy/amdgpu-install_6.3.60304-1_all.deb
+      wget https://repo.radeon.com/amdgpu-install/6.4.1/ubuntu/jammy/amdgpu-install_6.4.60401-1_all.deb
 
    Please note that the above url will be different depending on what version of the drivers you will be installing and type of Operating System you are using.
 
@@ -59,7 +62,7 @@ Step 2: Install AMDGPU Driver
 
    .. code-block:: bash
 
-      sudo apt install ./amdgpu-install_6.3.60304-1_all.deb
+      sudo apt install ./amdgpu-install_6.4.60401-1_all.deb
       sudo apt update 
       amdgpu-install --usecase=dkms 
 
@@ -88,17 +91,41 @@ Step 3: Install the APT Prerequisites for Metrics Exporter
 
 2. Edit the sources list to add the Device Metrics Exporter repository:
 
-   **For Ubuntu 22.04**, add the following line:
+  .. tab-set::
 
-   .. code-block:: bash
+    .. tab-item:: v1.3.0
+      :sync: v1.3.0-tab
 
-      deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.2.0 jammy main
+      .. tab-set::
 
-   **For Ubuntu 24.04**, add the following line:
+         .. tab-item:: ubuntu 22.04
 
-   .. code-block:: bash
+            .. code-block:: bash
 
-      deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.2.0 noble main
+              deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.3.0 jammy main
+
+         .. tab-item:: ubuntu 24.04
+
+            .. code-block:: bash
+
+              deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.3.0 noble main
+
+    .. tab-item:: v1.2.0
+      :sync: v1.2.0-tab
+
+      .. tab-set::
+
+         .. tab-item:: ubuntu 22.04
+
+            .. code-block:: bash
+
+              deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.2.0 jammy main
+
+         .. tab-item:: ubuntu 24.04
+
+            .. code-block:: bash
+
+              deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.2.0 noble main
 
 3. Update the package list again:
 
