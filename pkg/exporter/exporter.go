@@ -101,9 +101,12 @@ func startMetricsServer(c *config.ConfigHandler) *http.Server {
 	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
 	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
 
+	// enforce some timeouts
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%v", serverPort),
-		Handler: router,
+		Addr:        fmt.Sprintf(":%v", serverPort),
+		ReadTimeout: 45 * time.Second,
+		IdleTimeout: 60 * time.Second,
+		Handler:     router,
 	}
 
 	go func() {
