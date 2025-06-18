@@ -12,7 +12,7 @@ docker run -d \
   --device=/dev/kfd \
   -p 5000:5000 \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.0.0
+  rocm/device-metrics-exporter:v1.3.0
 ```
 
 ## Features
@@ -24,6 +24,7 @@ docker run -d \
   - Memory usage statistics
   - Power consumption data
   - PCIe bandwidth metrics
+  - Performance metrics
 - Kubernetes integration via Helm chart
 - Slurm integration support
 - Configurable service ports
@@ -31,8 +32,8 @@ docker run -d \
 
 ## Requirements
 
-- Ubuntu 22.04 or later
-- ROCm 6.2.x, 6.3.x
+- Ubuntu 22.04, 24.04
+- ROCm 6.2.x, 6.3.x, 6.4.x
 - Docker (or compatible container runtime)
 
 ## Documentation
