@@ -1917,7 +1917,7 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(
 		ga.m.gpuPPTRA.With(labels).Set(normalizeUint64(violationStats.PPTResidencyAccumulated))
 		ga.m.gpuSTRA.With(labels).Set(normalizeUint64(violationStats.SocketThermalResidencyAccumulated))
 		ga.m.gpuVRTRA.With(labels).Set(normalizeUint64(violationStats.VRThermalResidencyAccumulated))
-		ga.m.gpuHBMTRA.With(labels).Set(normalizeUint64(violationStats.VRThermalResidencyAccumulated))
+		ga.m.gpuHBMTRA.With(labels).Set(normalizeUint64(violationStats.HBMThermalResidencyAccumulated))
 	}
 
 	// populate prof metrics if available
