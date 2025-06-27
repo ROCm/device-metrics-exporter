@@ -21,7 +21,7 @@ helm install metrics-exporter \
   -n mynamespace --create-namespace
 ```
 
-This will automatically create a ServiceMonitor resource that Prometheus Operator can discover and use to scrape metrics from the Device Metrics Exporter. The ServiceMonitor will be deployed in the same namespace as the metrics service and daemonset. Additional configuration in Prometheus is necessary to select the metrics namespace and the ServiceMonitor. Aternatively, define a `values.yaml` with the desired options and use it in helm install.
+This will automatically create a ServiceMonitor resource that Prometheus Operator can discover and use to scrape metrics from the Device Metrics Exporter. The ServiceMonitor will be deployed in the same namespace as the metrics service and daemonset. Alternatively, define a `values.yaml` with the desired options and use it in helm install.
 
 ## Configuration Options
 
@@ -52,6 +52,92 @@ kubectl get servicemonitor -n mynamespace
 ```
 
 Here, `mynamespace` refers to the metrics namespace where the service and daemonset are deployed. You should see a ServiceMonitor resource with the name pattern `<release-name>-amd-metrics-exporter`.
+
+## Prometheus Configuration for ServiceMonitor Discovery
+
+After deploying the ServiceMonitor, Prometheus must be configured to discover and scrape it. The Prometheus Operator uses selectors in the Prometheus Custom Resource (CR) to determine which ServiceMonitor objects to monitor. Two key selectors control this behavior:
+1. **serviceMonitorNamespaceSelector**: Allows selecting namespaces to search for ServiceMonitor objects. An empty value selects all namespaces.
+2. **serviceMonitorSelector**: Specifies which ServiceMonitor objects to select in the chosen namespaces based on labels.
+
+### Example Prometheus Configuration
+
+Here's an example Prometheus CR configuration that will discover the Device Metrics Exporter ServiceMonitor:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  # Select ServiceMonitor objects from specific namespaces
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      # Select namespaces with this label, or use {} to select all namespaces
+      name: mynamespace
+  
+  # Alternative: Select all namespaces
+  # serviceMonitorNamespaceSelector: {}
+  
+  # Option 1: Use default labels (.Release.Name refers to the metrics exporter helm release name)
+  serviceMonitorSelector:
+    matchLabels:
+      app: <release-name>-amdgpu-metrics-exporter
+
+  # Option 2: Use custom labels (if you specified custom labels in Helm values)
+  # serviceMonitorSelector:
+  #   matchLabels:
+  #     app.kubernetes.io/name: device-metrics-exporter
+```
+
+### ServiceMonitor Labels and Discovery
+
+The Helm chart automatically adds default labels to the ServiceMonitor for Prometheus discovery:
+
+- `app: <release-name>-amdgpu-metrics-exporter` (where `<release-name>` is your Helm release name)
+
+#### Using Default Labels
+
+You can rely on the default `app` label for Prometheus discovery without specifying custom labels:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  interval: "15s"
+  # No custom labels needed - defaults will be used
+```
+
+Your Prometheus CR should then use the `app` label to select the ServiceMonitor:
+
+```yaml
+serviceMonitorSelector:
+  matchLabels:
+    app: <release-name>-amdgpu-metrics-exporter
+```
+
+Replace `<release-name>` with the actual name you used when installing the Helm chart.
+
+#### Using Custom Labels
+
+If you need custom labels to match your specific Prometheus configuration, you can override the defaults:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  interval: "15s"
+  labels:
+    # Custom labels that match your Prometheus serviceMonitorSelector
+    app.kubernetes.io/name: device-metrics-exporter
+    environment: production
+    team: gpu-monitoring
+```
+
+### Verifying Prometheus Discovery
+
+After configuring Prometheus, verify the integration by:
+
+1. Accessing the Prometheus UI and navigating to the "Targets" page
+2. Your Device Metrics Exporter should appear as a healthy target
 
 ## Troubleshooting
 
