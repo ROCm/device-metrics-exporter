@@ -12,4 +12,4 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 
 ## Installation
 
-See [GPU Operator Documentation](https://dcgpu.docs.amd.com/projects/gpu-operator/en/latest/installation/kubernetes-helm.html) for installation instructions.
+See [GPU Operator Documentation](https://instinct.docs.amd.com/projects/gpu-operator/en/latest/installation/kubernetes-helm.html) for installation instructions.
