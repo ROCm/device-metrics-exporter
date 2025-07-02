@@ -516,11 +516,47 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 	defer os.Remove(jobFile)
 	_, _ = s.exporter.CopyFileTo("slurm_job.json", "/var/run/exporter/3")
 	time.Sleep(5 * time.Second) // 5 second timer for job to be picked up
+
+	// Verify that job-related labels are present with correct values
 	assert.Eventually(c, func() bool {
 		response, _ := s.getExporterResponse()
-		log.Printf("exporter out with job: %+v", response)
-		return response != ""
-	}, 10*time.Second, 1*time.Second)
+		if response == "" {
+			return false
+		}
+
+		allgpus, err := testutils.ParsePrometheusMetrics(response)
+		if err != nil {
+			log.Printf("Failed to parse metrics: %v", err)
+			return false
+		}
+
+		// Verify job labels are present with expected values
+		expectedJobLabels := map[string]string{
+			"job_id":        "\"742\"",
+			"job_partition": "\"256C8G1H_MI325X_Ubuntu22\"",
+			"job_user":      "\"yaoming_mu_7kq\"",
+		}
+
+		// Verify job labels are present for all GPU IDs "0" through "7"
+		for i := 0; i <= 7; i++ {
+			gpuId := fmt.Sprintf("\"%d\"", i)
+			if _, exists := allgpus[gpuId]; !exists {
+				log.Printf("Expected GPU[%v] not found in metrics", gpuId)
+				return false
+			}
+
+			targetGpu := allgpus[gpuId]
+
+			err = verifyJobLabels(targetGpu, expectedJobLabels, gpuId)
+			if err != nil {
+				log.Printf("Job label verification failed for GPU[%v]: %v", gpuId, err)
+				return false
+			}
+		}
+
+		log.Printf("Job labels verified successfully: present on GPUs 0-7")
+		return true
+	}, 10*time.Second, 5*time.Second)
 }
 
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {
@@ -567,6 +603,51 @@ func verifyHealth(allgpus map[string]*testutils.GPUMetric, state string) error {
 	}
 
 	log.Printf("all gpu in expected health state [%v]", state)
+	return nil
+}
+
+func verifyJobLabels(gpu *testutils.GPUMetric, expectedJobLabels map[string]string, gpuId string) error {
+	if gpu == nil {
+		return fmt.Errorf("GPU metric is nil")
+	}
+
+	if len(gpu.Fields) == 0 {
+		return fmt.Errorf("GPU[%v] has no metric fields", gpuId)
+	}
+
+	// Check that the GPU has the expected job labels
+	foundJobLabels := false
+	for fieldName, metricField := range gpu.Fields {
+		// Verify that gpu_id label matches our target (if present)
+		if gpuIdValue, exists := metricField.Labels["gpu_id"]; exists && gpuIdValue != gpuId {
+			continue // Skip fields that don't match the expected GPU ID
+		}
+
+		hasAllJobLabels := true
+		for expectedLabel, expectedValue := range expectedJobLabels {
+			actualValue, exists := metricField.Labels[expectedLabel]
+			if !exists {
+				log.Printf("GPU[%v] field[%v] missing job label: %v", gpuId, fieldName, expectedLabel)
+				hasAllJobLabels = false
+				break
+			}
+			if actualValue != expectedValue {
+				return fmt.Errorf("GPU[%v] field[%v] job label[%v] expected value[%v] but got[%v]",
+					gpuId, fieldName, expectedLabel, expectedValue, actualValue)
+			}
+		}
+
+		if hasAllJobLabels {
+			foundJobLabels = true
+			log.Printf("GPU[%v] field[%v] has correct job labels", gpuId, fieldName)
+			break // Found correct labels for this field, no need to check other fields
+		}
+	}
+
+	if !foundJobLabels {
+		return fmt.Errorf("GPU[%v] metrics do not contain the required job labels", gpuId)
+	}
+
 	return nil
 }
 
