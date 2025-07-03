@@ -42,6 +42,7 @@ const (
 	// cachgpuid are updated after this many pull request
 	refreshInterval = 30 * time.Second
 	queryTimeout    = 10 * time.Second
+	cacheTimer      = 10 * time.Second
 )
 
 type GPUAgentClient struct {
@@ -65,6 +66,14 @@ type GPUAgentClient struct {
 	mockEccField           map[string]map[string]uint32 // gpuid->fields->count
 	computeNodeHealthState bool
 	fsysDeviceHandler      *fsysdevice.FsysDevice
+	gCache                 *gpuCache
+}
+
+// Cache fields for GPUAgentClient
+type gpuCache struct {
+	sync.RWMutex
+	lastResponse  *amdgpu.GPUGetResponse
+	lastTimestamp time.Time
 }
 
 func initclients(mh *metricsutil.MetricsHandler) (conn *grpc.ClientConn, gpuclient amdgpu.GPUSvcClient, evtclient amdgpu.EventSvcClient, err error) {
@@ -88,6 +97,7 @@ func NewAgent(mh *metricsutil.MetricsHandler, k8sclient *k8sclient.K8sClient, en
 	ga.enableProfileMetrics = true
 	ga.k8sApiClient = k8sclient
 	ga.fsysDeviceHandler = fsysdevice.GetFsysDeviceHandler()
+	ga.gCache = &gpuCache{}
 	mh.RegisterMetricsClient(ga)
 	return ga
 }
@@ -270,20 +280,53 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 	return nil
 }
 
+// cacheRead reads from cache if the last read was successful and within the cacheTimer
+// otherwise it reads from hardware
+// this ensures that we don't read from hardware too frequently as more clients are added
+// and the number of reads increases
+func (ga *GPUAgentClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
+	ga.gCache.RLock()
+	useCache := false
+
+	if ga.gCache.lastResponse != nil && time.Since(ga.gCache.lastTimestamp) < cacheTimer && ga.gCache.lastResponse != nil {
+		useCache = true
+	}
+	var res *amdgpu.GPUGetResponse
+	var err error
+	if useCache {
+		logger.Log.Printf("returning metrics from cache")
+		res = ga.gCache.lastResponse
+		ga.gCache.RUnlock()
+	} else {
+		ga.gCache.RUnlock()
+		// read hardware again and cache
+		ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)
+		defer cancel()
+		req := &amdgpu.GPUGetRequest{}
+		res, err = ga.gpuclient.GPUGet(ctx, req)
+		// Only cache if no error
+		ga.gCache.Lock()
+		ga.gCache.lastTimestamp = time.Now()
+		if err == nil {
+			ga.gCache.lastResponse = res
+		} else {
+			ga.gCache.lastResponse = nil
+		}
+		ga.gCache.Unlock()
+	}
+	return res, err
+}
+
 func (ga *GPUAgentClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdgpu.GPU, error) {
+
 	if !ga.isActive() {
 		if err := ga.reconnect(); err != nil {
 			return nil, nil, err
 		}
 	}
-
-	ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)
-	defer cancel()
-
-	req := &amdgpu.GPUGetRequest{}
-	res, err := ga.gpuclient.GPUGet(ctx, req)
+	res, err := ga.cacheRead()
 	if err != nil {
-		return res, nil, err
+		return nil, nil, err
 	}
 	// filter out logical GPU
 	nres := &amdgpu.GPUGetResponse{

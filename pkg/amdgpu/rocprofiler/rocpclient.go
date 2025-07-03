@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
@@ -30,12 +31,20 @@ import (
 
 const (
 	rocprofilerTimeout = 15
+	cachedTimer        = 10 * time.Second
 )
 
 type ROCProfilerClient struct {
 	Name         string
 	MetricFields []string
 	cmd          string
+	pCache       *profilerCache
+}
+
+type profilerCache struct {
+	sync.RWMutex
+	cachedMetrics *amdgpu.GpuProfiler
+	cacheLastRead time.Time
 }
 
 func NewRocProfilerClient(name string) *ROCProfilerClient {
@@ -43,6 +52,7 @@ func NewRocProfilerClient(name string) *ROCProfilerClient {
 	return &ROCProfilerClient{
 		Name:         name,
 		MetricFields: []string{},
+		pCache:       &profilerCache{},
 	}
 }
 
@@ -52,7 +62,40 @@ func (rpc *ROCProfilerClient) SetFields(fields []string) {
 	rpc.cmd = fmt.Sprintf("rocpctl %v", strings.Join(fields, " "))
 }
 
+// cacheMetrics returns the cached metrics if they are fresh, otherwise it fetches new metrics
+// and updates the cache. If the fetch fails, the cache is cleared and the error is returned.
+// this is required to avoid frequent calls to rocpctl for metrics to avoid stress on hardware
+func (rpc *ROCProfilerClient) cacheMetrics() (*amdgpu.GpuProfiler, error) {
+	rpc.pCache.RLock()
+
+	// If cache is fresh, return it
+	if time.Since(rpc.pCache.cacheLastRead) < cachedTimer && rpc.pCache.cachedMetrics != nil {
+		rpc.pCache.RUnlock()
+		logger.Log.Printf("returning metrics from cache")
+		return rpc.pCache.cachedMetrics, nil
+	}
+	rpc.pCache.RUnlock()
+
+	// Otherwise, fetch new metrics and update cache
+	metrics, err := rpc.getMetrics()
+	rpc.pCache.Lock()
+	rpc.pCache.cacheLastRead = time.Now()
+	if err == nil {
+		rpc.pCache.cachedMetrics = metrics
+	} else {
+		rpc.pCache.cachedMetrics = nil
+	}
+	rpc.pCache.Unlock()
+
+	// No cache and failed to fetch
+	return metrics, err
+}
+
 func (rpc *ROCProfilerClient) GetMetrics() (*amdgpu.GpuProfiler, error) {
+	return rpc.cacheMetrics()
+}
+
+func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
 	gpus := amdgpu.GpuProfiler{}
 
 	if len(rpc.MetricFields) == 0 {
@@ -72,7 +115,7 @@ func (rpc *ROCProfilerClient) GetMetrics() (*amdgpu.GpuProfiler, error) {
 
 	err = json.Unmarshal(gpuMetrics, &gpus)
 	if err != nil {
-		logger.Log.Printf("error unmarshaling port statistics err :%v -> data: %v", err, string(gpuMetrics))
+		logger.Log.Printf("error unmarshaling profiler statistics err :%v -> data: %v", err, string(gpuMetrics))
 		return nil, err
 	}
 	return &gpus, nil
