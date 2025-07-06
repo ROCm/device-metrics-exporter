@@ -1,6 +1,6 @@
 assets:
   - name    : gpuagent_mock.bin.gz
-    version : 1.116.0-2
+    version : 1.116.0-24 (private build)
     branch  : master
 
   - name    : gpuagent_static.bin.gz
