@@ -26,6 +26,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/gofrs/uuid"
 )
 
@@ -95,25 +96,25 @@ func (ga *GPUAgentClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[str
 		}
 
 		// business logic for health detection
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SDMA", thresholds.GPU_ECC_UNCORRECT_SDMA, normalizeUint64(stats.SDMAUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_GFX", thresholds.GPU_ECC_UNCORRECT_GFX, normalizeUint64(stats.GFXUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MMHUB", thresholds.GPU_ECC_UNCORRECT_MMHUB, normalizeUint64(stats.MMHUBUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_ATHUB", thresholds.GPU_ECC_UNCORRECT_ATHUB, normalizeUint64(stats.ATHUBUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_BIF", thresholds.GPU_ECC_UNCORRECT_BIF, normalizeUint64(stats.BIFUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_HDP", thresholds.GPU_ECC_UNCORRECT_HDP, normalizeUint64(stats.HDPUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_XGMI_WAFL", thresholds.GPU_ECC_UNCORRECT_XGMI_WAFL, normalizeUint64(stats.XGMIWAFLUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_DF", thresholds.GPU_ECC_UNCORRECT_DF, normalizeUint64(stats.DFUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SMN", thresholds.GPU_ECC_UNCORRECT_SMN, normalizeUint64(stats.SMNUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SEM", thresholds.GPU_ECC_UNCORRECT_SEM, normalizeUint64(stats.SEMUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP0", thresholds.GPU_ECC_UNCORRECT_MP0, normalizeUint64(stats.MP0UncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP1", thresholds.GPU_ECC_UNCORRECT_MP1, normalizeUint64(stats.MP1UncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_FUSE", thresholds.GPU_ECC_UNCORRECT_FUSE, normalizeUint64(stats.FUSEUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_UMC", thresholds.GPU_ECC_UNCORRECT_UMC, normalizeUint64(stats.UMCUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MCA", thresholds.GPU_ECC_UNCORRECT_MCA, normalizeUint64(stats.MCAUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_VCN", thresholds.GPU_ECC_UNCORRECT_VCN, normalizeUint64(stats.VCNUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_JPEG", thresholds.GPU_ECC_UNCORRECT_JPEG, normalizeUint64(stats.JPEGUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_IH", thresholds.GPU_ECC_UNCORRECT_IH, normalizeUint64(stats.IHUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MPIO", thresholds.GPU_ECC_UNCORRECT_MPIO, normalizeUint64(stats.MPIOUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SDMA", thresholds.GPU_ECC_UNCORRECT_SDMA, utils.NormalizeUint64(stats.SDMAUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_GFX", thresholds.GPU_ECC_UNCORRECT_GFX, utils.NormalizeUint64(stats.GFXUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MMHUB", thresholds.GPU_ECC_UNCORRECT_MMHUB, utils.NormalizeUint64(stats.MMHUBUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_ATHUB", thresholds.GPU_ECC_UNCORRECT_ATHUB, utils.NormalizeUint64(stats.ATHUBUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_BIF", thresholds.GPU_ECC_UNCORRECT_BIF, utils.NormalizeUint64(stats.BIFUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_HDP", thresholds.GPU_ECC_UNCORRECT_HDP, utils.NormalizeUint64(stats.HDPUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_XGMI_WAFL", thresholds.GPU_ECC_UNCORRECT_XGMI_WAFL, utils.NormalizeUint64(stats.XGMIWAFLUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_DF", thresholds.GPU_ECC_UNCORRECT_DF, utils.NormalizeUint64(stats.DFUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SMN", thresholds.GPU_ECC_UNCORRECT_SMN, utils.NormalizeUint64(stats.SMNUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SEM", thresholds.GPU_ECC_UNCORRECT_SEM, utils.NormalizeUint64(stats.SEMUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP0", thresholds.GPU_ECC_UNCORRECT_MP0, utils.NormalizeUint64(stats.MP0UncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP1", thresholds.GPU_ECC_UNCORRECT_MP1, utils.NormalizeUint64(stats.MP1UncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_FUSE", thresholds.GPU_ECC_UNCORRECT_FUSE, utils.NormalizeUint64(stats.FUSEUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_UMC", thresholds.GPU_ECC_UNCORRECT_UMC, utils.NormalizeUint64(stats.UMCUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MCA", thresholds.GPU_ECC_UNCORRECT_MCA, utils.NormalizeUint64(stats.MCAUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_VCN", thresholds.GPU_ECC_UNCORRECT_VCN, utils.NormalizeUint64(stats.VCNUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_JPEG", thresholds.GPU_ECC_UNCORRECT_JPEG, utils.NormalizeUint64(stats.JPEGUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_IH", thresholds.GPU_ECC_UNCORRECT_IH, utils.NormalizeUint64(stats.IHUncorrectableErrors))
+		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MPIO", thresholds.GPU_ECC_UNCORRECT_MPIO, utils.NormalizeUint64(stats.MPIOUncorrectableErrors))
 	}
 
 	return gpuHealthMap

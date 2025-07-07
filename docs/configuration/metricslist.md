@@ -11,7 +11,7 @@ The following table contains a full list of GPU Metrics that are available using
 | GPU_JUNCTION_TEMPERATURE        | Hotspot (aka junction) temperature value in Celsius                        |
 | GPU_MEMORY_TEMPERATURE          | Memory temperature value in Celsius                                        |
 | GPU_HBM_TEMPERATURE             | List of hbm temperatures in Celsius                                        |
-| GPU_GFX_ACTIVITY                | Graphics engine usage percentage (0 - 100)                                 |
+| GPU_GFX_ACTIVITY   (Applicable for unpartitioned GPU)               | Graphics engine usage percentage (0 - 100)                                 |
 | GPU_UMC_ACTIVITY                | Memory engine usage percentage (0 - 100)                                   |
 | GPU_MMA_ACTIVITY                | Average multimedia engine usages in percentage (0 - 100)                   |
 | GPU_VCN_ACTIVITY                | List of VCN encode/decode engine utilization per AID                       |
@@ -101,6 +101,9 @@ The following table contains a full list of GPU Metrics that are available using
 | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED | Socket Thermal accumulated Violation Counter                      |
 | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED     | Voltage Rail accumulated Violation Counter                        |
 | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED    | HBM Accumulated Violation Counter                                 |
+| GPU_GFX_BUSY_INSTANTANEOUS                         | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core   |
+| GPU_VC_BUSY_INSTANTANEOUS                          | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core   |
+| GPU_JPEG_BUSY_INSTANTANEOUS                        | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core  |
 | GPU_PROF_GRBM_GUI_ACTIVE                         | Number of GPU active cycles                                                                      |
 | GPU_PROF_SQ_WAVES                                | Number of wavefronts dispatched to sequencers, including both new and restored wavefronts        |
 | GPU_PROF_GRBM_COUNT                              | Number of free-running GPU cycles                                                                |

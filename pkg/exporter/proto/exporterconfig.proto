@@ -130,6 +130,17 @@ enum GPUMetricField {
     GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED      = 96;
     GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED     = 97;
 
+    /* GPU Instantaneous Activity
+     * XCP Accelerated Compute Processor
+     * also referred to as the Graphics Compute Partitions.
+     * Each physical gpu could have a maximum of 8 separate partitions
+     * associated with each (depending on ASIC support)
+     * XCC - Accelerated Compute Core, the collection of compute units,
+     */
+    GPU_GFX_BUSY_INSTANTANEOUS   = 98;
+    GPU_VCN_BUSY_INSTANTANEOUS   = 99;
+    GPU_JPEG_BUSY_INSTANTANEOUS  = 100;
+
     // Profiler Metrics (reserving 801 to 1200)
     GPU_PROF_GRBM_GUI_ACTIVE                                 = 801;
     GPU_PROF_SQ_WAVES                                        = 802;
