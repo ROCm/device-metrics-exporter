@@ -41,8 +41,8 @@ import (
 const (
 	// cachgpuid are updated after this many pull request
 	refreshInterval = 30 * time.Second
-	queryTimeout    = 10 * time.Second
-	cacheTimer      = 10 * time.Second
+	queryTimeout    = 15 * time.Second
+	cacheTimer      = 15 * time.Second
 )
 
 type GPUAgentClient struct {
