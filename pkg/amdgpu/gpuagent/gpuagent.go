@@ -285,34 +285,38 @@ func (ga *GPUAgentClient) getMetricsAll() error {
 // this ensures that we don't read from hardware too frequently as more clients are added
 // and the number of reads increases
 func (ga *GPUAgentClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
-	ga.gCache.RLock()
-	useCache := false
+	now := time.Now()
 
-	if ga.gCache.lastResponse != nil && time.Since(ga.gCache.lastTimestamp) < cacheTimer && ga.gCache.lastResponse != nil {
-		useCache = true
-	}
-	var res *amdgpu.GPUGetResponse
-	var err error
-	if useCache {
+	// First try fast path with RLock
+	ga.gCache.RLock()
+	if ga.gCache.lastResponse != nil && now.Sub(ga.gCache.lastTimestamp) < cacheTimer {
+		res := ga.gCache.lastResponse
+		ga.gCache.RUnlock()
 		logger.Log.Printf("returning metrics from cache")
-		res = ga.gCache.lastResponse
-		ga.gCache.RUnlock()
+		return res, nil
+	}
+	ga.gCache.RUnlock()
+
+	// Acquire full Lock to update cache
+	ga.gCache.Lock()
+	defer ga.gCache.Unlock()
+
+	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
+	if ga.gCache.lastResponse != nil && time.Since(ga.gCache.lastTimestamp) < cacheTimer {
+		logger.Log.Printf("returning metrics from cache (after double-check)")
+		return ga.gCache.lastResponse, nil
+	}
+
+	// Perform query and update cache
+	ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)
+	defer cancel()
+
+	res, err := ga.gpuclient.GPUGet(ctx, &amdgpu.GPUGetRequest{})
+	ga.gCache.lastTimestamp = time.Now()
+	if err == nil {
+		ga.gCache.lastResponse = res
 	} else {
-		ga.gCache.RUnlock()
-		// read hardware again and cache
-		ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)
-		defer cancel()
-		req := &amdgpu.GPUGetRequest{}
-		res, err = ga.gpuclient.GPUGet(ctx, req)
-		// Only cache if no error
-		ga.gCache.Lock()
-		ga.gCache.lastTimestamp = time.Now()
-		if err == nil {
-			ga.gCache.lastResponse = res
-		} else {
-			ga.gCache.lastResponse = nil
-		}
-		ga.gCache.Unlock()
+		ga.gCache.lastResponse = nil
 	}
 	return res, err
 }
