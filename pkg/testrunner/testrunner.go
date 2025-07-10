@@ -478,10 +478,27 @@ func (tr *TestRunner) watchGPUState() {
 	statusObj, _ := LoadRunnerStatus(tr.statusDBPath)
 	ids := []string{}
 	if statusObj != nil && len(statusObj.TestStatus) > 0 {
+		updateStatusDB := false
 		for deviceID, status := range statusObj.TestStatus {
+			// check whether the deviceID has expired in the map or not
+			// it is possible that the GPU has been partitioned and triggered test but got cutoff in between
+			// after the restart of test runner the GPU is no longer partitioned
+			// then the pre-existing test status info of partitioned deviceID is no longer existing
+			// need to remove those expired deviceIDs from status DB
+			// otherwise the SMI lib keeps cannot retrieve information of those expired deviceIDs
+			if _, ok := tr.gUIDToGPUIndexMap[deviceID]; !ok {
+				delete(statusObj.TestStatus, deviceID)
+				logger.Log.Printf("removing expired deviceID %v from status DB", deviceID)
+				updateStatusDB = true
+				continue
+			}
 			if status == types.TestRunning.String() {
 				ids = append(ids, deviceID)
 			}
+		}
+		if updateStatusDB {
+			// remove expired deviceIDs from status DB if needed
+			SaveRunnerStatus(statusObj, tr.statusDBPath)
 		}
 		if len(ids) > 0 {
 			logger.Log.Printf("found GPU %+v with incomplete test before restart %+v, start to rerun test", ids, statusObj)
