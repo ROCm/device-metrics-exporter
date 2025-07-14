@@ -204,29 +204,30 @@ func (tr *TestRunner) validateTestTrigger() {
 		if params, ok := categoryConfig.TestLocationTrigger[tr.hostName].TestParameters[tr.testTrigger]; !ok {
 			fmt.Printf("failed to get test trigger %+v under category %+v config: %+v\n", tr.testTrigger, categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
 			os.Exit(1)
-		} else if len(params.TestCases) == 0 {
+		} else if len(params.TestCases) == 0 || params.TestCases[0] == nil {
 			fmt.Printf("failed to get test case under category %+v trigger %+v config: %+v\n", categoryConfig, tr.testTrigger, categoryConfig.TestLocationTrigger[tr.hostName])
 			os.Exit(1)
 		}
 		tr.testLocation = tr.hostName
-		return
+	} else {
+		// if host specific config was not found
+		// validate global config's trigger
+		if categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword].TestParameters == nil {
+			fmt.Printf("failed to get any test trigger under category %+v global config: %+v\n", categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
+			os.Exit(1)
+		}
+		if params, ok := categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword].TestParameters[tr.testTrigger]; !ok {
+			fmt.Printf("failed to get test trigger %+v under category %+v global config: %+v\n", tr.testTrigger, categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
+			os.Exit(1)
+		} else if len(params.TestCases) == 0 || params.TestCases[0] == nil {
+			fmt.Printf("failed to get test case under category %+v trigger %+v global config: %+v\n", categoryConfig, tr.testTrigger, categoryConfig.TestLocationTrigger[tr.hostName])
+			os.Exit(1)
+		}
+		tr.testLocation = globals.GlobalTestTriggerKeyword
 	}
-	// if host specific config was not found
-	// validate global config's trigger
-	if categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword].TestParameters == nil {
-		fmt.Printf("failed to get any test trigger under category %+v global config: %+v\n", categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
-		os.Exit(1)
-	}
-	if params, ok := categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword].TestParameters[tr.testTrigger]; !ok {
-		fmt.Printf("failed to get test trigger %+v under category %+v global config: %+v\n", tr.testTrigger, categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
-		os.Exit(1)
-	} else if len(params.TestCases) == 0 || params.TestCases[0] == nil {
-		fmt.Printf("failed to get test case under category %+v trigger %+v global config: %+v\n", categoryConfig, tr.testTrigger, categoryConfig.TestLocationTrigger[tr.hostName])
-		os.Exit(1)
-	}
-	tr.testLocation = globals.GlobalTestTriggerKeyword
 	logger.Log.Printf("applied test config for %+v", tr.testLocation)
 
+	// 4. validate specific GPU model's test recipe
 	testParams := tr.getTestParameters(false)
 	gpuModelSubDir, err := getGPUModelTestRecipeDir(tr.rocmSMIPath)
 	if err != nil {
