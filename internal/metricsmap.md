@@ -11,8 +11,7 @@ Platform if specified only applies to that specific model, else applies to all
 | GPU_JUNCTION_TEMPERATURE                                   | stats.temperature.junction_temperature  | temp.junction/hostspot                      |  Mi3xx      |
 | GPU_MEMORY_TEMPERATURE                                     | stats.temperature.memory_temperature    |   temp.memory                               |        |
 | GPU_HBM_TEMPERATURE                                        | stats.temperature.hbm_temperature[i]    |   temp.hbm[i]                               |             |
-| GPU_GFX_ACTIVITY                                           | stats.usage.gfx_activity                |  usage.gfx_activity                         |            Mi2xx       |
-|                                                            | stats.usage.gfx_activity                |  usage.gfx_busy_inst.xcp_[partition_id][0]  | Mi3xx       |
+| GPU_GFX_ACTIVITY (Applicable for unpartitioned GPU)        | stats.usage.gfx_activity                |  usage.gfx_activity                         |     |
 | GPU_UMC_ACTIVITY                                           | stats.usage.umc_activity                | usage.umc_activity           |        |
 | GPU_MMA_ACTIVITY                                           | stats.usage.mm_activity                 | usage.mm_activity           |        |
 | GPU_VCN_ACTIVITY                                           | stats.usage.vcn_activity[i]             | metrics_info.vcn_activity [i]          |        |
@@ -106,6 +105,9 @@ Platform if specified only applies to that specific model, else applies to all
 | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULAT           | stats->violation_stats.socket_thermal_residency_accumulated | metrics_info.socket_thm_residency_acc            |            |             
 | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED             | stats->violation_stats.vr_thermal_residency_accumulated |metrics_info.vr_thm_residency_acc            |            |             
 | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED            | stats->violation_stats.hbm_thermal_residency_accumulated | metrics_info.hbm_thm_residency_acc            |            |             
+| GPU_GFX_BUSY_INSTANTANEOUS                                 | stats.usage.gfx_busy_inst |  usage.gfx_busy_inst.xcp_[partition_id]
+| GPU_VCN_BUSY_INSTANTANEOUS                                 | stats.usage.vcn_busy_inst |  usage.vcn_busy_inst.xcp_[partition_id]
+| GPU_JPEG_BUSY_INSTANTANEOUS                                | stats.usage.jpeg_busy_inst |  usage.jpeg_busy_inst.xcp_[partition_id]
 |                                                            |             |            |             |
 
 node_id of a gpu:

@@ -450,6 +450,13 @@ message GPUUsage {
   repeated uint32 VCNActivity  = 4;
   // JPEG activity as a percentage
   repeated uint32 JPEGActivity = 5;
+  // instantaneous graphics utilization per accelerated compute core as a
+  // percentage
+  repeated uint32 GFXBusyInst  = 6;
+  // instantaneous JPEG utilization per JPEG engine as a percentage
+  repeated uint32 JPEGBusyInst = 7;
+  // instantaneous VCN utilization as a percentage
+  repeated uint32 VCNBusyInst  = 8;
 }
 
 // GPU current memory usage

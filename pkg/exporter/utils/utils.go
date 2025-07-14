@@ -18,10 +18,13 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
 const (
@@ -111,4 +114,62 @@ func GetHostName() (string, error) {
 		}
 	}
 	return hostname, nil
+}
+
+// IsValueApplicable - return false if any of the value is all 0xf for max
+//
+//					       datatype size, this represents NA (not applicable from the metrics field)
+//	                  - return true otherwise
+func IsValueApplicable(x interface{}) bool {
+	switch x := x.(type) {
+	case uint64:
+		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+			return false
+		}
+	case uint32:
+		if x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+			return false
+		}
+	case uint16:
+		if x == math.MaxUint16 || x == math.MaxUint8 {
+			return false
+		}
+	case uint8:
+		if x == math.MaxUint8 {
+			return false
+		}
+	}
+	return true
+
+}
+
+// NormalizeUint64 - return 0 if any of the value is of 0xf indication NA as
+//
+//	  per the max data size
+//	- return x as is otherwise
+func NormalizeUint64(x interface{}) float64 {
+	switch x := x.(type) {
+	case uint64:
+		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+			return 0
+		}
+		return float64(x)
+	case uint32:
+		if x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+			return 0
+		}
+		return float64(x)
+	case uint16:
+		if x == math.MaxUint16 || x == math.MaxUint8 {
+			return 0
+		}
+		return float64(x)
+	case uint8:
+		if x == math.MaxUint8 {
+			return 0
+		}
+		return float64(x)
+	}
+	logger.Log.Fatalf("only uint64, uint32, uint16, uint8 are expected but got %v", reflect.TypeOf(x))
+	return 0
 }
