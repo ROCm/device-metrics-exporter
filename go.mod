@@ -1,6 +1,6 @@
 module github.com/ROCm/device-metrics-exporter
 
-go 1.24.2
+go 1.24.4
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0

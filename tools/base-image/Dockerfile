@@ -29,10 +29,10 @@ RUN apt-get update && apt-get install -y \
   make python3-sphinx python3-pip \
   git && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# download go1.24.2
-RUN wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz && \
-    rm go1.24.2.linux-amd64.tar.gz
+# download go1.24.4
+RUN wget https://go.dev/dl/go1.24.4.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.24.4.linux-amd64.tar.gz && \
+    rm go1.24.4.linux-amd64.tar.gz
 
 # download and install kubectl 
 RUN curl -o /usr/local/bin/kubectl -LO 'https://dl.k8s.io/release/v1.30.4/bin/linux/amd64/kubectl' && \
