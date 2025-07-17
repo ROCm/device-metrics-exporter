@@ -170,7 +170,6 @@ func (k *K8sClient) UpdateHealthLabel(nodeName string, newHealthMap map[string]s
 	node, err := k.clientset.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		logger.Log.Printf("k8s internal node get failed %v", err)
-		k.clientset = nil
 		return err
 	}
 
@@ -187,9 +186,7 @@ func (k *K8sClient) UpdateHealthLabel(nodeName string, newHealthMap map[string]s
 	// Update the node
 	_, err = k.clientset.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {
-		//TODO : disable for azure image drop
-		//logger.Log.Printf("k8s internal node update failed %v", err)
-		k.clientset = nil
+		logger.Log.Printf("k8s internal node update failed %v", err)
 		return err
 	}
 
