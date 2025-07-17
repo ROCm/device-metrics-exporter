@@ -8,7 +8,10 @@ data:
     {
       "ServerPort": 5000,
       "CommonConfig": {
-        "MetricsFieldPrefix": "amd_"
+          "MetricsFieldPrefix": "amd_",
+          "HealthService": {
+             "Enable" : true
+          }
       },
       "GPUConfig": {
         "Fields": [

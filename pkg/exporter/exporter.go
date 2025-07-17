@@ -62,6 +62,7 @@ type Exporter struct {
 	configFile    string
 	zmqDisable    bool
 	k8sApiClient  *k8sclient.K8sClient
+	svcHandler    *metricsserver.SvcHandler
 	ctx           context.Context
 	cancel        context.CancelFunc
 }
@@ -120,7 +121,7 @@ func startMetricsServer(c *config.ConfigHandler) *http.Server {
 	return srv
 }
 
-func foreverWatcher(ctx context.Context) {
+func foreverWatcher(e *Exporter) {
 	var srvHandler *http.Server
 	configPath := runConf.GetMetricsConfigPath()
 	directory := path.Dir(configPath)
@@ -139,6 +140,7 @@ func foreverWatcher(ctx context.Context) {
 			serverPort := runConf.GetServerPort()
 			logger.Log.Printf("starting server on %v", serverPort)
 			srvHandler = startMetricsServer(runConf)
+			go e.svcHandler.Run()
 
 		}
 	}
@@ -152,6 +154,7 @@ func foreverWatcher(ctx context.Context) {
 			srvCancel()
 			time.Sleep(1 * time.Second)
 			srvHandler = nil
+			e.svcHandler.Stop()
 		}
 	}
 
@@ -173,7 +176,7 @@ func foreverWatcher(ctx context.Context) {
 		}
 		debounce.Reset(debounceDuration)
 
-		for ctx.Err() == nil {
+		for e.ctx.Err() == nil {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
@@ -209,7 +212,7 @@ func foreverWatcher(ctx context.Context) {
 
 	logger.Log.Printf("starting file watcher for %v", configPath)
 
-	<-ctx.Done()
+	<-e.ctx.Done()
 	stopServer()
 	logger.Log.Printf("file watcher stopped due to context cancellation")
 }
@@ -282,20 +285,12 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 
 	logger.Init(utils.IsKubernetes())
 
-	svcHandler := metricsserver.InitSvcs(enableDebugAPI)
-	go func() {
-		logger.Log.Printf("metrics service starting")
-		if err := svcHandler.Run(); err != nil {
-			logger.Log.Printf("metrics service start failed: %+v", err)
-		}
-		logger.Log.Printf("metrics service stopped")
-		os.Exit(0)
-	}()
-
 	runConf = config.NewConfigHandler(e.configFile, e.agentGrpcPort)
 
 	mh, _ = metricsutil.NewMetrics(runConf)
 	mh.InitConfig()
+
+	e.svcHandler = metricsserver.InitSvcs(enableDebugAPI, mh)
 
 	gpuclient = gpuagent.NewAgent(mh, e.GetK8sApiClient(), !e.zmqDisable)
 	if err := gpuclient.Init(); err != nil {
@@ -305,11 +300,11 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 
 	e.startWatchers()
 
-	if err := svcHandler.RegisterHealthClient(gpuclient); err != nil {
+	if err := e.svcHandler.RegisterHealthClient(gpuclient); err != nil {
 		logger.Log.Printf("health client registration err: %+v", err)
 	}
 
-	foreverWatcher(e.ctx)
+	foreverWatcher(e)
 }
 
 // Close - closes the exporter and all its resources

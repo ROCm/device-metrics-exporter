@@ -288,9 +288,16 @@ message GPUMetricConfig {
     map<string, bool>  ProfilerMetrics = 7;
 }
 
+message HealthServiceConfig {
+    bool Enable = 1;
+}
+
 message CommonConfig {
 	// string to add as perfix to all exported fields
 	string MetricsFieldPrefix = 1;
+
+    // Health Service config
+    HealthServiceConfig HealthService = 2;
 }
 
 message MetricConfig {

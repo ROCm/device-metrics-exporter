@@ -72,6 +72,7 @@ func (s *E2ESuite) WriteConfig(data *exportermetrics.MetricConfig) error {
 		fmt.Println("Error writing JSON file:", err)
 		return err
 	}
+	fmt.Println("write config success : ", string(jsonData))
 	return nil
 }
 
@@ -116,6 +117,22 @@ func (s *E2ESuite) SetFields(fields []string) error {
 		config.GPUConfig = &exportermetrics.GPUMetricConfig{}
 	}
 	config.GPUConfig.Fields = fields
+	return s.WriteConfig(config)
+}
+
+func (s *E2ESuite) RemoveCommonConfig() error {
+	config := s.ReadConfig()
+	config.CommonConfig = nil
+	return s.WriteConfig(config)
+}
+
+func (s *E2ESuite) SetCommonConfigHealth(enable bool) error {
+	config := s.ReadConfig()
+	config.CommonConfig = &exportermetrics.CommonConfig{
+		HealthService: &exportermetrics.HealthServiceConfig{
+			Enable: enable,
+		},
+	}
 	return s.WriteConfig(config)
 }
 

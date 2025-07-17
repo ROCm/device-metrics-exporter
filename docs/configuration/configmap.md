@@ -13,6 +13,8 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - ProfilerMetrics: A map of toggle to enable Profiler Metrics either for `all` nodes or a specific hostname with desired state. Key with specific hostname `$HOSTNAME` takes precedense over a `all` key.
 - `CommonConfig`: 
   - `MetricsFieldPrefix`: Add prefix string for all the fields exporter. [Premetheus Metric Label formatted](https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels) string prefix will be accepted, on any invalid prefix will default to empty prefix to allow exporting of the fields.
+  - `HealthService` : Health Service configurations for the exproter.
+    - `Enable` : false to disable, otherwise enabled by default
    
 ## Setting custom values
 

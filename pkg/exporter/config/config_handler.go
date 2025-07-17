@@ -57,6 +57,22 @@ func (c *ConfigHandler) RefreshConfig() error {
 	return c.runningConfig.Update(newConfig)
 }
 
+// GetHealthServiceState returns the health service state
+// if not set, it returns true
+// if set, it returns the value
+func (c *ConfigHandler) GetHealthServiceState() bool {
+	c.Lock()
+	defer c.Unlock()
+	cfg := c.runningConfig.GetConfig()
+	if cfg != nil && cfg.GetCommonConfig() != nil {
+		healthCfg := cfg.GetCommonConfig().GetHealthService()
+		if healthCfg != nil {
+			return healthCfg.GetEnable()
+		}
+	}
+	return true
+}
+
 func (c *ConfigHandler) GetMetricsConfigPath() string {
 	return c.configPath
 }

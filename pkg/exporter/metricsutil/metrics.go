@@ -111,6 +111,13 @@ func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.GPUMetricConfig {
 	return nil
 }
 
+// GetHealthServiceState : returns the health service state
+// true : health service is enabled
+// false : health service is disabled
+func (mh *MetricsHandler) GetHealthServiceState() bool {
+	return mh.runConf.GetHealthServiceState()
+}
+
 func (mh *MetricsHandler) GetAgentAddr() string {
 	return mh.runConf.GetAgentAddr()
 }
@@ -120,6 +127,11 @@ func (mh *MetricsHandler) GetPrefix() string {
 	if config == nil || config.GetCommonConfig() == nil {
 		return ""
 	}
+
+	if config.GetCommonConfig().GetMetricsFieldPrefix() == "" {
+		return ""
+	}
+
 	// validate prometheus accepted pattern
 	prometheusFieldPattern := `^[a-zA-Z_][a-zA-Z0-9_]*$`
 	configPrefix := config.GetCommonConfig().GetMetricsFieldPrefix()

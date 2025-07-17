@@ -25,18 +25,21 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"google.golang.org/grpc"
 )
 
 type SvcHandler struct {
 	grpc      *grpc.Server
 	healthSvc *MetricsSvcImpl
+	mh        *metricsutil.MetricsHandler
 }
 
-func InitSvcs(enableDebugAPI bool) *SvcHandler {
+func InitSvcs(enableDebugAPI bool, mh *metricsutil.MetricsHandler) *SvcHandler {
 	s := &SvcHandler{
 		grpc:      grpc.NewServer(),
 		healthSvc: newMetricsServer(enableDebugAPI),
+		mh:        mh,
 	}
 	return s
 }
@@ -45,15 +48,35 @@ func (s *SvcHandler) RegisterHealthClient(client HealthInterface) error {
 	return s.healthSvc.RegisterHealthClient(client)
 }
 
+func (s *SvcHandler) Stop() {
+	if s.grpc != nil {
+		logger.Log.Printf("stopping Health gRPC server")
+		s.grpc.GracefulStop()
+		s.grpc = nil
+	}
+}
+
 func (s *SvcHandler) Run() error {
+	if s.mh != nil {
+		if enabled := s.mh.GetHealthServiceState(); !enabled {
+			logger.Log.Printf("health service is disabled")
+			return nil
+		}
+	}
+
+	if s.grpc == nil {
+		logger.Log.Printf("creating new gRPC server")
+		s.grpc = grpc.NewServer()
+	}
+
 	socketPath := globals.MetricsSocketPath
 	// Remove any existing socket file
 	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("Failed to remove socket file: %v", err)
+		return fmt.Errorf("failed to remove socket file: %v", err)
 	}
 
 	if err := os.MkdirAll(path.Dir(socketPath), 0755); err != nil {
-		return fmt.Errorf("Failed to create socket file: %v", err)
+		return fmt.Errorf("failed to create socket file: %v", err)
 	}
 
 	logger.Log.Printf("starting listening on socket : %v", socketPath)
@@ -65,7 +88,7 @@ func (s *SvcHandler) Run() error {
 	if err = os.Chmod(socketPath, 0777); err != nil {
 		logger.Log.Printf("socket %v chmod to 777 failed, set it on host", socketPath)
 	}
-	logger.Log.Printf("Listening on socket %v", socketPath)
+	logger.Log.Printf("listening on socket %v", socketPath)
 
 	// server registration for grpc services
 	metricssvc.RegisterMetricsServiceServer(s.grpc, s.healthSvc)

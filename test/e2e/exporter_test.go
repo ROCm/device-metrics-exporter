@@ -491,6 +491,7 @@ func (s *E2ESuite) Test016HealthSvcReconnect(c *C) {
 		return true
 	}, 30*time.Second, 1*time.Second)
 }
+
 func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 	labels := []string{"job_id", "job_partition", "job_user"}
 	err := s.SetLabels(labels)
@@ -557,6 +558,34 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 		log.Printf("Job labels verified successfully: present on GPUs 0-7")
 		return true
 	}, 10*time.Second, 5*time.Second)
+}
+
+func (s *E2ESuite) Test018HealthSvcToggle(c *C) {
+	log.Print("Disabling health service via SetCommonConfigHealth(false)")
+	err := s.SetCommonConfigHealth(false)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	healthCmd := "docker exec -t test_exporter metricsclient --json"
+	assert.Eventually(c, func() bool {
+		// Run metricsclient  inside the exporter container and expect empty output
+		output := s.tu.LocalCommandOutput(healthCmd)
+		log.Print(output)
+		return output == ""
+	}, 10*time.Second, 1*time.Second)
+
+	log.Print("Removing commonconfig and verifying metricsclient --json returns non-empty output")
+	err = s.RemoveCommonConfig() // Re-enable health service to restore config
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second)
+
+	// Run metricsclient  inside the exporter container and expect non-empty output
+	assert.Eventually(c, func() bool {
+		output := s.tu.LocalCommandOutput(healthCmd)
+		log.Print(output)
+		return output != ""
+	}, 10*time.Second, 1*time.Second)
+
 }
 
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {
