@@ -21,4 +21,4 @@
 
 ls -al
 rm -rf gpuagent gpuctl amd-metrics-exporter metricsclient libamd_smi.so* LICENSE \
-	librocpclient.so rocpctl
+	librocpclient.so rocpctl libamd_smi.so.25.5

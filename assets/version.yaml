@@ -1,19 +1,19 @@
 assets:
   - name    : gpuagent_mock.bin.gz
     version : 1.116.0-24 (private build)
-    branch  : master
+    branch  : 6.4.2
 
   - name    : gpuagent_static.bin.gz
     version : 1.116.0-24 (private build)
-    branch  : master
+    branch  : 6.4.2
 
   - name    : gpuctl.gobin
     version : 1.116.0-24 (private build)
-    branch  : master
+    branch  : 6.4.2
 
   - name    : amd_smi_lib
-    version : rocm-6.4.1
-    branch  : amd-mainline
+    version : rocm-6.4.2 (private build)
+    branch  : gpu-metrics-caching
 
   - name    : rocprofiler
     version : 6.4.1

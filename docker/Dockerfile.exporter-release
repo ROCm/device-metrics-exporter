@@ -35,6 +35,13 @@ ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
 RUN mkdir -p /home/amd/bin/
 RUN mkdir -p /home/amd/tools/
 
+# Clean up existing AMD SMI libraries and add custom ones
+RUN rm -f /opt/rocm/lib/libamd_smi.so*
+ADD ./libamd_smi.so.25.5 /opt/rocm/lib/libamd_smi.so.25.5
+RUN cd /opt/rocm/lib && \
+    ln -sf libamd_smi.so.25.5 libamd_smi.so.25 && \
+    ln -sf libamd_smi.so.25 libamd_smi.so
+
 # override built libraries
 ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
 ADD ./librocpclient.so /opt/rocm-${ROCM_VERSION}/lib/librocpclient.so
