@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/fsysdevice"
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -183,6 +184,61 @@ func setError(socketPath, filepath string) error {
 	return nil
 }
 
+func getGpuAgent(port string, isJson bool) {
+	conn, err := grpc.NewClient(
+		fmt.Sprintf("localhost:%s", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		fmt.Printf("failed to connect to GPU agent: %v\n", err)
+		return
+	}
+	defer conn.Close()
+
+	client := amdgpu.NewGPUSvcClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.GPUGet(ctx, &amdgpu.GPUGetRequest{})
+	if err != nil {
+		fmt.Printf("GPUGet call failed: %v\n", err)
+		return
+	}
+	// Sort the GPUs by Status.Index in ascending order
+	gpus := resp.Response
+	sort.Slice(gpus, func(i, j int) bool {
+		return gpus[i].Status.Index < gpus[j].Status.Index
+	})
+	resp.Response = gpus
+
+	toJsonString := func(v interface{}) string {
+		data, err := json.Marshal(v)
+		if err != nil {
+			return ""
+		}
+		return string(data)
+	}
+
+	if isJson {
+		jsonData, err := json.MarshalIndent(resp, "", "  ")
+		if err != nil {
+			fmt.Printf("failed to marshal response: %v\n", err)
+			return
+		}
+		fmt.Println(string(jsonData))
+	} else {
+		// Print each GPU as a row with fields
+		for _, gpu := range resp.Response {
+			fmt.Println(strings.Repeat("-", 40))
+			fmt.Printf("Index : %v\n", gpu.Status.Index)
+			fmt.Printf("Spec  : %s\n", toJsonString(gpu.Spec))
+			fmt.Printf("Status: %s\n", toJsonString(gpu.Status))
+			fmt.Printf("Stats : %s\n", toJsonString(gpu.Stats))
+		}
+		fmt.Println(strings.Repeat("-", 40))
+	}
+}
+
 func getDeviceMap() {
 	devices, err := fsysdevice.FindAMDGPUDevices()
 	if err != nil {
@@ -238,20 +294,114 @@ func getPodResources() {
 	fmt.Printf("pod resp:\n %+v\n", resp)
 }
 
+func getNodePods() {
+	nodeName := utils.GetNodeName()
+	if nodeName == "" {
+		fmt.Println("not a k8s deployment")
+		return
+	}
+	kc, err := k8sclient.NewClient(context.Background(), nodeName)
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	clientset := kc.GetClientSet()
+	if clientset == nil {
+		fmt.Printf("Invalid clientset")
+		return
+	}
+	// List pods scheduled on the node
+	podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	})
+	if err != nil {
+		log.Fatalf("Failed to list pods on node: %v", err)
+	}
+
+	fmt.Printf("\nPods scheduled on node %s:\n", nodeName)
+	for _, pod := range podList.Items {
+		fmt.Printf("- %s/%s (Phase: %s)\n", pod.Namespace, pod.Name, pod.Status.Phase)
+		fmt.Println("  Labels:")
+		printLabels(pod.Labels)
+		fmt.Println()
+	}
+}
+
+func getNodeLabel() {
+	nodeName := utils.GetNodeName()
+	if nodeName == "" {
+		fmt.Println("not a k8s deployment")
+		return
+	}
+	kc, err := k8sclient.NewClient(context.Background(), nodeName)
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	clientset := kc.GetClientSet()
+	if clientset == nil {
+		fmt.Printf("Invalid clientset")
+		return
+	}
+	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	// Extract and print the labels
+	for key, value := range node.Labels {
+		fmt.Printf("Label %s = %s\n", key, value)
+	}
+}
+
 var jout = flag.Bool("json", false, "output in json format")
 
 func main() {
 	var (
-		socketPath   = flag.String("socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "metrics grpc socket path")
-		getOpt       = flag.Bool("get", false, "get health status of gpu")
-		setId        = flag.String("id", "1", "gpu id")
-		getNodeLabel = flag.Bool("label", false, "get k8s node label")
-		podRes       = flag.Bool("pod", false, "get node resource info")
-		nodePod      = flag.Bool("npod", false, "get pod labels from node")
-		devMap       = flag.Bool("gpu", false, "show logical gpu device map")
-		eccFile      = flag.String("ecc-file-path", "", "json ecc err file")
+		socketPath = flag.String("socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "metrics grpc socket path")
+		getOpt     = flag.Bool("get", false, "get health status of gpu")
+		setId      = flag.String("id", "1", "gpu id")
+		nodeLabel  = flag.Bool("label", false, "get k8s node label")
+		podRes     = flag.Bool("pod", false, "get node resource info")
+		nodePod    = flag.Bool("npod", false, "get pod labels from node")
+		devMap     = flag.Bool("gpu", false, "show logical gpu device map")
+		eccFile    = flag.String("ecc-file-path", "", "json ecc err file")
+		gpuctl     = flag.Bool("gpuctl", false, "enable gpu control operations")
+		gpuctlPort = flag.String("gpuctl-port", "50061", "port for gpuctl operations")
 	)
 	flag.Parse()
+
+	if *podRes {
+		getPodResources()
+		return
+	}
+
+	if *nodePod {
+		getNodePods()
+		return
+	}
+
+	if *devMap {
+		getDeviceMap()
+		return
+	}
+
+	if *nodeLabel {
+		getNodeLabel()
+		return
+	}
+
+	if *gpuctl {
+		getGpuAgent(*gpuctlPort, *jout)
+		return
+	}
+
+	if *eccFile != "" {
+		if err := setError(*socketPath, *eccFile); err != nil {
+			fmt.Printf("err: %+v", err)
+			return
+		}
+	}
 
 	if *getOpt {
 		err := get(*socketPath, *setId)
@@ -265,81 +415,4 @@ func main() {
 		}
 	}
 
-	if *podRes {
-		getPodResources()
-		return
-	}
-
-	if *nodePod {
-		nodeName := utils.GetNodeName()
-		if nodeName == "" {
-			fmt.Println("not a k8s deployment")
-			return
-		}
-		kc, err := k8sclient.NewClient(context.Background(), nodeName)
-		if err != nil {
-			fmt.Printf("err: %+v", err)
-			return
-		}
-		clientset := kc.GetClientSet()
-		if clientset == nil {
-			fmt.Printf("Invalid clientset")
-			return
-		}
-		// List pods scheduled on the node
-		podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
-		})
-		if err != nil {
-			log.Fatalf("Failed to list pods on node: %v", err)
-		}
-
-		fmt.Printf("\nPods scheduled on node %s:\n", nodeName)
-		for _, pod := range podList.Items {
-			fmt.Printf("- %s/%s (Phase: %s)\n", pod.Namespace, pod.Name, pod.Status.Phase)
-			fmt.Println("  Labels:")
-			printLabels(pod.Labels)
-			fmt.Println()
-		}
-		return
-	}
-
-	if *devMap {
-		getDeviceMap()
-		return
-	}
-
-	if *getNodeLabel {
-		nodeName := utils.GetNodeName()
-		if nodeName == "" {
-			fmt.Println("not a k8s deployment")
-			return
-		}
-		kc, err := k8sclient.NewClient(context.Background(), nodeName)
-		if err != nil {
-			fmt.Printf("err: %+v", err)
-			return
-		}
-		clientset := kc.GetClientSet()
-		if clientset == nil {
-			fmt.Printf("Invalid clientset")
-			return
-		}
-		node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			fmt.Printf("err: %+v", err)
-			return
-		}
-		// Extract and print the labels
-		for key, value := range node.Labels {
-			fmt.Printf("Label %s = %s\n", key, value)
-		}
-	}
-
-	if *eccFile != "" {
-		if err := setError(*socketPath, *eccFile); err != nil {
-			fmt.Printf("err: %+v", err)
-			return
-		}
-	}
 }
