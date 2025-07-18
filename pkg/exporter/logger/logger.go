@@ -25,7 +25,7 @@ import (
 
 var (
 	Log       *log.Logger
-	logdir    = "/var/run/"
+	logdir    = "/var/log/"
 	logfile   = "exporter.log"
 	logPrefix = "exporter "
 	once      sync.Once
