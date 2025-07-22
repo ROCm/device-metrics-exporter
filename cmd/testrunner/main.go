@@ -51,11 +51,13 @@ func getStrFromEnvOrDefault(env string, defaultVal string) string {
 func main() {
 	var (
 		rvsPath              = flag.String("rvs-path", globals.RVSPath, "Path to ROCmValidationSuite rvs binary file")
-		rocmSMIPath          = flag.String("rocm-path", globals.ROCmSMIPath, "Path to rocm-smi binary file")
-		rvsTestCaseDir       = flag.String("rvs-test-case-dir", globals.AMDTestCaseDir, "Directory of test suite config files")
+		amdSMIPath           = flag.String("amd-smi-path", globals.AMDSMIPath, "Path to amd-smi binary file")
+		rvsTestCaseDir       = flag.String("rvs-test-case-dir", globals.RVSTestCaseDir, "Directory of RVS test suite config files")
 		testRunnerConfigPath = flag.String("test-runner-cfg-path", globals.AMDTestRunnerCfgPath, "Path to test runner config file")
 		exporterSocketPath   = flag.String("exporter-socket-path", globals.MetricsSocketPath, "Path to exporter metrics server socket")
 		versionOpt           = flag.Bool("version", false, "show version")
+		agfhcPath            = flag.String("agfhc-path", globals.AGFHCPath, "Path to AGFHC binary file")
+		agfhcTestCaseDir     = flag.String("agfhc-test-case-dir", globals.AGFHCTestCaseDir, "Directory of AGFHC test suite config files")
 	)
 	flag.Parse()
 
@@ -72,8 +74,8 @@ func main() {
 	jobName := getStrFromEnvOrDefault(jobNameEnv, "")
 	nodeName := getStrFromEnvOrDefault(nodeNameEnv, "")
 
-	testrunner.ValidateArgs(testCategory, testTrigger, *rvsPath, *rocmSMIPath, *rvsTestCaseDir, *exporterSocketPath)
-	runner := testrunner.NewTestRunner(*rvsPath, *rvsTestCaseDir, *rocmSMIPath, *exporterSocketPath, *testRunnerConfigPath, testCategory, testTrigger, logDir, jobName, nodeName)
+	testrunner.ValidateArgs(testCategory, testTrigger, *rvsPath, *amdSMIPath, *rvsTestCaseDir, *exporterSocketPath, *agfhcPath, *agfhcTestCaseDir)
+	runner := testrunner.NewTestRunner(*rvsPath, *rvsTestCaseDir, *agfhcPath, *agfhcTestCaseDir, *amdSMIPath, *exporterSocketPath, *testRunnerConfigPath, testCategory, testTrigger, logDir, jobName, nodeName)
 	logger.Log.Printf("Version : %v", Version)
 	logger.Log.Printf("BuildDate: %v", BuildDate)
 	logger.Log.Printf("GitCommit: %v", GitCommit)

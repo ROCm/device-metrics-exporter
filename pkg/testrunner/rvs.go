@@ -24,19 +24,54 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	types "github.com/ROCm/device-metrics-exporter/pkg/testrunner/interface"
 )
 
-// TestResult is used to convert test json output to struct
-type TestResult map[string]map[string][]GPUTestResult
+// RvsTestResult is used to convert test json output to struct
+type RvsTestResult struct {
+	Version    string `json:"version,omitempty"`
+	TestSuites map[string]map[string][]RvsGPUTestResult
+}
 
-// GPUTestResult is struct for GPU ID and it's test result
-type GPUTestResult struct {
-	GPUID string `json:"gpu_id"`
+// unmarshalJSON custom unmarshaler to handle arbitrary test suite names
+func (r *RvsTestResult) unmarshalJSON(data []byte) error {
+	// Parse the full JSON to extract the test suites
+	var rawResult map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawResult); err != nil {
+		return err
+	}
+
+	r.TestSuites = make(map[string]map[string][]RvsGPUTestResult)
+
+	// Process all fields in the JSON
+	for key, value := range rawResult {
+		if key == "version" {
+			// If version field exists, extract it
+			var version string
+			if err := json.Unmarshal(value, &version); err != nil {
+				return err
+			}
+			r.Version = version
+		} else {
+			// Any other field is considered a test suite
+			var testSuite map[string][]RvsGPUTestResult
+			if err := json.Unmarshal(value, &testSuite); err != nil {
+				return err
+			}
+			r.TestSuites[key] = testSuite
+		}
+	}
+
+	return nil
+}
+
+// RvsGPUTestResult is struct for GPU ID and it's test result
+type RvsGPUTestResult struct {
+	GPUID string `json:"gpu_index"`
 	Pass  string `json:"pass,omitempty"`
 }
 
@@ -80,7 +115,7 @@ func (rts *RVSTestRunner) GetTestHandler(testName string, params types.TestParam
 	if params.Timeout > 0 {
 		options = append(options, types.TestWithTimeout(params.Timeout))
 	}
-	options = append(options, types.TestWithResultParser(parseRvsTestResult),
+	options = append(options, types.TestWithResultParser(rts.parseRvsTestResult),
 		types.TestWithIteration(uint32(params.Iterations)), types.TestWithStopOnFailure(params.StopOnFailure))
 	return types.NewTestHandler(testName, rts.logger, cmdArgs, options...), nil
 }
@@ -102,25 +137,42 @@ func (rts *RVSTestRunner) loadTestSuites() error {
 	return nil
 }
 
-func parseRvsTestResult(stdout string) (map[string]types.TestResults, error) {
+// ExtractLogFile uses a simple regex to find the json log file path
+func (rts *RVSTestRunner) ExtractLogLocation(output string) (string, string, error) {
+	// Pattern: matches /var/tmp/<test_name>_<timestamp>.json
+	pattern := rts.logDir + `/[^/]+_\d+\.json`
+
+	re := regexp.MustCompile(pattern)
+	resultsFilePath := re.FindString(output)
+
+	if resultsFilePath == "" {
+		return "", "", fmt.Errorf("log file path not found")
+	}
+
+	return resultsFilePath, "", nil
+}
+
+func (rts *RVSTestRunner) parseRvsTestResult(stdout string) (map[string]types.TestResults, error) {
 	// get the log file
-	file, err := ExtractLogFile(stdout)
+	file, _, err := rts.ExtractLogLocation(stdout)
 	if err != nil {
 		return nil, err
 	}
 
-	bytes, err := os.ReadFile(globals.RVSLogDir + "/" + file)
+	bytes, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
 
-	var data TestResult
-	err = json.Unmarshal(bytes, &data)
+	var data RvsTestResult
+	err = data.unmarshalJSON(bytes)
 	if err != nil {
 		return nil, err
 	}
+
 	testResult := make(map[string]types.TestResults)
-	for _, testsuite := range data {
+
+	for _, testsuite := range data.TestSuites {
 		for name, test := range testsuite {
 			for _, gpu := range test {
 				if len(gpu.Pass) == 0 {
@@ -134,6 +186,7 @@ func parseRvsTestResult(stdout string) (map[string]types.TestResults, error) {
 			}
 		}
 	}
+
 	return testResult, nil
 }
 
@@ -168,5 +221,6 @@ func NewRvsTestRunner(rvsBinPath, testSuitesDir, resultLogDir string) (types.Tes
 	if err != nil {
 		return nil, err
 	}
+
 	return obj, nil
 }

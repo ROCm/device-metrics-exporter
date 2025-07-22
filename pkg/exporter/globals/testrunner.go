@@ -26,11 +26,17 @@ const (
 	// rvs binary path
 	RVSPath = "/opt/rocm/bin/rvs"
 
-	// rocm-smi binary path
-	ROCmSMIPath = "/opt/rocm/bin/rocm-smi"
+	// amd-smi binary path
+	AMDSMIPath = "/opt/rocm/bin/amd-smi"
 
-	// gpu test runner configuration file path
-	AMDTestCaseDir = "/opt/rocm/share/rocm-validation-suite/conf/"
+	// rvs test runner configuration file path
+	RVSTestCaseDir = "/opt/rocm/share/rocm-validation-suite/conf/"
+
+	// agfhc binary path
+	AGFHCPath = "/opt/amd/agfhc/agfhc"
+
+	// agfhc test runner configuration file path
+	AGFHCTestCaseDir = "/opt/amd/agfhc/recipes/"
 
 	// AMDTestRunnerCfgPath path to the test runner config
 	AMDTestRunnerCfgPath = "/etc/test-runner/config.json"
@@ -47,26 +53,30 @@ const (
 	DefaultRunnerLogSubPath = "test-runner.log"
 	DefaultStatusDBSubPath  = "status.db"
 
-	// NoGPUErrMsg error message when no gpu is detected by rocm-smi for manual test trigger
-	NoGPUErrMsg = "No GPU detected by rocm-smi"
+	// NoGPUErrMsg error message when no gpu is detected by amd-smi for manual test trigger
+	NoGPUErrMsg = "No GPU detected by amd-smi"
 
-	// RVS json log dir
-	RVSLogDir = "/var/tmp"
+	// test log dir
+	TestLogDir = "/var/tmp"
 
 	// TODO: rvs is one of offical ROCm RVS test suite names
 	// revisit after deciding the pre-defined default test case
 	DefaultUnhealthyGPUTestName           = "gst_single"
 	DefaultUnhealthyGPUTestIterations     = 1
 	DefaultUnhealthyGPUTestStopOnFailure  = true
-	DefaultUnhealthyGPUTestTimeoutSeconds = 600
+	DefaultUnhealthyGPUTestTimeoutSeconds = 3600
 	DefaultPreJobCheckTestName            = "gst_single"
 	DefaultPreJobCheckTestIterations      = 1
 	DefaultPreJobCheckTestStopOnFailure   = true
-	DefaultPreJobCheckTestTimeoutSeconds  = 600
+	DefaultPreJobCheckTestTimeoutSeconds  = 3600
 	DefaultManualTestName                 = "gst_single"
 	DefaultManualTestIterations           = 1
 	DefaultManualTestStopOnFailure        = true
-	DefaultManualTestTimeoutSeconds       = 600
+	DefaultManualTestTimeoutSeconds       = 3600
+
+	// rvs build may use these aliases for MI350X and MI355X test recipes folder names
+	MI350XAlias = "gfx950-dlc"
+	MI355XAlias = "gfx950"
 
 	EventSourceComponentName = "amd-test-runner"
 )

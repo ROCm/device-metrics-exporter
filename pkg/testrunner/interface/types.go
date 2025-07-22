@@ -156,6 +156,7 @@ func (th *TestHandler) runTest() {
 	for i := uint32(1); i <= th.iterations; i++ {
 		th.rwLock.Lock()
 		logger.Log.Printf("Starting iteration %d of %d for test: %v", i, th.iterations, th.testname)
+		logger.Log.Printf("cmd %v args: %+v \n", th.args[0], th.args[1:])
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(th.timeout)*time.Second)
 		th.process = exec.CommandContext(ctx, th.args[0], th.args[1:]...)
 		th.process.Stdout = &th.stdout
@@ -164,12 +165,12 @@ func (th *TestHandler) runTest() {
 		th.rwLock.Unlock()
 
 		if err := th.process.Start(); err != nil {
-			logger.Log.Printf("cmd %v [iteration=%d] failed to start: %v", th.testname, i, err)
+			logger.Log.Printf("test %v [iteration=%d] failed to start: %v", th.testname, i, err)
 			continue
 		}
 
 		th.setStatus(TestRunning)
-		logger.Log.Printf("cmd %v [iteration=%d, pid=%v] started running \n", th.testname, i, th.process.Process.Pid)
+		logger.Log.Printf("test %v [iteration=%d, pid=%v] started running \n", th.testname, i, th.process.Process.Pid)
 		th.wg.Add(1)
 
 		go func(iter uint32) {
