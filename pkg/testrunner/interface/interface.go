@@ -16,10 +16,23 @@
 
 package types
 
+type TestRunnerType int
+
+const (
+	RVSRunner = iota
+	AGFHCRunner
+)
+
+func (t TestRunnerType) String() string {
+	return [...]string{"RVS", "AGFHC"}[t]
+}
+
 // TestRunner is interface which can be implemented by different test frameworks like agfhc
 type TestRunner interface {
 	// GetTestHandler returns test handler with given args
 	GetTestHandler(string, TestParams) (TestHandlerInterface, error)
+	// ExtractLogLocation returns the results json file path and if available, the directory path where additional logs are stored
+	ExtractLogLocation(output string) (string, string, error)
 }
 
 // TestHandlerInterface is interface for TestHandler
@@ -77,6 +90,8 @@ const (
 	Cancelled TestResult = "cancelled"
 	// Timedout represents test timedout
 	Timedout TestResult = "timedout"
+	// Queued represents test queued for execution
+	Queued TestResult = "queued"
 )
 
 // String convert command status into string

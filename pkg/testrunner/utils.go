@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -40,11 +39,11 @@ import (
 var statusDBLock sync.Mutex
 
 // ValidateArgs validate argument to make sure the mandatory tools/configs are available
-func ValidateArgs(testCategory, testTrigger, rvsPath, rocmSMIPath, testCaseDir, exporterSocketPath string) {
+func ValidateArgs(testCategory, testTrigger, rvsPath, amdSMIPath, rvsTestCaseDir, exporterSocketPath, agfhcPath, agfhcTestCaseDir string) {
 	validateArgCategory(testCategory)
 	validateArgTrigger(testTrigger)
 	statOrExit(rvsPath, false)
-	statOrExit(rocmSMIPath, false)
+	statOrExit(amdSMIPath, false)
 	switch testCategory {
 	case testrunnerGen.TestCategory_GPU_HEALTH_CHECK.String():
 		switch testTrigger {
@@ -52,9 +51,13 @@ func ValidateArgs(testCategory, testTrigger, rvsPath, rocmSMIPath, testCaseDir, 
 			statOrExit(exporterSocketPath, false)
 		}
 	}
-	statOrExit(testCaseDir, true)
-	dryRunBinary(rvsPath, "-g")     // run rvs to list GPU to make sure rvs is working
-	dryRunBinary(rocmSMIPath, "-i") // run rocm-smi to list GPU IDs to make sure GPU info is available
+	statOrExit(rvsTestCaseDir, true)
+	dryRunBinary(rvsPath, "-g")      // run rvs to list GPU to make sure rvs is working
+	dryRunBinary(amdSMIPath, "list") // run amd-smi to list GPU IDs to make sure GPU info is available
+
+	// TODO agfhc validation is dependent on test configuration being used as agfhc may not always be available
+	// dryRunBinary(agfhcPath, "-l")   // run agfhc to list available tests and recipes to make sure agfhc is working
+	// statOrExit(agfhcTestCaseDir, true)
 }
 
 func validateArgCategory(category string) {
@@ -122,6 +125,36 @@ func LoadRunnerStatus(statusDBPath string) (*testrunnerGen.TestRunnerStatus, err
 	return &status, nil
 }
 
+// transformRunnerStatus transform the KFD IDs in the statusDB to gpu indexes
+func transformRunnerStatus(statusDBPath string, kfdIDToIndex, gpuIndexToKFDID map[string]string) error {
+	statusObj, err := LoadRunnerStatus(statusDBPath)
+	if err != nil {
+		return fmt.Errorf("failed to load test runner status from %v, err: %v", statusDBPath, err)
+	}
+
+	newTestStatus := make(map[string]string)
+
+	for id, status := range statusObj.TestStatus {
+		if _, ok := gpuIndexToKFDID[id]; ok {
+			// no need to convert
+			newTestStatus[id] = status
+			continue
+		}
+
+		if _, ok := kfdIDToIndex[id]; ok {
+			// If the id is a KFD ID, convert to gpu-index
+			newTestStatus[kfdIDToIndex[id]] = status
+		}
+
+		// If the index is not in either mapping, do not add it to the new status.
+		// This can happen for example when gpu has been partitioned and test-runner restarted
+	}
+
+	statusObj.TestStatus = newTestStatus
+
+	return SaveRunnerStatus(statusObj, statusDBPath)
+}
+
 func SaveTestResultToGz(output, path string) {
 	// Create the file
 	file, err := os.Create(path)
@@ -146,92 +179,173 @@ func GetLogFilePath(resultLogDir, ts, trigger, testName, suffix string) string {
 	return filepath.Join(resultLogDir, fileName)
 }
 
-// getAllGUIDs list all GUIDs from rocm-smi
-func GetAllGUIDs(rocmSMIPath string) ([]string, error) {
-	cmd := exec.Command(rocmSMIPath, "-i", "--json")
-	output, err := cmd.Output()
+// GzipResultJson takes a result json path as input, reads the file,
+// gzips its content and generate gzipped version in target location.
+func GzipResultJson(jsonFilePath, targetFilePath string) error {
+	originalContent, err := os.ReadFile(jsonFilePath)
 	if err != nil {
-		return []string{}, err
+		return fmt.Errorf("failed to read original file %s: %v", jsonFilePath, err)
 	}
 
-	// Parse the JSON response
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
+	targetFile, err := os.Create(targetFilePath)
 	if err != nil {
-		return []string{}, err
+		return fmt.Errorf("failed to create gzipped file %s: %v", targetFilePath, err)
 	}
+	defer targetFile.Close()
 
-	var guids []string
-	for _, cardInfo := range result {
-		if cardInfoMap, ok := cardInfo.(map[string]interface{}); ok {
-			if guid, ok := cardInfoMap["GUID"].(string); ok {
-				guids = append(guids, guid)
-			}
-		}
+	gzWriter := gzip.NewWriter(targetFile)
+	if _, err := gzWriter.Write(originalContent); err != nil {
+		return fmt.Errorf("failed to write gzipped content to target file %s: %v", targetFilePath, err)
 	}
+	defer gzWriter.Close()
 
-	return guids, nil
+	return nil
 }
 
-// getGUIDFromIndex use rocm-smi to get GUID from index number
-func GetGUIDFromIndex(index, rocmSMIPath string) (string, error) {
-	cmd := exec.Command(rocmSMIPath, "-i", "--json")
-	output, err := cmd.Output()
+// GzipFolder takes the whole directory into one gzipped file
+func GzipFolder(sourceDir, targetFile string) error {
+	// Create output file
+	f, err := os.Create(targetFile)
 	if err != nil {
-		return "", err
+		return err
 	}
+	defer f.Close()
 
-	// Parse the JSON response
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	if err != nil {
-		return "", err
-	}
+	// Create a gzip writer
+	gw := gzip.NewWriter(f)
+	defer gw.Close()
 
-	// Retrieve the GUID
-	cardKey := fmt.Sprintf("card%s", index)
-	if cardInfo, exists := result[cardKey]; exists {
-		if cardInfoMap, ok := cardInfo.(map[string]interface{}); ok {
-			if guid, ok := cardInfoMap["GUID"].(string); ok {
-				return guid, nil
-			}
+	// Create a tar writer
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	// Walk through the source directory
+	return filepath.Walk(sourceDir, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-	}
 
-	return "", fmt.Errorf("failed to GUID from 'rocm-smi -i --json' output: %+v", result)
+		// Skip directories (they will be added through their files)
+		if fi.IsDir() {
+			return nil
+		}
+
+		// Open file
+		fr, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer fr.Close()
+
+		// Create tar header
+		header, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+
+		// Adjust name to keep relative path
+		relPath, err := filepath.Rel(sourceDir, file)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+
+		// Write header
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		// Copy file data into tar writer
+		if _, err := io.Copy(tw, fr); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
-func getGPUModelTestRecipeDir(rocmSMIPath string) (string, error) {
-	cmd := exec.Command(rocmSMIPath, "-i", "--json")
+// getAllKFDIDs list all kfd ids from amd-smi
+func (tr *TestRunner) GetAllKFDIDs() []string {
+	kfdIDs := []string{}
+	for kfdID := range tr.kfdIDToGPUIndexMap {
+		kfdIDs = append(kfdIDs, kfdID)
+	}
+	return kfdIDs
+}
+
+// GetAllGPUIndexes list all gpu indexes
+func (tr *TestRunner) GetAllGPUIndexes() []string {
+	indexes := []string{}
+	for idx := range tr.gpuIndexToKFDIDMap {
+		indexes = append(indexes, idx)
+	}
+	return indexes
+}
+
+func getGPUModelTestRecipeDir(amdSMIPath string) (string, error) {
+	cmd := exec.Command(amdSMIPath, "static", "--json")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
+	return parseAMDSMIStaticOutput(output)
+}
 
+func parseAMDSMIStaticOutput(output []byte) (string, error) {
 	// Parse the JSON response
 	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
+	err := json.Unmarshal(output, &result)
 	if err != nil {
 		return "", err
 	}
 
-	// currently we assume the setup is homogeneous which means only same type GPUs can be installed on one node
-	for _, cardSpecMap := range result {
-		if cardSpec, ok := cardSpecMap.(map[string]interface{}); ok {
-			if deviceID, ok := cardSpec["Device ID"]; ok {
-				deviceIDStr := deviceID.(string)
-				if dir, ok := globals.GPUDeviceIDToModelName[deviceIDStr]; ok {
-					return dir, nil
-				} else {
-					// if there is no specific test recipe folder working for this GPU
-					// use test recipe directrly in /conf folder
-					return "", nil
-				}
+	gpuDataIntf, ok := result["gpu_data"]
+	if !ok {
+		return "", fmt.Errorf("failed to find gpu_data in amd-smi static output %+v", result)
+	}
+
+	gpuDataSlice, ok := gpuDataIntf.([]interface{})
+	if !ok {
+		return "", fmt.Errorf("failed to parse gpu data slice as []interface{} %+v", gpuDataIntf)
+	}
+	if len(gpuDataSlice) == 0 {
+		return "", fmt.Errorf("no GPU data found in amd-smi static output %+v", gpuDataSlice)
+	}
+
+	// currently we assume the setup is homogeneous
+	// which means only same type GPUs can be installed on one node
+	for _, gpuDataIntf := range gpuDataSlice {
+		gpuData, ok := gpuDataIntf.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("failed to parse gpu data as map[string]interface{} %+v", gpuDataIntf)
+		}
+		asicInfoIntf, ok := gpuData["asic"]
+		if !ok {
+			logger.Log.Printf("failed to find GPU asic info %+v", gpuData)
+			continue
+		}
+		asicInfo, ok := asicInfoIntf.(map[string]interface{})
+		if !ok {
+			logger.Log.Printf("failed to parse GPU asic info %+v err: %+v", asicInfoIntf, err)
+			continue
+		}
+		for _, pciDeviceIDField := range []string{"device_id", "subsystem_id"} {
+			deviceIDIntf, ok := asicInfo[pciDeviceIDField]
+			if !ok {
+				logger.Log.Printf("failed to find pci device id from asic info %+v", asicInfo)
+				continue
+			}
+			deviceID, ok := deviceIDIntf.(string)
+			if !ok {
+				logger.Log.Printf("failed to parse deviceID string %+v err: %+v", deviceIDIntf, err)
+				continue
+			}
+			if dir, ok := globals.GPUDeviceIDToModelName[deviceID]; ok {
+				return dir, nil
 			}
 		}
 	}
-
-	return "", fmt.Errorf("failed to get Device ID from rocm-smi")
+	return "", fmt.Errorf("failed to get Device ID from amd-smi")
 }
 
 func removeIDsWithExistingTest(trigger, statusDBPath string, ids []string, parameters *testrunnerGen.TestParameters, isRerun bool) ([]string, *testrunnerGen.TestRunnerStatus) {
@@ -266,26 +380,6 @@ func removeIDsWithExistingTest(trigger, statusDBPath string, ids []string, param
 
 func GetEventNamePrefix(testCategory string) string {
 	return strings.ToLower("amd-test-runner-" + testCategory + "-")
-}
-
-// ExtractLogFile uses a simple regex to find the json log file path
-func ExtractLogFile(output string) (string, error) {
-	// Pattern: matches /var/tmp/<test_name>_<timestamp>.json
-	pattern := `/var/tmp/[^/]+_\d+\.json`
-
-	re := regexp.MustCompile(pattern)
-	match := re.FindString(output)
-
-	if match == "" {
-		return "", fmt.Errorf("log file path not found")
-	}
-
-	parts := strings.Split(match, "/")
-
-	// Last element is the filename
-	filename := parts[len(parts)-1]
-
-	return filename, nil
 }
 
 func AppendTimedoutTestSummary(existingResults []*types.IterationResult, ids []string) []*types.IterationResult {

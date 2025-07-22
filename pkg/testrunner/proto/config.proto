@@ -66,11 +66,19 @@ message TestParameters {
 }
 
 message TestParameter {
+    enum TestFramework {
+        RVS   = 0;
+        AGFHC = 1;
+    }
     string             Recipe         = 1;
     uint32             TimeoutSeconds = 2;
     uint32             Iterations     = 3;
     bool               StopOnFailure  = 4;
     repeated string    DeviceIDs      = 5;
+    string             Framework      = 6;
+    // any more optional comma separated arguments relevant to the test framework
+    //e.g. for AGFHC, it can be "--ignore-dmesg,--disable-sysmon"
+    string             Arguments      = 7;
 }
 
 message TestLogsExportConfig {
@@ -85,6 +93,6 @@ message TestLogsExportConfig {
 
 // maintain a tiny db to record TestRunner running status
 message TestRunnerStatus {
-    // key is GPU GUID and value is the test recipe name
+    // key is GPU KFD ID and value is the test recipe name
     map<string, string> TestStatus = 1;
 }

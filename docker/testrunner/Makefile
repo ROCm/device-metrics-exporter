@@ -5,7 +5,12 @@ HOURLY_TAG_LABEL ?= latest
 
 .PHONY: docker
 docker:
-	@echo "building amd testrunner container"
+	@echo "building amd testrunner container with AGFHC=$(AGFHC)"
+ifeq ($(AGFHC), 1)
+	$(eval DOCKERFILE=$(TOP_DIR)/docker/testrunner/agfhc-dockerfile)
+else
+	$(eval DOCKERFILE=$(TOP_DIR)/docker/testrunner/Dockerfile)
+endif
 	@cp $(TOP_DIR)/bin/amd-test-runner .
 	@cp $(TOP_DIR)/LICENSE .
 	@docker build --build-arg BASE_IMAGE=$(TEST_RUNNER_RHEL_BASE_IMAGE) -t ${TESTRUNNER_IMAGE} . -f $(TOP_DIR)/docker/testrunner/Dockerfile
@@ -14,8 +19,13 @@ docker:
 
 .PHONY: docker-cicd
 docker-cicd:
-	@echo "building amd testrunner container"
+	@echo "building amd testrunner container with AGFHC=$(AGFHC)"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
+ifeq ($(AGFHC), 1)
+	$(eval DOCKERFILE=$(TOP_DIR)/docker/testrunner/agfhc-dockerfile)
+else
+	$(eval DOCKERFILE=$(TOP_DIR)/docker/testrunner/Dockerfile)
+endif
 	@cp $(TOP_DIR)/bin/amd-test-runner .
 	@cp $(TOP_DIR)/LICENSE .
 	@docker build --build-arg BASE_IMAGE=$(TEST_RUNNER_RHEL_BASE_IMAGE) -t ${TESTRUNNER_IMAGE} . -f $(TOP_DIR)/docker/testrunner/Dockerfile
