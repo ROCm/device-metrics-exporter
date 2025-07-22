@@ -181,3 +181,7 @@ func (mh *MetricsHandler) GetPrefix() string {
 	logger.Log.Printf("defaulting to no prefix behavior")
 	return ""
 }
+
+func (mh *MetricsHandler) GetNICHealthCheckConfig() *exportermetrics.NICHealthCheckConfig {
+	return mh.runConf.GetNICHealthCheckConfig()
+}

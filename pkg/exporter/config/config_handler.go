@@ -26,6 +26,12 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
+var (
+	defaultNICHealthCheckConfig = &exportermetrics.NICHealthCheckConfig{
+		InterfaceAdminDownAsUnhealthy: false,
+	}
+)
+
 // ConfigHandler to update/read config data layer
 type ConfigHandler struct {
 	sync.Mutex
@@ -91,6 +97,20 @@ func (c *ConfigHandler) GetServerPort() uint32 {
 	c.Lock()
 	defer c.Unlock()
 	return c.runningConfig.GetServerPort()
+}
+
+// GetNICHealthCheckConfig returns the NIC health check settings
+func (c *ConfigHandler) GetNICHealthCheckConfig() *exportermetrics.NICHealthCheckConfig {
+	c.Lock()
+	defer c.Unlock()
+	cfg := c.runningConfig.GetConfig()
+	if cfg != nil && cfg.GetNICConfig() != nil {
+		nicHealthCheckSettings := cfg.GetNICConfig().GetHealthCheckConfig()
+		if nicHealthCheckSettings != nil {
+			return nicHealthCheckSettings
+		}
+	}
+	return defaultNICHealthCheckConfig
 }
 
 func readConfig(filepath string) (*exportermetrics.MetricConfig, error) {

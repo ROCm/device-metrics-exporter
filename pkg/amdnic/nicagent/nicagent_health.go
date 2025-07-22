@@ -29,6 +29,13 @@ import (
 // GetNICHealthStates retrieves the health states of all NICs managed by the NIC agent.
 // It returns a map where the keys are the PCIe IDs of the NICs and the values are their health states.
 func (na *NICAgentClient) GetNICHealthStates() (map[string]interface{}, error) {
+	if healthSettings := na.mh.GetNICHealthCheckConfig(); healthSettings != nil &&
+		!healthSettings.InterfaceAdminDownAsUnhealthy {
+		// If the health check settings specify that admin down interfaces should not be treated as unhealthy,
+		// we skip the health check for admin down interfaces.
+		return map[string]interface{}{}, nil
+	}
+
 	if len(na.nics) == 0 {
 		logger.Log.Printf("No NICs found")
 		return nil, nil

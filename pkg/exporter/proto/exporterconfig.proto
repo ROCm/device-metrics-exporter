@@ -410,6 +410,14 @@ message NICMetricConfig {
 
     // User Defined Custom Labels and values
     map<string, string> CustomLabels = 3;
+
+    // NIC health check config
+    NICHealthCheckConfig HealthCheckConfig = 4;
+}
+
+message NICHealthCheckConfig {
+    // report interface admin down state as unhealthy
+    bool InterfaceAdminDownAsUnhealthy  = 1;
 }
 
 message MetricConfig {

@@ -322,10 +322,16 @@
       "NIC_UUID",     
       "NIC_SERIAL_NUMBER",
       "NIC_ID",
-      "NIC_HOSTNAME" 
+      "NIC_HOSTNAME",
+      "NIC_POD",
+      "NIC_NAMESPACE",
+      "NIC_CONTAINER"
     ],
     "CustomLabels": {
-      "CLUSTER_NAME" : "amdgpu-k8s-metrics-exporter"
+      "CLUSTER_NAME" : "amdnetwork-k8s-metrics-exporter"
+    },
+    "HealthCheckConfig": {
+      "InterfaceAdminDownAsUnhealthy": false
     }
   }
 }
