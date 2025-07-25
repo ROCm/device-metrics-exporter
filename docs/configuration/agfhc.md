@@ -44,6 +44,8 @@ The default framework is RVS if not specified, but you can switch to AGFHC by se
 
 Please refer to the AGFHC documentation for available test recipes and additional configuration options.
 
+### Recipes
+
 For example, for MI300X GPUs, the following test recipes are currently available:
 
 | Name               | Title                             | Path                                              |
@@ -85,8 +87,53 @@ For example, for MI300X GPUs, the following test recipes are currently available
 | xgmi_lvl3          | A \~30m xGMI workload              | /opt/amd/agfhc/recipes/mi300x/xgmi_lvl3.yml       |
 | xgmi_lvl4          | A  \~1h xGMI workload              | /opt/amd/agfhc/recipes/mi300x/xgmi_lvl4.yml       |
 
+NOTE: Each one of the aforementioned recipes could consist of multiple test cases. Execution of _individual_ AGFHC test case is currently not supported.
 
-NOTE: Execution of _individual_ AGFHC tests is currently not supported.
+### Supported Partition Profile
+
+The Instinct GPU models could be configured with certain GPU partition profiles to execute AGFHC tests, the supported partition profiles are:
+
+| GPU Model   | Compute Partition | Memory Partition | Number of GPUs for testing |
+|-------------|------------------|------------------|------------------------|
+| mi300a      | SPX              | NPS1             | 1                      |
+| mi300a      | SPX              | NPS1             | 2                      |
+| mi300a      | SPX              | NPS1             | 4                      |
+| mi300x      | SPX              | NPS1             | 1                      |
+| mi300x      | SPX              | NPS1             | 8                      |
+| mi300x      | DPX              | NPS2             | 2                      |
+| mi300x      | DPX              | NPS2             | 16                     |
+| mi308x      | SPX              | NPS1             | 1                      |
+| mi308x      | SPX              | NPS1             | 8                      |
+| mi325x      | SPX              | NPS1             | 1                      |
+| mi325x      | SPX              | NPS1             | 8                      |
+| mi308x-hf   | SPX              | NPS1             | 1                      |
+| mi308x-hf   | SPX              | NPS1             | 8                      |
+| mi300x-hf   | SPX              | NPS1             | 1                      |
+| mi300x-hf   | SPX              | NPS1             | 8                      |
+| mi350x      | SPX              | NPS1             | 1                      |
+| mi350x      | SPX              | NPS1             | 8                      |
+| mi355x      | SPX              | NPS1             | 1                      |
+| mi355x      | SPX              | NPS1             | 8                      |
+
+### AGFHC arguments
+
+As for the AGFHC arguments, please refer to AGFHC official documents for the full list of available arguments. Here is a list of frequently used arguments:
+
+| Argument                   | Description                                                                                           | Default/Example                                  |
+|----------------------------|-------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| --update-interval UPDATE_INTERVAL | Set the interval to print elapsed timing updates on the console.                                 | `--update-interval 20s` - updates every 20s      |
+| --sysmon-interval SYSMON_INTERVAL | Set to update the default sysmon interval                                                        |                                                  |
+| --tar-logs                 | Generate a tar file of all logs                                                                       |                                                  |
+| --disable-sysmon           | Set to disable system monitoring data collection.                                                     | Default: enabled                                 |
+| --disable-numa-control     | Set to disable control of numa balancing.                                                             | Default: enabled                                 |
+| --disable-ras-checks       | Set to disable ras checks.                                                                            | Default: enabled                                 |
+| --disable-bad-pages-checks | Set to disable bad pages checks.                                                                      | Default: enabled                                 |
+| --disable-dmesg-checks     | Set to disable dmesg checks.                                                                          | Default: enabled                                 |
+| --ignore-dmesg             | Set to ignore dmesg fails, logs will still be created.                                                | Default: dmesg fails enabled                     |
+| --ignore-ras               | Set to ignore ras fails, logs will still be created.                                                  | Default: ras fails enabled                       |
+| --ignore-performance       | Set to ignore performance to skip the performance analysis and perform only RAS/dmesg checks.         | Default: performance analysis enabled            |
+| --known-dmesg-only         | Do not fail on any unknown dmesg, but mark them as expected.                                          | Default: any unknown dmesg fails                 |
+| --disable-hsio-gather      | Set to disable hsio gather.                                                                           | Default: enabled                                 |
 
 # Kubernetes events
 
