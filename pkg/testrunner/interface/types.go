@@ -300,6 +300,11 @@ func defaultParser(val string) (map[string]TestResults, error) {
 
 // checkFailure checks if any test case failed or not
 func checkFailure(res map[string]TestResults) bool {
+	if len(res) == 0 {
+		logger.Log.Printf("No test results found during checking for StopOnFailure, marking test as failed")
+		// If no results, either test command failed to run or test parser failed
+		return true
+	}
 	for gpu, val := range res {
 		if val == nil {
 			continue

@@ -964,6 +964,8 @@ func (tr *TestRunner) exitOnFailure() {
 }
 
 func (tr *TestRunner) getOverallResult(result []*types.IterationResult, validIDs []string) types.TestResult {
+	foundEmptyResultIteration := false
+	foundTimedoutIteration := false
 	for _, iterResult := range result {
 		for gpuIdx, actionResults := range iterResult.SuitesResult {
 			for action, result := range actionResults {
@@ -972,18 +974,19 @@ func (tr *TestRunner) getOverallResult(result []*types.IterationResult, validIDs
 					logger.Log.Printf("test on GPU %+v iteration %+v test action %+v didn't pass due to %+v", gpuIdx, iterResult.Number, action, result)
 					return types.Failure // if there is any failed action, directly mark overall test run failed
 				case types.Timedout:
-					return types.Timedout
+					foundTimedoutIteration = true
 				}
 			}
 		}
 		if iterResult.Status == types.TestTimedOut {
-			return types.Timedout
+			foundTimedoutIteration = true
 		} else {
 			// if there is no test result for this iteration
 			// it means the test didn't run at all, or the test parser failed
 			// we need to put the failure result in the output
 			// otherwise there is no visibility for users
 			if len(iterResult.SuitesResult) == 0 {
+				foundEmptyResultIteration = true
 				logger.Log.Printf("test iteration %+v didn't pass due to no test result", iterResult.Number)
 				failedSuiteResult := map[string]types.TestResults{}
 				for _, gpuID := range validIDs {
@@ -992,9 +995,18 @@ func (tr *TestRunner) getOverallResult(result []*types.IterationResult, validIDs
 					}
 				}
 				iterResult.SuitesResult = failedSuiteResult
-				return types.Failure
 			}
 		}
+	}
+	// firstly check if there is any empty result iteration
+	// if there is, return failure
+	if foundEmptyResultIteration {
+		return types.Failure
+	}
+	// secondly given that there is no failed iteration
+	// check if there is any timedout iteration
+	if foundTimedoutIteration {
+		return types.Timedout
 	}
 	return types.Success
 }
