@@ -210,7 +210,7 @@
       "USERGROUP_ID"  : "amd-usergroup-id"
     },
     "ProfilerMetrics" : {
-        "all"       : true,
+        "all"       : false,
         "hostname1" : false
     }
   }

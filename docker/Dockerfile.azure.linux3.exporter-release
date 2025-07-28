@@ -39,7 +39,6 @@ ADD ./librocpclient.so /opt/rocm-${ROCM_VERSION}/lib/librocpclient.so
 
 ADD ./rocpctl /home/amd/bin/rocpctl
 ADD ./gpuagent /home/amd/bin/gpuagent
-ADD ./gpuctl /home/amd/bin/gpuctl
 ADD ./amd-metrics-exporter /home/amd/bin/server
 ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh

@@ -71,7 +71,6 @@ pkg: pkg-clean
 	ls -alsh ${PKG_PATH}/rocpctl
 	cd ${PKG_PATH} && strip ${PKG_PATH}/gpuagent
 	cp -vf ${LUA_PROTO} ${PKG_LUA_PATH}/plugin.proto
-	cp -vf ${ASSETS_PATH}/gpuctl.gobin ${PKG_PATH}/gpuctl
 	cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
 	strip ${PKG_PATH}/amd-metrics-exporter
 	cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
