@@ -4,14 +4,14 @@
 
 ### Release Highlights
 
-- ** New Fields **
+- **New Fields**
   - GPU_GFX_BUSY_INSTANTANEOUS, GPU_VC_BUSY_INSTANTANEOUS,
     GPU_JPEG_BUSY_INSTANTANEOUS are added to represent partition activities at
     more granuler level.
   - GPU_GFX_ACTIVITY is only applicable for unpartitioned systems, user must
     rely on the new BUSY_INSTANTANEOUS fields on partitioned systems.
 
-- ** Health Service Config **
+- **Health Service Config**
   - Health services can be disabled through configmap
 
 ## v1.3.0
