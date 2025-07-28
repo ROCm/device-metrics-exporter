@@ -4,7 +4,7 @@
 
 ### Release Highlights
 
-- **New Fields**
+- **New Metric Fields**
   - GPU_GFX_BUSY_INSTANTANEOUS, GPU_VC_BUSY_INSTANTANEOUS,
     GPU_JPEG_BUSY_INSTANTANEOUS are added to represent partition activities at
     more granuler level.
@@ -14,6 +14,13 @@
 - **Health Service Config**
   - Health services can be disabled through configmap
 
+- **Profiler Metrics Default Config Change**
+  - The previous release of exporter i.e. v1.3.0's ConfigMap present under
+    example directory had Profiler Metrics enabled by default. Now, this is
+    set to be disabled by default from v1.3.1 onwards, because profiling is
+    generally needed only by application developers. If needed, please enable
+    it through the ConfigMap and make sure that there is no other Exporter
+    instance or another tool running ROCm profiler at the same time.
 ## v1.3.0
 
 ### Release Highlights
