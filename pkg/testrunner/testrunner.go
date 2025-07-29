@@ -156,8 +156,6 @@ func NewTestRunner(rvsPath, rvsTestCaseDir, agfhcPath, agfhcTestCaseDir, amdSMIP
 	runner.initLogger()
 	runner.readTestRunnerConfig(testRunnerConfigPath)
 	runner.getHostName()
-	runner.validateTestTrigger()
-	runner.initTestRunnerConfig()
 	if utils.IsKubernetes() {
 		runner.isK8s = true
 		k8sClient, err := k8sclient.NewClient(context.Background(), runner.hostName)
@@ -167,6 +165,8 @@ func NewTestRunner(rvsPath, rvsTestCaseDir, agfhcPath, agfhcTestCaseDir, amdSMIP
 		}
 		runner.k8sClient = k8sClient
 	}
+	runner.validateTestTrigger()
+	runner.initTestRunnerConfig()
 	logger.Log.Printf("Test runner isKubernetes: %+v config: %+v", runner.isK8s, runner.globalTestRunnerConfig)
 	return runner
 }
@@ -200,17 +200,20 @@ func (tr *TestRunner) validateTestTrigger() {
 		fmt.Printf("failed to find any global or host specific test config under category %+v: %+v\n", tr.testCategory, categoryConfig)
 		os.Exit(1)
 	}
-	_, foundHostSpecifcTest := categoryConfig.TestLocationTrigger[tr.hostName]
+	_, foundHostSpecificTest := categoryConfig.TestLocationTrigger[tr.hostName]
 	_, foundGlobalTest := categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword]
-	if !foundGlobalTest && !foundHostSpecifcTest {
+	if !foundGlobalTest && !foundHostSpecificTest {
 		fmt.Printf("cannot find neither global test config nor host specific config under category %+v: %+v\n", tr.testCategory, categoryConfig)
+		tr.generateK8sEvent("", v1.EventTypeWarning,
+			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+			fmt.Sprintf("failed to find global or node %+v specific trigger for test category %+v", tr.hostName, tr.testCategory), []string{})
 		os.Exit(1)
 	}
 
 	// 3. validate test trigger's config
-	// if host specifc config was found
+	// if host specific config was found
 	// validate host specific config's trigger
-	if foundHostSpecifcTest {
+	if foundHostSpecificTest {
 		if categoryConfig.TestLocationTrigger[tr.hostName].TestParameters == nil {
 			fmt.Printf("failed to get any test trigger under category %+v config: %+v\n", categoryConfig, categoryConfig.TestLocationTrigger[tr.hostName])
 			os.Exit(1)
@@ -243,7 +246,7 @@ func (tr *TestRunner) validateTestTrigger() {
 
 	// 4. validate specific GPU model's test recipe
 	testParams := tr.getTestParameters(false)
-	switch testParams.TestCases[0].Framework {
+	switch strings.ToUpper(testParams.TestCases[0].Framework) {
 	case testrunnerGen.TestParameter_RVS.String():
 		gpuModelSubDir, err := getGPUModelTestRecipeDir(tr.amdSMIPath)
 		if err != nil {
@@ -284,12 +287,18 @@ func (tr *TestRunner) validateTestTrigger() {
 		}
 		if _, err := os.Stat(testCfgPath); err != nil {
 			fmt.Printf("Trigger %+v cannot find corresponding test config file %+v, err: %+v\n", tr.testTrigger, testCfgPath, err)
+			tr.generateK8sEvent("", v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+				fmt.Sprintf("failed to find test recipe %+v", testCfgPath), []string{})
 			os.Exit(1)
 		}
 	case testrunnerGen.TestParameter_AGFHC.String():
 		gpuModelSubDir, err := getGPUModelTestRecipeDir(tr.amdSMIPath)
 		if err != nil || gpuModelSubDir == "" {
 			logger.Log.Printf("failed to get GPU model specific folder for agfhc test recipe err %+v", err)
+			tr.generateK8sEvent("", v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+				"failed to find AGFHC test recipes folder for current GPU model, please check test runner and AGFHC docs for supported GPU models", []string{})
 			os.Exit(1)
 		}
 
@@ -301,16 +310,25 @@ func (tr *TestRunner) validateTestTrigger() {
 
 		if _, err := os.Stat(testCfgPath); err != nil {
 			fmt.Printf("Trigger %+v cannot find corresponding test config file %+v, err: %+v\n", tr.testTrigger, testCfgPath, err)
+			tr.generateK8sEvent("", v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+				fmt.Sprintf("failed to find test recipe %+v", testCfgPath), []string{})
 			os.Exit(1)
 		}
 	}
 
 	if testParams.TestCases[0].Iterations == 0 {
 		fmt.Printf("Trigger %+v has been configured to run with 0 iteration, should be non-zero iterations\n", tr.testTrigger)
+		tr.generateK8sEvent("", v1.EventTypeWarning,
+			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+			fmt.Sprintf("unable to execute test with Iterations == 0 test parameters: %+v", testParams.TestCases[0]), []string{})
 		os.Exit(1)
 	}
 	if testParams.TestCases[0].TimeoutSeconds == 0 {
 		fmt.Printf("Trigger %+v has been configured to run with 0 TimeoutSeconds, should be non-zero TimeoutSeconds\n", tr.testTrigger)
+		tr.generateK8sEvent("", v1.EventTypeWarning,
+			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+			fmt.Sprintf("unable to execute test with TimeoutSeconds == 0 test parameters: %+v", testParams.TestCases[0]), []string{})
 		os.Exit(1)
 	}
 }
@@ -554,7 +572,7 @@ func (tr *TestRunner) setTestRunner() {
 
 	var runnerType types.TestRunnerType
 	var binPath string
-	switch testParams.TestCases[0].Framework {
+	switch strings.ToUpper(testParams.TestCases[0].Framework) {
 	case testrunnerGen.TestParameter_RVS.String():
 		runnerType = types.RVSRunner
 		binPath = tr.rvsPath
@@ -563,6 +581,9 @@ func (tr *TestRunner) setTestRunner() {
 		binPath = tr.agfhcPath
 	default:
 		logger.Log.Printf("unsupported test framework %v for category %v, location %v, trigger %v", testParams.TestCases[0].Framework, tr.testCategory, tr.testLocation, tr.testTrigger)
+		tr.generateK8sEvent("", v1.EventTypeWarning,
+			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
+			fmt.Sprintf("cannot execute unsupported test framework %+v", testParams.TestCases[0].Framework), []string{})
 		os.Exit(1)
 	}
 
