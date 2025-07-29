@@ -47,10 +47,11 @@ const (
 )
 
 var (
-	mh               *metricsutil.MetricsHandler
-	gpuclient        *gpuagent.GPUAgentClient
-	runConf          *config.ConfigHandler
-	debounceDuration = 3 * time.Second // debounce duration for file watcher
+	mh                 *metricsutil.MetricsHandler
+	gpuclient          *gpuagent.GPUAgentClient
+	runConf            *config.ConfigHandler
+	debounceDuration   = 3 * time.Second // debounce duration for file watcher
+	defaultBindAddress = "0.0.0.0"
 )
 
 // ExporterOption set desired option
@@ -61,6 +62,7 @@ type Exporter struct {
 	agentGrpcPort int
 	configFile    string
 	zmqDisable    bool
+	bindAddr      string
 	k8sApiClient  *k8sclient.K8sClient
 	svcHandler    *metricsserver.SvcHandler
 	ctx           context.Context
@@ -79,7 +81,7 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func startMetricsServer(c *config.ConfigHandler) *http.Server {
+func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 
 	serverPort := c.GetServerPort()
 
@@ -104,19 +106,19 @@ func startMetricsServer(c *config.ConfigHandler) *http.Server {
 
 	// enforce some timeouts
 	srv := &http.Server{
-		Addr:        fmt.Sprintf(":%v", serverPort),
+		Addr:        fmt.Sprintf("%s:%v", bindAddr, serverPort),
 		ReadTimeout: 45 * time.Second,
 		IdleTimeout: 60 * time.Second,
 		Handler:     router,
 	}
 
 	go func() {
-		logger.Log.Printf("serving requests on port %v", serverPort)
+		logger.Log.Printf("serving requests on %s:%v", bindAddr, serverPort)
 		err := srv.ListenAndServe()
 		if err != http.ErrServerClosed {
 			log.Fatalf("ListenAndServe(): %v", err)
 		}
-		logger.Log.Printf("server on port %v shutdown gracefully", serverPort)
+		logger.Log.Printf("server on %s:%v shutdown gracefully", bindAddr, serverPort)
 	}()
 	return srv
 }
@@ -138,8 +140,8 @@ func foreverWatcher(e *Exporter) {
 		if !serverRunning() {
 			mh.InitConfig()
 			serverPort := runConf.GetServerPort()
-			logger.Log.Printf("starting server on %v", serverPort)
-			srvHandler = startMetricsServer(runConf)
+			logger.Log.Printf("starting server on %s:%v", e.bindAddr, serverPort)
+			srvHandler = startMetricsServer(runConf, e.bindAddr)
 			go e.svcHandler.Run()
 
 		}
@@ -223,6 +225,7 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 	exporter := &Exporter{
 		agentGrpcPort: agentGrpcport,
 		configFile:    configFile,
+		bindAddr:      defaultBindAddress,
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -252,6 +255,13 @@ func ExporterWithZmqDisable(zmqDisable bool) ExporterOption {
 	return func(e *Exporter) {
 		logger.Log.Printf("zmq server disabled")
 		e.zmqDisable = zmqDisable
+	}
+}
+
+func WithBindAddr(bindAddr string) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("bind address set to %s", bindAddr)
+		e.bindAddr = bindAddr
 	}
 }
 

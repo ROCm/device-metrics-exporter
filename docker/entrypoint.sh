@@ -23,4 +23,4 @@ LD_LIBRARY_PATH=/opt/rocm/lib /home/amd/bin/gpuagent &
 # sleep before starting promethesu server
 sleep 10
 # start prometheus server
-/home/amd/bin/server
+/home/amd/bin/server "$@"
