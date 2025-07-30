@@ -118,19 +118,20 @@ func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) err
 	ctx, cancel := context.WithCancel(k.ctx)
 	defer cancel()
 
-	patch := []map[string]interface{}{}
+	labels := map[string]interface{}{}
 	for _, key := range keys {
-		patch = append(patch, map[string]interface{}{
-			"op":    "add",
-			"path":  fmt.Sprintf("/metadata/labels/%v", key),
-			"value": val,
-		})
+		labels[key] = val
+	}
+	patch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"labels": labels,
+		},
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return fmt.Errorf("failed to marshal patch %v: %v", patch, err)
 	}
-	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Log.Printf("failed to add label %+v to node %+v err %+v", keys, nodeName, err)
 	}
@@ -142,18 +143,28 @@ func (k *K8sClient) RemoveNodeLabel(nodeName string, keys []string) error {
 	defer k.Unlock()
 	ctx, cancel := context.WithCancel(k.ctx)
 	defer cancel()
-	patch := []map[string]interface{}{}
+
+	// Build the patch payload
+	labels := map[string]interface{}{}
 	for _, key := range keys {
-		patch = append(patch, map[string]interface{}{
-			"op":   "remove",
-			"path": fmt.Sprintf("/metadata/labels/%v", key),
-		})
+		// Setting label to null removes it
+		// this could also ignore the removal failure if the label does not exist
+		labels[key] = nil
 	}
+
+	patch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"labels": labels,
+		},
+	}
+
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return fmt.Errorf("failed to marshal patch %v: %v", patch, err)
 	}
-	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+
+	// Use Strategic Merge Patch
+	_, err = k.clientset.CoreV1().Nodes().Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Log.Printf("failed to remove label %+v from node %+v err %+v", keys, nodeName, err)
 	}
