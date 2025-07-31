@@ -1739,12 +1739,12 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(
 	// gpu temp stats
 	tempStats := stats.Temperature
 	if tempStats != nil {
-		ga.m.gpuEdgeTemp.With(labels).Set(float64(tempStats.EdgeTemperature))
-		ga.m.gpuJunctionTemp.With(labels).Set(float64(tempStats.JunctionTemperature))
-		ga.m.gpuMemoryTemp.With(labels).Set(float64(tempStats.MemoryTemperature))
+		ga.m.gpuEdgeTemp.With(labels).Set(utils.NormalizeFloat(tempStats.EdgeTemperature))
+		ga.m.gpuJunctionTemp.With(labels).Set(utils.NormalizeFloat(tempStats.JunctionTemperature))
+		ga.m.gpuMemoryTemp.With(labels).Set(utils.NormalizeFloat(tempStats.MemoryTemperature))
 		for j, temp := range tempStats.HBMTemperature {
 			labelsWithIndex["hbm_index"] = fmt.Sprintf("%v", j)
-			ga.m.gpuHBMTemp.With(labelsWithIndex).Set(float64(temp))
+			ga.m.gpuHBMTemp.With(labelsWithIndex).Set(utils.NormalizeFloat(temp))
 		}
 		delete(labelsWithIndex, "hbm_index")
 	}
@@ -1828,7 +1828,7 @@ func (ga *GPUAgentClient) updateGPUInfoToMetrics(
 		delete(labelsWithIndex, "clock_type")
 	}
 
-	ga.m.gpuPowerUsage.With(labels).Set(float64(stats.PowerUsage))
+	ga.m.gpuPowerUsage.With(labels).Set(utils.NormalizeUint64(stats.PowerUsage))
 
 	ga.m.gpuEccCorrectTotal.With(labels).Set(utils.NormalizeUint64(stats.TotalCorrectableErrors))
 	ga.m.gpuEccUncorrectTotal.With(labels).Set(utils.NormalizeUint64(stats.TotalUncorrectableErrors))

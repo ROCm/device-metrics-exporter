@@ -55,7 +55,7 @@ pkg: pkg-clean
 	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${PKG_PATH}/rocpctl
 	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${SDK_COUNTER_DEF}/
 	#copy default config
-	@jq 'del(.GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
 	@cat ${METRICS_CONF_PATH}/config.json
 	# list all the files
 	ls -lart ${PKG_LIB_PATH}/lib

@@ -21,6 +21,13 @@
     generally needed only by application developers. If needed, please enable
     it through the ConfigMap and make sure that there is no other Exporter
     instance or another tool running ROCm profiler at the same time.
+
+- **Notice: Exporter Handling of Unsupported Platform Fields (Upcoming Major Release)**
+  - Current Behavior: The exporter sets unsupported platform-specific field metrics to 0.
+  - Upcoming Change: In the next major release, the exporter will omit unsupported fields 
+    (e.g., those marked as N/A in amd-smi) instead of exporting them as 0.
+  - Logging: Detailed logs will indicate which fields are unsupported, allowing users to verify platform compatibility.
+
 ## v1.3.0
 
 ### Release Highlights
