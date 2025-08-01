@@ -27,22 +27,6 @@
 // 	protoc        v3.12.4
 // source: gpu.proto
 
-/*
-Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the \"License\");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an \"AS IS\" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package amdgpu
 
 import (
@@ -1819,6 +1803,14 @@ type GPUStatus struct {
 	// NOTE:
 	// only valid for GPU partitions (child GPUs)
 	PhysicalGPU []byte `protobuf:"bytes,24,opt,name=PhysicalGPU,proto3" json:"PhysicalGPU,omitempty"`
+	// GPU Kernel FD Id
+	KFDId uint64 `protobuf:"varint,25,opt,name=KFDId,proto3" json:"KFDId,omitempty"`
+	// GPU Kernel Node Id
+	NodeId uint32 `protobuf:"varint,26,opt,name=NodeId,proto3" json:"NodeId,omitempty"`
+	// GPU device driver render Id
+	DRMRenderId uint32 `protobuf:"varint,27,opt,name=DRMRenderId,proto3" json:"DRMRenderId,omitempty"`
+	// GPU device driver card Id
+	DRMCardId uint32 `protobuf:"varint,28,opt,name=DRMCardId,proto3" json:"DRMCardId,omitempty"`
 }
 
 func (x *GPUStatus) Reset() {
@@ -2019,6 +2011,34 @@ func (x *GPUStatus) GetPhysicalGPU() []byte {
 		return x.PhysicalGPU
 	}
 	return nil
+}
+
+func (x *GPUStatus) GetKFDId() uint64 {
+	if x != nil {
+		return x.KFDId
+	}
+	return 0
+}
+
+func (x *GPUStatus) GetNodeId() uint32 {
+	if x != nil {
+		return x.NodeId
+	}
+	return 0
+}
+
+func (x *GPUStatus) GetDRMRenderId() uint32 {
+	if x != nil {
+		return x.DRMRenderId
+	}
+	return 0
+}
+
+func (x *GPUStatus) GetDRMCardId() uint32 {
+	if x != nil {
+		return x.DRMCardId
+	}
+	return 0
 }
 
 // GPU temperature information
@@ -4607,7 +4627,7 @@ var file_gpu_proto_rawDesc = []byte{
 	0x65, 0x12, 0x30, 0x0a, 0x06, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x18, 0x03, 0x20, 0x03, 0x28,
 	0x0b, 0x32, 0x18, 0x2e, 0x61, 0x6d, 0x64, 0x67, 0x70, 0x75, 0x2e, 0x47, 0x50, 0x55, 0x42, 0x61,
 	0x64, 0x50, 0x61, 0x67, 0x65, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x52, 0x06, 0x52, 0x65, 0x63,
-	0x6f, 0x72, 0x64, 0x22, 0xf4, 0x07, 0x0a, 0x09, 0x47, 0x50, 0x55, 0x53, 0x74, 0x61, 0x74, 0x75,
+	0x6f, 0x72, 0x64, 0x22, 0xe2, 0x08, 0x0a, 0x09, 0x47, 0x50, 0x55, 0x53, 0x74, 0x61, 0x74, 0x75,
 	0x73, 0x12, 0x14, 0x0a, 0x05, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d,
 	0x52, 0x05, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x1c, 0x0a, 0x09, 0x47, 0x50, 0x55, 0x48, 0x61,
 	0x6e, 0x64, 0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x47, 0x50, 0x55, 0x48,

@@ -422,6 +422,15 @@ message GPUStatus {
   // NOTE:
   // only valid for GPU partitions (child GPUs)
   bytes                         PhysicalGPU       = 24;
+  // GPU Kernel FD Id
+  uint64                        KFDId             = 25;
+  // GPU Kernel Node Id
+  uint32                        NodeId            = 26;
+  // GPU device driver render Id
+  uint32                        DRMRenderId       = 27;
+  // GPU device driver card Id
+  uint32                        DRMCardId         = 28;
+
 }
 
 // GPU temperature information
