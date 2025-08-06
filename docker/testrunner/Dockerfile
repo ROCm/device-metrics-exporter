@@ -9,7 +9,7 @@ ARG AMDGPU_VERSION=6.4
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 # EPEL repo is required to install yaml-cpp, a dependency of rocm-validation-suite package
-RUN dnf clean all && \
+RUN microdnf clean all && \
     rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
     echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
     echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
