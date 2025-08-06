@@ -858,9 +858,17 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 
 		switch tr.getOverallResult(result, validIDs) {
 		case types.Success:
-			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeNormal, testrunnerGen.TestEventReason_TestPassed.String(), result, "", validIDs)
+			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeNormal,
+				testrunnerGen.TestEventReason_TestPassed.String(), result, "", validIDs)
+		case types.Queued:
+			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestQueued.String(), result, "", validIDs)
+		case types.Skipped:
+			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestSkipped.String(), result, "", validIDs)
 		case types.Failure:
-			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestFailed.String(), result, "", validIDs)
+			tr.generateK8sEvent(parameters.TestCases[0].Recipe, v1.EventTypeWarning,
+				testrunnerGen.TestEventReason_TestFailed.String(), result, "", validIDs)
 			// exit on non-auto trigger's failure
 			tr.exitOnFailure()
 		case types.Timedout:
@@ -987,15 +995,24 @@ func (tr *TestRunner) exitOnFailure() {
 func (tr *TestRunner) getOverallResult(result []*types.IterationResult, validIDs []string) types.TestResult {
 	foundEmptyResultIteration := false
 	foundTimedoutIteration := false
+	foundSkippedIteration := false
+	foundPassedIteration := false
+	foundQueuedIteration := false
 	for _, iterResult := range result {
 		for gpuIdx, actionResults := range iterResult.SuitesResult {
 			for action, result := range actionResults {
 				switch result {
-				case types.Failure, types.Skipped, types.Queued:
+				case types.Failure:
 					logger.Log.Printf("test on GPU %+v iteration %+v test action %+v didn't pass due to %+v", gpuIdx, iterResult.Number, action, result)
 					return types.Failure // if there is any failed action, directly mark overall test run failed
 				case types.Timedout:
 					foundTimedoutIteration = true
+				case types.Skipped:
+					foundSkippedIteration = true
+				case types.Success:
+					foundPassedIteration = true
+				case types.Queued:
+					foundQueuedIteration = true
 				}
 			}
 		}
@@ -1019,15 +1036,27 @@ func (tr *TestRunner) getOverallResult(result []*types.IterationResult, validIDs
 			}
 		}
 	}
-	// firstly check if there is any empty result iteration
+	// 1. check if there is any empty result iteration
 	// if there is, return failure
 	if foundEmptyResultIteration {
 		return types.Failure
 	}
-	// secondly given that there is no failed iteration
+	// 2. given that there is no failed iteration
 	// check if there is any timedout iteration
 	if foundTimedoutIteration {
 		return types.Timedout
+	}
+	// 3. given that there is no timedout iteration
+	// check if there is any queued iteration
+	if foundQueuedIteration {
+		// if there is any queued iteration
+		return types.Queued
+	}
+	// 4. given that there is no queued iteration
+	// check if there is any passed iteration
+	if !foundPassedIteration && foundSkippedIteration {
+		// if there is no passed iteration but just skipped iteration
+		return types.Skipped
 	}
 	return types.Success
 }

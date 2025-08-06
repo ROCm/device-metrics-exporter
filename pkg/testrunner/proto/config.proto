@@ -39,6 +39,8 @@ enum TestEventReason {
     LogsExportPassed            = 3;
     LogsExportFailed            = 4;
     TestConfigError             = 5;
+    TestSkipped                 = 6;
+    TestQueued                  = 7;
 }
 
 // config specification of TestRunner
