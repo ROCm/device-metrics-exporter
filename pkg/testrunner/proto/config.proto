@@ -73,15 +73,15 @@ message TestParameter {
         RVS   = 0;
         AGFHC = 1;
     }
-    string             Recipe         = 1;
-    uint32             TimeoutSeconds = 2;
-    uint32             Iterations     = 3;
-    bool               StopOnFailure  = 4;
-    repeated string    DeviceIDs      = 5;
-    string             Framework      = 6;
+    optional string             Recipe         = 1;
+    optional uint32             TimeoutSeconds = 2;
+    optional uint32             Iterations     = 3;
+    optional bool               StopOnFailure  = 4;
+    repeated string             DeviceIDs      = 5;
+    optional string             Framework      = 6;
     // any more optional comma separated arguments relevant to the test framework
     //e.g. for AGFHC, it can be "--ignore-dmesg,--disable-sysmon"
-    string             Arguments      = 7;
+    optional string             Arguments      = 7;
 }
 
 message TestLogsExportConfig {

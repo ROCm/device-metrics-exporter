@@ -35,7 +35,7 @@ func TestSetConfigDefaults_FrameworkDefault(t *testing.T) {
 						TestParameters: map[string]*testrunnerGen.TestParameters{
 							"MANUAL": {
 								TestCases: []*testrunnerGen.TestParameter{
-									{Framework: ""},
+									{Framework: nil},
 								},
 							},
 						},
@@ -47,7 +47,7 @@ func TestSetConfigDefaults_FrameworkDefault(t *testing.T) {
 	tr := &TestRunner{globalTestRunnerConfig: cfg}
 	tr.setConfigDefaults()
 	got := tr.globalTestRunnerConfig.TestConfig["GPU_HEALTH_CHECK"].TestLocationTrigger["global"].TestParameters["MANUAL"].TestCases[0].Framework
-	assert.Equal(t, testrunnerGen.TestParameter_RVS.String(), got)
+	assert.Equal(t, testrunnerGen.TestParameter_RVS.String(), Deref(got))
 }
 
 func TestNormalizeConfig_UppercaseKeys(t *testing.T) {
@@ -57,7 +57,7 @@ func TestNormalizeConfig_UppercaseKeys(t *testing.T) {
 				TestLocationTrigger: map[string]*testrunnerGen.TestTriggerConfig{
 					"global": {
 						TestParameters: map[string]*testrunnerGen.TestParameters{
-							"manual": {TestCases: []*testrunnerGen.TestParameter{{Framework: "RVS"}}},
+							"manual": {TestCases: []*testrunnerGen.TestParameter{{Framework: GetAddr("RVS")}}},
 						},
 					},
 				},

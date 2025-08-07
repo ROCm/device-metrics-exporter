@@ -434,3 +434,49 @@ func TestParseAMDSMIStaticOutput(t *testing.T) {
 		t.Errorf("Expected Device ID %s, got %s", expectedDeviceID, deviceID)
 	}
 }
+
+func TestGetAddr(t *testing.T) {
+	// Test with int
+	val := 42
+	ptr := GetAddr(val)
+	if ptr == nil {
+		t.Errorf("GetAddr returned nil pointer")
+	}
+	if *ptr != val {
+		t.Errorf("GetAddr returned pointer to wrong value: got %v, want %v", *ptr, val)
+	}
+
+	// Test with string
+	str := "hello"
+	strPtr := GetAddr(str)
+	if strPtr == nil {
+		t.Errorf("GetAddr returned nil pointer for string")
+	}
+	if *strPtr != str {
+		t.Errorf("GetAddr returned pointer to wrong string: got %v, want %v", *strPtr, str)
+	}
+}
+
+func TestDeref(t *testing.T) {
+	// Test with non-nil pointer
+	val := 100
+	ptr := &val
+	got := Deref(ptr)
+	if got != val {
+		t.Errorf("Deref returned wrong value: got %v, want %v", got, val)
+	}
+
+	// Test with nil pointer (int)
+	var nilIntPtr *int
+	gotZero := Deref(nilIntPtr)
+	if gotZero != 0 {
+		t.Errorf("Deref(nil) for int did not return zero value: got %v, want 0", gotZero)
+	}
+
+	// Test with nil pointer (string)
+	var nilStrPtr *string
+	gotStr := Deref(nilStrPtr)
+	if gotStr != "" {
+		t.Errorf("Deref(nil) for string did not return zero value: got %q, want \"\"", gotStr)
+	}
+}

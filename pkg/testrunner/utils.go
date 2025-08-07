@@ -485,3 +485,15 @@ func CreateTarFile(outputPath string, inputPaths []string) error {
 	}
 	return err
 }
+
+// GetAddr returns the address of the given value
+func GetAddr[T any](v T) *T { return &v }
+
+// Deref dereferences a pointer and returns the value.
+// If the pointer is nil, it returns the zero value of type T.
+func Deref[T any](v *T) T {
+	if v == nil {
+		return *new(T) // Returns the zero value of type T.
+	}
+	return *v // Dereferences the pointer and returns the value.
+}

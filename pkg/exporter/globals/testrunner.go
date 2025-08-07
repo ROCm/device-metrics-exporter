@@ -59,20 +59,27 @@ const (
 	// test log dir
 	TestLogDir = "/var/tmp"
 
-	// TODO: rvs is one of offical ROCm RVS test suite names
-	// revisit after deciding the pre-defined default test case
-	DefaultUnhealthyGPUTestName           = "gst_single"
-	DefaultUnhealthyGPUTestIterations     = 1
-	DefaultUnhealthyGPUTestStopOnFailure  = true
-	DefaultUnhealthyGPUTestTimeoutSeconds = 3600
-	DefaultPreJobCheckTestName            = "gst_single"
-	DefaultPreJobCheckTestIterations      = 1
-	DefaultPreJobCheckTestStopOnFailure   = true
-	DefaultPreJobCheckTestTimeoutSeconds  = 3600
-	DefaultManualTestName                 = "gst_single"
-	DefaultManualTestIterations           = 1
-	DefaultManualTestStopOnFailure        = true
-	DefaultManualTestTimeoutSeconds       = 3600
+	// rvs team recommended use gst_single as default test recipe
+	// these are the default profiles for the test runner
+	DefaultUnhealthyGPUTestName                  = "gst_single"
+	DefaultUnhealthyGPUTestIterations     uint32 = 1
+	DefaultUnhealthyGPUTestStopOnFailure         = true
+	DefaultUnhealthyGPUTestTimeoutSeconds uint32 = 3600
+	DefaultPreJobCheckTestName                   = "gst_single"
+	DefaultPreJobCheckTestIterations      uint32 = 1
+	DefaultPreJobCheckTestStopOnFailure          = true
+	DefaultPreJobCheckTestTimeoutSeconds  uint32 = 3600
+	DefaultManualTestName                        = "gst_single"
+	DefaultManualTestIterations           uint32 = 1
+	DefaultManualTestStopOnFailure               = true
+	DefaultManualTestTimeoutSeconds       uint32 = 3600
+
+	// these are the default values for the missing fields that users didn't provided test configs
+	DefaultRVSRecipeName                   = "gst_single"
+	DefaultAGFHCRecipeName                 = "all_lvl1"
+	DefaultTestCaseTimeoutInSeconds uint32 = 3600
+	DefaultIterations               uint32 = 1
+	DefaultStopOnFailure                   = true
 
 	// rvs build may use these aliases for MI350X and MI355X test recipes folder names
 	MI350XAlias = "gfx950-dlc"
