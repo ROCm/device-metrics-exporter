@@ -262,6 +262,27 @@ func TestAgfhcParseAgfhcTestResult(t *testing.T) {
 				Skipped:         0,
 				Queued:          0,
 			},
+			"test6": {
+				TotalIterations: 1,
+				Passed:          0,
+				Failed:          1,
+				Skipped:         0,
+				Queued:          0,
+			},
+			"test7": {
+				TotalIterations: 1,
+				Passed:          0,
+				Failed:          1,
+				Skipped:         0,
+				Queued:          0,
+			},
+			"test8": {
+				TotalIterations: 1,
+				Passed:          0,
+				Failed:          1,
+				Skipped:         0,
+				Queued:          0,
+			},
 		},
 		TestResults: map[string]TestResultInfo{
 			"test1": {
@@ -290,6 +311,24 @@ func TestAgfhcParseAgfhcTestResult(t *testing.T) {
 				State:           AgfhcTestStateFailed,
 				SuggestedAction: "Service",
 				Subject:         "GPU-01",
+			},
+			"test6": {
+				Test:            "test6",
+				State:           AgfhcTestStateFailed,
+				SuggestedAction: "Service",
+				Subject:         "PROGRAM",
+			},
+			"test7": {
+				Test:            "test7",
+				State:           AgfhcTestStateFailed,
+				SuggestedAction: "Service",
+				Subject:         "SYSTEM",
+			},
+			"test8": {
+				Test:            "test8",
+				State:           AgfhcTestStateFailed,
+				SuggestedAction: "Service",
+				Subject:         "",
 			},
 		},
 	}
@@ -346,6 +385,18 @@ func TestAgfhcParseAgfhcTestResult(t *testing.T) {
 	// Check that test5 failed on GPU-01
 	assert.Equal(t, types.Success, results["0"]["test5"])
 	assert.Equal(t, types.Failure, results["1"]["test5"])
+
+	// all GPu should show failed if the subject is PROGRAM
+	assert.Equal(t, types.Failure, results["0"]["test6"])
+	assert.Equal(t, types.Failure, results["1"]["test6"])
+
+	// all GPu should show failed if the subject is SYSTEM
+	assert.Equal(t, types.Failure, results["0"]["test7"])
+	assert.Equal(t, types.Failure, results["1"]["test7"])
+
+	// all GPu should show failed if the subject is empty
+	assert.Equal(t, types.Failure, results["0"]["test8"])
+	assert.Equal(t, types.Failure, results["1"]["test8"])
 }
 
 func TestAgfhcLoadTestSuites(t *testing.T) {
@@ -399,4 +450,83 @@ func TestAgfhcLoadTestSuites(t *testing.T) {
 
 	// Check that non-yml files were not loaded
 	assert.False(t, runner.testSuites["readme"], "Non-yml file was incorrectly loaded as a test suite")
+}
+
+func TestIsValidGPUID(t *testing.T) {
+	// Test cases for valid GPU ID subjects
+	validSubjects := []string{
+		"GPU-00",
+		"GPU-01",
+		"GPU-123",
+		"GPU-9999",
+	}
+	for _, subject := range validSubjects {
+		assert.True(t, IsValidGPUID(subject), "Expected %s to be a valid GPU ID subject", subject)
+	}
+	// Test cases for invalid GPU ID subjects
+	invalidSubjects := []string{
+		"123-GPU-00", // Incorrect prefix
+		"PROGRAM",    // unrelated string only
+		"SYSTEM",     // unrelated string only
+		"UNKNOWN",    // unrelated string only
+	}
+	for _, subject := range invalidSubjects {
+		assert.False(t, IsValidGPUID(subject), "Expected %s to be an invalid GPU ID subject", subject)
+	}
+}
+
+func TestFailedDeviceIDs(t *testing.T) {
+	testCases := []struct {
+		subject                string
+		expected               map[string]bool
+		expectedOverallFailure bool
+	}{
+		{
+			subject:                "GPU-00:GPU-01",
+			expected:               map[string]bool{"GPU-00": true, "GPU-01": true},
+			expectedOverallFailure: false,
+		},
+		{
+			subject:                "SYSTEM",
+			expected:               map[string]bool{},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "PROGRAM",
+			expected:               map[string]bool{},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "UNKNOWN",
+			expected:               map[string]bool{},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "GPU-00:SYSTEM:GPU-01",
+			expected:               map[string]bool{"GPU-00": true},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "GPU-00:PROGRAM",
+			expected:               map[string]bool{"GPU-00": true},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "GPU-00:GPU-01:UNKNOWN",
+			expected:               map[string]bool{"GPU-00": true, "GPU-01": true},
+			expectedOverallFailure: true,
+		},
+		{
+			subject:                "",
+			expected:               map[string]bool{},
+			expectedOverallFailure: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.subject, func(t *testing.T) {
+			failedIDs, overallFailure := failedDeviceIDs(tc.subject)
+			assert.Equal(t, tc.expected, failedIDs, "Failed device IDs do not match expected for subject: %s", tc.subject)
+			assert.Equal(t, tc.expectedOverallFailure, overallFailure, "Overall failure status does not match expected for subject: %s", tc.subject)
+		})
+	}
 }
