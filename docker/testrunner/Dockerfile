@@ -18,6 +18,11 @@ RUN dnf clean all && \
 
 WORKDIR /
 
+# Security patch for multiple CVEs
+RUN dnf update -y libarchive libxml2 pam python3-requests glibc && \
+    rm -rf /var/cache/yum /var/cache/dnf && \
+    dnf clean all
+
 ADD amd-test-runner /amd-test-runner
 ADD LICENSE /licenses/LICENSE
 RUN chmod +x /amd-test-runner
