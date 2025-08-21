@@ -32,14 +32,17 @@ import (
 // local variables
 var (
 	mandatoryLables = []string{
+		exportermetrics.NICMetricLabel_NIC_UUID.String(),
 		exportermetrics.NICMetricLabel_NIC_ID.String(),
 		exportermetrics.NICMetricLabel_NIC_SERIAL_NUMBER.String(),
 		exportermetrics.NICMetricLabel_NIC_HOSTNAME.String(),
 	}
-	exportLabels    map[string]bool
-	exportFieldMap  map[string]bool
-	fieldMetricsMap []prometheus.Collector
-	customLabelMap  map[string]string
+	exportLabels      map[string]bool
+	exportFieldMap    map[string]bool
+	fieldMetricsMap   []prometheus.Collector
+	customLabelMap    map[string]string
+	extraPodLabelsMap map[string]string
+	k8PodLabelsMap    map[string]map[string]string
 )
 
 type metrics struct {
@@ -219,6 +222,21 @@ func (na *NICAgentClient) GetExportLabels() []string { //TODO .. move to exporte
 		labelList = append(labelList, strings.ToLower(key))
 	}
 
+	// process extra pod labels
+	for key := range extraPodLabelsMap {
+		exists := false
+		for _, label := range labelList {
+			if key == label {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			labelList = append(labelList, key)
+		}
+	}
+
+	// process custom labels
 	for key := range customLabelMap {
 		exists := false
 		for _, label := range labelList {
@@ -768,9 +786,19 @@ func (na *NICAgentClient) initFieldRegistration() error {
 	return nil
 }
 
+func (na *NICAgentClient) initPodExtraLabels(config *exportermetrics.NICMetricConfig) {
+	// initialize pod labels maps
+	k8PodLabelsMap = make(map[string]map[string]string)
+	if config != nil {
+		extraPodLabelsMap = utils.NormalizeExtraPodLabels(config.GetExtraPodLabels())
+	}
+	logger.Log.Printf("export-labels updated to %v", extraPodLabelsMap)
+}
+
 func (na *NICAgentClient) InitConfigs() error {
 	filedConfigs := na.mh.GetNICMetricsConfig()
 
+	na.initPodExtraLabels(filedConfigs)
 	na.initCustomLabels(filedConfigs)
 	na.initLabelConfigs(filedConfigs)
 	na.initFieldConfig(filedConfigs)
@@ -779,6 +807,12 @@ func (na *NICAgentClient) InitConfigs() error {
 }
 
 func (na *NICAgentClient) UpdateStaticMetrics() error {
+	var err error
+	k8PodLabelsMap, err = na.fetchPodLabelsForNode()
+	if err != nil {
+		logger.Log.Printf("Failed to fetch pod labels for node: %v", err)
+		return err
+	}
 	labels := na.populateLabelsFromNIC("")
 	na.m.nicNodesTotal.With(labels).Set(float64(len(na.nics)))
 	return nil
@@ -838,6 +872,13 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 		}
 	}
 
+	// these extra pod labels are overwritten when there is a workload associated with the NIC with the respective pod label values
+	for prometheusLabel := range extraPodLabelsMap {
+		if nic != nil {
+			labels[strings.ToLower(prometheusLabel)] = ""
+		}
+	}
+
 	// Add custom labels
 	for label, value := range customLabelMap {
 		labels[label] = value
@@ -857,6 +898,16 @@ func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string
 		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String())] = podInfo.Pod
 		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String())] = podInfo.Namespace
 		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String())] = podInfo.Container
+
+		// Add extra pod labels only if config has mapped any
+		if len(extraPodLabelsMap) > 0 {
+			podLabels := utils.GetPodLabels(podInfo, k8PodLabelsMap)
+			// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
+			for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
+				label := strings.ToLower(prometheusPodlabel)
+				labels[label] = podLabels[k8Podlabel]
+			}
+		}
 	}
 	return labels
 }

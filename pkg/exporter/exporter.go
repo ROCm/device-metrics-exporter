@@ -294,11 +294,6 @@ func (e *Exporter) startWatchers() {
 	} else {
 		logger.Log.Printf("k8s watchers started successfully")
 	}
-	if gpuclient == nil {
-		logger.Log.Fatalf("gpuclient is not initialized, skipping gpu watchers")
-		return
-	}
-	go gpuclient.StartMonitor()
 }
 
 func WithNICMonitoring(enableNICAgent bool) ExporterOption {
@@ -346,6 +341,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 		} else {
 			e.k8sScl = k8sScl
 		}
+		e.startWatchers()
 	}
 
 	if e.enableGPUMonitoring {
@@ -358,7 +354,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 		if err := gpuclient.Init(); err != nil {
 			logger.Log.Printf("gpuclient init err :%+v", err)
 		}
-		e.startWatchers()
+		go gpuclient.StartMonitor()
 		if err := e.svcHandler.RegisterGPUHealthClient(gpuclient); err != nil {
 			logger.Log.Printf("health client registration err: %+v", err)
 		}

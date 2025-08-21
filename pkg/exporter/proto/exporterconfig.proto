@@ -413,6 +413,9 @@ message NICMetricConfig {
 
     // NIC health check config
     NICHealthCheckConfig HealthCheckConfig = 4;
+
+    // Map of extra pod labels to be exported (prometheus metric name as Key, pod label as value)
+    map<string, string> ExtraPodLabels = 5;
 }
 
 message NICHealthCheckConfig {

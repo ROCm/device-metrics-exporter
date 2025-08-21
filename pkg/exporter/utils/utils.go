@@ -25,6 +25,8 @@ import (
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -219,4 +221,36 @@ func ValidateAndExport(metric prometheus.GaugeVec, fieldName string,
 	floatVal := NormalizeUint64(value)
 	metric.With(labels).Set(floatVal)
 	return ErrorNone
+}
+
+func NormalizeExtraPodLabels(extraPodLabels map[string]string) map[string]string {
+	extraPodLabelsMap := make(map[string]string)
+	if extraPodLabels != nil {
+		labelCount := 0
+
+		for prometheusLabel, k8PodLabelName := range extraPodLabels {
+			if labelCount >= globals.MaxSupportedPodLabels {
+				logger.Log.Printf("Max pod labels supported: %v, ignoring extra pod labels.", globals.MaxSupportedPodLabels)
+				break
+			}
+			label := strings.ToLower(prometheusLabel)
+			extraPodLabelsMap[label] = k8PodLabelName
+			labelCount++
+		}
+	}
+	return extraPodLabelsMap
+}
+
+func GetPodLabels(podInfo scheduler.PodResourceInfo, k8sPodLabelsMap map[string]map[string]string) map[string]string {
+	podName, podNs := podInfo.Pod, podInfo.Namespace
+	if podName != "" && podNs != "" {
+		pKey := types.PodUniqueKey{
+			PodName:   podName,
+			Namespace: podNs,
+		}
+		if labels, exists := k8sPodLabelsMap[pKey.String()]; exists {
+			return labels
+		}
+	}
+	return map[string]string{}
 }

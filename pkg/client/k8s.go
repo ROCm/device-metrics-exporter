@@ -41,6 +41,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	exporterTypes "github.com/ROCm/device-metrics-exporter/pkg/types"
 	//
 	// Uncomment to load all auth plugins
 	// _ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -48,16 +49,6 @@ import (
 	// Or uncomment to load specific auth plugins
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
-
-// PodUniqueKey - key for uniquely identifying pod
-type PodUniqueKey struct {
-	PodName   string
-	Namespace string
-}
-
-func (p *PodUniqueKey) String() string {
-	return fmt.Sprintf("%v-%v", p.Namespace, p.PodName)
-}
 
 type K8sClient struct {
 	sync.Mutex
@@ -350,7 +341,7 @@ func (k *K8sClient) GetAllPods() (map[string]map[string]string, error) {
 
 	// Process each pod and populate the map
 	for _, pod := range pods {
-		podKey := PodUniqueKey{
+		podKey := exporterTypes.PodUniqueKey{
 			PodName:   pod.Name,
 			Namespace: pod.Namespace,
 		}

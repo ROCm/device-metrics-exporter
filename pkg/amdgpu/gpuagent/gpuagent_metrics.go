@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
-	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -348,23 +347,10 @@ func (ga *GPUAgentClient) initProfilerMetrics(config *exportermetrics.GPUMetricC
 }
 
 func initPodExtraLabels(config *exportermetrics.GPUMetricConfig) {
-	// Map of pod labels
-	extraPodLabelsMap = make(map[string]string)
+	// initialize pod labels maps
 	k8PodLabelsMap = make(map[string]map[string]string)
-
-	if config != nil && config.GetExtraPodLabels() != nil {
-		extraLabels := config.GetExtraPodLabels()
-		labelCount := 0
-
-		for prometheusLabel, k8PodLabel := range extraLabels {
-			if labelCount >= globals.MaxSupportedPodLabels {
-				logger.Log.Printf("Max pod labels supported: %v, ignoring extra pod labels.", globals.MaxSupportedPodLabels)
-				break
-			}
-			label := strings.ToLower(prometheusLabel)
-			extraPodLabelsMap[label] = k8PodLabel
-			labelCount++
-		}
+	if config != nil {
+		extraPodLabelsMap = utils.NormalizeExtraPodLabels(config.GetExtraPodLabels())
 	}
 	logger.Log.Printf("export-labels updated to %v", extraPodLabelsMap)
 }
@@ -1718,38 +1704,10 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 
 	// Add extra pod labels only if config has mapped any
 	if gpu != nil && len(extraPodLabelsMap) > 0 {
-		podName := podInfo.Pod
-		podNs := podInfo.Namespace
-
-		var podLabels map[string]string
-		if podName != "" && podNs != "" {
-			pKey := k8sclient.PodUniqueKey{
-				PodName:   podName,
-				Namespace: podNs,
-			}
-			if labels, exists := k8PodLabelsMap[pKey.String()]; exists {
-				// Cached pod labels
-				podLabels = labels
-			} else {
-				// Empty labels
-				podLabels = make(map[string]string)
-			}
-
-			for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
-				label := strings.ToLower(prometheusPodlabel)
-				value := podLabels[k8Podlabel]
-				if value == "" {
-					labels[label] = ""
-				} else {
-					labels[label] = value
-				}
-			}
-		} else {
-			// Not pod info, so empty value
-			for prometheusPodlabel := range extraPodLabelsMap {
-				label := strings.ToLower(prometheusPodlabel)
-				labels[label] = ""
-			}
+		podLabels := utils.GetPodLabels(podInfo, k8PodLabelsMap)
+		for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
+			label := strings.ToLower(prometheusPodlabel)
+			labels[label] = podLabels[k8Podlabel]
 		}
 	}
 

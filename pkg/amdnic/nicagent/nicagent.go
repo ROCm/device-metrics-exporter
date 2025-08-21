@@ -183,6 +183,7 @@ func (na *NICAgentClient) getMetricsAll() error {
 	if err != nil {
 		logger.Log.Printf("failed to list workloads, err: %v", err)
 	}
+	k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
 	for _, client := range na.nicClients {
 		wg.Add(1)
 		go func(client NICInterface) {
@@ -223,6 +224,14 @@ func (na *NICAgentClient) sendNodeLabelUpdate(healthState map[string]interface{}
 	}
 	_ = na.k8sApiClient.UpdateHealthLabel(na.nodeHealthLabellerCfg, nodeName, nicHealthStates)
 	return nil
+}
+
+func (na *NICAgentClient) fetchPodLabelsForNode() (map[string]map[string]string, error) {
+	listMap := make(map[string]map[string]string)
+	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
+		return na.k8sApiClient.GetAllPods()
+	}
+	return listMap, nil
 }
 
 func (na *NICAgentClient) Close() {
