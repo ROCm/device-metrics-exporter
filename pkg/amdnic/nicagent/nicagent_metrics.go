@@ -55,6 +55,8 @@ type metrics struct {
 	nicMaxSpeed   prometheus.GaugeVec
 
 	// Port stats
+	nicPortStatsFramesRxOk           prometheus.GaugeVec
+	nicPortStatsFramesRxAll          prometheus.GaugeVec
 	nicPortStatsFramesRxBadFcs       prometheus.GaugeVec
 	nicPortStatsFramesRxBadAll       prometheus.GaugeVec
 	nicPortStatsFramesRxPause        prometheus.GaugeVec
@@ -67,6 +69,8 @@ type metrics struct {
 	nicPortStatsFramesRxStompedCrc   prometheus.GaugeVec
 	nicPortStatsFramesRxTooLong      prometheus.GaugeVec
 	nicPortStatsFramesRxDropped      prometheus.GaugeVec
+	nicPortStatsFramesTxOk           prometheus.GaugeVec
+	nicPortStatsFramesTxAll          prometheus.GaugeVec
 	nicPortStatsFramesTxBad          prometheus.GaugeVec
 	nicPortStatsFramesTxPause        prometheus.GaugeVec
 	nicPortStatsFramesTxPripause     prometheus.GaugeVec
@@ -332,6 +336,8 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 	fieldMetricsMap = map[string]FieldMeta{
 		exportermetrics.NICMetricField_NIC_TOTAL.String():                               {Metric: na.m.nicNodesTotal},
 		exportermetrics.NICMetricField_NIC_MAX_SPEED.String():                           {Metric: na.m.nicMaxSpeed},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OK.String():             {Metric: na.m.nicPortStatsFramesRxOk},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_ALL.String():            {Metric: na.m.nicPortStatsFramesRxAll},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String():        {Metric: na.m.nicPortStatsFramesRxBadFcs},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_ALL.String():        {Metric: na.m.nicPortStatsFramesRxBadAll},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PAUSE.String():          {Metric: na.m.nicPortStatsFramesRxPause},
@@ -344,6 +350,8 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC.String():    {Metric: na.m.nicPortStatsFramesRxStompedCrc},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_TOO_LONG.String():       {Metric: na.m.nicPortStatsFramesRxTooLong},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_DROPPED.String():        {Metric: na.m.nicPortStatsFramesRxDropped},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_OK.String():             {Metric: na.m.nicPortStatsFramesTxOk},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_ALL.String():            {Metric: na.m.nicPortStatsFramesTxAll},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_BAD.String():            {Metric: na.m.nicPortStatsFramesTxBad},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PAUSE.String():          {Metric: na.m.nicPortStatsFramesTxPause},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRIPAUSE.String():       {Metric: na.m.nicPortStatsFramesTxPripause},
@@ -450,6 +458,16 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		}, labels),
 
 		/* Port stats */
+		nicPortStatsFramesRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OK.String()),
+			Help: "Counts the number of valid network frames that were successfully received",
+		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+
+		nicPortStatsFramesRxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_ALL.String()),
+			Help: "Total number of all frames received by the device",
+		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+
 		nicPortStatsFramesRxBadFcs: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String()),
 			Help: "Bad frames received due to a Frame Check Sequence (FCS) error on a network port",
@@ -508,6 +526,16 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsFramesRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_DROPPED.String()),
 			Help: "Total number of frames that were received but dropped due to various reasons such as buffer overflows or hardware limitations",
+		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+
+		nicPortStatsFramesTxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_OK.String()),
+			Help: "Counts the number of valid network frames that were successfully transmitted",
+		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+
+		nicPortStatsFramesTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_ALL.String()),
+			Help: "Total number of all frames transmitted by the device",
 		}, append([]string{LabelPortName, LabelPortID}, labels...)),
 
 		nicPortStatsFramesTxBad: *prometheus.NewGaugeVec(prometheus.GaugeOpts{

@@ -36,14 +36,22 @@ import "github.com/alta/protopatch/patch/go.proto";
             "id": "NIC1",
             "port": [
                 {
-                    "id": "port1",
-                    "FRAMES_TX_OK": 1000,
-                    "FRAMES_RX_OK": 1500
+                    "spec":{
+                        "id": "port1"
+                    },
+                    "statistics": {
+                        "frames_tx_ok": 1000,
+                        "frames_rx_ok": 1500
+                    }
                 },
                 {
-                    "id": "port2",
-                    "FRAMES_RX_OK": 1000,
-                    "FRAMES_TX_OK": 1500                    
+                    "spec":{
+                        "id": "port2"
+                    },
+                    "statistics": {
+                        "frames_rx_ok": 1000,
+                        "frames_tx_ok": 1500
+                    }
                 }
             ]
         }
@@ -51,29 +59,42 @@ import "github.com/alta/protopatch/patch/go.proto";
 }
 */
 
+
+
 // PortStats represents the statistics of an individual port, identified by a unique ID.
 message PortStats {
     // Unique identifier for the port
+    string FRAMES_RX_OK             = 1 [(go.field).tags = 'json:"frames_rx_ok,omitempty"'];
+    string FRAMES_RX_ALL            = 2 [(go.field).tags = 'json:"frames_rx_all,omitempty"'];
+    string FRAMES_RX_BAD_FCS        = 3 [(go.field).tags = 'json:"frames_rx_bad_fcs,omitempty"'];
+    string FRAMES_RX_BAD_ALL        = 4 [(go.field).tags = 'json:"frames_rx_bad_all,omitempty"'];
+    string FRAMES_RX_PAUSE          = 5 [(go.field).tags = 'json:"frames_rx_pause,omitempty"'];
+    string FRAMES_RX_BAD_LENGTH     = 6 [(go.field).tags = 'json:"frames_rx_bad_length,omitempty"'];
+    string FRAMES_RX_UNDERSIZED     = 7 [(go.field).tags = 'json:"frames_rx_undersized,omitempty"'];
+    string FRAMES_RX_OVERSIZED      = 8 [(go.field).tags = 'json:"frames_rx_oversized,omitempty"'];
+    string FRAMES_RX_FRAGMENTS      = 9 [(go.field).tags = 'json:"frames_rx_fragments,omitempty"'];
+    string FRAMES_RX_JABBER         = 10 [(go.field).tags = 'json:"frames_rx_jabber,omitempty"'];
+    string FRAMES_RX_PRIPAUSE       = 11 [(go.field).tags = 'json:"frames_rx_pripause,omitempty"'];
+    string FRAMES_RX_STOMPED_CRC    = 12 [(go.field).tags = 'json:"frames_rx_stomped_crc,omitempty"'];
+    string FRAMES_RX_TOO_LONG       = 13 [(go.field).tags = 'json:"frames_rx_too_long,omitempty"'];
+    string FRAMES_RX_DROPPED        = 14 [(go.field).tags = 'json:"frames_rx_dropped,omitempty"'];
+    string FRAMES_TX_OK             = 15 [(go.field).tags = 'json:"frames_tx_ok,omitempty"'];
+    string FRAMES_TX_ALL            = 16 [(go.field).tags = 'json:"frames_tx_all,omitempty"'];
+    string FRAMES_TX_BAD            = 17 [(go.field).tags = 'json:"frames_tx_bad,omitempty"'];
+    string FRAMES_TX_PAUSE          = 18 [(go.field).tags = 'json:"frames_tx_pause,omitempty"'];
+    string FRAMES_TX_PRIPAUSE       = 19 [(go.field).tags = 'json:"frames_tx_pripause,omitempty"'];
+    string FRAMES_TX_LESS_THAN_64B  = 20 [(go.field).tags = 'json:"frames_tx_less_than_64b,omitempty"'];
+    string FRAMES_TX_TRUNCATED      = 21 [(go.field).tags = 'json:"frames_tx_truncated,omitempty"'];
+    string RSFEC_CORRECTABLE_WORD   = 22 [(go.field).tags = 'json:"rsfec_correctable_word,omitempty"'];
+    string RSFEC_CH_SYMBOL_ERR_CNT  = 23 [(go.field).tags = 'json:"rsfec_ch_symbol_err_cnt,omitempty"'];
+}
+
+message PortSpec {
     string ID                       = 1 [(go.field).tags = 'json:"id,omitempty"'];
-    string FRAMES_RX_BAD_FCS        = 2 [(go.field).tags = 'json:"FRAMES_RX_BAD_FCS,omitempty"'];
-    string FRAMES_RX_BAD_ALL        = 3 [(go.field).tags = 'json:"FRAMES_RX_BAD_ALL,omitempty"'];
-    string FRAMES_RX_PAUSE          = 4 [(go.field).tags = 'json:"FRAMES_RX_PAUSE,omitempty"'];
-    string FRAMES_RX_BAD_LENGTH     = 5 [(go.field).tags = 'json:"FRAMES_RX_BAD_LENGTH,omitempty"'];
-    string FRAMES_RX_UNDERSIZED     = 6 [(go.field).tags = 'json:"FRAMES_RX_UNDERSIZED,omitempty"'];
-    string FRAMES_RX_OVERSIZED      = 7 [(go.field).tags = 'json:"FRAMES_RX_OVERSIZED,omitempty"'];
-    string FRAMES_RX_FRAGMENTS      = 8 [(go.field).tags = 'json:"FRAMES_RX_FRAGMENTS,omitempty"'];
-    string FRAMES_RX_JABBER         = 9 [(go.field).tags = 'json:"FRAMES_RX_JABBER,omitempty"'];
-    string FRAMES_RX_PRIPAUSE       = 10 [(go.field).tags = 'json:"FRAMES_RX_PRIPAUSE,omitempty"'];
-    string FRAMES_RX_STOMPED_CRC    = 11 [(go.field).tags = 'json:"FRAMES_RX_STOMPED_CRC,omitempty"'];
-    string FRAMES_RX_TOO_LONG       = 12 [(go.field).tags = 'json:"FRAMES_RX_TOO_LONG,omitempty"'];
-    string FRAMES_RX_DROPPED        = 13 [(go.field).tags = 'json:"FRAMES_RX_DROPPED,omitempty"'];
-    string FRAMES_TX_BAD            = 14 [(go.field).tags = 'json:"FRAMES_TX_BAD,omitempty"'];
-    string FRAMES_TX_PAUSE          = 15 [(go.field).tags = 'json:"FRAMES_TX_PAUSE,omitempty"'];
-    string FRAMES_TX_PRIPAUSE       = 16 [(go.field).tags = 'json:"FRAMES_TX_PRIPAUSE,omitempty"'];
-    string FRAMES_TX_LESS_THAN_64B  = 17 [(go.field).tags = 'json:"FRAMES_TX_LESS_THAN_64B,omitempty"'];
-    string FRAMES_TX_TRUNCATED      = 18 [(go.field).tags = 'json:"FRAMES_TX_TRUNCATED,omitempty"'];
-    string RSFEC_CORRECTABLE_WORD   = 19 [(go.field).tags = 'json:"RSFEC_CORRECTABLE_WORD,omitempty"'];
-    string RSFEC_CH_SYMBOL_ERR_CNT  = 20 [(go.field).tags = 'json:"RSFEC_CH_SYMBOL_ERR_CNT,omitempty"'];
+}
+
+message Port {
+    PortStats Statistics = 1 [(go.field).tags = 'json:"statistics,omitempty"'];
 }
 
 // NICPortStats represents a collection of port statistics grouped by NIC ID.
@@ -83,7 +104,7 @@ message NICPortStats {
     string ID               = 1 [(go.field).tags = 'json:"id,omitempty"'];
 
     // A list of PortStats, each representing statistics for an individual port on this NIC.
-    repeated PortStats Port = 2 [(go.field).tags = 'json:"port,omitempty"'];
+    repeated Port Port      = 2 [(go.field).tags = 'json:"port,omitempty"'];
 }
 
 // PortStatsList represents a list of AI NIC port statistics. This is typically used to store statistics

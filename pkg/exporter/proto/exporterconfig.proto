@@ -314,120 +314,169 @@ enum NICMetricField {
     // Port Stats Field defines the various statistics fields for port-level metrics. 
     // Each field represents a different type of statistic related to the port's performance and health, 
     // such as frames received successfully, total frames received, and other specific metrics.
-    NIC_PORT_STATS_FRAMES_RX_BAD_FCS         = 2;
-    NIC_PORT_STATS_FRAMES_RX_BAD_ALL         = 3;
-    NIC_PORT_STATS_FRAMES_RX_PAUSE           = 4;
-    NIC_PORT_STATS_FRAMES_RX_BAD_LENGTH      = 5;
-    NIC_PORT_STATS_FRAMES_RX_UNDERSIZED      = 6;
-    NIC_PORT_STATS_FRAMES_RX_OVERSIZED       = 7;
-    NIC_PORT_STATS_FRAMES_RX_FRAGMENTS       = 8;
-    NIC_PORT_STATS_FRAMES_RX_JABBER          = 9;
-    NIC_PORT_STATS_FRAMES_RX_PRIPAUSE        = 10;
-    NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC     = 11;
-    NIC_PORT_STATS_FRAMES_RX_TOO_LONG        = 12;
-    NIC_PORT_STATS_FRAMES_RX_DROPPED         = 13;
-    NIC_PORT_STATS_FRAMES_TX_BAD             = 14;
-    NIC_PORT_STATS_FRAMES_TX_PAUSE           = 15;
-    NIC_PORT_STATS_FRAMES_TX_PRIPAUSE        = 16;
-    NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B   = 17;
-    NIC_PORT_STATS_FRAMES_TX_TRUNCATED       = 18;
-    NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD    = 19;
-    NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT   = 20;
-
-    // RDMA core Stats
-    RDMA_TX_UCAST_PKTS                       = 21;
-    RDMA_TX_CNP_PKTS                         = 22;
-    RDMA_RX_UCAST_PKTS                       = 23;
-    RDMA_RX_CNP_PKTS                         = 24;
-    RDMA_RX_ECN_PKTS                         = 25;
-
-    RDMA_REQ_RX_PKT_SEQ_ERR                  = 26;
-    RDMA_REQ_RX_RNR_RETRY_ERR                = 27;
-    RDMA_REQ_RX_RMT_ACC_ERR                  = 28;
-    RDMA_REQ_RX_RMT_REQ_ERR                  = 29;
-    RDMA_REQ_RX_OPER_ERR                     = 30;
-    RDMA_REQ_RX_IMPL_NAK_SEQ_ERR             = 31;
-    RDMA_REQ_RX_CQE_ERR                      = 32;
-    RDMA_REQ_RX_CQE_FLUSH                    = 33;
-    RDMA_REQ_RX_DUP_RESP                     = 34;
-    RDMA_REQ_RX_INVALID_PKTS                 = 35;
-
-    RDMA_REQ_TX_LOC_ERR                      = 36;
-    RDMA_REQ_TX_LOC_OPER_ERR                 = 37;
-    RDMA_REQ_TX_MEM_MGMT_ERR                 = 38;
-    RDMA_REQ_TX_RETRY_EXCD_ERR               = 39;
-    RDMA_REQ_TX_LOC_SGL_INV_ERR              = 40;
-
-    RDMA_RESP_RX_DUP_REQUEST                 = 41;
-    RDMA_RESP_RX_OUTOF_BUF                   = 42;
-    RDMA_RESP_RX_OUTOUF_SEQ                  = 43;
-    RDMA_RESP_RX_CQE_ERR                     = 44;
-    RDMA_RESP_RX_CQE_FLUSH                   = 45;
-    RDMA_RESP_RX_LOC_LEN_ERR                 = 46;
-    RDMA_RESP_RX_INVALID_REQUEST             = 47;
-    RDMA_RESP_RX_LOC_OPER_ERR                = 48;
-    RDMA_RESP_RX_OUTOF_ATOMIC                = 49;
-
-    RDMA_RESP_TX_PKT_SEQ_ERR                 = 50;
-    RDMA_RESP_TX_RMT_INVAL_REQ_ERR           = 51;
-    RDMA_RESP_TX_RMT_ACC_ERR                 = 52;
-    RDMA_RESP_TX_RMT_OPER_ERR                = 53;
-    RDMA_RESP_TX_RNR_RETRY_ERR               = 54;
-    RDMA_RESP_TX_LOC_SGL_INV_ERR             = 55;
-    RDMA_RESP_RX_S0_TABLE_ERR                = 56;
+    NIC_PORT_STATS_FRAMES_RX_OK              = 2;
+    NIC_PORT_STATS_FRAMES_RX_ALL             = 3;
+    NIC_PORT_STATS_FRAMES_RX_BAD_FCS         = 4;
+    NIC_PORT_STATS_FRAMES_RX_BAD_ALL         = 5;
+    NIC_PORT_STATS_FRAMES_RX_PAUSE           = 6;
+    NIC_PORT_STATS_FRAMES_RX_BAD_LENGTH      = 7;
+    NIC_PORT_STATS_FRAMES_RX_UNDERSIZED      = 8;
+    NIC_PORT_STATS_FRAMES_RX_OVERSIZED       = 9;
+    NIC_PORT_STATS_FRAMES_RX_FRAGMENTS       = 10;
+    NIC_PORT_STATS_FRAMES_RX_JABBER          = 11;
+    NIC_PORT_STATS_FRAMES_RX_PRIPAUSE        = 12;
+    NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC     = 13;
+    NIC_PORT_STATS_FRAMES_RX_TOO_LONG        = 14;
+    NIC_PORT_STATS_FRAMES_RX_DROPPED         = 15;
+    NIC_PORT_STATS_FRAMES_TX_OK              = 16;
+    NIC_PORT_STATS_FRAMES_TX_ALL             = 17;
+    NIC_PORT_STATS_FRAMES_TX_BAD             = 18;
+    NIC_PORT_STATS_FRAMES_TX_PAUSE           = 19;
+    NIC_PORT_STATS_FRAMES_TX_PRIPAUSE        = 20;
+    NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B   = 21;
+    NIC_PORT_STATS_FRAMES_TX_TRUNCATED       = 22;
+    NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD    = 23;
+    NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT   = 24;
 
     // Lif stats 
-    NIC_LIF_STATS_RX_UNICAST_PACKETS         = 57;
-    NIC_LIF_STATS_RX_UNICAST_DROP_PACKETS    = 58;
-    NIC_LIF_STATS_RX_MULTICAST_DROP_PACKETS  = 59;
-    NIC_LIF_STATS_RX_BROADCAST_DROP_PACKETS  = 60;
-    NIC_LIF_STATS_RX_DMA_ERRORS              = 61;
-    NIC_LIF_STATS_TX_UNICAST_PACKETS         = 62;
-    NIC_LIF_STATS_TX_UNICAST_DROP_PACKETS    = 63;
-    NIC_LIF_STATS_TX_MULTICAST_DROP_PACKETS  = 64;
-    NIC_LIF_STATS_TX_BROADCAST_DROP_PACKETS  = 65;
-    NIC_LIF_STATS_TX_DMA_ERRORS              = 66;
+    NIC_LIF_STATS_RX_UNICAST_PACKETS         = 100;
+    NIC_LIF_STATS_RX_UNICAST_DROP_PACKETS    = 101;
+    NIC_LIF_STATS_RX_MULTICAST_DROP_PACKETS  = 102;
+    NIC_LIF_STATS_RX_BROADCAST_DROP_PACKETS  = 103;
+    NIC_LIF_STATS_RX_DMA_ERRORS              = 104;
+    NIC_LIF_STATS_TX_UNICAST_PACKETS         = 105;
+    NIC_LIF_STATS_TX_UNICAST_DROP_PACKETS    = 106;
+    NIC_LIF_STATS_TX_MULTICAST_DROP_PACKETS  = 107;
+    NIC_LIF_STATS_TX_BROADCAST_DROP_PACKETS  = 108;
+    NIC_LIF_STATS_TX_DMA_ERRORS              = 109;
+
+    // RDMA core Stats
+    RDMA_TX_UCAST_PKTS                       = 200;
+    RDMA_TX_CNP_PKTS                         = 201;
+    RDMA_RX_UCAST_PKTS                       = 202;
+    RDMA_RX_CNP_PKTS                         = 203;
+    RDMA_RX_ECN_PKTS                         = 204;
+
+    RDMA_REQ_RX_PKT_SEQ_ERR                  = 205;
+    RDMA_REQ_RX_RNR_RETRY_ERR                = 206;
+    RDMA_REQ_RX_RMT_ACC_ERR                  = 207;
+    RDMA_REQ_RX_RMT_REQ_ERR                  = 208;
+    RDMA_REQ_RX_OPER_ERR                     = 209;
+    RDMA_REQ_RX_IMPL_NAK_SEQ_ERR             = 210;
+    RDMA_REQ_RX_CQE_ERR                      = 211;
+    RDMA_REQ_RX_CQE_FLUSH                    = 212;
+    RDMA_REQ_RX_DUP_RESP                     = 213;
+    RDMA_REQ_RX_INVALID_PKTS                 = 214;
+
+    RDMA_REQ_TX_LOC_ERR                      = 215;
+    RDMA_REQ_TX_LOC_OPER_ERR                 = 216;
+    RDMA_REQ_TX_MEM_MGMT_ERR                 = 217;
+    RDMA_REQ_TX_RETRY_EXCD_ERR               = 218;
+    RDMA_REQ_TX_LOC_SGL_INV_ERR              = 219;
+
+    RDMA_RESP_RX_DUP_REQUEST                 = 220;
+    RDMA_RESP_RX_OUTOF_BUF                   = 221;
+    RDMA_RESP_RX_OUTOUF_SEQ                  = 222;
+    RDMA_RESP_RX_CQE_ERR                     = 223;
+    RDMA_RESP_RX_CQE_FLUSH                   = 224;
+    RDMA_RESP_RX_LOC_LEN_ERR                 = 225;
+    RDMA_RESP_RX_INVALID_REQUEST             = 226;
+    RDMA_RESP_RX_LOC_OPER_ERR                = 227;
+    RDMA_RESP_RX_OUTOF_ATOMIC                = 228;
+
+    RDMA_RESP_TX_PKT_SEQ_ERR                 = 229;
+    RDMA_RESP_TX_RMT_INVAL_REQ_ERR           = 230;
+    RDMA_RESP_TX_RMT_ACC_ERR                 = 231;
+    RDMA_RESP_TX_RMT_OPER_ERR                = 232;
+    RDMA_RESP_TX_RNR_RETRY_ERR               = 233;
+    RDMA_RESP_TX_LOC_SGL_INV_ERR             = 234;
+    RDMA_RESP_RX_S0_TABLE_ERR                = 235;
 
     // QP  stats 
-    QP_SQ_REQ_TX_NUM_PACKET                  = 67;
-    QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE      = 68;
-    QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS      = 69;
-    QP_SQ_REQ_TX_RNR_TIMEOUT                 = 70;
-    QP_SQ_REQ_TX_TIMES_SQ_DRAINED            = 71;
-    QP_SQ_REQ_TX_NUM_CNP_SENT                = 72;
+    QP_SQ_REQ_TX_NUM_PACKET                  = 300;
+    QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE      = 301;
+    QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS      = 302;
+    QP_SQ_REQ_TX_RNR_TIMEOUT                 = 303;
+    QP_SQ_REQ_TX_TIMES_SQ_DRAINED            = 304;
+    QP_SQ_REQ_TX_NUM_CNP_SENT                = 305;
 
-    QP_SQ_REQ_RX_NUM_PACKET                  = 73;
-    QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING   = 74;
+    QP_SQ_REQ_RX_NUM_PACKET                  = 306;
+    QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING   = 307;
 
-    QP_SQ_QCN_CURR_BYTE_COUNTER              = 75;
-    QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED       = 76;
-    QP_SQ_QCN_NUM_TIMER_EXPIRED              = 77;
-    QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED        = 78;
-    QP_SQ_QCN_NUM_CNP_RCVD                   = 79;
-    QP_SQ_QCN_NUM_CNP_PROCESSED              = 80;
+    QP_SQ_QCN_CURR_BYTE_COUNTER              = 308;
+    QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED       = 309;
+    QP_SQ_QCN_NUM_TIMER_EXPIRED              = 310;
+    QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED        = 311;
+    QP_SQ_QCN_NUM_CNP_RCVD                   = 312;
+    QP_SQ_QCN_NUM_CNP_PROCESSED              = 313;
 
-    QP_RQ_RSP_TX_NUM_PACKET                  = 81;
-    QP_RQ_RSP_TX_RNR_ERROR                   = 82;
-    QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR          = 83;
-    QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT       = 84;
-    QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT         = 85;
+    QP_RQ_RSP_TX_NUM_PACKET                  = 314;
+    QP_RQ_RSP_TX_RNR_ERROR                   = 315;
+    QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR          = 316;
+    QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT       = 317;
+    QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT         = 318;
 
-    QP_RQ_RSP_RX_NUM_PACKET                  = 86;
-    QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE      = 87;
-    QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING   = 88;
-    QP_RQ_RSP_RX_NUM_CNPS_RECEIVED           = 89;
-    QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP    = 90;
-    QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID      = 91;
-    QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC   = 92;
-    QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK     = 93;
-    QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP   = 94;
+    QP_RQ_RSP_RX_NUM_PACKET                  = 319;
+    QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE      = 320;
+    QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING   = 321;
+    QP_RQ_RSP_RX_NUM_CNPS_RECEIVED           = 322;
+    QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP    = 323;
+    QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID      = 324;
+    QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC   = 325;
+    QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK     = 326;
+    QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP   = 327;
 
-    QP_RQ_QCN_CURR_BYTE_COUNTER              = 95;
-    QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED       = 96;
-    QP_RQ_QCN_NUM_TIMER_EXPIRED              = 97;
-    QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED        = 98;
-    QP_RQ_QCN_NUM_CNP_RCVD                   = 99;
-    QP_RQ_QCN_NUM_CNP_PROCESSED              = 100;
+    QP_RQ_QCN_CURR_BYTE_COUNTER              = 328;
+    QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED       = 329;
+    QP_RQ_QCN_NUM_TIMER_EXPIRED              = 330;
+    QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED        = 331;
+    QP_RQ_QCN_NUM_CNP_RCVD                   = 332;
+    QP_RQ_QCN_NUM_CNP_PROCESSED              = 333;
+
+    // Ethtool stats
+    ETH_TX_PACKETS                           = 500;
+    ETH_TX_BYTES                             = 501;
+    ETH_RX_PACKETS                           = 502;
+    ETH_RX_BYTES                             = 503;
+    ETH_FRAMES_RX_BROADCAST                  = 504;
+    ETH_FRAMES_RX_MULTICAST                  = 505;
+    ETH_FRAMES_TX_BROADCAST                  = 506;
+    ETH_FRAMES_TX_MULTICAST                  = 507;
+    ETH_FRAMES_RX_PAUSE                      = 508;
+    ETH_FRAMES_TX_PAUSE                      = 509;
+    ETH_FRAMES_RX_64B                        = 510;
+    ETH_FRAMES_RX_65B_127B                   = 511;
+    ETH_FRAMES_RX_128B_255B                  = 512;
+    ETH_FRAMES_RX_256B_511B                  = 513;
+    ETH_FRAMES_RX_512B_1023B                 = 514;
+    ETH_FRAMES_RX_1024B_1518B                = 515;
+    ETH_FRAMES_RX_1519B_2047B                = 516;
+    ETH_FRAMES_RX_2048B_4095B                = 517;
+    ETH_FRAMES_RX_4096B_8191B                = 518;
+    ETH_FRAMES_RX_BAD_FCS                    = 519;
+    ETH_FRAMES_RX_PRI0                       = 520;
+    ETH_FRAMES_RX_PRI1                       = 521;
+    ETH_FRAMES_RX_PRI2                       = 522;
+    ETH_FRAMES_RX_PRI3                       = 523;
+    ETH_FRAMES_RX_PRI4                       = 524;
+    ETH_FRAMES_RX_PRI5                       = 525;
+    ETH_FRAMES_RX_PRI6                       = 526;
+    ETH_FRAMES_RX_PRI7                       = 527;
+    ETH_FRAMES_TX_PRI0                       = 528;
+    ETH_FRAMES_TX_PRI1                       = 529;
+    ETH_FRAMES_TX_PRI2                       = 530;
+    ETH_FRAMES_TX_PRI3                       = 531;
+    ETH_FRAMES_TX_PRI4                       = 532;
+    ETH_FRAMES_TX_PRI5                       = 533;
+    ETH_FRAMES_TX_PRI6                       = 534;
+    ETH_FRAMES_TX_PRI7                       = 535;
+    ETH_FRAMES_RX_DROPPED                    = 536;
+    ETH_FRAMES_RX_ALL                        = 537;
+    ETH_FRAMES_RX_BAD_ALL                    = 538;
+    ETH_FRAMES_TX_ALL                        = 539;
+    ETH_FRAMES_TX_BAD                        = 540;
+    ETH_HW_TX_DROPPED                        = 541;
+    ETH_HW_RX_DROPPED                        = 542;
 }
 
 enum NICMetricLabel {
