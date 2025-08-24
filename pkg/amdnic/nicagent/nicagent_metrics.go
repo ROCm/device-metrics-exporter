@@ -70,12 +70,13 @@ type metrics struct {
 	nicPortStatsRsfecCorrectableWord prometheus.GaugeVec
 	nicPortStatsRsfecChSymbolErrCnt  prometheus.GaugeVec
 
+	//RDMA Stats
 	rdmaTxUcastPkts prometheus.GaugeVec
 	rdmaTxCnpPkts   prometheus.GaugeVec
 	rdmaRxUcastPkts prometheus.GaugeVec
 	rdmaRxCnpPkts   prometheus.GaugeVec
 	rdmaRxEcnPkts   prometheus.GaugeVec
-
+	//RDMA Req Rx Stats
 	rdmaReqRxPktSeqErr     prometheus.GaugeVec
 	rdmaReqRxRnrRetryErr   prometheus.GaugeVec
 	rdmaReqRxRmtAccErr     prometheus.GaugeVec
@@ -86,13 +87,13 @@ type metrics struct {
 	rdmaReqRxCqeFlush      prometheus.GaugeVec
 	rdmaReqRxDupResp       prometheus.GaugeVec
 	rdmaReqRxInvalidPkts   prometheus.GaugeVec
-
+	//RDMA Req Tx Stats
 	rdmaReqTxLocErr       prometheus.GaugeVec
 	rdmaReqTxLocOperErr   prometheus.GaugeVec
 	rdmaReqTxMemMgmtErr   prometheus.GaugeVec
 	rdmaReqTxRetryExcdErr prometheus.GaugeVec
 	rdmaReqTxLocSglInvErr prometheus.GaugeVec
-
+	//RDMA Resp Rx Stats
 	rdmaRespRxDupRequest     prometheus.GaugeVec
 	rdmaRespRxOutofBuf       prometheus.GaugeVec
 	rdmaRespRxOutoufSeq      prometheus.GaugeVec
@@ -102,15 +103,14 @@ type metrics struct {
 	rdmaRespRxInvalidRequest prometheus.GaugeVec
 	rdmaRespRxLocOperErr     prometheus.GaugeVec
 	rdmaRespRxOutofAtomic    prometheus.GaugeVec
-
+	rdmaRespRxS0TableErr     prometheus.GaugeVec
+	//RDMA Resp Tx Stats
 	rdmaRespTxPktSeqErr      prometheus.GaugeVec
 	rdmaRespTxRmtInvalReqErr prometheus.GaugeVec
 	rdmaRespTxRmtAccErr      prometheus.GaugeVec
 	rdmaRespTxRmtOperErr     prometheus.GaugeVec
 	rdmaRespTxRnrRetryErr    prometheus.GaugeVec
 	rdmaRespTxLocSglInvErr   prometheus.GaugeVec
-
-	rdmaRespRxS0TableErr prometheus.GaugeVec
 
 	//LifStats
 	nicLifStatsRxUnicastPackets       prometheus.GaugeVec
@@ -123,6 +123,48 @@ type metrics struct {
 	nicLifStatsTxMulticastDropPackets prometheus.GaugeVec
 	nicLifStatsTxBroadcastDropPackets prometheus.GaugeVec
 	nicLifStatsTxDMAErrors            prometheus.GaugeVec
+
+	//QPStats
+	//QPStats Requester TX
+	qpSqReqTxNumPackets          prometheus.GaugeVec
+	qpSqReqTxNumSendMsgsRke      prometheus.GaugeVec
+	qpSqReqTxNumLocalAckTimeouts prometheus.GaugeVec
+	qpSqReqTxRnrTimeout          prometheus.GaugeVec
+	qpSqReqTxTimesSQdrained      prometheus.GaugeVec
+	qpSqReqTxNumCNPsent          prometheus.GaugeVec
+	//QPStats Requester RX
+	qpSqReqRxNumPackets          prometheus.GaugeVec
+	qpSqReqRxNumPacketsEcnMarked prometheus.GaugeVec
+	//QPStats Requester DCQCN
+	qpSqQcnCurrByteCounter       prometheus.GaugeVec
+	qpSqQcnNumByteCounterExpired prometheus.GaugeVec
+	qpSqQcnNumTimerExpired       prometheus.GaugeVec
+	qpSqQcnNumAlphaTimerExpired  prometheus.GaugeVec
+	qpSqQcnNumCNPrcvd            prometheus.GaugeVec
+	qpSqQcnNumCNPprocessed       prometheus.GaugeVec
+	//QPStats Responder TX
+	qpRqRspTxNumPackets          prometheus.GaugeVec
+	qpRqRspTxRnrError            prometheus.GaugeVec
+	qpRqRspTxNumSequenceError    prometheus.GaugeVec
+	qpRqRspTxRPByteThresholdHits prometheus.GaugeVec
+	qpRqRspTxRPMaxRateHits       prometheus.GaugeVec
+	//QPStats Responder RX
+	qpRqRspRxNumPackets          prometheus.GaugeVec
+	qpRqRspRxNumSendMsgsRke      prometheus.GaugeVec
+	qpRqRspRxNumPacketsEcnMarked prometheus.GaugeVec
+	qpRqRspRxNumCNPsReceived     prometheus.GaugeVec
+	qpRqRspRxMaxRecircDrop       prometheus.GaugeVec
+	qpRqRspRxNumMemWindowInvalid prometheus.GaugeVec
+	qpRqRspRxNumDuplWriteSendOpc prometheus.GaugeVec
+	qpRqRspRxNumDupReadBacktrack prometheus.GaugeVec
+	qpRqRspRxNumDupReadDrop      prometheus.GaugeVec
+	//QPStats Responder DCQCN
+	qpRqQcnCurrByteCounter       prometheus.GaugeVec
+	qpRqQcnNumByteCounterExpired prometheus.GaugeVec
+	qpRqQcnNumTimerExpired       prometheus.GaugeVec
+	qpRqQcnNumAlphaTimerExpired  prometheus.GaugeVec
+	qpRqQcnNumCNPrcvd            prometheus.GaugeVec
+	qpRqQcnNumCNPprocessed       prometheus.GaugeVec
 }
 
 func (na *NICAgentClient) ResetMetrics() error {
@@ -199,6 +241,45 @@ func (na *NICAgentClient) ResetMetrics() error {
 	na.m.nicLifStatsTxBroadcastDropPackets.Reset()
 	na.m.nicLifStatsTxDMAErrors.Reset()
 
+	na.m.qpSqReqTxNumPackets.Reset()
+	na.m.qpSqReqTxNumSendMsgsRke.Reset()
+	na.m.qpSqReqTxNumLocalAckTimeouts.Reset()
+	na.m.qpSqReqTxRnrTimeout.Reset()
+	na.m.qpSqReqTxTimesSQdrained.Reset()
+	na.m.qpSqReqTxNumCNPsent.Reset()
+
+	na.m.qpSqReqRxNumPackets.Reset()
+	na.m.qpSqReqRxNumPacketsEcnMarked.Reset()
+
+	na.m.qpSqQcnCurrByteCounter.Reset()
+	na.m.qpSqQcnNumByteCounterExpired.Reset()
+	na.m.qpSqQcnNumTimerExpired.Reset()
+	na.m.qpSqQcnNumAlphaTimerExpired.Reset()
+	na.m.qpSqQcnNumCNPrcvd.Reset()
+	na.m.qpSqQcnNumCNPprocessed.Reset()
+
+	na.m.qpRqRspTxNumPackets.Reset()
+	na.m.qpRqRspTxRnrError.Reset()
+	na.m.qpRqRspTxNumSequenceError.Reset()
+	na.m.qpRqRspTxRPByteThresholdHits.Reset()
+	na.m.qpRqRspTxRPMaxRateHits.Reset()
+
+	na.m.qpRqRspRxNumPackets.Reset()
+	na.m.qpRqRspRxNumSendMsgsRke.Reset()
+	na.m.qpRqRspRxNumPacketsEcnMarked.Reset()
+	na.m.qpRqRspRxNumCNPsReceived.Reset()
+	na.m.qpRqRspRxMaxRecircDrop.Reset()
+	na.m.qpRqRspRxNumMemWindowInvalid.Reset()
+	na.m.qpRqRspRxNumDuplWriteSendOpc.Reset()
+	na.m.qpRqRspRxNumDupReadBacktrack.Reset()
+	na.m.qpRqRspRxNumDupReadDrop.Reset()
+
+	na.m.qpRqQcnCurrByteCounter.Reset()
+	na.m.qpRqQcnNumByteCounterExpired.Reset()
+	na.m.qpRqQcnNumTimerExpired.Reset()
+	na.m.qpRqQcnNumAlphaTimerExpired.Reset()
+	na.m.qpRqQcnNumCNPrcvd.Reset()
+	na.m.qpRqQcnNumCNPprocessed.Reset()
 	return nil
 }
 
@@ -424,6 +505,46 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		na.m.nicLifStatsTxMulticastDropPackets,
 		na.m.nicLifStatsTxBroadcastDropPackets,
 		na.m.nicLifStatsTxDMAErrors,
+
+		na.m.qpSqReqTxNumPackets,
+		na.m.qpSqReqTxNumSendMsgsRke,
+		na.m.qpSqReqTxNumLocalAckTimeouts,
+		na.m.qpSqReqTxRnrTimeout,
+		na.m.qpSqReqTxTimesSQdrained,
+		na.m.qpSqReqTxNumCNPsent,
+
+		na.m.qpSqReqRxNumPackets,
+		na.m.qpSqReqRxNumPacketsEcnMarked,
+
+		na.m.qpSqQcnCurrByteCounter,
+		na.m.qpSqQcnNumByteCounterExpired,
+		na.m.qpSqQcnNumTimerExpired,
+		na.m.qpSqQcnNumAlphaTimerExpired,
+		na.m.qpSqQcnNumCNPrcvd,
+		na.m.qpSqQcnNumCNPprocessed,
+
+		na.m.qpRqRspTxNumPackets,
+		na.m.qpRqRspTxRnrError,
+		na.m.qpRqRspTxNumSequenceError,
+		na.m.qpRqRspTxRPByteThresholdHits,
+		na.m.qpRqRspTxRPMaxRateHits,
+
+		na.m.qpRqRspRxNumPackets,
+		na.m.qpRqRspRxNumSendMsgsRke,
+		na.m.qpRqRspRxNumPacketsEcnMarked,
+		na.m.qpRqRspRxNumCNPsReceived,
+		na.m.qpRqRspRxMaxRecircDrop,
+		na.m.qpRqRspRxNumMemWindowInvalid,
+		na.m.qpRqRspRxNumDuplWriteSendOpc,
+		na.m.qpRqRspRxNumDupReadBacktrack,
+		na.m.qpRqRspRxNumDupReadDrop,
+
+		na.m.qpRqQcnCurrByteCounter,
+		na.m.qpRqQcnNumByteCounterExpired,
+		na.m.qpRqQcnNumTimerExpired,
+		na.m.qpRqQcnNumAlphaTimerExpired,
+		na.m.qpRqQcnNumCNPrcvd,
+		na.m.qpRqQcnNumCNPprocessed,
 	}
 }
 
@@ -766,6 +887,149 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_DMA_ERRORS.String()),
 			Help: "Number of errors encountered while performing Direct Memory Access (DMA) during packet transmission",
 		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+
+		/* QP  stats */
+		qpSqReqTxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_PACKET.String()),
+			Help: "SendQueue Requester Tx packets ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqTxNumSendMsgsRke: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE.String()),
+			Help: "SendQueue Requester Tx num send msgs with invalid remote key error ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqTxNumLocalAckTimeouts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS.String()),
+			Help: "SendQueue Requester Tx local ACK timeouts ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqTxRnrTimeout: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_RNR_TIMEOUT.String()),
+			Help: "SendQueue Requester Tx receiver not ready timeouts ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqTxTimesSQdrained: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_TIMES_SQ_DRAINED.String()),
+			Help: "SendQueue Requester Tx times Send queue is drained ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqTxNumCNPsent: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_CNP_SENT.String()),
+			Help: "SendQueue Requester Tx number of Congestion notification packets sents ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		qpSqReqRxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PACKET.String()),
+			Help: "SendQueue Requester Rx packets ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqReqRxNumPacketsEcnMarked: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING.String()),
+			Help: "SendQueue Requester Rx packets with explicit congestion notification marking ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		qpSqQcnCurrByteCounter: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_CURR_BYTE_COUNTER.String()),
+			Help: "SendQueue DCQCN Current Byte Counter ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqQcnNumByteCounterExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String()),
+			Help: "SendQueue DCQCN number of byte counter expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqQcnNumTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_TIMER_EXPIRED.String()),
+			Help: "SendQueue DCQCN number of timer expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqQcnNumAlphaTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String()),
+			Help: "SendQueue DCQCN number of alpha timer expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqQcnNumCNPrcvd: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_RCVD.String()),
+			Help: "SendQueue DCQCN number of Congestion notification packets received",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpSqQcnNumCNPprocessed: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_PROCESSED.String()),
+			Help: "SendQueue DCQCN number of Congestion notification packets processed",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		qpRqRspTxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_PACKET.String()),
+			Help: "RecvQueue Responder Tx number of packets ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspTxRnrError: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_RNR_ERROR.String()),
+			Help: "RecvQueue Responder Tx receiver nor ready errors ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspTxNumSequenceError: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR.String()),
+			Help: "RecvQueue Responder Tx number of sequence errors ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspTxRPByteThresholdHits: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT.String()),
+			Help: "RecvQueue Responder Tx number of RP byte threhshold hit ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspTxRPMaxRateHits: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT.String()),
+			Help: "RecvQueue Responder Tx number of RP max rate hit ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		qpRqRspRxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PACKET.String()),
+			Help: "RecvQueue Responder Rx number of packets",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumSendMsgsRke: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE.String()),
+			Help: "RecvQueue Responder Rx number of send msgs with invalid remote key error ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumPacketsEcnMarked: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING.String()),
+			Help: "RecvQueue Responder Rx number of pkts with ECN marking ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumCNPsReceived: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED.String()),
+			Help: "RecvQueue Responder Rx number of CNP pkts ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxMaxRecircDrop: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP.String()),
+			Help: "RecvQueue Responder Rx max recirculation execeeded packet drop ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumMemWindowInvalid: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID.String()),
+			Help: "RecvQueue Responder Rx number of memory window invalidate msg ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumDuplWriteSendOpc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC.String()),
+			Help: "RecvQueue Responder Rx number of duplicate pkts with write send opcode ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumDupReadBacktrack: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK.String()),
+			Help: "RecvQueue Responder Rx number of duplicate read atomic backtrack packet ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqRspRxNumDupReadDrop: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP.String()),
+			Help: "RecvQueue Responder Rx number of duplicate read atomic backtrack packet ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		qpRqQcnCurrByteCounter: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_CURR_BYTE_COUNTER.String()),
+			Help: "RecvQueue DCQCN Current Byte Counter ",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqQcnNumByteCounterExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String()),
+			Help: "RecvQueue DCQCN number of byte counter expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqQcnNumTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_TIMER_EXPIRED.String()),
+			Help: "RecvQueue DCQCN number of timer expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqQcnNumAlphaTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String()),
+			Help: "RecvQueue DCQCN number of alpha timer expired",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqQcnNumCNPrcvd: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_RCVD.String()),
+			Help: "RecvQueue DCQCN number of Congestion notification packets received",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		qpRqQcnNumCNPprocessed: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String()),
+			Help: "RecvQueue DCQCN number of Congestion notification packets processed",
+		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
 	}
 	na.initFieldMetricsMap()
 }

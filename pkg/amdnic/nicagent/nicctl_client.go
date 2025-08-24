@@ -18,6 +18,7 @@ package nicagent
 
 import (
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"sync"
 
@@ -58,11 +59,15 @@ func (rc *NICCtlClient) GetClientName() string {
 }
 
 func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
-	var wg sync.WaitGroup
+	nc.Lock()
+	defer nc.Unlock()
+
 	fn_ptrs := []func(map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
-		nc.UpdateLifStats}
+		nc.UpdateLifStats,
+		nc.UpdateQPStats}
 
+	var wg sync.WaitGroup
 	for _, fn := range fn_ptrs {
 		wg.Add(1)
 		go func(f func(map[string]scheduler.Workload) error) {
@@ -77,8 +82,6 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 }
 
 func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload) error {
-	nc.Lock()
-	defer nc.Unlock()
 
 	portStatsOut, err := ExecWithContext("nicctl show port statistics -j")
 	if err != nil {
@@ -132,8 +135,6 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 }
 
 func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) error {
-	nc.Lock()
-	defer nc.Unlock()
 
 	lifStatsOut, err := ExecWithContext("nicctl show lif statistics -j")
 	if err != nil {
@@ -175,5 +176,97 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 			nc.na.m.nicLifStatsTxDMAErrors.With(labels).Set(float64(utils.StringToUint64(lif.Statistics.TX_DMA_ERRORS)))
 		}
 	}
+	return nil
+}
+
+func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) error {
+	var wg sync.WaitGroup
+
+	for _, nic := range nc.na.nics {
+		for _, lif := range nic.Lifs {
+			wg.Add(1)
+
+			go func(lif *Lif) {
+				defer wg.Done()
+
+				cmd := fmt.Sprintf("nicctl show rdma queue-pair statistics --lif %s -j", lif.UUID)
+				qpLifStatsOut, err := ExecWithContext(cmd)
+				if err != nil {
+					logger.Log.Printf("error getting QP stats for %s, err: %+v", lif.Name, err)
+					return
+				}
+
+				var rdmaQPStats nicmetrics.RdmaQPStats
+				err = json.Unmarshal(qpLifStatsOut, &rdmaQPStats)
+				if err != nil {
+					logger.Log.Printf("error unmarshalling QP stats for %s , err: %v", lif.Name, err)
+					return
+				}
+
+				for _, nic := range rdmaQPStats.NicList {
+					labels := nc.na.populateLabelsFromNIC(nic.ID)
+					for _, qplif := range nic.LifList {
+						workloadLabels := nc.na.getAssociatedWorkloadLabels(nic.ID, qplif.Spec.ID, workloads)
+						for k, v := range workloadLabels {
+							labels[k] = v
+						}
+						// Add LIF labels for QP metrics
+						labels[LabelLifName] = nc.na.nics[nic.ID].GetLifName(qplif.Spec.ID)
+
+						for _, qp := range qplif.QPStatsList {
+							// Add QueuePair ID label
+							labels[LabelQPID] = qp.Spec.ID
+
+							nc.na.m.qpSqReqTxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_PACKET)))
+							nc.na.m.qpSqReqTxNumSendMsgsRke.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_SEND_MSGS_WITH_RKE)))
+							nc.na.m.qpSqReqTxNumLocalAckTimeouts.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_LOCAL_ACK_TIMEOUTS)))
+							nc.na.m.qpSqReqTxRnrTimeout.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.RNR_TIMEOUT)))
+							nc.na.m.qpSqReqTxTimesSQdrained.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.TIMES_SQ_DRAINED)))
+							nc.na.m.qpSqReqTxNumCNPsent.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_CNP_SENT)))
+
+							nc.na.m.qpSqReqRxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PACKET)))
+							nc.na.m.qpSqReqRxNumPacketsEcnMarked.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PKTS_WITH_ECN_MARKING)))
+
+							if qp.Stats.Sq.DcQcn != nil {
+								nc.na.m.qpSqQcnCurrByteCounter.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.CURR_BYTE_COUNTER)))
+								nc.na.m.qpSqQcnNumByteCounterExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_BYTE_COUNTER_EXPIRED)))
+								nc.na.m.qpSqQcnNumTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_TIMER_EXPIRED)))
+								nc.na.m.qpSqQcnNumAlphaTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_ALPHA_TIMER_EXPIRED)))
+								nc.na.m.qpSqQcnNumCNPrcvd.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_RCVD)))
+								nc.na.m.qpSqQcnNumCNPprocessed.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_PROCESSED)))
+							}
+
+							nc.na.m.qpRqRspTxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_PACKET)))
+							nc.na.m.qpRqRspTxRnrError.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.RNR_ERROR)))
+							nc.na.m.qpRqRspTxNumSequenceError.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_SEQUENCE_ERROR)))
+							nc.na.m.qpRqRspTxRPByteThresholdHits.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_BYTE_THRES_HIT)))
+							nc.na.m.qpRqRspTxRPMaxRateHits.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_MAX_RATE_HIT)))
+
+							nc.na.m.qpRqRspRxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PACKET)))
+							nc.na.m.qpRqRspRxNumSendMsgsRke.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_SEND_MSGS_WITH_RKE)))
+							nc.na.m.qpRqRspRxNumPacketsEcnMarked.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PKTS_WITH_ECN_MARKING)))
+							nc.na.m.qpRqRspRxNumCNPsReceived.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_CNPS_RECEIVED)))
+							nc.na.m.qpRqRspRxMaxRecircDrop.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.MAX_RECIRC_EXCEEDED_DROP)))
+							nc.na.m.qpRqRspRxNumMemWindowInvalid.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_MEM_WINDOW_INVALID)))
+							nc.na.m.qpRqRspRxNumDuplWriteSendOpc.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_WITH_WR_SEND_OPC)))
+							nc.na.m.qpRqRspRxNumDupReadBacktrack.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_BACKTRACK)))
+							nc.na.m.qpRqRspRxNumDupReadDrop.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_ATOMIC_DROP)))
+
+							if qp.Stats.Rq.DcQcn != nil {
+								nc.na.m.qpRqQcnCurrByteCounter.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.CURR_BYTE_COUNTER)))
+								nc.na.m.qpRqQcnNumByteCounterExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_BYTE_COUNTER_EXPIRED)))
+								nc.na.m.qpRqQcnNumTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_TIMER_EXPIRED)))
+								nc.na.m.qpRqQcnNumAlphaTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_ALPHA_TIMER_EXPIRED)))
+								nc.na.m.qpRqQcnNumCNPrcvd.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_RCVD)))
+								nc.na.m.qpRqQcnNumCNPprocessed.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_PROCESSED)))
+							}
+
+						}
+					}
+				}
+			}(lif)
+		}
+	}
+	wg.Wait()
 	return nil
 }

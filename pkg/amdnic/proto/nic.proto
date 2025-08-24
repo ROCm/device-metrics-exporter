@@ -1,0 +1,406 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+
+//----------------------------------------------------------------------------
+///
+/// \file
+/// AMD AI NIC Port Metrics
+///
+//----------------------------------------------------------------------------
+
+syntax = "proto3";
+option go_package = "gen/nicmetrics"; 
+package nicmetrics;
+
+import "github.com/alta/protopatch/patch/go.proto";
+
+/*
+// Sample port statistics
+{
+    "nic": [
+        {
+            "id": "NIC1",
+            "port": [
+                {
+                    "id": "port1",
+                    "FRAMES_TX_OK": 1000,
+                    "FRAMES_RX_OK": 1500
+                },
+                {
+                    "id": "port2",
+                    "FRAMES_RX_OK": 1000,
+                    "FRAMES_TX_OK": 1500                    
+                }
+            ]
+        }
+    ]
+}
+*/
+
+// PortStats represents the statistics of an individual port, identified by a unique ID.
+message PortStats {
+    // Unique identifier for the port
+    string ID                       = 1 [(go.field).tags = 'json:"id,omitempty"'];
+    string FRAMES_RX_BAD_FCS        = 2 [(go.field).tags = 'json:"FRAMES_RX_BAD_FCS,omitempty"'];
+    string FRAMES_RX_BAD_ALL        = 3 [(go.field).tags = 'json:"FRAMES_RX_BAD_ALL,omitempty"'];
+    string FRAMES_RX_PAUSE          = 4 [(go.field).tags = 'json:"FRAMES_RX_PAUSE,omitempty"'];
+    string FRAMES_RX_BAD_LENGTH     = 5 [(go.field).tags = 'json:"FRAMES_RX_BAD_LENGTH,omitempty"'];
+    string FRAMES_RX_UNDERSIZED     = 6 [(go.field).tags = 'json:"FRAMES_RX_UNDERSIZED,omitempty"'];
+    string FRAMES_RX_OVERSIZED      = 7 [(go.field).tags = 'json:"FRAMES_RX_OVERSIZED,omitempty"'];
+    string FRAMES_RX_FRAGMENTS      = 8 [(go.field).tags = 'json:"FRAMES_RX_FRAGMENTS,omitempty"'];
+    string FRAMES_RX_JABBER         = 9 [(go.field).tags = 'json:"FRAMES_RX_JABBER,omitempty"'];
+    string FRAMES_RX_PRIPAUSE       = 10 [(go.field).tags = 'json:"FRAMES_RX_PRIPAUSE,omitempty"'];
+    string FRAMES_RX_STOMPED_CRC    = 11 [(go.field).tags = 'json:"FRAMES_RX_STOMPED_CRC,omitempty"'];
+    string FRAMES_RX_TOO_LONG       = 12 [(go.field).tags = 'json:"FRAMES_RX_TOO_LONG,omitempty"'];
+    string FRAMES_RX_DROPPED        = 13 [(go.field).tags = 'json:"FRAMES_RX_DROPPED,omitempty"'];
+    string FRAMES_TX_BAD            = 14 [(go.field).tags = 'json:"FRAMES_TX_BAD,omitempty"'];
+    string FRAMES_TX_PAUSE          = 15 [(go.field).tags = 'json:"FRAMES_TX_PAUSE,omitempty"'];
+    string FRAMES_TX_PRIPAUSE       = 16 [(go.field).tags = 'json:"FRAMES_TX_PRIPAUSE,omitempty"'];
+    string FRAMES_TX_LESS_THAN_64B  = 17 [(go.field).tags = 'json:"FRAMES_TX_LESS_THAN_64B,omitempty"'];
+    string FRAMES_TX_TRUNCATED      = 18 [(go.field).tags = 'json:"FRAMES_TX_TRUNCATED,omitempty"'];
+    string RSFEC_CORRECTABLE_WORD   = 19 [(go.field).tags = 'json:"RSFEC_CORRECTABLE_WORD,omitempty"'];
+    string RSFEC_CH_SYMBOL_ERR_CNT  = 20 [(go.field).tags = 'json:"RSFEC_CH_SYMBOL_ERR_CNT,omitempty"'];
+}
+
+// NICPortStats represents a collection of port statistics grouped by NIC ID.
+// This allows statistics to be organized by Network Interface Cards (NICs).
+message NICPortStats {
+    // Unique identifier for the NIC
+    string ID               = 1 [(go.field).tags = 'json:"id,omitempty"'];
+
+    // A list of PortStats, each representing statistics for an individual port on this NIC.
+    repeated PortStats Port = 2 [(go.field).tags = 'json:"port,omitempty"'];
+}
+
+// PortStatsList represents a list of AI NIC port statistics. This is typically used to store statistics
+// for multiple NICs in a system, where each NIC has its associated ports with statistics.
+message PortStatsList {
+    // A list of NICPortStats, each representing statistics for a particular NIC.
+    repeated NICPortStats NIC = 1 [(go.field).tags = 'json:"nic,omitempty"'];
+}
+
+/*
+// Sample Lif Stats
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3531-3830-303533000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-04908134f590"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "0",
+                        "rx_unicast_packets": "0",
+                        "rx_multicast_bytes": "0",
+                        "rx_multicast_packets": "0",
+                        "rx_broadcast_bytes": "0",
+                        "rx_broadcast_packets": "0",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                        "rx_multicast_drop_packets": "0",
+                        "rx_broadcast_drop_bytes": "0",
+                        "rx_broadcast_drop_packets": "0",
+                        "rx_dma_errors": "0",
+                        "tx_unicast_bytes": "0",
+                        "tx_unicast_packets": "0",
+                    }
+                },
+                {
+                    "spec": {
+                        "id": "44000070-0100-0000-4242-04908134f590"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "0",
+                        "rx_unicast_packets": "0",
+                        "rx_multicast_bytes": "0",
+                        "rx_multicast_packets": "0",
+                        "rx_broadcast_bytes": "0",
+                        "rx_broadcast_packets": "0",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                }
+            }
+        ]
+    }
+]} 
+*/
+
+message LifStatsFields {
+    string RX_UNICAST_PACKETS        = 1  [(go.field).tags = 'json:"rx_unicast_packets,omitempty"'];
+    string RX_UNICAST_DROP_PACKETS   = 2  [(go.field).tags = 'json:"rx_unicast_drop_bytes,omitempty"'];
+    string RX_MULTICAST_DROP_PACKETS = 3  [(go.field).tags = 'json:"rx_multicast_drop_packets,omitempty"'];
+    string RX_BROADCAST_DROP_PACKETS = 4  [(go.field).tags = 'json:"rx_broadcast_drop_packets,omitempty"'];
+    string RX_DMA_ERRORS             = 5  [(go.field).tags = 'json:"rx_dma_errors,omitempty"'];
+    string TX_UNICAST_PACKETS        = 6  [(go.field).tags = 'json:"tx_unicast_packets,omitempty"'];
+    string TX_UNICAST_DROP_PACKETS   = 7  [(go.field).tags = 'json:"tx_unicast_drop_packets,omitempty"'];
+    string TX_MULTICAST_DROP_PACKETS = 8  [(go.field).tags = 'json:"tx_multicast_drop_packets,omitempty"'];
+    string TX_BROADCAST_DROP_PACKETS = 9  [(go.field).tags = 'json:"tx_broadcast_drop_packets,omitempty"'];
+    string TX_DMA_ERRORS             = 10 [(go.field).tags = 'json:"tx_dma_errors,omitempty"'];
+}
+
+message LifStatsSpec {
+    // Unique identifier for the logical interface (LIF) on the NIC
+    string ID                  = 1 [(go.field).tags = 'json:"id,omitempty"'];
+}
+
+// LifStats represents statistics for a particular logical interface (LIF) on a NIC (Network Interface Card).
+message LifStats {
+    // Spec has the ID of the LIF.
+    LifStatsSpec Spec         = 1 [(go.field).tags = 'json:"spec,omitempty"'];
+
+    // A list of statistics for this particular LIF.
+    // Each statistic could represent something like "Rx unicast bytes" or "Tx multicast packets".
+    LifStatsFields Statistics = 2 [(go.field).tags = 'json:"statistics,omitempty"'];
+}
+
+// NICLifStats represents statistics for a specific NIC (Network Interface Card) and its associated LIFs.
+message NICLifStats {
+    // Unique identifier for the NIC (Network Interface Card)
+    string ID             = 1 [(go.field).tags = 'json:"id,omitempty"'];
+
+    // A list of LifStats, where each item represents statistics for a specific LIF under this NIC.
+    repeated LifStats Lif = 2 [(go.field).tags = 'json:"lif,omitempty"'];
+}
+
+// LifStatsList represents a collection of NICLifStats, allowing to manage statistics for multiple NICs.
+message LifStatsList {
+    // A list of NICLifStats, where each item represents the statistics for a NIC and its associated LIFs.
+    repeated NICLifStats NIC = 1 [(go.field).tags = 'json:"nic,omitempty"'];
+}
+
+/*
+// Sample QP Stats
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3434-3530-304534000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-0490812a2e08"
+                    },
+                    "queue_pair": [
+                        {
+                            "spec": {
+                                "id": "4"
+                            },
+                            "statistics": {
+                                "send_queue": {
+                                    "requester_tx_statistics": {
+                                        "num_byte": "167772160",
+                                        "num_packet": "163840",
+                                        "num_send_msg": "0",
+                                        "num_write_msg": "40",
+                                        "num_read_request_msg": "0",
+                                        "num_atomic_fna_msg": "0",
+                                        "num_atomic_compare_and_swap_msg": "0",
+                                        "num_send_msgs_invalid_remote_key_error": "0",
+                                        "num_send_imm_msg": "0",
+                                        "num_write_imm_msg": "0",
+                                        "max_num_of_packets_sent_per_msg": "4096",
+                                        "num_non_packet_generating_request": "0",
+                                        "type1_bind_memory_window_request": "0",
+                                        "type2_bind_memory_window_request": "0",
+                                        "phy_mem_region_fast_registration_req": "0",
+                                        "local_invalidate_request": "0",
+                                        "num_wqe_with_inline_data": "0",
+                                        "num_local_ack_timeouts": "0",
+                                        "receiver_not_ready_timeout": "0",
+                                        "times_send_queue_is_drained": "0",
+                                        "num_cnp_sent": "0"
+                                    },
+                                    "requester_rx_statistcs": {
+                                        "num_byte": "0",
+                                        "num_packet": "0",
+                                        "num_ack_msg": "0",
+                                        "num_atomic_ack_msg": "0",
+                                        "num_read_response_msg": "0",
+                                        "num_read_response_packet": "0",
+                                        "num_feedback": "17",
+                                        "max_packets_received_per_msg": "0",
+                                        "num_packets_with_ecn_marking": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "0",
+                                        "num_byte_counter_expired": "0",
+                                        "num_timer_expired": "0",
+                                        "num_alpha_timer_expired": "0",
+                                        "num_cnp_rcvd": "0",
+                                        "num_cnp_processed": "0"
+                                    } 
+                                },
+                                "receive_queue": {
+                                    "responder_tx_statistics": {
+                                        "num_byte": "0",
+                                        "num_packet": "0",
+                                        "num_read_resp_msg": "0",
+                                        "num_read_resp_pkt": "0",
+                                        "num_ack_msg": "0",
+                                        "num_atomic_response_msg": "0",
+                                        "max_num_of_pkts_sent_per_msg": "0",
+                                        "receiver_not_ready_rnrerror": "0",
+                                        "num_sequence_error": "0",
+                                        "num_dcqcn_rp_additive_increase": "0",
+                                        "num_dcqcn_rp_fast_recovery": "0",
+                                        "num_dcqcn_rp_hyper_increase": "0",
+                                        "num_dcqcn_rp_byte_threshold_hit": "0",
+                                        "num_dcqcn_rp_alpha_timer_expiry_event": "0",
+                                        "num_dcqcn_rp_timer_expiry_event": "0",
+                                        "num_rp_max_rate_hit": "0"
+                                    },
+                                    "responder_rx_statistics": {
+                                        "num_byte": "0",
+                                        "num_packet": "0",
+                                        "num_send_msg": "0",
+                                        "num_write_msg": "0",
+                                        "num_read_msg": "0",
+                                        "num_atomic_fetch_and_add_msg": "0",
+                                        "num_atomic_compare_and_swap_msg": "0",
+                                        "num_send_msgs_with_invalid_remote_key_error": "0",
+                                        "num_send_imm_msg": "0",
+                                        "num_write_imm_msg": "0",
+                                        "num_packets_with_ack_requested": "0",
+                                        "num_packets_with_ecn_marking": "0",
+                                        "num_cnps_received": "0",
+                                        "max_recirculation_exceeded_packet_drop": "0",
+                                        "num_mem_window_invalidate_msg": "0",
+                                        "num_duplicate_pkts_with_write_send_opcode": "0",
+                                        "num_duplicate_read_atomic_backtrack_pkt": "0",
+                                        "num_duplicate_read_atomic_drop_pkt": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "0",
+                                        "num_byte_counter_expired": "0",
+                                        "num_timer_expired": "0",
+                                        "num_alpha_timer_expired": "0",
+                                        "num_cnp_rcvd": "0",
+                                        "num_cnp_processed": "0"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+ 
+*/
+
+message DcqcnStats {
+    string CURR_BYTE_COUNTER            = 1  [(go.field).tags = 'json:"curr_byte_counter,omitempty"'];
+    string NUM_BYTE_COUNTER_EXPIRED     = 2  [(go.field).tags = 'json:"num_byte_counter_expired,omitempty"'];
+    string NUM_TIMER_EXPIRED            = 3  [(go.field).tags = 'json:"num_timer_expired,omitempty"'];
+    string NUM_ALPHA_TIMER_EXPIRED      = 4  [(go.field).tags = 'json:"num_alpha_timer_expired,omitempty"'];
+    string NUM_CNP_RCVD                 = 5  [(go.field).tags = 'json:"num_cnp_rcvd,omitempty"'];
+    string NUM_CNP_PROCESSED            = 6  [(go.field).tags = 'json:"num_cnp_processed,omitempty"'];
+}
+
+message RequesterTxStats {
+    string NUM_PACKET                   = 1  [(go.field).tags = 'json:"num_packet,omitempty"'];
+    string NUM_SEND_MSGS_WITH_RKE       = 2  [(go.field).tags = 'json:"num_send_msgs_with_invalid_remote_key_error,omitempty"'];
+    string NUM_LOCAL_ACK_TIMEOUTS       = 3  [(go.field).tags = 'json:num_local_ack_timeouts,omitempty"'];
+    string RNR_TIMEOUT                  = 4  [(go.field).tags = 'json:receiver_not_ready_timeout,omitempty"'];
+    string TIMES_SQ_DRAINED             = 5  [(go.field).tags = 'json:times_send_queue_is_drained,omitempty"'];
+    string NUM_CNP_SENT                 = 6  [(go.field).tags = 'json:"num_cnp_sent,omitempty"'];
+}
+
+message RequesterRxStats {
+    string NUM_PACKET                   = 1  [(go.field).tags = 'json:"num_packet,omitempty"'];
+    string NUM_PKTS_WITH_ECN_MARKING    = 2  [(go.field).tags = 'json:"num_packets_with_ecn_marking,omitempty"'];
+}
+
+message ResponderTxStats {
+    string NUM_PACKET                   = 1  [(go.field).tags = 'json:"num_packet,omitempty"'];
+    string RNR_ERROR                    = 2  [(go.field).tags = 'json:receiver_not_ready_rnrerror,omitempty"'];
+    string NUM_SEQUENCE_ERROR           = 3  [(go.field).tags = 'json:num_sequence_error,omitempty"'];
+    string NUM_RP_BYTE_THRES_HIT        = 4  [(go.field).tags = 'json:num_dcqcn_rp_byte_threshold_hit,omitempty"'];
+    string NUM_RP_MAX_RATE_HIT          = 5  [(go.field).tags = 'json:num_rp_max_rate_hit,omitempty"'];
+}
+
+message ResponderRxStats {
+    string NUM_PACKET                   = 1  [(go.field).tags = 'json:"num_packet,omitempty"'];
+    string NUM_SEND_MSGS_WITH_RKE       = 2  [(go.field).tags = 'json:"num_send_msgs_with_invalid_remote_key_error,omitempty"'];
+    string NUM_PKTS_WITH_ECN_MARKING    = 3  [(go.field).tags = 'json:"num_packets_with_ecn_marking,omitempty"'];
+    string NUM_CNPS_RECEIVED            = 4  [(go.field).tags = 'json:"num_cnps_received,omitempty"'];
+    string MAX_RECIRC_EXCEEDED_DROP     = 5  [(go.field).tags = 'json:"max_recirculation_exceeded_packet_drop,omitempty"'];
+    string NUM_MEM_WINDOW_INVALID       = 6  [(go.field).tags = 'json:"num_mem_window_invalidate_msg,omitempty"'];
+    string NUM_DUPL_WITH_WR_SEND_OPC    = 7  [(go.field).tags = 'json:"num_duplicate_pkts_with_write_send_opcode,omitempty"'];
+    string NUM_DUPL_READ_BACKTRACK      = 8  [(go.field).tags = 'json:"num_duplicate_read_atomic_backtrack_pkt,omitempty"'];
+    string NUM_DUPL_READ_ATOMIC_DROP    = 9  [(go.field).tags = 'json:"num_duplicate_read_atomic_drop_pkt,omitempty"'];
+}
+
+message SendQStats {
+	RequesterTxStats ReqTx             = 1 [(go.field).tags = 'json:"requester_tx_statistics,omitempty"'];
+	RequesterRxStats ReqRx             = 2 [(go.field).tags = 'json:"requester_rx_statistcs,omitempty"'];
+	DcqcnStats       DcQcn              = 3 [(go.field).tags = 'json:"dcqcn_stats,omitempty"'];
+}
+
+message RecvQStats {
+	ResponderTxStats RespTx             = 1 [(go.field).tags = 'json:"responder_tx_statistics,omitempty"'];
+	ResponderRxStats RespRx             = 2 [(go.field).tags = 'json:"responder_rx_statistics,omitempty"'];
+	DcqcnStats       DcQcn              = 3 [(go.field).tags = 'json:"dcqcn_stats,omitempty"'];
+}
+
+message QPStats {
+    // send_queue stats
+    SendQStats Sq                       = 1 [(go.field).tags = 'json:"send_queue,omitempty"'];
+    // recv_queue stats
+    RecvQStats Rq                       = 2 [(go.field).tags = 'json:"receive_queue,omitempty"'];
+}
+
+message QPStatsSpec {
+    // Unique identifier for the queue_pair on the LIF
+    string ID                           = 1 [(go.field).tags = 'json:"id,omitempty"'];
+}
+
+message QPStatsInfo {
+    // Spec has the ID of the QP.
+    QPStatsSpec Spec                    = 1 [(go.field).tags = 'json:"spec,omitempty"'];
+
+    // QP statistics for this particular QP ID.
+    QPStats Stats                       = 2 [(go.field).tags = 'json:"statistics,omitempty"'];
+}
+
+// LifQPStats represents QP statistics for a particular logical interface (LIF) on a NIC (Network Interface Card).
+message LifQPStats {
+    // Spec has the ID of the LIF.
+    QPStatsSpec Spec                    = 1 [(go.field).tags = 'json:"spec,omitempty"'];
+
+    // A list of QP statistics for this particular LIF.
+    repeated QPStatsInfo QPStatsList    = 2 [(go.field).tags = 'json:"queue_pair,omitempty"'];
+}
+
+// NICQPStats represents QP statistics for a specific NIC (Network Interface Card) and its associated LIFs.
+message NicQPStats {
+    // Unique identifier for the NIC (Network Interface Card)
+    string ID                           = 1 [(go.field).tags = 'json:"id,omitempty"'];
+
+    // A list of LifStats, where each item represents QP statistics for a specific LIF under this NIC.
+    repeated LifQPStats LifList         = 2 [(go.field).tags = 'json:"lif,omitempty"'];
+}
+
+// LifStatsList represents a collection of NICLifStats, allowing to manage statistics for multiple NICs.
+message RdmaQPStats {
+    // A list of RdmaQPStats, where each item represents QP statistics for a NIC and its associated LIFs.
+    repeated NicQPStats NicList         = 1 [(go.field).tags = 'json:"nic,omitempty"'];
+}

@@ -33,6 +33,8 @@ const (
 	LabelRdmaIfPcieAddr = "rdma_if_pcie_addr"
 	// Lif name label for Lif metrics
 	LabelLifName = "lif_name"
+	// Queue-Pair ID for QP metrics
+	LabelQPID = "qp_id"
 
 	RDMAClientName   = "RDMA_Stats_Client"
 	NICCtlClientName = "NICCTL_Client"
