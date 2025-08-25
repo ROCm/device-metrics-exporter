@@ -114,6 +114,51 @@ The following table contains a full list of AINIC Metrics that are available usi
 | QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED        | QCN Alpha timer expiry count for the RQ                                     |
 | QP_SQ_QCN_NUM_CNP_RCVD                   | QCN congestion notification pkt count rcvd on the RQ                        |
 | QP_SQ_QCN_NUM_CNP_PROCESSED              | Count of CNPs successfully processed by QCN algo on the RQ                  |
+|                                          |                                                                             |
+| --- Ethtool stats ---                    |                                                                             |
+| ETH_TX_PACKETS                           | Count of transmitted packets                                                |
+| ETH_TX_BYTES                             | Count of transmitted bytes                                                  |
+| ETH_RX_PACKETS                           | Count of received packets                                                   |
+| ETH_RX_BYTES                             | Count of received bytes                                                     |
+| ETH_FRAMES_RX_BROADCAST                  | Count of broadcast frames received                                          |
+| ETH_FRAMES_RX_MULTICAST                  | Count of multicast frames received                                          |
+| ETH_FRAMES_TX_BROADCAST                  | Count of broadcast frames transmitted                                       |
+| ETH_FRAMES_TX_MULTICAST                  | Count of multicast frames transmitted                                       |
+| ETH_FRAMES_RX_PAUSE                      | Count of pause frames received                                              |
+| ETH_FRAMES_TX_PAUSE                      | Count of pause frames transmitted                                           |
+| ETH_FRAMES_RX_64B                        | Count of 64-byte frames received                                            |
+| ETH_FRAMES_RX_65B_127B                   | Count of 65-127 byte frames received                                        |
+| ETH_FRAMES_RX_128B_255B                  | Count of 128-255 byte frames received                                       |
+| ETH_FRAMES_RX_256B_511B                  | Count of 256-511 byte frames received                                       |
+| ETH_FRAMES_RX_512B_1023B                 | Count of 512-1023 byte frames received                                      |
+| ETH_FRAMES_RX_1024B_1518B                | Count of 1024-1518 byte frames received                                     |
+| ETH_FRAMES_RX_1519B_2047B                | Count of 1519-2047 byte frames received                                     |
+| ETH_FRAMES_RX_2048B_4095B                | Count of 2048-4095 byte frames received                                     |
+| ETH_FRAMES_RX_4096B_8191B                | Count of 4096-8191 byte frames received                                     |
+| ETH_FRAMES_RX_BAD_FCS                    | Count of frames received with bad FCS                                       |
+| ETH_FRAMES_RX_PRI_0                      | Count of priority 0 frames received                                         |
+| ETH_FRAMES_RX_PRI_1                      | Count of priority 1 frames received                                         |
+| ETH_FRAMES_RX_PRI_2                      | Count of priority 2 frames received                                         |
+| ETH_FRAMES_RX_PRI_3                      | Count of priority 3 frames received                                         |
+| ETH_FRAMES_RX_PRI_4                      | Count of priority 4 frames received                                         |
+| ETH_FRAMES_RX_PRI_5                      | Count of priority 5 frames received                                         |
+| ETH_FRAMES_RX_PRI_6                      | Count of priority 6 frames received                                         |
+| ETH_FRAMES_RX_PRI_7                      | Count of priority 7 frames received                                         |
+| ETH_FRAMES_TX_PRI_0                      | Count of priority 0 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_1                      | Count of priority 1 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_2                      | Count of priority 2 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_3                      | Count of priority 3 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_4                      | Count of priority 4 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_5                      | Count of priority 5 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_6                      | Count of priority 6 frames transmitted                                      |
+| ETH_FRAMES_TX_PRI_7                      | Count of priority 7 frames transmitted                                      |
+| ETH_FRAMES_RX_DROPPED                    | Count of frames dropped on receive                                          |
+| ETH_FRAMES_RX_ALL                        | Total number of frames received                                             |
+| ETH_FRAMES_RX_BAD_ALL                    | Total number of bad frames received                                         |
+| ETH_FRAMES_TX_ALL                        | Total number of frames transmitted                                          |
+| ETH_FRAMES_TX_BAD                        | Total number of bad frames transmitted                                      |
+| ETH_HW_TX_DROPPED                        | Count of hardware transmitted dropped frames                                |
+| ETH_HW_RX_DROPPED                        | Count of hardware received dropped frames                                   |
 
 
 
@@ -160,4 +205,26 @@ rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="roceo3"} 22955
 rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep132s0"} 0
 rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep33s0f0"} 0
 rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep33s0f1"} 0
+```
+
+
+
+## Ethernet Stats example
+
+```json
+eth_rx_bytes{lif_name="enp132s0",nic_hostname="ubuntu-gpu",nic_id="1",nic_serial_number="FPL244500E4",nic_uuid="42424650-4c32-3434-3530-304534000000"} 1.69319739e+08
+eth_rx_bytes{lif_name="enp68s0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 2.12384938e+08
+eth_rx_bytes{lif_name="enp68s0v0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 2.12328598e+08
+
+eth_rx_packets{lif_name="enp132s0",nic_hostname="ubuntu-gpu",nic_id="1",nic_serial_number="FPL244500E4",nic_uuid="42424650-4c32-3434-3530-304534000000"} 1.920603e+06
+eth_rx_packets{lif_name="enp68s0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 2.179336e+06
+eth_rx_packets{lif_name="enp68s0v0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 2.178601e+06
+
+eth_tx_bytes{lif_name="enp132s0",nic_hostname="ubuntu-gpu",nic_id="1",nic_serial_number="FPL244500E4",nic_uuid="42424650-4c32-3434-3530-304534000000"} 8.2451426e+07
+eth_tx_bytes{lif_name="enp68s0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 1.689054e+06
+eth_tx_bytes{lif_name="enp68s0v0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 6.7955573e+07
+
+eth_tx_packets{lif_name="enp132s0",nic_hostname="ubuntu-gpu",nic_id="1",nic_serial_number="FPL244500E4",nic_uuid="42424650-4c32-3434-3530-304534000000"} 512803
+eth_tx_packets{lif_name="enp68s0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 19909
+eth_tx_packets{lif_name="enp68s0v0",nic_hostname="ubuntu-gpu",nic_id="0",nic_serial_number="FPL25180020",nic_uuid="42424650-4c32-3531-3830-303230000000"} 423136
 ```
