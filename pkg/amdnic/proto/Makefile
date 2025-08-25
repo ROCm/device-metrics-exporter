@@ -9,7 +9,7 @@ bld_proto:
 		-I/usr/src/github.com/ROCm/device-metrics-exporter/vendor \
 		--go-patch_out=plugin=go,paths=import:$(PWD)/pkg/amdnic \
 		--go-patch_out=plugin=go-grpc,paths=import:$(PWD)/pkg/amdnic \
-		$${c}; \
+		$${c} || exit 1; \
 	done;
 
 .PHONY: all
