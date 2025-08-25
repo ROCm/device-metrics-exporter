@@ -441,6 +441,7 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 			Help: "Maximum NIC speed in Gbps",
 		}, labels),
 
+		/* Port stats */
 		nicPortStatsFramesRxBadFcs: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String()),
 			Help: "Bad frames received due to a Frame Check Sequence (FCS) error on a network port",
@@ -533,9 +534,10 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 
 		nicPortStatsRsfecChSymbolErrCnt: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String()),
-			Help: "Total count of channel symbol errors detected by the RS-FEC (Reed-Solomon Forward Error Correction) mechanism.",
+			Help: "Total count of channel symbol errors detected by the RS-FEC (Reed-Solomon Forward Error Correction) mechanism",
 		}, append([]string{LabelPortName, LabelPortID}, labels...)),
 
+		/* RDMA stats */
 		rdmaTxUcastPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String()),
 			Help: "Tx RDMA Unicast Packets",
@@ -949,6 +951,9 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 					ID   string `json:"id"`
 					Name string `json:"name"`
 				} `json:"spec"`
+				Status struct {
+					MACAddress string `json:"mac_address"`
+				} `json:"status"`
 			} `json:"port"`
 			Lif []struct {
 				Spec struct {
@@ -1003,9 +1008,10 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 			nics[nic.ID].Ports = map[string]*Port{}
 			for index, port := range nic.Port {
 				nics[nic.ID].Ports[port.Spec.ID] = &Port{
-					Index: fmt.Sprintf("%v", index),
-					UUID:  port.Spec.ID,
-					Name:  port.Spec.Name,
+					Index:      fmt.Sprintf("%v", index),
+					UUID:       port.Spec.ID,
+					Name:       port.Spec.Name,
+					MACAddress: port.Status.MACAddress,
 				}
 			}
 		}
