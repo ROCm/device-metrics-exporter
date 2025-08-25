@@ -26,10 +26,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -130,6 +132,10 @@ type TestRunner struct {
 	k8sClient       *k8sclient.K8sClient
 	k8sPodName      string
 	k8sPodNamespace string
+
+	// signal handling
+	signalCtx       context.Context
+	signalCtxCancel context.CancelFunc
 }
 
 // initTestRunner init the test runner and related configs
@@ -592,6 +598,9 @@ func (tr *TestRunner) TriggerTest() {
 			os.Exit(1)
 		}
 
+		// Signal notify context handler to ensure running label is deleted on pod interruption/deletion
+		tr.signalCtx, tr.signalCtxCancel = signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+
 		switch tr.testTrigger {
 		case testrunnerGen.TestTrigger_AUTO_UNHEALTHY_GPU_WATCH.String():
 			// init rvs test runner
@@ -894,7 +903,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		tr.saveAndExportHandlerLogs(handler, ids, testRecipe, validIDs)
 		tr.generateK8sEvent(testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
 		// exit on non-auto trigger's failure
-		tr.exitOnFailure()
+		tr.exitOnFailure(testRecipe, validIDs)
 	case <-handler.Done():
 		// TODO: this has to change later based on result logs parsing.
 		// for now updating same result in all GPU
@@ -918,15 +927,32 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestFailed.String(), result, "", validIDs)
 			// exit on non-auto trigger's failure
-			tr.exitOnFailure()
+			tr.exitOnFailure(testRecipe, validIDs)
 		case types.Timedout:
 			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
 			// exit on non-auto trigger's failure
-			tr.exitOnFailure()
+			tr.exitOnFailure(testRecipe, validIDs)
 		}
+	case <-tr.signalCtx.Done():
+		logger.Log.Printf("Test runner received termination signal, stopping test on GPU Indexes: %v with recipe %v", validIDs, testRecipe)
+		// stop the ongoing test run process
+		handler.StopTest()
+		// remove the running label
+		tr.RemoveTestRunningLabel(testRecipe, validIDs)
+		// update status db
+		// for auto trigger, mark the test as still running
+		// for non-auto trigger, remove the test status
+		tr.updateStatusDBAfterTestRun(validIDs, types.TestRunning.String())
+		tr.signalCtxCancel()
+		os.Exit(1)
 	}
 
-	statusObj, _ = LoadRunnerStatus(tr.statusDBPath)
+	tr.updateStatusDBAfterTestRun(validIDs, types.TestCompleted.String())
+}
+
+func (tr *TestRunner) updateStatusDBAfterTestRun(validIDs []string, status string) {
+
+	statusObj, _ := LoadRunnerStatus(tr.statusDBPath)
 	for _, id := range validIDs {
 		switch tr.testTrigger {
 		case testrunnerGen.TestTrigger_MANUAL.String(),
@@ -941,7 +967,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 			// for AUTO_UNHEALTHY_GPU_WATCH just mark all finished test as completed
 			// so that there won't be another test happened on the same unhealthy device
 			// the test completed status will be removed if device becomes healthy again
-			statusObj.TestStatus[id] = types.TestCompleted.String()
+			statusObj.TestStatus[id] = status
 		}
 	}
 	if err := SaveRunnerStatus(statusObj, tr.statusDBPath); err != nil {
@@ -1032,10 +1058,13 @@ func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterfac
 	}
 }
 
-func (tr *TestRunner) exitOnFailure() {
+func (tr *TestRunner) exitOnFailure(recipe string, validIDs []string) {
 	switch tr.testTrigger {
 	case testrunnerGen.TestTrigger_MANUAL.String(),
 		testrunnerGen.TestTrigger_PRE_START_JOB_CHECK.String():
+		if len(validIDs) > 0 {
+			tr.RemoveTestRunningLabel(recipe, validIDs)
+		}
 		os.Exit(1)
 	}
 }
@@ -1119,7 +1148,7 @@ func (tr *TestRunner) manualTestGPU() {
 		result := BuildNoGPUTestSummary()
 		tr.generateK8sEvent(Deref(parameters.TestCases[0].Recipe), v1.EventTypeWarning, testrunnerGen.TestEventReason_TestFailed.String(), result, "", []string{})
 		// exit on non-auto trigger's failure
-		tr.exitOnFailure()
+		os.Exit(1)
 	}
 
 	// handle test runner crash or restart
