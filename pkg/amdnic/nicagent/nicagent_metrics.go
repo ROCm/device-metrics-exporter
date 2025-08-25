@@ -39,11 +39,16 @@ var (
 	}
 	exportLabels      map[string]bool
 	exportFieldMap    map[string]bool
-	fieldMetricsMap   []prometheus.Collector
+	fieldMetricsMap   map[string]FieldMeta
 	customLabelMap    map[string]string
 	extraPodLabelsMap map[string]string
 	k8PodLabelsMap    map[string]map[string]string
 )
+
+type FieldMeta struct {
+	Metric prometheus.GaugeVec
+	Alias  string
+}
 
 type metrics struct {
 	nicNodesTotal prometheus.GaugeVec
@@ -169,117 +174,9 @@ type metrics struct {
 
 func (na *NICAgentClient) ResetMetrics() error {
 	// reset all label based fields
-	na.m.nicMaxSpeed.Reset()
-	na.m.nicPortStatsFramesRxBadFcs.Reset()
-	na.m.nicPortStatsFramesRxBadAll.Reset()
-	na.m.nicPortStatsFramesRxPause.Reset()
-	na.m.nicPortStatsFramesRxBadLength.Reset()
-	na.m.nicPortStatsFramesRxUndersized.Reset()
-	na.m.nicPortStatsFramesRxOversized.Reset()
-	na.m.nicPortStatsFramesRxFragments.Reset()
-	na.m.nicPortStatsFramesRxJabber.Reset()
-	na.m.nicPortStatsFramesRxPripause.Reset()
-	na.m.nicPortStatsFramesRxStompedCrc.Reset()
-	na.m.nicPortStatsFramesRxTooLong.Reset()
-	na.m.nicPortStatsFramesRxDropped.Reset()
-	na.m.nicPortStatsFramesTxBad.Reset()
-	na.m.nicPortStatsFramesTxPause.Reset()
-	na.m.nicPortStatsFramesTxPripause.Reset()
-	na.m.nicPortStatsFramesTxLessThan64b.Reset()
-	na.m.nicPortStatsFramesTxTruncated.Reset()
-	na.m.nicPortStatsRsfecCorrectableWord.Reset()
-	na.m.nicPortStatsRsfecChSymbolErrCnt.Reset()
-	na.m.rdmaTxUcastPkts.Reset()
-	na.m.rdmaTxCnpPkts.Reset()
-	na.m.rdmaRxUcastPkts.Reset()
-	na.m.rdmaRxCnpPkts.Reset()
-	na.m.rdmaRxEcnPkts.Reset()
-	na.m.rdmaReqRxPktSeqErr.Reset()
-	na.m.rdmaReqRxRnrRetryErr.Reset()
-	na.m.rdmaReqRxRmtAccErr.Reset()
-	na.m.rdmaReqRxRmtReqErr.Reset()
-	na.m.rdmaReqRxOperErr.Reset()
-	na.m.rdmaReqRxImplNakSeqErr.Reset()
-	na.m.rdmaReqRxCqeErr.Reset()
-	na.m.rdmaReqRxCqeFlush.Reset()
-	na.m.rdmaReqRxDupResp.Reset()
-	na.m.rdmaReqRxInvalidPkts.Reset()
-
-	na.m.rdmaReqTxLocErr.Reset()
-	na.m.rdmaReqTxLocOperErr.Reset()
-	na.m.rdmaReqTxMemMgmtErr.Reset()
-	na.m.rdmaReqTxRetryExcdErr.Reset()
-	na.m.rdmaReqTxLocSglInvErr.Reset()
-
-	na.m.rdmaRespRxDupRequest.Reset()
-	na.m.rdmaRespRxOutofBuf.Reset()
-	na.m.rdmaRespRxOutoufSeq.Reset()
-	na.m.rdmaRespRxCqeErr.Reset()
-	na.m.rdmaRespRxCqeFlush.Reset()
-	na.m.rdmaRespRxLocLenErr.Reset()
-	na.m.rdmaRespRxInvalidRequest.Reset()
-	na.m.rdmaRespRxLocOperErr.Reset()
-	na.m.rdmaRespRxOutofAtomic.Reset()
-
-	na.m.rdmaRespTxPktSeqErr.Reset()
-	na.m.rdmaRespTxRmtInvalReqErr.Reset()
-	na.m.rdmaRespTxRmtAccErr.Reset()
-	na.m.rdmaRespTxRmtOperErr.Reset()
-	na.m.rdmaRespTxRnrRetryErr.Reset()
-	na.m.rdmaRespTxLocSglInvErr.Reset()
-
-	na.m.rdmaRespRxS0TableErr.Reset()
-
-	na.m.nicLifStatsRxUnicastPackets.Reset()
-	na.m.nicLifStatsRxUnicastDropPackets.Reset()
-	na.m.nicLifStatsRxMulticastDropPackets.Reset()
-	na.m.nicLifStatsRxBroadcastDropPackets.Reset()
-	na.m.nicLifStatsRxDMAErrors.Reset()
-	na.m.nicLifStatsTxUnicastPackets.Reset()
-	na.m.nicLifStatsTxUnicastDropPackets.Reset()
-	na.m.nicLifStatsTxMulticastDropPackets.Reset()
-	na.m.nicLifStatsTxBroadcastDropPackets.Reset()
-	na.m.nicLifStatsTxDMAErrors.Reset()
-
-	na.m.qpSqReqTxNumPackets.Reset()
-	na.m.qpSqReqTxNumSendMsgsRke.Reset()
-	na.m.qpSqReqTxNumLocalAckTimeouts.Reset()
-	na.m.qpSqReqTxRnrTimeout.Reset()
-	na.m.qpSqReqTxTimesSQdrained.Reset()
-	na.m.qpSqReqTxNumCNPsent.Reset()
-
-	na.m.qpSqReqRxNumPackets.Reset()
-	na.m.qpSqReqRxNumPacketsEcnMarked.Reset()
-
-	na.m.qpSqQcnCurrByteCounter.Reset()
-	na.m.qpSqQcnNumByteCounterExpired.Reset()
-	na.m.qpSqQcnNumTimerExpired.Reset()
-	na.m.qpSqQcnNumAlphaTimerExpired.Reset()
-	na.m.qpSqQcnNumCNPrcvd.Reset()
-	na.m.qpSqQcnNumCNPprocessed.Reset()
-
-	na.m.qpRqRspTxNumPackets.Reset()
-	na.m.qpRqRspTxRnrError.Reset()
-	na.m.qpRqRspTxNumSequenceError.Reset()
-	na.m.qpRqRspTxRPByteThresholdHits.Reset()
-	na.m.qpRqRspTxRPMaxRateHits.Reset()
-
-	na.m.qpRqRspRxNumPackets.Reset()
-	na.m.qpRqRspRxNumSendMsgsRke.Reset()
-	na.m.qpRqRspRxNumPacketsEcnMarked.Reset()
-	na.m.qpRqRspRxNumCNPsReceived.Reset()
-	na.m.qpRqRspRxMaxRecircDrop.Reset()
-	na.m.qpRqRspRxNumMemWindowInvalid.Reset()
-	na.m.qpRqRspRxNumDuplWriteSendOpc.Reset()
-	na.m.qpRqRspRxNumDupReadBacktrack.Reset()
-	na.m.qpRqRspRxNumDupReadDrop.Reset()
-
-	na.m.qpRqQcnCurrByteCounter.Reset()
-	na.m.qpRqQcnNumByteCounterExpired.Reset()
-	na.m.qpRqQcnNumTimerExpired.Reset()
-	na.m.qpRqQcnNumAlphaTimerExpired.Reset()
-	na.m.qpRqQcnNumCNPrcvd.Reset()
-	na.m.qpRqQcnNumCNPprocessed.Reset()
+	for _, prommetric := range fieldMetricsMap {
+		prommetric.Metric.Reset()
+	}
 	return nil
 }
 
@@ -431,121 +328,111 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {
-	// must follow index mapping to fields.proto (NICMetricField)
-	fieldMetricsMap = []prometheus.Collector{
-		na.m.nicNodesTotal,
-		na.m.nicMaxSpeed,
-		na.m.nicPortStatsFramesRxBadFcs,
-		na.m.nicPortStatsFramesRxBadAll,
-		na.m.nicPortStatsFramesRxPause,
-		na.m.nicPortStatsFramesRxBadLength,
-		na.m.nicPortStatsFramesRxUndersized,
-		na.m.nicPortStatsFramesRxOversized,
-		na.m.nicPortStatsFramesRxFragments,
-		na.m.nicPortStatsFramesRxJabber,
-		na.m.nicPortStatsFramesRxPripause,
-		na.m.nicPortStatsFramesRxStompedCrc,
-		na.m.nicPortStatsFramesRxTooLong,
-		na.m.nicPortStatsFramesRxDropped,
-		na.m.nicPortStatsFramesTxBad,
-		na.m.nicPortStatsFramesTxPause,
-		na.m.nicPortStatsFramesTxPripause,
-		na.m.nicPortStatsFramesTxLessThan64b,
-		na.m.nicPortStatsFramesTxTruncated,
-		na.m.nicPortStatsRsfecCorrectableWord,
-		na.m.nicPortStatsRsfecChSymbolErrCnt,
-		na.m.rdmaTxUcastPkts,
-		na.m.rdmaTxCnpPkts,
-		na.m.rdmaRxUcastPkts,
-		na.m.rdmaRxCnpPkts,
-		na.m.rdmaRxEcnPkts,
-		na.m.rdmaReqRxPktSeqErr,
-		na.m.rdmaReqRxRnrRetryErr,
-		na.m.rdmaReqRxRmtAccErr,
-		na.m.rdmaReqRxRmtReqErr,
-		na.m.rdmaReqRxOperErr,
-		na.m.rdmaReqRxImplNakSeqErr,
-		na.m.rdmaReqRxCqeErr,
-		na.m.rdmaReqRxCqeFlush,
-		na.m.rdmaReqRxDupResp,
-		na.m.rdmaReqRxInvalidPkts,
-
-		na.m.rdmaReqTxLocErr,
-		na.m.rdmaReqTxLocOperErr,
-		na.m.rdmaReqTxMemMgmtErr,
-		na.m.rdmaReqTxRetryExcdErr,
-		na.m.rdmaReqTxLocSglInvErr,
-
-		na.m.rdmaRespRxDupRequest,
-		na.m.rdmaRespRxOutofBuf,
-		na.m.rdmaRespRxOutoufSeq,
-		na.m.rdmaRespRxCqeErr,
-		na.m.rdmaRespRxCqeFlush,
-		na.m.rdmaRespRxLocLenErr,
-		na.m.rdmaRespRxInvalidRequest,
-		na.m.rdmaRespRxLocOperErr,
-		na.m.rdmaRespRxOutofAtomic,
-
-		na.m.rdmaRespTxPktSeqErr,
-		na.m.rdmaRespTxRmtInvalReqErr,
-		na.m.rdmaRespTxRmtAccErr,
-		na.m.rdmaRespTxRmtOperErr,
-		na.m.rdmaRespTxRnrRetryErr,
-		na.m.rdmaRespTxLocSglInvErr,
-
-		na.m.rdmaRespRxS0TableErr,
-
-		na.m.nicLifStatsRxUnicastPackets,
-		na.m.nicLifStatsRxUnicastDropPackets,
-		na.m.nicLifStatsRxMulticastDropPackets,
-		na.m.nicLifStatsRxBroadcastDropPackets,
-		na.m.nicLifStatsRxDMAErrors,
-		na.m.nicLifStatsTxUnicastPackets,
-		na.m.nicLifStatsTxUnicastDropPackets,
-		na.m.nicLifStatsTxMulticastDropPackets,
-		na.m.nicLifStatsTxBroadcastDropPackets,
-		na.m.nicLifStatsTxDMAErrors,
-
-		na.m.qpSqReqTxNumPackets,
-		na.m.qpSqReqTxNumSendMsgsRke,
-		na.m.qpSqReqTxNumLocalAckTimeouts,
-		na.m.qpSqReqTxRnrTimeout,
-		na.m.qpSqReqTxTimesSQdrained,
-		na.m.qpSqReqTxNumCNPsent,
-
-		na.m.qpSqReqRxNumPackets,
-		na.m.qpSqReqRxNumPacketsEcnMarked,
-
-		na.m.qpSqQcnCurrByteCounter,
-		na.m.qpSqQcnNumByteCounterExpired,
-		na.m.qpSqQcnNumTimerExpired,
-		na.m.qpSqQcnNumAlphaTimerExpired,
-		na.m.qpSqQcnNumCNPrcvd,
-		na.m.qpSqQcnNumCNPprocessed,
-
-		na.m.qpRqRspTxNumPackets,
-		na.m.qpRqRspTxRnrError,
-		na.m.qpRqRspTxNumSequenceError,
-		na.m.qpRqRspTxRPByteThresholdHits,
-		na.m.qpRqRspTxRPMaxRateHits,
-
-		na.m.qpRqRspRxNumPackets,
-		na.m.qpRqRspRxNumSendMsgsRke,
-		na.m.qpRqRspRxNumPacketsEcnMarked,
-		na.m.qpRqRspRxNumCNPsReceived,
-		na.m.qpRqRspRxMaxRecircDrop,
-		na.m.qpRqRspRxNumMemWindowInvalid,
-		na.m.qpRqRspRxNumDuplWriteSendOpc,
-		na.m.qpRqRspRxNumDupReadBacktrack,
-		na.m.qpRqRspRxNumDupReadDrop,
-
-		na.m.qpRqQcnCurrByteCounter,
-		na.m.qpRqQcnNumByteCounterExpired,
-		na.m.qpRqQcnNumTimerExpired,
-		na.m.qpRqQcnNumAlphaTimerExpired,
-		na.m.qpRqQcnNumCNPrcvd,
-		na.m.qpRqQcnNumCNPprocessed,
+	//nolint
+	fieldMetricsMap = map[string]FieldMeta{
+		exportermetrics.NICMetricField_NIC_TOTAL.String():                               {Metric: na.m.nicNodesTotal},
+		exportermetrics.NICMetricField_NIC_MAX_SPEED.String():                           {Metric: na.m.nicMaxSpeed},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String():        {Metric: na.m.nicPortStatsFramesRxBadFcs},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_ALL.String():        {Metric: na.m.nicPortStatsFramesRxBadAll},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PAUSE.String():          {Metric: na.m.nicPortStatsFramesRxPause},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_LENGTH.String():     {Metric: na.m.nicPortStatsFramesRxBadLength},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_UNDERSIZED.String():     {Metric: na.m.nicPortStatsFramesRxUndersized},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OVERSIZED.String():      {Metric: na.m.nicPortStatsFramesRxOversized},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_FRAGMENTS.String():      {Metric: na.m.nicPortStatsFramesRxFragments},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_JABBER.String():         {Metric: na.m.nicPortStatsFramesRxJabber},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRIPAUSE.String():       {Metric: na.m.nicPortStatsFramesRxPripause},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC.String():    {Metric: na.m.nicPortStatsFramesRxStompedCrc},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_TOO_LONG.String():       {Metric: na.m.nicPortStatsFramesRxTooLong},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_DROPPED.String():        {Metric: na.m.nicPortStatsFramesRxDropped},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_BAD.String():            {Metric: na.m.nicPortStatsFramesTxBad},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PAUSE.String():          {Metric: na.m.nicPortStatsFramesTxPause},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRIPAUSE.String():       {Metric: na.m.nicPortStatsFramesTxPripause},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B.String():  {Metric: na.m.nicPortStatsFramesTxLessThan64b},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_TRUNCATED.String():      {Metric: na.m.nicPortStatsFramesTxTruncated},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD.String():   {Metric: na.m.nicPortStatsRsfecCorrectableWord},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String():  {Metric: na.m.nicPortStatsRsfecChSymbolErrCnt},
+		exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String():                      {Metric: na.m.rdmaTxUcastPkts},
+		exportermetrics.NICMetricField_RDMA_TX_CNP_PKTS.String():                        {Metric: na.m.rdmaTxCnpPkts},
+		exportermetrics.NICMetricField_RDMA_RX_UCAST_PKTS.String():                      {Metric: na.m.rdmaRxUcastPkts},
+		exportermetrics.NICMetricField_RDMA_RX_CNP_PKTS.String():                        {Metric: na.m.rdmaRxCnpPkts},
+		exportermetrics.NICMetricField_RDMA_RX_ECN_PKTS.String():                        {Metric: na.m.rdmaRxEcnPkts},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_PKT_SEQ_ERR.String():                 {Metric: na.m.rdmaReqRxPktSeqErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_RNR_RETRY_ERR.String():               {Metric: na.m.rdmaReqRxRnrRetryErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_RMT_ACC_ERR.String():                 {Metric: na.m.rdmaReqRxRmtAccErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_RMT_REQ_ERR.String():                 {Metric: na.m.rdmaReqRxRmtReqErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_OPER_ERR.String():                    {Metric: na.m.rdmaReqRxOperErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_IMPL_NAK_SEQ_ERR.String():            {Metric: na.m.rdmaReqRxImplNakSeqErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_CQE_ERR.String():                     {Metric: na.m.rdmaReqRxCqeErr},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_CQE_FLUSH.String():                   {Metric: na.m.rdmaReqRxCqeFlush},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_DUP_RESP.String():                    {Metric: na.m.rdmaReqRxDupResp},
+		exportermetrics.NICMetricField_RDMA_REQ_RX_INVALID_PKTS.String():                {Metric: na.m.rdmaReqRxInvalidPkts},
+		exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_ERR.String():                     {Metric: na.m.rdmaReqTxLocErr},
+		exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_OPER_ERR.String():                {Metric: na.m.rdmaReqTxLocOperErr},
+		exportermetrics.NICMetricField_RDMA_REQ_TX_MEM_MGMT_ERR.String():                {Metric: na.m.rdmaReqTxMemMgmtErr},
+		exportermetrics.NICMetricField_RDMA_REQ_TX_RETRY_EXCD_ERR.String():              {Metric: na.m.rdmaReqTxRetryExcdErr},
+		exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_SGL_INV_ERR.String():             {Metric: na.m.rdmaReqTxLocSglInvErr},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_DUP_REQUEST.String():                {Metric: na.m.rdmaRespRxDupRequest},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOF_BUF.String():                  {Metric: na.m.rdmaRespRxOutofBuf},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOUF_SEQ.String():                 {Metric: na.m.rdmaRespRxOutoufSeq},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_CQE_ERR.String():                    {Metric: na.m.rdmaRespRxCqeErr},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_CQE_FLUSH.String():                  {Metric: na.m.rdmaRespRxCqeFlush},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_LOC_LEN_ERR.String():                {Metric: na.m.rdmaRespRxLocLenErr},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_INVALID_REQUEST.String():            {Metric: na.m.rdmaRespRxInvalidRequest},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_LOC_OPER_ERR.String():               {Metric: na.m.rdmaRespRxLocOperErr},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOF_ATOMIC.String():               {Metric: na.m.rdmaRespRxOutofAtomic},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_PKT_SEQ_ERR.String():                {Metric: na.m.rdmaRespTxPktSeqErr},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_INVAL_REQ_ERR.String():          {Metric: na.m.rdmaRespTxRmtInvalReqErr},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_ACC_ERR.String():                {Metric: na.m.rdmaRespTxRmtAccErr},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_OPER_ERR.String():               {Metric: na.m.rdmaRespTxRmtOperErr},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_RNR_RETRY_ERR.String():              {Metric: na.m.rdmaRespTxRnrRetryErr},
+		exportermetrics.NICMetricField_RDMA_RESP_TX_LOC_SGL_INV_ERR.String():            {Metric: na.m.rdmaRespTxLocSglInvErr},
+		exportermetrics.NICMetricField_RDMA_RESP_RX_S0_TABLE_ERR.String():               {Metric: na.m.rdmaRespRxS0TableErr},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_RX_UNICAST_PACKETS.String():        {Metric: na.m.nicLifStatsRxUnicastPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_RX_UNICAST_DROP_PACKETS.String():   {Metric: na.m.nicLifStatsRxUnicastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_RX_MULTICAST_DROP_PACKETS.String(): {Metric: na.m.nicLifStatsRxMulticastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_RX_BROADCAST_DROP_PACKETS.String(): {Metric: na.m.nicLifStatsRxBroadcastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_RX_DMA_ERRORS.String():             {Metric: na.m.nicLifStatsRxDMAErrors},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_TX_UNICAST_PACKETS.String():        {Metric: na.m.nicLifStatsTxUnicastPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_TX_UNICAST_DROP_PACKETS.String():   {Metric: na.m.nicLifStatsTxUnicastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_TX_MULTICAST_DROP_PACKETS.String(): {Metric: na.m.nicLifStatsTxMulticastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_TX_BROADCAST_DROP_PACKETS.String(): {Metric: na.m.nicLifStatsTxBroadcastDropPackets},
+		exportermetrics.NICMetricField_NIC_LIF_STATS_TX_DMA_ERRORS.String():             {Metric: na.m.nicLifStatsTxDMAErrors},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_PACKET.String():                 {Metric: na.m.qpSqReqTxNumPackets},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE.String():     {Metric: na.m.qpSqReqTxNumSendMsgsRke},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS.String():     {Metric: na.m.qpSqReqTxNumLocalAckTimeouts},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_RNR_TIMEOUT.String():                {Metric: na.m.qpSqReqTxRnrTimeout},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_TIMES_SQ_DRAINED.String():           {Metric: na.m.qpSqReqTxTimesSQdrained},
+		exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_CNP_SENT.String():               {Metric: na.m.qpSqReqTxNumCNPsent},
+		exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PACKET.String():                 {Metric: na.m.qpSqReqRxNumPackets},
+		exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING.String():  {Metric: na.m.qpSqReqRxNumPacketsEcnMarked},
+		exportermetrics.NICMetricField_QP_SQ_QCN_CURR_BYTE_COUNTER.String():             {Metric: na.m.qpSqQcnCurrByteCounter},
+		exportermetrics.NICMetricField_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String():      {Metric: na.m.qpSqQcnNumByteCounterExpired},
+		exportermetrics.NICMetricField_QP_SQ_QCN_NUM_TIMER_EXPIRED.String():             {Metric: na.m.qpSqQcnNumTimerExpired},
+		exportermetrics.NICMetricField_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String():       {Metric: na.m.qpSqQcnNumAlphaTimerExpired},
+		exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_RCVD.String():                  {Metric: na.m.qpSqQcnNumCNPrcvd},
+		exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_PROCESSED.String():             {Metric: na.m.qpSqQcnNumCNPprocessed},
+		exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_PACKET.String():                 {Metric: na.m.qpRqRspTxNumPackets},
+		exportermetrics.NICMetricField_QP_RQ_RSP_TX_RNR_ERROR.String():                  {Metric: na.m.qpRqRspTxRnrError},
+		exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR.String():         {Metric: na.m.qpRqRspTxNumSequenceError},
+		exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT.String():      {Metric: na.m.qpRqRspTxRPByteThresholdHits},
+		exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT.String():        {Metric: na.m.qpRqRspTxRPMaxRateHits},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PACKET.String():                 {Metric: na.m.qpRqRspRxNumPackets},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE.String():     {Metric: na.m.qpRqRspRxNumSendMsgsRke},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING.String():  {Metric: na.m.qpRqRspRxNumPacketsEcnMarked},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED.String():          {Metric: na.m.qpRqRspRxNumCNPsReceived},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP.String():   {Metric: na.m.qpRqRspRxMaxRecircDrop},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID.String():     {Metric: na.m.qpRqRspRxNumMemWindowInvalid},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC.String():  {Metric: na.m.qpRqRspRxNumDuplWriteSendOpc},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK.String():    {Metric: na.m.qpRqRspRxNumDupReadBacktrack},
+		exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP.String():  {Metric: na.m.qpRqRspRxNumDupReadDrop},
+		exportermetrics.NICMetricField_QP_RQ_QCN_CURR_BYTE_COUNTER.String():             {Metric: na.m.qpRqQcnCurrByteCounter},
+		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String():      {Metric: na.m.qpRqQcnNumByteCounterExpired},
+		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_TIMER_EXPIRED.String():             {Metric: na.m.qpRqQcnNumTimerExpired},
+		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String():       {Metric: na.m.qpRqQcnNumAlphaTimerExpired},
+		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_RCVD.String():                  {Metric: na.m.qpRqQcnNumCNPrcvd},
+		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String():             {Metric: na.m.qpRqQcnNumCNPprocessed},
 	}
+	logger.Log.Printf("Total NIC fields supported : %+v", len(fieldMetricsMap))
 }
 
 func (na *NICAgentClient) initPrometheusMetrics() {
@@ -1041,12 +928,14 @@ func (na *NICAgentClient) initFieldRegistration() error {
 		if !enabled {
 			continue
 		}
-		fieldIndex, ok := exportermetrics.NICMetricField_value[field]
+		prommetric, ok := fieldMetricsMap[field]
 		if !ok {
 			logger.Log.Printf("Invalid field %v, ignored", field)
 			continue
 		}
-		na.mh.GetRegistry().MustRegister(fieldMetricsMap[fieldIndex])
+		if err := na.mh.RegisterMetric(prommetric.Metric); err != nil {
+			logger.Log.Printf("Field %v registration failed with err : %v", field, err)
+		}
 	}
 
 	return nil
