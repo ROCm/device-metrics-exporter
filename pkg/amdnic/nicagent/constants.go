@@ -36,10 +36,12 @@ const (
 	// Queue-Pair ID for QP metrics
 	LabelQPID = "qp_id"
 
-	RDMAClientName   = "RDMA_Stats_Client"
-	NICCtlClientName = "NICCTL_Client"
-	NICCtlBinary     = "nicctl"
-	RDMABinary       = "rdma"
+	RDMAClientName    = "RDMA_Stats_Client"
+	NICCtlClientName  = "NICCTL_Client"
+	EthtoolClientName = "Ethtool_Client"
+	NICCtlBinary      = "nicctl"
+	RDMABinary        = "rdma"
+	EthtoolBinary     = "ethtool"
 )
 
 var (

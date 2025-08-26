@@ -119,6 +119,9 @@ func (na *NICAgentClient) Init() error {
 	rdmaStatsClient := newRDMAStatsClient(na)
 	na.nicClients = append(na.nicClients, rdmaStatsClient)
 
+	ethtoolClient := newEthtoolClient(na)
+	na.nicClients = append(na.nicClients, ethtoolClient)
+
 	err := na.initClients()
 	if err != nil {
 		logger.Log.Printf("NIC clients init failure err :%v", err)

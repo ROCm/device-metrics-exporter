@@ -1,0 +1,104 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+
+//----------------------------------------------------------------------------
+///
+/// \file
+/// AMD NIC Ethtool Metrics
+///
+//----------------------------------------------------------------------------
+
+syntax = "proto3";
+option go_package = "gen/nicmetrics";
+package nicmetrics;
+
+import "github.com/alta/protopatch/patch/go.proto";
+
+/*
+// Snipped output of ethtool statistics 
+// after removing the header and trimming the spaces
+tx_packets: 439676
+tx_bytes: 70675147
+rx_packets: 1634120
+rx_bytes: 143134539
+tx_tso: 0
+tx_tso_bytes: 0
+tx_csum_none: 0
+tx_csum: 0
+rx_csum_none: 0
+rx_csum_complete: 0
+rx_csum_error: 0
+hw_tx_dropped: 0
+hw_rx_dropped: 0
+hw_rx_over_errors: 0
+hw_rx_missed_errors: 0
+hw_tx_aborted_errors: 0
+xdp_drop: 0
+xdp_aborted: 0
+xdp_pass: 0
+xdp_tx: 0
+xdp_redirect: 0
+xdp_frames: 0
+...
+*/
+
+// EthtoolStats represents the statistics of an ethernet interface, identified by a unique ifname.
+message EthtoolStats {
+    uint64 TX_PACKETS                       = 2 [(go.field).tags = 'yaml:"tx_packets,omitempty" json:"tx_packets,omitempty"'];
+    uint64 TX_BYTES                         = 3 [(go.field).tags = 'yaml:"tx_bytes,omitempty" json:"tx_bytes,omitempty"'];
+    uint64 RX_PACKETS                       = 4 [(go.field).tags = 'yaml:"rx_packets,omitempty" json:"rx_packets,omitempty"'];
+    uint64 RX_BYTES                         = 5 [(go.field).tags = 'yaml:"rx_bytes,omitempty" json:"rx_bytes,omitempty"'];
+    uint64 FRAMES_RX_BROADCAST              = 6 [(go.field).tags = 'yaml:"frames_rx_broadcast,omitempty" json:"frames_rx_broadcast,omitempty"'];
+    uint64 FRAMES_RX_MULTICAST              = 7 [(go.field).tags = 'yaml:"frames_rx_multicast,omitempty" json:"frames_rx_multicast,omitempty"'];
+    uint64 FRAMES_TX_BROADCAST              = 8 [(go.field).tags = 'yaml:"frames_tx_broadcast,omitempty" json:"frames_tx_broadcast,omitempty"'];
+    uint64 FRAMES_TX_MULTICAST              = 9 [(go.field).tags = 'yaml:"frames_tx_multicast,omitempty" json:"frames_tx_multicast,omitempty"'];
+    uint64 FRAMES_RX_PAUSE                  = 10 [(go.field).tags = 'yaml:"frames_rx_pause,omitempty" json:"frames_rx_pause,omitempty"'];
+    uint64 FRAMES_TX_PAUSE                  = 11 [(go.field).tags = 'yaml:"frames_tx_pause,omitempty" json:"frames_tx_pause,omitempty"'];
+    uint64 FRAMES_RX_64B                    = 12 [(go.field).tags = 'yaml:"frames_rx_64b,omitempty" json:"frames_rx_64b,omitempty"'];
+    uint64 FRAMES_RX_65B_127B               = 13 [(go.field).tags = 'yaml:"frames_rx_65b_127b,omitempty" json:"frames_rx_65b_127b,omitempty"'];
+    uint64 FRAMES_RX_128B_255B              = 14 [(go.field).tags = 'yaml:"frames_rx_128b_255b,omitempty" json:"frames_rx_128b_255b,omitempty"'];
+    uint64 FRAMES_RX_256B_511B              = 15 [(go.field).tags = 'yaml:"frames_rx_256b_511b,omitempty" json:"frames_rx_256b_511b,omitempty"'];
+    uint64 FRAMES_RX_512B_1023B             = 16 [(go.field).tags = 'yaml:"frames_rx_512b_1023b,omitempty" json:"frames_rx_512b_1023b,omitempty"'];
+    uint64 FRAMES_RX_1024B_1518B            = 17 [(go.field).tags = 'yaml:"frames_rx_1024b_1518b,omitempty" json:"frames_rx_1024b_1518b,omitempty"'];
+    uint64 FRAMES_RX_1519B_2047B            = 18 [(go.field).tags = 'yaml:"frames_rx_1519b_2047b,omitempty" json:"frames_rx_1519b_2047b,omitempty"'];
+    uint64 FRAMES_RX_2048B_4095B            = 19 [(go.field).tags = 'yaml:"frames_rx_2048b_4095b,omitempty" json:"frames_rx_2048b_4095b,omitempty"'];
+    uint64 FRAMES_RX_4096B_8191B            = 20 [(go.field).tags = 'yaml:"frames_rx_4096b_8191b,omitempty" json:"frames_rx_4096b_8191b,omitempty"'];
+    uint64 FRAMES_RX_BAD_FCS                = 21 [(go.field).tags = 'yaml:"frames_rx_bad_fcs,omitempty" json:"frames_rx_bad_fcs,omitempty"'];
+    uint64 FRAMES_RX_PRI_4                  = 22 [(go.field).tags = 'yaml:"frames_rx_pri_4,omitempty" json:"frames_rx_pri_4,omitempty"'];
+    uint64 FRAMES_TX_PRI_4                  = 23 [(go.field).tags = 'yaml:"frames_tx_pri_4,omitempty" json:"frames_tx_pri_4,omitempty"'];
+    uint64 FRAMES_RX_PRI_0                  = 24 [(go.field).tags = 'yaml:"frames_rx_pri_0,omitempty" json:"frames_rx_pri_0,omitempty"'];
+    uint64 FRAMES_RX_PRI_1                  = 25 [(go.field).tags = 'yaml:"frames_rx_pri_1,omitempty" json:"frames_rx_pri_1,omitempty"'];
+    uint64 FRAMES_RX_PRI_2                  = 26 [(go.field).tags = 'yaml:"frames_rx_pri_2,omitempty" json:"frames_rx_pri_2,omitempty"'];
+    uint64 FRAMES_RX_PRI_3                  = 27 [(go.field).tags = 'yaml:"frames_rx_pri_3,omitempty" json:"frames_rx_pri_3,omitempty"'];
+    uint64 FRAMES_RX_PRI_5                  = 28 [(go.field).tags = 'yaml:"frames_rx_pri_5,omitempty" json:"frames_rx_pri_5,omitempty"'];
+    uint64 FRAMES_RX_PRI_6                  = 29 [(go.field).tags = 'yaml:"frames_rx_pri_6,omitempty" json:"frames_rx_pri_6,omitempty"'];
+    uint64 FRAMES_RX_PRI_7                  = 30 [(go.field).tags = 'yaml:"frames_rx_pri_7,omitempty" json:"frames_rx_pri_7,omitempty"'];
+    uint64 FRAMES_TX_PRI_0                  = 31 [(go.field).tags = 'yaml:"frames_tx_pri_0,omitempty" json:"frames_tx_pri_0,omitempty"'];
+    uint64 FRAMES_TX_PRI_1                  = 32 [(go.field).tags = 'yaml:"frames_tx_pri_1,omitempty" json:"frames_tx_pri_1,omitempty"'];
+    uint64 FRAMES_TX_PRI_2                  = 33 [(go.field).tags = 'yaml:"frames_tx_pri_2,omitempty" json:"frames_tx_pri_2,omitempty"'];
+    uint64 FRAMES_TX_PRI_3                  = 34 [(go.field).tags = 'yaml:"frames_tx_pri_3,omitempty" json:"frames_tx_pri_3,omitempty"'];
+    uint64 FRAMES_TX_PRI_5                  = 35 [(go.field).tags = 'yaml:"frames_tx_pri_5,omitempty" json:"frames_tx_pri_5,omitempty"'];
+    uint64 FRAMES_TX_PRI_6                  = 36 [(go.field).tags = 'yaml:"frames_tx_pri_6,omitempty" json:"frames_tx_pri_6,omitempty"'];
+    uint64 FRAMES_TX_PRI_7                  = 37 [(go.field).tags = 'yaml:"frames_tx_pri_7,omitempty" json:"frames_tx_pri_7,omitempty"'];
+    uint64 FRAMES_RX_DROPPED                = 38 [(go.field).tags = 'yaml:"frames_rx_dropped,omitempty" json:"frames_rx_dropped,omitempty"'];
+    uint64 FRAMES_RX_ALL                    = 39 [(go.field).tags = 'yaml:"frames_rx_all,omitempty" json:"frames_rx_all,omitempty"'];
+    uint64 FRAMES_RX_BAD_ALL                = 40 [(go.field).tags = 'yaml:"frames_rx_bad_all,omitempty" json:"frames_rx_bad_all,omitempty"'];
+    uint64 FRAMES_TX_ALL                    = 41 [(go.field).tags = 'yaml:"frames_tx_all,omitempty" json:"frames_tx_all,omitempty"'];
+    uint64 FRAMES_TX_BAD                    = 42 [(go.field).tags = 'yaml:"frames_tx_bad,omitempty" json:"frames_tx_bad,omitempty"'];
+    uint64 HW_TX_DROPPED                    = 43 [(go.field).tags = 'yaml:"hw_tx_dropped,omitempty" json:"hw_tx_dropped,omitempty"'];
+    uint64 HW_RX_DROPPED                    = 44 [(go.field).tags = 'yaml:"hw_rx_dropped,omitempty" json:"hw_rx_dropped,omitempty"'];
+}

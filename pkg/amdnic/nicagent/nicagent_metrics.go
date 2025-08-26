@@ -174,6 +174,51 @@ type metrics struct {
 	qpRqQcnNumAlphaTimerExpired  prometheus.GaugeVec
 	qpRqQcnNumCNPrcvd            prometheus.GaugeVec
 	qpRqQcnNumCNPprocessed       prometheus.GaugeVec
+
+	// Ethtool stats
+	ethTxPackets          prometheus.GaugeVec
+	ethTxBytes            prometheus.GaugeVec
+	ethRxPackets          prometheus.GaugeVec
+	ethRxBytes            prometheus.GaugeVec
+	ethFramesRxBroadcast  prometheus.GaugeVec
+	ethFramesRxMulticast  prometheus.GaugeVec
+	ethFramesTxBroadcast  prometheus.GaugeVec
+	ethFramesTxMulticast  prometheus.GaugeVec
+	ethFramesRxPause      prometheus.GaugeVec
+	ethFramesTxPause      prometheus.GaugeVec
+	ethFramesRx64b        prometheus.GaugeVec
+	ethFramesRx65b127b    prometheus.GaugeVec
+	ethFramesRx128b255b   prometheus.GaugeVec
+	ethFramesRx256b511b   prometheus.GaugeVec
+	ethFramesRx512b1023b  prometheus.GaugeVec
+	ethFramesRx1024b1518b prometheus.GaugeVec
+	ethFramesRx1519b2047b prometheus.GaugeVec
+	ethFramesRx2048b4095b prometheus.GaugeVec
+	ethFramesRx4096b8191b prometheus.GaugeVec
+	ethFramesRxBadFcs     prometheus.GaugeVec
+	ethFramesRxPri4       prometheus.GaugeVec
+	ethFramesTxPri4       prometheus.GaugeVec
+	ethFramesRxPri0       prometheus.GaugeVec
+	ethFramesRxPri1       prometheus.GaugeVec
+	ethFramesRxPri2       prometheus.GaugeVec
+	ethFramesRxPri3       prometheus.GaugeVec
+	ethFramesRxPri5       prometheus.GaugeVec
+	ethFramesRxPri6       prometheus.GaugeVec
+	ethFramesRxPri7       prometheus.GaugeVec
+	ethFramesTxPri0       prometheus.GaugeVec
+	ethFramesTxPri1       prometheus.GaugeVec
+	ethFramesTxPri2       prometheus.GaugeVec
+	ethFramesTxPri3       prometheus.GaugeVec
+	ethFramesTxPri5       prometheus.GaugeVec
+	ethFramesTxPri6       prometheus.GaugeVec
+	ethFramesTxPri7       prometheus.GaugeVec
+	ethFramesRxDropped    prometheus.GaugeVec
+	ethFramesRxAll        prometheus.GaugeVec
+	ethFramesRxBadAll     prometheus.GaugeVec
+	ethFramesTxAll        prometheus.GaugeVec
+	ethFramesTxBad        prometheus.GaugeVec
+	ethHwTxDropped        prometheus.GaugeVec
+	ethHwRxDropped        prometheus.GaugeVec
 }
 
 func (na *NICAgentClient) ResetMetrics() error {
@@ -439,6 +484,49 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String():       {Metric: na.m.qpRqQcnNumAlphaTimerExpired},
 		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_RCVD.String():                  {Metric: na.m.qpRqQcnNumCNPrcvd},
 		exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String():             {Metric: na.m.qpRqQcnNumCNPprocessed},
+		exportermetrics.NICMetricField_ETH_TX_PACKETS.String():                          {Metric: na.m.ethTxPackets},
+		exportermetrics.NICMetricField_ETH_TX_BYTES.String():                            {Metric: na.m.ethTxBytes},
+		exportermetrics.NICMetricField_ETH_RX_PACKETS.String():                          {Metric: na.m.ethRxPackets},
+		exportermetrics.NICMetricField_ETH_RX_BYTES.String():                            {Metric: na.m.ethRxBytes},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_BROADCAST.String():                 {Metric: na.m.ethFramesRxBroadcast},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_MULTICAST.String():                 {Metric: na.m.ethFramesRxMulticast},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_BROADCAST.String():                 {Metric: na.m.ethFramesTxBroadcast},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_MULTICAST.String():                 {Metric: na.m.ethFramesTxMulticast},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PAUSE.String():                     {Metric: na.m.ethFramesRxPause},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PAUSE.String():                     {Metric: na.m.ethFramesTxPause},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_64B.String():                       {Metric: na.m.ethFramesRx64b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_65B_127B.String():                  {Metric: na.m.ethFramesRx65b127b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_128B_255B.String():                 {Metric: na.m.ethFramesRx128b255b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_256B_511B.String():                 {Metric: na.m.ethFramesRx256b511b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_512B_1023B.String():                {Metric: na.m.ethFramesRx512b1023b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_1024B_1518B.String():               {Metric: na.m.ethFramesRx1024b1518b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_1519B_2047B.String():               {Metric: na.m.ethFramesRx1519b2047b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_2048B_4095B.String():               {Metric: na.m.ethFramesRx2048b4095b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_4096B_8191B.String():               {Metric: na.m.ethFramesRx4096b8191b},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_BAD_FCS.String():                   {Metric: na.m.ethFramesRxBadFcs},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI0.String():                      {Metric: na.m.ethFramesRxPri0},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI1.String():                      {Metric: na.m.ethFramesRxPri1},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI2.String():                      {Metric: na.m.ethFramesRxPri2},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI3.String():                      {Metric: na.m.ethFramesRxPri3},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI4.String():                      {Metric: na.m.ethFramesRxPri4},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI5.String():                      {Metric: na.m.ethFramesRxPri5},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI6.String():                      {Metric: na.m.ethFramesRxPri6},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI7.String():                      {Metric: na.m.ethFramesRxPri7},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI0.String():                      {Metric: na.m.ethFramesTxPri0},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI1.String():                      {Metric: na.m.ethFramesTxPri1},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI2.String():                      {Metric: na.m.ethFramesTxPri2},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI3.String():                      {Metric: na.m.ethFramesTxPri3},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI4.String():                      {Metric: na.m.ethFramesTxPri4},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI5.String():                      {Metric: na.m.ethFramesTxPri5},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI6.String():                      {Metric: na.m.ethFramesTxPri6},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI7.String():                      {Metric: na.m.ethFramesTxPri7},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_DROPPED.String():                   {Metric: na.m.ethFramesRxDropped},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_ALL.String():                       {Metric: na.m.ethFramesRxAll},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_BAD_ALL.String():                   {Metric: na.m.ethFramesRxBadAll},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_ALL.String():                       {Metric: na.m.ethFramesTxAll},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_BAD.String():                       {Metric: na.m.ethFramesTxBad},
+		exportermetrics.NICMetricField_ETH_HW_TX_DROPPED.String():                       {Metric: na.m.ethHwTxDropped},
+		exportermetrics.NICMetricField_ETH_HW_RX_DROPPED.String():                       {Metric: na.m.ethHwRxDropped},
 	}
 	logger.Log.Printf("Total NIC fields supported : %+v", len(fieldMetricsMap))
 }
@@ -947,6 +1035,221 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String()),
 			Help: "RecvQueue DCQCN number of Congestion notification packets processed",
 		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+
+		ethTxPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_tx_packets",
+			Help: "Number of transmitted packets",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethTxBytes: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_tx_bytes",
+			Help: "Number of transmitted bytes",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRxPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_rx_packets",
+			Help: "Number of received packets",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRxBytes: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_rx_bytes",
+			Help: "Number of received bytes",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_broadcast",
+			Help: "Number of broadcast frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_multicast",
+			Help: "Number of multicast frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_broadcast",
+			Help: "Number of broadcast frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_multicast",
+			Help: "Number of multicast frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pause",
+			Help: "Number of pause frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pause",
+			Help: "Number of pause frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx64b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_64b",
+			Help: "Number of 64-byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx65b127b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_65b_127b",
+			Help: "Number of 65-127 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx128b255b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_128b_255b",
+			Help: "Number of 128-255 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx256b511b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_256b_511b",
+			Help: "Number of 256-511 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx512b1023b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_512b_1023b",
+			Help: "Number of 512-1023 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx1024b1518b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_1024b_1518b",
+			Help: "Number of 1024-1518 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx1519b2047b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_1519b_2047b",
+			Help: "Number of 1519-2047 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx2048b4095b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_2048b_4095b",
+			Help: "Number of 2048-4095 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRx4096b8191b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_4096b_8191b",
+			Help: "Number of 4096-8191 byte frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxBadFcs: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_bad_fcs",
+			Help: "Number of frames received with bad FCS",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_4",
+			Help: "Number of priority 4 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_4",
+			Help: "Number of priority 4 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_0",
+			Help: "Number of priority 0 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_1",
+			Help: "Number of priority 1 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_2",
+			Help: "Number of priority 2 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_3",
+			Help: "Number of priority 3 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_5",
+			Help: "Number of priority 5 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_6",
+			Help: "Number of priority 6 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pri_7",
+			Help: "Number of priority 7 frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_0",
+			Help: "Number of priority 0 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_1",
+			Help: "Number of priority 1 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_2",
+			Help: "Number of priority 2 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_3",
+			Help: "Number of priority 3 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_5",
+			Help: "Number of priority 5 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_6",
+			Help: "Number of priority 6 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pri_7",
+			Help: "Number of priority 7 frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_dropped",
+			Help: "Number of frames dropped on receive",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_all",
+			Help: "Total number of frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesRxBadAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_bad_all",
+			Help: "Total number of bad frames received",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_all",
+			Help: "Total number of frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethFramesTxBad: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_bad",
+			Help: "Total number of bad frames transmitted",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethHwTxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_hw_tx_dropped",
+			Help: "Number of hardware transmitted dropped frames",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethHwRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_hw_rx_dropped",
+			Help: "Number of hardware received dropped frames",
+		}, append([]string{LabelLifName}, labels...)),
 	}
 	na.initFieldMetricsMap()
 }
