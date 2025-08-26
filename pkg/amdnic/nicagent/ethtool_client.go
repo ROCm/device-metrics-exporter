@@ -83,6 +83,9 @@ func yamlifyEthtoolOutput(res []byte) []byte {
 }
 
 func (ec *EthtoolClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
+	if !fetchEthtoolMetrics {
+		return nil
+	}
 	ec.Lock()
 	defer ec.Unlock()
 

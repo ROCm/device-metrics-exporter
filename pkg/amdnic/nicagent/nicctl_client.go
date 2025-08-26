@@ -82,6 +82,9 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 }
 
 func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload) error {
+	if !fetchPortMetrics {
+		return nil
+	}
 
 	portStatsOut, err := ExecWithContext("nicctl show port statistics -j")
 	if err != nil {
@@ -139,6 +142,9 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 }
 
 func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) error {
+	if !fetchLifMetrics {
+		return nil
+	}
 
 	lifStatsOut, err := ExecWithContext("nicctl show lif statistics -j")
 	if err != nil {
@@ -185,6 +191,9 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 
 func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) error {
 	var wg sync.WaitGroup
+	if !fetchQPMetrics {
+		return nil
+	}
 
 	for _, nic := range nc.na.nics {
 		for _, lif := range nic.Lifs {

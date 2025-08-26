@@ -37,12 +37,17 @@ var (
 		exportermetrics.NICMetricLabel_NIC_SERIAL_NUMBER.String(),
 		exportermetrics.NICMetricLabel_NIC_HOSTNAME.String(),
 	}
-	exportLabels      map[string]bool
-	exportFieldMap    map[string]bool
-	fieldMetricsMap   map[string]FieldMeta
-	customLabelMap    map[string]string
-	extraPodLabelsMap map[string]string
-	k8PodLabelsMap    map[string]map[string]string
+	exportLabels        map[string]bool
+	exportFieldMap      map[string]bool
+	fieldMetricsMap     map[string]FieldMeta
+	customLabelMap      map[string]string
+	extraPodLabelsMap   map[string]string
+	k8PodLabelsMap      map[string]map[string]string
+	fetchRdmaMetrics    bool
+	fetchEthtoolMetrics bool
+	fetchPortMetrics    bool
+	fetchLifMetrics     bool
+	fetchQPMetrics      bool
 )
 
 type FieldMeta struct {
@@ -375,21 +380,54 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	for _, name := range exportermetrics.NICMetricField_name {
 		exportFieldMap[name] = enable_default
 	}
+
+	fetchRdmaMetrics = false
+	fetchEthtoolMetrics = false
+	fetchPortMetrics = false
+	fetchLifMetrics = false
+	fetchQPMetrics = false
+
 	if config == nil || len(config.GetFields()) == 0 {
+		fetchRdmaMetrics = true
+		fetchEthtoolMetrics = true
+		fetchPortMetrics = true
+		fetchLifMetrics = true
+		fetchQPMetrics = true
+		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, Lif: %v, QP: %v}",
+			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchLifMetrics, fetchQPMetrics)
 		return
 	}
+
 	for _, fieldName := range config.GetFields() {
 		fieldName = strings.ToUpper(fieldName)
 		if _, ok := exportFieldMap[fieldName]; ok {
 			exportFieldMap[fieldName] = true
 		}
+
+		switch {
+		case strings.HasPrefix(fieldName, "RDMA_"):
+			fetchRdmaMetrics = true
+		case strings.HasPrefix(fieldName, "ETH_"):
+			fetchEthtoolMetrics = true
+		case strings.HasPrefix(fieldName, "NIC_PORT_"):
+			fetchPortMetrics = true
+		case strings.HasPrefix(fieldName, "NIC_LIF_"):
+			fetchLifMetrics = true
+		case strings.HasPrefix(fieldName, "QP_"):
+			fetchQPMetrics = true
+		default:
+			logger.Log.Printf("unhandled %v field in fetch enable check", fieldName)
+		}
 	}
+
 	// print disabled short list
 	for k, v := range exportFieldMap {
 		if !v {
 			logger.Log.Printf("%v field is disabled", k)
 		}
 	}
+	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, Lif: %v, QP: %v}",
+		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchLifMetrics, fetchQPMetrics)
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {

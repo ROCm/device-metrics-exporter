@@ -76,6 +76,9 @@ func (rc *RDMAStatsClient) checkAndUpdateRdmaIfMap(rdmaIf string) error {
 }
 
 func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
+	if !fetchRdmaMetrics {
+		return nil
+	}
 	rc.Lock()
 	defer rc.Unlock()
 	res, err := exec.Command("rdma", "statistic", "-j").CombinedOutput()
