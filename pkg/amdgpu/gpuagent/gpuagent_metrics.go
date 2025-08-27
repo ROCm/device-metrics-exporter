@@ -19,6 +19,7 @@ package gpuagent
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
@@ -54,6 +55,7 @@ var (
 		exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String(),
 		exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String(),
+		exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String(),
 	}
 	// List of supported labels that can be customized
 	allowedCustomLabels = []string{
@@ -1723,6 +1725,21 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 				}
 				trimmedValue := strings.TrimPrefix(partitionType.String(), "GPU_MEMORY_PARTITION_TYPE_")
 				labels[key] = strings.ToLower(trimmedValue)
+			}
+		case exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String():
+			if gpu != nil {
+				if len(gpu.Status.KFDProcessId) > 0 {
+					sort.SliceStable(gpu.Status.KFDProcessId, func(i, j int) bool {
+						return gpu.Status.KFDProcessId[i] < gpu.Status.KFDProcessId[j]
+					})
+					processIds := make([]string, len(gpu.Status.KFDProcessId))
+					for i, pid := range gpu.Status.KFDProcessId {
+						processIds[i] = fmt.Sprintf("%v", pid)
+					}
+					labels[key] = strings.Join(processIds, ",")
+				} else {
+					labels[key] = ""
+				}
 			}
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)

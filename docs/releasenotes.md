@@ -12,6 +12,11 @@
 - **Slinky**
   - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
 
+- **New Label**
+  - `KFD_PROCESS_ID` label will  now report the process ID using the
+  	respective GPU. This enables baremetal debian deployments to have job
+  	information where no scheduler is used.
+
 ### Platform Support
 ROCm 7.0.rc1 MI2xx, MI3xx
 

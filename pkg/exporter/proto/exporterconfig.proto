@@ -265,6 +265,8 @@ enum GPUMetricLabel {
     GPU_COMPUTE_PARTITION_TYPE = 17;
     // mandatory field GPU_MEMORY_PARTITION_TYPE cannot be disabled
     GPU_MEMORY_PARTITION_TYPE  = 18;
+    // KFD_PROCESS_ID cannot be disabled
+    KFD_PROCESS_ID             = 19;
 }
 
 message GPUMetricConfig {
