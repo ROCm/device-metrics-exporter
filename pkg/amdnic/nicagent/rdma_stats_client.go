@@ -103,7 +103,7 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 		rdmaIfName := rdmaStats[i].IFNAME
 		rdmaIfPcieAddr := rc.rdmaIfMap[rdmaIfName]
 		labels[LabelRdmaIfName] = rdmaIfName
-		labels[LabelRdmaIfPcieAddr] = rdmaIfPcieAddr
+		labels[LabelPcieBusId] = rdmaIfPcieAddr
 		workloadLabels := rc.na.getAssociatedWorkloadLabelsForPcieAddr(rdmaIfPcieAddr, workloads)
 		for k, v := range workloadLabels {
 			labels[k] = v

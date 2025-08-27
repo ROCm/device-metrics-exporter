@@ -30,7 +30,7 @@ const (
 	// RoCE Interface name label for RDMA  metrics
 	LabelRdmaIfName = "rdma_if_name"
 	// Netdevice name label for RDMA  metrics
-	LabelRdmaIfPcieAddr = "rdma_if_pcie_addr"
+	LabelPcieBusId = "pcie_bus_id"
 	// Lif name label for Lif metrics
 	LabelLifName = "lif_name"
 	// Queue-Pair ID for QP metrics

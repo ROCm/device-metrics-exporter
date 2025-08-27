@@ -109,6 +109,7 @@ func (ec *EthtoolClient) UpdateNICStats(workloads map[string]scheduler.Workload)
 			}
 
 			labels[LabelLifName] = lif.Name
+			labels[LabelPcieBusId] = lif.PCIeAddress
 
 			ec.na.m.ethTxPackets.With(labels).Set(float64(ethtoolStats.TX_PACKETS))
 			ec.na.m.ethTxBytes.With(labels).Set(float64(ethtoolStats.TX_BYTES))

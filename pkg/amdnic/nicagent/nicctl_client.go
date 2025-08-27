@@ -105,6 +105,7 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 			portID := nc.na.nics[nic.ID].GetPortIndex()
 			labels[LabelPortName] = portName
 			labels[LabelPortID] = portID
+			labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetPortPcieAddr()
 
 			// rx counters
 			nc.na.m.nicPortStatsFramesRxOk.With(labels).Set(float64(utils.StringToUint64(port.Statistics.FRAMES_RX_OK)))
@@ -164,6 +165,7 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 			// Add additional labels for NIC metrics
 			labels[LabelLifName] = nc.na.nics[nic.ID].GetLifName(lif.Spec.ID)
 			labels[LabelPortName] = nc.na.nics[nic.ID].GetPortName()
+			labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetLifPcieAddr(lif.Spec.ID)
 
 			// rx counters
 			nc.na.m.nicLifStatsRxUnicastPackets.With(labels).Set(float64(utils.StringToUint64(lif.Statistics.RX_UNICAST_PACKETS)))
@@ -216,6 +218,7 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 						}
 						// Add LIF labels for QP metrics
 						labels[LabelLifName] = nc.na.nics[nic.ID].GetLifName(qplif.Spec.ID)
+						labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetLifPcieAddr(qplif.Spec.ID)
 
 						for _, qp := range qplif.QPStatsList {
 							// Add QueuePair ID label

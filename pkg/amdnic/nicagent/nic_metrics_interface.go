@@ -76,10 +76,25 @@ func (n *NIC) GetPortIndex() string {
 	return ""
 }
 
+// GetPortPcieAddr returns the pcie bus id of the Port associated with the given NIC.
+// When multi-port NIC support is added later , all 3 port fns in this file needs
+// to be modified to take port UUID as input param.
+func (n *NIC) GetPortPcieAddr() string {
+	return n.EthBDF
+}
+
 // GetLifName returns the name of the lif associated with the given UUID.
 func (n *NIC) GetLifName(uuid string) string {
 	if lif, ok := n.Lifs[uuid]; ok {
 		return lif.Name
+	}
+	return ""
+}
+
+// GetLifPcieAddr returns the pcie bus id of the lif associated with the given UUID.
+func (n *NIC) GetLifPcieAddr(uuid string) string {
+	if lif, ok := n.Lifs[uuid]; ok {
+		return lif.PCIeAddress
 	}
 	return ""
 }

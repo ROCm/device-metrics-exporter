@@ -581,787 +581,787 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsFramesRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OK.String()),
 			Help: "Counts the number of valid network frames that were successfully received",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_ALL.String()),
 			Help: "Total number of all frames received by the device",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxBadFcs: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String()),
 			Help: "Bad frames received due to a Frame Check Sequence (FCS) error on a network port",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxBadAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_ALL.String()),
 			Help: "Total number of frames received on a network port that are bad",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PAUSE.String()),
 			Help: "Total number of pause frames received on a network port",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxBadLength: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_LENGTH.String()),
 			Help: "Total number of frames received that have an incorrect or invalid length",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxUndersized: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_UNDERSIZED.String()),
 			Help: "Total number of frames received that are smaller than the minimum frame size allowed by the network protocol",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxOversized: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OVERSIZED.String()),
 			Help: " Total number of frames received that exceed the maximum allowed size for the network protocol",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxFragments: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_FRAGMENTS.String()),
 			Help: "Total number of frames received that are fragments of larger packets",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxJabber: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_JABBER.String()),
 			Help: "Total number of frames received that are considered jabber frames",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxPripause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRIPAUSE.String()),
 			Help: "Total number of priority pause frames received",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxStompedCrc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC.String()),
 			Help: "Total number of frames received that had a valid CRC (Cyclic Redundancy Check) but were stomped",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxTooLong: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_TOO_LONG.String()),
 			Help: "Total number of frames received that exceed the maximum allowable size for frames on the network",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_DROPPED.String()),
 			Help: "Total number of frames that were received but dropped due to various reasons such as buffer overflows or hardware limitations",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_OK.String()),
 			Help: "Counts the number of valid network frames that were successfully transmitted",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_ALL.String()),
 			Help: "Total number of all frames transmitted by the device",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxBad: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_BAD.String()),
 			Help: "Total number of transmitted frames that are considered bad",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PAUSE.String()),
 			Help: "Total number of pause frames transmitted",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxPripause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRIPAUSE.String()),
 			Help: "Total number of priority pause frames transmitted",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxLessThan64b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B.String()),
 			Help: "Total number of frames transmitted that are smaller than the minimum frame size i.e 64 bytes",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsFramesTxTruncated: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_TRUNCATED.String()),
 			Help: "Total number of frames that were transmitted but truncated",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsRsfecCorrectableWord: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD.String()),
 			Help: "Total number of RS-FEC (Reed-Solomon Forward Error Correction) correctable words received or transmitted",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsRsfecChSymbolErrCnt: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String()),
 			Help: "Total count of channel symbol errors detected by the RS-FEC (Reed-Solomon Forward Error Correction) mechanism",
-		}, append([]string{LabelPortName, LabelPortID}, labels...)),
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		/* RDMA stats */
 		rdmaTxUcastPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String()),
 			Help: "Tx RDMA Unicast Packets",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaTxCnpPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_TX_CNP_PKTS.String()),
 			Help: "Tx RDMA Congestion Notification Packets",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRxUcastPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RX_UCAST_PKTS.String()),
 			Help: "Rx RDMA Ucast Pkts ",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRxCnpPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RX_CNP_PKTS.String()),
 			Help: "Rx RDMA Congestion Notification Packets",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRxEcnPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RX_ECN_PKTS.String()),
 			Help: "Rx RDMA Explicit Congestion Notification Packets",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxPktSeqErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_PKT_SEQ_ERR.String()),
 			Help: "Request Rx packet sequence errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxRnrRetryErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_RNR_RETRY_ERR.String()),
 			Help: "Request Rx receiver not ready retry errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxRmtAccErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_RMT_ACC_ERR.String()),
 			Help: "Request Rx remote access errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxRmtReqErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_RMT_REQ_ERR.String()),
 			Help: "Request Rx remote request errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxOperErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_OPER_ERR.String()),
 			Help: "Request Rx remote oper errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxImplNakSeqErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_IMPL_NAK_SEQ_ERR.String()),
 			Help: "Request Rx implicit negative acknowledgment errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxCqeErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_CQE_ERR.String()),
 			Help: "Request Rx completion queue errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxCqeFlush: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_CQE_FLUSH.String()),
 			Help: "Request Rx completion queue flush count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxDupResp: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_DUP_RESP.String()),
 			Help: "Request Rx duplicate response errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqRxInvalidPkts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_RX_INVALID_PKTS.String()),
 			Help: "Request Rx invalid pkts ",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqTxLocErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_ERR.String()),
 			Help: "Request Tx local errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqTxLocOperErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_OPER_ERR.String()),
 			Help: "Request Tx local operation errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqTxMemMgmtErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_TX_MEM_MGMT_ERR.String()),
 			Help: "Request Tx memory management errors ",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqTxRetryExcdErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_TX_RETRY_EXCD_ERR.String()),
 			Help: "Request Tx Retry exceeded errors ",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaReqTxLocSglInvErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_REQ_TX_LOC_SGL_INV_ERR.String()),
 			Help: "Request Tx local signal inversion errors ",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxDupRequest: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_DUP_REQUEST.String()),
 			Help: "Response Rx duplicate request count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxOutofBuf: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOF_BUF.String()),
 			Help: "Response Rx out of buffer count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxOutoufSeq: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOUF_SEQ.String()),
 			Help: "Response Rx out of sequence count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxCqeErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_CQE_ERR.String()),
 			Help: "Response Rx completion queue errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxCqeFlush: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_CQE_FLUSH.String()),
 			Help: "Response Rx completion queue flush",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxLocLenErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_LOC_LEN_ERR.String()),
 			Help: "Response Rx local length errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxInvalidRequest: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_INVALID_REQUEST.String()),
 			Help: "Response Rx invalid requests count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxLocOperErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_LOC_OPER_ERR.String()),
 			Help: "Response Rx local operation errors",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxOutofAtomic: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_OUTOF_ATOMIC.String()),
 			Help: "Response Rx without atomic guarantee count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxPktSeqErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_PKT_SEQ_ERR.String()),
 			Help: "Response Tx packet sequence error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxRmtInvalReqErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_INVAL_REQ_ERR.String()),
 			Help: "Response Tx remote invalid request count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxRmtAccErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_ACC_ERR.String()),
 			Help: "Response Tx remote access error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxRmtOperErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_RMT_OPER_ERR.String()),
 			Help: "Response Tx remote operation error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxRnrRetryErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_RNR_RETRY_ERR.String()),
 			Help: "Response Tx retry not required error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespTxLocSglInvErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_TX_LOC_SGL_INV_ERR.String()),
 			Help: "Response Tx local signal inversion error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		rdmaRespRxS0TableErr: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_RDMA_RESP_RX_S0_TABLE_ERR.String()),
 			Help: "Response rx S0 Table error count",
-		}, append(append([]string{LabelRdmaIfName, LabelRdmaIfPcieAddr}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelRdmaIfName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		/* Lif stats */
 		nicLifStatsRxUnicastPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_RX_UNICAST_PACKETS.String()),
 			Help: "Total number of unicast packets received by the NIC",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsRxUnicastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_RX_UNICAST_DROP_PACKETS.String()),
 			Help: "Number of unicast packets that were dropped during reception",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsRxMulticastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_RX_MULTICAST_DROP_PACKETS.String()),
 			Help: "Number of multicast packets that were dropped during reception",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsRxBroadcastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_RX_BROADCAST_DROP_PACKETS.String()),
 			Help: "Number of broadcast packets that were dropped during reception",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsRxDMAErrors: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_RX_DMA_ERRORS.String()),
 			Help: "Number of errors encountered while performing Direct Memory Access (DMA) during packet reception",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsTxUnicastPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_UNICAST_PACKETS.String()),
 			Help: "Total number of unicast packets transmitted by the NIC",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsTxUnicastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_UNICAST_DROP_PACKETS.String()),
 			Help: "Number of unicast packets that were dropped during transmission",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsTxMulticastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_MULTICAST_DROP_PACKETS.String()),
 			Help: "Number of multicast packets that were dropped during transmission",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsTxBroadcastDropPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_BROADCAST_DROP_PACKETS.String()),
 			Help: "Number of broadcast packets that were dropped during transmission",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		nicLifStatsTxDMAErrors: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_LIF_STATS_TX_DMA_ERRORS.String()),
 			Help: "Number of errors encountered while performing Direct Memory Access (DMA) during packet transmission",
-		}, append(append([]string{LabelPortName, LabelLifName}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelPortName, LabelLifName, LabelPcieBusId}, labels...), workloadLabels...)),
 
 		/* QP  stats */
 		qpSqReqTxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_PACKET.String()),
 			Help: "SendQueue Requester Tx packets ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqTxNumSendMsgsRke: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE.String()),
 			Help: "SendQueue Requester Tx num send msgs with invalid remote key error ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqTxNumLocalAckTimeouts: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS.String()),
 			Help: "SendQueue Requester Tx local ACK timeouts ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqTxRnrTimeout: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_RNR_TIMEOUT.String()),
 			Help: "SendQueue Requester Tx receiver not ready timeouts ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqTxTimesSQdrained: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_TIMES_SQ_DRAINED.String()),
 			Help: "SendQueue Requester Tx times Send queue is drained ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqTxNumCNPsent: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_CNP_SENT.String()),
 			Help: "SendQueue Requester Tx number of Congestion notification packets sents ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		qpSqReqRxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PACKET.String()),
 			Help: "SendQueue Requester Rx packets ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqReqRxNumPacketsEcnMarked: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING.String()),
 			Help: "SendQueue Requester Rx packets with explicit congestion notification marking ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		qpSqQcnCurrByteCounter: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_CURR_BYTE_COUNTER.String()),
 			Help: "SendQueue DCQCN Current Byte Counter ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqQcnNumByteCounterExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String()),
 			Help: "SendQueue DCQCN number of byte counter expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqQcnNumTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_TIMER_EXPIRED.String()),
 			Help: "SendQueue DCQCN number of timer expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqQcnNumAlphaTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String()),
 			Help: "SendQueue DCQCN number of alpha timer expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqQcnNumCNPrcvd: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_RCVD.String()),
 			Help: "SendQueue DCQCN number of Congestion notification packets received",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpSqQcnNumCNPprocessed: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_PROCESSED.String()),
 			Help: "SendQueue DCQCN number of Congestion notification packets processed",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		qpRqRspTxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_PACKET.String()),
 			Help: "RecvQueue Responder Tx number of packets ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspTxRnrError: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_RNR_ERROR.String()),
 			Help: "RecvQueue Responder Tx receiver nor ready errors ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspTxNumSequenceError: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR.String()),
 			Help: "RecvQueue Responder Tx number of sequence errors ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspTxRPByteThresholdHits: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT.String()),
 			Help: "RecvQueue Responder Tx number of RP byte threhshold hit ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspTxRPMaxRateHits: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT.String()),
 			Help: "RecvQueue Responder Tx number of RP max rate hit ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		qpRqRspRxNumPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PACKET.String()),
 			Help: "RecvQueue Responder Rx number of packets",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumSendMsgsRke: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE.String()),
 			Help: "RecvQueue Responder Rx number of send msgs with invalid remote key error ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumPacketsEcnMarked: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING.String()),
 			Help: "RecvQueue Responder Rx number of pkts with ECN marking ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumCNPsReceived: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED.String()),
 			Help: "RecvQueue Responder Rx number of CNP pkts ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxMaxRecircDrop: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP.String()),
 			Help: "RecvQueue Responder Rx max recirculation execeeded packet drop ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumMemWindowInvalid: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID.String()),
 			Help: "RecvQueue Responder Rx number of memory window invalidate msg ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumDuplWriteSendOpc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC.String()),
 			Help: "RecvQueue Responder Rx number of duplicate pkts with write send opcode ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumDupReadBacktrack: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK.String()),
 			Help: "RecvQueue Responder Rx number of duplicate read atomic backtrack packet ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqRspRxNumDupReadDrop: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP.String()),
 			Help: "RecvQueue Responder Rx number of duplicate read atomic backtrack packet ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		qpRqQcnCurrByteCounter: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_CURR_BYTE_COUNTER.String()),
 			Help: "RecvQueue DCQCN Current Byte Counter ",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqQcnNumByteCounterExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String()),
 			Help: "RecvQueue DCQCN number of byte counter expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqQcnNumTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_TIMER_EXPIRED.String()),
 			Help: "RecvQueue DCQCN number of timer expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqQcnNumAlphaTimerExpired: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String()),
 			Help: "RecvQueue DCQCN number of alpha timer expired",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqQcnNumCNPrcvd: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_RCVD.String()),
 			Help: "RecvQueue DCQCN number of Congestion notification packets received",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 		qpRqQcnNumCNPprocessed: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String()),
 			Help: "RecvQueue DCQCN number of Congestion notification packets processed",
-		}, append(append([]string{LabelLifName, LabelQPID}, labels...), workloadLabels...)),
+		}, append(append([]string{LabelLifName, LabelPcieBusId, LabelQPID}, labels...), workloadLabels...)),
 
 		ethTxPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_tx_packets",
 			Help: "Number of transmitted packets",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethTxBytes: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_tx_bytes",
 			Help: "Number of transmitted bytes",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRxPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_rx_packets",
 			Help: "Number of received packets",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRxBytes: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_rx_bytes",
 			Help: "Number of received bytes",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_broadcast",
 			Help: "Number of broadcast frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_multicast",
 			Help: "Number of multicast frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_broadcast",
 			Help: "Number of broadcast frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_multicast",
 			Help: "Number of multicast frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pause",
 			Help: "Number of pause frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pause",
 			Help: "Number of pause frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx64b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_64b",
 			Help: "Number of 64-byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx65b127b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_65b_127b",
 			Help: "Number of 65-127 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx128b255b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_128b_255b",
 			Help: "Number of 128-255 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx256b511b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_256b_511b",
 			Help: "Number of 256-511 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx512b1023b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_512b_1023b",
 			Help: "Number of 512-1023 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx1024b1518b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_1024b_1518b",
 			Help: "Number of 1024-1518 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx1519b2047b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_1519b_2047b",
 			Help: "Number of 1519-2047 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx2048b4095b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_2048b_4095b",
 			Help: "Number of 2048-4095 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRx4096b8191b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_4096b_8191b",
 			Help: "Number of 4096-8191 byte frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxBadFcs: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_bad_fcs",
 			Help: "Number of frames received with bad FCS",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_4",
 			Help: "Number of priority 4 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_4",
 			Help: "Number of priority 4 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_0",
 			Help: "Number of priority 0 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_1",
 			Help: "Number of priority 1 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_2",
 			Help: "Number of priority 2 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_3",
 			Help: "Number of priority 3 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_5",
 			Help: "Number of priority 5 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_6",
 			Help: "Number of priority 6 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_pri_7",
 			Help: "Number of priority 7 frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_0",
 			Help: "Number of priority 0 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_1",
 			Help: "Number of priority 1 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_2",
 			Help: "Number of priority 2 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_3",
 			Help: "Number of priority 3 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_5",
 			Help: "Number of priority 5 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_6",
 			Help: "Number of priority 6 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pri_7",
 			Help: "Number of priority 7 frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_dropped",
 			Help: "Number of frames dropped on receive",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_all",
 			Help: "Total number of frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesRxBadAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_rx_bad_all",
 			Help: "Total number of bad frames received",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_all",
 			Help: "Total number of frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethFramesTxBad: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_bad",
 			Help: "Total number of bad frames transmitted",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethHwTxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_hw_tx_dropped",
 			Help: "Number of hardware transmitted dropped frames",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethHwRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_hw_rx_dropped",
 			Help: "Number of hardware received dropped frames",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx0Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_0_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 0",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx1Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_1_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 1",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx2Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_2_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 2",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx3Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_3_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 3",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx4Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_4_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 4",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx5Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_5_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 5",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx6Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_6_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 6",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx7Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_7_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 7",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx8Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_8_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 8",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx9Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_9_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 9",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx10Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_10_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 10",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx11Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_11_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 11",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx12Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_12_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 12",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx13Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_13_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 13",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx14Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_14_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 14",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 
 		ethRx15Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_15_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 15",
-		}, append([]string{LabelLifName}, labels...)),
+		}, append([]string{LabelLifName, LabelPcieBusId}, labels...)),
 	}
 	na.initFieldMetricsMap()
 }
