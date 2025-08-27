@@ -18,6 +18,11 @@ html_theme = "rocm_docs_theme"
 html_theme_options = {
     "flavor": "instinct",
     "repository_url": "https://github.com/rocm/device-metrics-exporter",
+    # Add any additional theme options here
+    "announcement": (
+        "You're viewing documentation from a development branch. "
+        "Please switch to the release branch for the officially released documentation."
+    ),
 }
 
 extensions = [
