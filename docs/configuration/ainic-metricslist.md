@@ -159,6 +159,22 @@ The following table contains a full list of AINIC Metrics that are available usi
 | ETH_FRAMES_TX_BAD                        | Total number of bad frames transmitted                                      |
 | ETH_HW_TX_DROPPED                        | Count of hardware transmitted dropped frames                                |
 | ETH_HW_RX_DROPPED                        | Count of hardware received dropped frames                                   |
+| ETH_RX_0_DROPPED                         | Count of packets dropped on receive queue 0                                 |
+| ETH_RX_1_DROPPED                         | Count of packets dropped on receive queue 1                                 |
+| ETH_RX_2_DROPPED                         | Count of packets dropped on receive queue 2                                 |
+| ETH_RX_3_DROPPED                         | Count of packets dropped on receive queue 3                                 |
+| ETH_RX_4_DROPPED                         | Count of packets dropped on receive queue 4                                 |
+| ETH_RX_5_DROPPED                         | Count of packets dropped on receive queue 5                                 |
+| ETH_RX_6_DROPPED                         | Count of packets dropped on receive queue 6                                 |
+| ETH_RX_7_DROPPED                         | Count of packets dropped on receive queue 7                                 |
+| ETH_RX_8_DROPPED                         | Count of packets dropped on receive queue 8                                 |
+| ETH_RX_9_DROPPED                         | Count of packets dropped on receive queue 9                                 |
+| ETH_RX_10_DROPPED                        | Count of packets dropped on receive queue 10                                |
+| ETH_RX_11_DROPPED                        | Count of packets dropped on receive queue 11                                |
+| ETH_RX_12_DROPPED                        | Count of packets dropped on receive queue 12                                |
+| ETH_RX_13_DROPPED                        | Count of packets dropped on receive queue 13                                |
+| ETH_RX_14_DROPPED                        | Count of packets dropped on receive queue 14                                |
+| ETH_RX_15_DROPPED                        | Count of packets dropped on receive queue 15                                |
 
 
 

@@ -101,4 +101,20 @@ message EthtoolStats {
     uint64 FRAMES_TX_BAD                    = 42 [(go.field).tags = 'yaml:"frames_tx_bad,omitempty" json:"frames_tx_bad,omitempty"'];
     uint64 HW_TX_DROPPED                    = 43 [(go.field).tags = 'yaml:"hw_tx_dropped,omitempty" json:"hw_tx_dropped,omitempty"'];
     uint64 HW_RX_DROPPED                    = 44 [(go.field).tags = 'yaml:"hw_rx_dropped,omitempty" json:"hw_rx_dropped,omitempty"'];
+    uint64 RX_0_DROPPED                     = 45 [(go.field).tags = 'yaml:"rx_0_dropped,omitempty" json:"rx_0_dropped,omitempty"'];
+    uint64 RX_1_DROPPED                     = 46 [(go.field).tags = 'yaml:"rx_1_dropped,omitempty" json:"rx_1_dropped,omitempty"'];
+    uint64 RX_2_DROPPED                     = 47 [(go.field).tags = 'yaml:"rx_2_dropped,omitempty" json:"rx_2_dropped,omitempty"'];
+    uint64 RX_3_DROPPED                     = 48 [(go.field).tags = 'yaml:"rx_3_dropped,omitempty" json:"rx_3_dropped,omitempty"'];
+    uint64 RX_4_DROPPED                     = 49 [(go.field).tags = 'yaml:"rx_4_dropped,omitempty" json:"rx_4_dropped,omitempty"'];
+    uint64 RX_5_DROPPED                     = 50 [(go.field).tags = 'yaml:"rx_5_dropped,omitempty" json:"rx_5_dropped,omitempty"'];
+    uint64 RX_6_DROPPED                     = 51 [(go.field).tags = 'yaml:"rx_6_dropped,omitempty" json:"rx_6_dropped,omitempty"'];
+    uint64 RX_7_DROPPED                     = 52 [(go.field).tags = 'yaml:"rx_7_dropped,omitempty" json:"rx_7_dropped,omitempty"'];
+    uint64 RX_8_DROPPED                     = 53 [(go.field).tags = 'yaml:"rx_8_dropped,omitempty" json:"rx_8_dropped,omitempty"'];
+    uint64 RX_9_DROPPED                     = 54 [(go.field).tags = 'yaml:"rx_9_dropped,omitempty" json:"rx_9_dropped,omitempty"'];
+    uint64 RX_10_DROPPED                    = 55 [(go.field).tags = 'yaml:"rx_10_dropped,omitempty" json:"rx_10_dropped,omitempty"'];
+    uint64 RX_11_DROPPED                    = 56 [(go.field).tags = 'yaml:"rx_11_dropped,omitempty" json:"rx_11_dropped,omitempty"'];
+    uint64 RX_12_DROPPED                    = 57 [(go.field).tags = 'yaml:"rx_12_dropped,omitempty" json:"rx_12_dropped,omitempty"'];
+    uint64 RX_13_DROPPED                    = 58 [(go.field).tags = 'yaml:"rx_13_dropped,omitempty" json:"rx_13_dropped,omitempty"'];
+    uint64 RX_14_DROPPED                    = 59 [(go.field).tags = 'yaml:"rx_14_dropped,omitempty" json:"rx_14_dropped,omitempty"'];
+    uint64 RX_15_DROPPED                    = 60 [(go.field).tags = 'yaml:"rx_15_dropped,omitempty" json:"rx_15_dropped,omitempty"'];
 }

@@ -219,6 +219,22 @@ type metrics struct {
 	ethFramesTxBad        prometheus.GaugeVec
 	ethHwTxDropped        prometheus.GaugeVec
 	ethHwRxDropped        prometheus.GaugeVec
+	ethRx0Dropped         prometheus.GaugeVec
+	ethRx1Dropped         prometheus.GaugeVec
+	ethRx2Dropped         prometheus.GaugeVec
+	ethRx3Dropped         prometheus.GaugeVec
+	ethRx4Dropped         prometheus.GaugeVec
+	ethRx5Dropped         prometheus.GaugeVec
+	ethRx6Dropped         prometheus.GaugeVec
+	ethRx7Dropped         prometheus.GaugeVec
+	ethRx8Dropped         prometheus.GaugeVec
+	ethRx9Dropped         prometheus.GaugeVec
+	ethRx10Dropped        prometheus.GaugeVec
+	ethRx11Dropped        prometheus.GaugeVec
+	ethRx12Dropped        prometheus.GaugeVec
+	ethRx13Dropped        prometheus.GaugeVec
+	ethRx14Dropped        prometheus.GaugeVec
+	ethRx15Dropped        prometheus.GaugeVec
 }
 
 func (na *NICAgentClient) ResetMetrics() error {
@@ -527,6 +543,22 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_BAD.String():                       {Metric: na.m.ethFramesTxBad},
 		exportermetrics.NICMetricField_ETH_HW_TX_DROPPED.String():                       {Metric: na.m.ethHwTxDropped},
 		exportermetrics.NICMetricField_ETH_HW_RX_DROPPED.String():                       {Metric: na.m.ethHwRxDropped},
+		exportermetrics.NICMetricField_ETH_RX_0_DROPPED.String():                        {Metric: na.m.ethRx0Dropped},
+		exportermetrics.NICMetricField_ETH_RX_1_DROPPED.String():                        {Metric: na.m.ethRx1Dropped},
+		exportermetrics.NICMetricField_ETH_RX_2_DROPPED.String():                        {Metric: na.m.ethRx2Dropped},
+		exportermetrics.NICMetricField_ETH_RX_3_DROPPED.String():                        {Metric: na.m.ethRx3Dropped},
+		exportermetrics.NICMetricField_ETH_RX_4_DROPPED.String():                        {Metric: na.m.ethRx4Dropped},
+		exportermetrics.NICMetricField_ETH_RX_5_DROPPED.String():                        {Metric: na.m.ethRx5Dropped},
+		exportermetrics.NICMetricField_ETH_RX_6_DROPPED.String():                        {Metric: na.m.ethRx6Dropped},
+		exportermetrics.NICMetricField_ETH_RX_7_DROPPED.String():                        {Metric: na.m.ethRx7Dropped},
+		exportermetrics.NICMetricField_ETH_RX_8_DROPPED.String():                        {Metric: na.m.ethRx8Dropped},
+		exportermetrics.NICMetricField_ETH_RX_9_DROPPED.String():                        {Metric: na.m.ethRx9Dropped},
+		exportermetrics.NICMetricField_ETH_RX_10_DROPPED.String():                       {Metric: na.m.ethRx10Dropped},
+		exportermetrics.NICMetricField_ETH_RX_11_DROPPED.String():                       {Metric: na.m.ethRx11Dropped},
+		exportermetrics.NICMetricField_ETH_RX_12_DROPPED.String():                       {Metric: na.m.ethRx12Dropped},
+		exportermetrics.NICMetricField_ETH_RX_13_DROPPED.String():                       {Metric: na.m.ethRx13Dropped},
+		exportermetrics.NICMetricField_ETH_RX_14_DROPPED.String():                       {Metric: na.m.ethRx14Dropped},
+		exportermetrics.NICMetricField_ETH_RX_15_DROPPED.String():                       {Metric: na.m.ethRx15Dropped},
 	}
 	logger.Log.Printf("Total NIC fields supported : %+v", len(fieldMetricsMap))
 }
@@ -1249,6 +1281,86 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		ethHwRxDropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_hw_rx_dropped",
 			Help: "Number of hardware received dropped frames",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx0Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_0_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 0",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx1Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_1_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 1",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx2Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_2_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 2",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx3Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_3_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 3",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx4Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_4_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 4",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx5Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_5_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 5",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx6Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_6_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 6",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx7Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_7_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 7",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx8Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_8_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 8",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx9Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_9_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 9",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx10Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_10_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 10",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx11Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_11_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 11",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx12Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_12_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 12",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx13Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_13_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 13",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx14Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_14_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 14",
+		}, append([]string{LabelLifName}, labels...)),
+
+		ethRx15Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_15_DROPPED.String()),
+			Help: "Count of packets dropped on receive queue 15",
 		}, append([]string{LabelLifName}, labels...)),
 	}
 	na.initFieldMetricsMap()
