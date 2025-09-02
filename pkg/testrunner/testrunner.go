@@ -894,7 +894,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 
 	select {
 	case <-time.After(time.Duration(Deref(parameters.TestCases[0].TimeoutSeconds)) * time.Second * time.Duration(Deref(parameters.TestCases[0].Iterations))):
-		logger.Log.Printf("Trigger: %v Test: %v GPU Indexes: %v timeout", trigger, parameters.TestCases[0].Recipe, validIDs)
+		logger.Log.Printf("Trigger: %v Test: %v GPU Indexes: %v timeout", trigger, Deref(parameters.TestCases[0].Recipe), validIDs)
 		result := handler.Result()
 		result = AppendTimedoutTestSummary(result, validIDs)
 		handler.StopTest()
