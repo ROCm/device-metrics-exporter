@@ -370,7 +370,7 @@ func removeIDsWithExistingTest(trigger, statusDBPath string, ids []string, param
 	for _, id := range ids {
 		if testStatus, ok := statusObj.TestStatus[id]; ok && !isRerun {
 			logger.Log.Printf("trigger %+v is trying to run test %+v on device %+v but found existing %v test, skip for now",
-				trigger, parameters.TestCases[0].Recipe, id, testStatus)
+				trigger, Deref(parameters.TestCases[0].Recipe), id, testStatus)
 		} else {
 			validIDs = append(validIDs, id)
 		}
