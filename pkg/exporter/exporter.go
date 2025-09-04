@@ -64,6 +64,7 @@ type Exporter struct {
 	zmqDisable          bool
 	enableNICMonitoring bool
 	enableGPUMonitoring bool
+	disableK8sApi       bool
 	enableSriov         bool
 	bindAddr            string
 	k8sApiClient        *k8sclient.K8sClient
@@ -239,11 +240,14 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 		bindAddr:      defaultBindAddress,
 		ctx:           ctx,
 		cancel:        cancel,
+		k8sApiClient:  nil,
+		disableK8sApi: false, // by default k8s api is enabled
 	}
+
 	for _, o := range opts {
 		o(exporter)
 	}
-	if utils.IsKubernetes() {
+	if utils.IsKubernetes() && !exporter.disableK8sApi {
 		hostname, _ := utils.GetHostName()
 		k8sApiClient, err := k8sclient.NewClient(ctx, "", hostname)
 		if err != nil {
@@ -277,7 +281,7 @@ func WithBindAddr(bindAddr string) ExporterOption {
 }
 
 func (e *Exporter) GetK8sApiClient() *k8sclient.K8sClient {
-	if utils.IsKubernetes() {
+	if utils.IsKubernetes() && !e.disableK8sApi {
 		return e.k8sApiClient
 	}
 	return nil
@@ -317,6 +321,13 @@ func WithSRIOV(enableSriov bool) ExporterOption {
 	}
 }
 
+func WithNoK8sApiclient() ExporterOption {
+	return func(e *Exporter) {
+		e.disableK8sApi = true
+		e.k8sApiClient = nil
+	}
+}
+
 // StartMain - doesn't return it exits only on failure
 func (e *Exporter) StartMain(enableDebugAPI bool) {
 	defer e.Close()
@@ -334,7 +345,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	)
 
 	// create scheduler client
-	if utils.IsKubernetes() {
+	if utils.IsKubernetes() && !e.disableK8sApi {
 		k8sScl, err := scheduler.NewKubernetesClient(e.ctx)
 		if err != nil {
 			logger.Log.Printf("failed to create k8s scheduler client: %v", err)

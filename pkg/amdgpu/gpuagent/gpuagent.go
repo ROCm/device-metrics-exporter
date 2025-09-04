@@ -57,7 +57,8 @@ type GPUAgentClient struct {
 	k8sApiClient           *k8sclient.K8sClient
 	k8sScheduler           scheduler.SchedulerClient
 	slurmScheduler         scheduler.SchedulerClient
-	isKubernetes           bool
+	isKubernetes           bool // pod resource client enabled or not
+	enabledK8sApi          bool
 	enableZmq              bool
 	enableProfileMetrics   bool
 	enableSriov            bool
@@ -92,7 +93,13 @@ func WithZmq(enableZmq bool) GPUAgentClientOptions {
 
 func WithK8sClient(k8sclient *k8sclient.K8sClient) GPUAgentClientOptions {
 	return func(ga *GPUAgentClient) {
-		logger.Log.Printf("K8sClient option set")
+		if k8sclient == nil {
+			logger.Log.Printf("K8sApiClient disabled")
+			ga.k8sApiClient = nil
+			return
+		}
+		ga.enabledK8sApi = true
+		logger.Log.Printf("K8sApiClient option set")
 		ga.k8sApiClient = k8sclient
 	}
 }
@@ -227,7 +234,7 @@ func (ga *GPUAgentClient) StartMonitor() {
 }
 
 func (ga *GPUAgentClient) sendNodeLabelUpdate() error {
-	if !ga.isKubernetes {
+	if !ga.enabledK8sApi {
 		return nil
 	}
 	// send update to label , reconnect logic tbd
@@ -471,7 +478,7 @@ func (ga *GPUAgentClient) Close() {
 
 func (ga *GPUAgentClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
 	listMap := make(map[string]map[string]string)
-	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
+	if ga.enabledK8sApi && len(extraPodLabelsMap) > 0 {
 		return ga.k8sApiClient.GetAllPods()
 	}
 	return listMap, nil
