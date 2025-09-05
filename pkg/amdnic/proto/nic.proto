@@ -87,6 +87,32 @@ message PortStats {
     string FRAMES_TX_TRUNCATED      = 21 [(go.field).tags = 'json:"frames_tx_truncated,omitempty"'];
     string RSFEC_CORRECTABLE_WORD   = 22 [(go.field).tags = 'json:"rsfec_correctable_word,omitempty"'];
     string RSFEC_CH_SYMBOL_ERR_CNT  = 23 [(go.field).tags = 'json:"rsfec_ch_symbol_err_cnt,omitempty"'];
+    string FRAMES_RX_UNICAST        = 24 [(go.field).tags = 'json:"frames_rx_unicast,omitempty"'];
+    string FRAMES_RX_MULTICAST      = 25 [(go.field).tags = 'json:"frames_rx_multicast,omitempty"'];
+    string FRAMES_RX_BROADCAST      = 26 [(go.field).tags = 'json:"frames_rx_broadcast,omitempty"'];
+    string FRAMES_RX_PRI_0          = 27 [(go.field).tags = 'json:"frames_rx_pri_0,omitempty"'];
+    string FRAMES_RX_PRI_1          = 28 [(go.field).tags = 'json:"frames_rx_pri_1,omitempty"'];
+    string FRAMES_RX_PRI_2          = 29 [(go.field).tags = 'json:"frames_rx_pri_2,omitempty"'];
+    string FRAMES_RX_PRI_3          = 30 [(go.field).tags = 'json:"frames_rx_pri_3,omitempty"'];
+    string FRAMES_RX_PRI_4          = 31 [(go.field).tags = 'json:"frames_rx_pri_4,omitempty"'];
+    string FRAMES_RX_PRI_5          = 32 [(go.field).tags = 'json:"frames_rx_pri_5,omitempty"'];
+    string FRAMES_RX_PRI_6          = 33 [(go.field).tags = 'json:"frames_rx_pri_6,omitempty"'];
+    string FRAMES_RX_PRI_7          = 34 [(go.field).tags = 'json:"frames_rx_pri_7,omitempty"'];
+    string FRAMES_TX_UNICAST        = 35 [(go.field).tags = 'json:"frames_tx_unicast,omitempty"'];
+    string FRAMES_TX_MULTICAST      = 36 [(go.field).tags = 'json:"frames_tx_multicast,omitempty"'];
+    string FRAMES_TX_BROADCAST      = 37 [(go.field).tags = 'json:"frames_tx_broadcast,omitempty"'];
+    string FRAMES_TX_PRI_0          = 38 [(go.field).tags = 'json:"frames_tx_pri_0,omitempty"'];
+    string FRAMES_TX_PRI_1          = 39 [(go.field).tags = 'json:"frames_tx_pri_1,omitempty"'];
+    string FRAMES_TX_PRI_2          = 40 [(go.field).tags = 'json:"frames_tx_pri_2,omitempty"'];
+    string FRAMES_TX_PRI_3          = 41 [(go.field).tags = 'json:"frames_tx_pri_3,omitempty"'];
+    string FRAMES_TX_PRI_4          = 42 [(go.field).tags = 'json:"frames_tx_pri_4,omitempty"'];
+    string FRAMES_TX_PRI_5          = 43 [(go.field).tags = 'json:"frames_tx_pri_5,omitempty"'];
+    string FRAMES_TX_PRI_6          = 44 [(go.field).tags = 'json:"frames_tx_pri_6,omitempty"'];
+    string FRAMES_TX_PRI_7          = 45 [(go.field).tags = 'json:"frames_tx_pri_7,omitempty"'];
+    string OCTETS_RX_OK             = 46 [(go.field).tags = 'json:"octets_rx_ok,omitempty"'];
+    string OCTETS_RX_ALL            = 47 [(go.field).tags = 'json:"octets_rx_all,omitempty"'];
+    string OCTETS_TX_OK             = 48 [(go.field).tags = 'json:"octets_tx_ok,omitempty"'];
+    string OCTETS_TX_ALL            = 49 [(go.field).tags = 'json:"octets_tx_all,omitempty"'];
 }
 
 message PortSpec {

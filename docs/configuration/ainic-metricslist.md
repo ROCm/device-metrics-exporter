@@ -7,6 +7,8 @@ The following table contains a full list of AINIC Metrics that are available usi
 | NIC_NODES_TOTAL                          | Number of NIC nodes on the host                                             |
 |                                          |                                                                             |
 | --- Port stats ---                       |                                                                             | 
+| NIC_PORT_STATS_FRAMES_RX_OK              | Total number of valid network frames that were successfully received        |
+| NIC_PORT_STATS_FRAMES_RX_ALL             | Total number of all frames received by the device                           |
 | NIC_PORT_STATS_FRAMES_RX_BAD_FCS         | Total number of frames rcvd with FCS error on a port                        |
 | NIC_PORT_STATS_FRAMES_RX_BAD_ALL         | Total number of bad frames received on a port                               |
 | NIC_PORT_STATS_FRAMES_RX_PAUSE           | Total number of pause frames received on a network port                     |
@@ -19,11 +21,39 @@ The following table contains a full list of AINIC Metrics that are available usi
 | NIC_PORT_STATS_FRAMES_RX_STOMPED_CRC     | Total number of frames received that had valid CRC but were stomped         |
 | NIC_PORT_STATS_FRAMES_RX_TOO_LONG        | Total number of frames rcvd that exceed max allowable size for frames       |
 | NIC_PORT_STATS_FRAMES_RX_DROPPED         | Total frames rcvd but dropped due to reasons such as buffer overflows etc   |
+| NIC_PORT_STATS_FRAMES_RX_UNICAST         | Total number of unicast frames received                                     |
+| NIC_PORT_STATS_FRAMES_RX_MULTICAST       | Total number of multicast frames received                                   |
+| NIC_PORT_STATS_FRAMES_RX_BROADCAST       | Total number of broadcast frames received                                   |
+| NIC_PORT_STATS_FRAMES_RX_PRI_0           | Total number of frames received on priority 0                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_1           | Total number of frames received on priority 1                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_2           | Total number of frames received on priority 2                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_3           | Total number of frames received on priority 3                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_4           | Total number of frames received on priority 4                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_5           | Total number of frames received on priority 5                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_6           | Total number of frames received on priority 6                               |
+| NIC_PORT_STATS_FRAMES_RX_PRI_7           | Total number of frames received on priority 7                               |
+| NIC_PORT_STATS_FRAMES_TX_OK              | Total number of valid network frames that were successfully transmitted     |
+| NIC_PORT_STATS_FRAMES_TX_ALL             | Total number of all frames transmitted by the device                        |
 | NIC_PORT_STATS_FRAMES_TX_BAD             | Total number of transmitted frames that are considered bad                  |
 | NIC_PORT_STATS_FRAMES_TX_PAUSE           | Total number of pause frames transmitted                                    |
 | NIC_PORT_STATS_FRAMES_TX_PRIPAUSE        | Total number of priority pause frames transmitted                           |
 | NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B   | Total number of tx frames smaller than min frame size i.e 64 bytes          |
 | NIC_PORT_STATS_FRAMES_TX_TRUNCATED       | Total number of frames that were transmitted but truncated                  |
+| NIC_PORT_STATS_FRAMES_TX_UNICAST         | Total number of unicast frames transmitted                                  |
+| NIC_PORT_STATS_FRAMES_TX_MULTICAST       | Total number of multicast frames transmitted                                |
+| NIC_PORT_STATS_FRAMES_TX_BROADCAST       | Total number of broadcast frames transmitted                                |
+| NIC_PORT_STATS_FRAMES_TX_PRI_0           | Total number of frames transmitted on priority 0                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_1           | Total number of frames transmitted on priority 1                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_2           | Total number of frames transmitted on priority 2                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_3           | Total number of frames transmitted on priority 3                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_4           | Total number of frames transmitted on priority 4                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_5           | Total number of frames transmitted on priority 5                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_6           | Total number of frames transmitted on priority 6                            |
+| NIC_PORT_STATS_FRAMES_TX_PRI_7           | Total number of frames transmitted on priority 7                            |
+| NIC_PORT_STATS_OCTETS_RX_OK              | Total number of octets (bytes) successfully received                        |
+| NIC_PORT_STATS_OCTETS_RX_ALL             | Total number of all octets (bytes) received                                 |
+| NIC_PORT_STATS_OCTETS_TX_OK              | Total number of octets (bytes) successfully transmitted                     |
+| NIC_PORT_STATS_OCTETS_TX_ALL             | Total number of all octets (bytes) transmitted                              |
 | NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD    | Total number of RS-FEC correctable words received or transmitted            |
 | NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT   | Total count of channel symbol errors detected by the RS-FEC mechanism       |
 |                                          |                                                                             |

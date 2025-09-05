@@ -83,6 +83,32 @@ type metrics struct {
 	nicPortStatsFramesTxTruncated    prometheus.GaugeVec
 	nicPortStatsRsfecCorrectableWord prometheus.GaugeVec
 	nicPortStatsRsfecChSymbolErrCnt  prometheus.GaugeVec
+	nicPortStatsFramesRxUnicast      prometheus.GaugeVec
+	nicPortStatsFramesRxMulticast    prometheus.GaugeVec
+	nicPortStatsFramesRxBroadcast    prometheus.GaugeVec
+	nicPortStatsFramesRxPri0         prometheus.GaugeVec
+	nicPortStatsFramesRxPri1         prometheus.GaugeVec
+	nicPortStatsFramesRxPri2         prometheus.GaugeVec
+	nicPortStatsFramesRxPri3         prometheus.GaugeVec
+	nicPortStatsFramesRxPri4         prometheus.GaugeVec
+	nicPortStatsFramesRxPri5         prometheus.GaugeVec
+	nicPortStatsFramesRxPri6         prometheus.GaugeVec
+	nicPortStatsFramesRxPri7         prometheus.GaugeVec
+	nicPortStatsFramesTxUnicast      prometheus.GaugeVec
+	nicPortStatsFramesTxMulticast    prometheus.GaugeVec
+	nicPortStatsFramesTxBroadcast    prometheus.GaugeVec
+	nicPortStatsFramesTxPri0         prometheus.GaugeVec
+	nicPortStatsFramesTxPri1         prometheus.GaugeVec
+	nicPortStatsFramesTxPri2         prometheus.GaugeVec
+	nicPortStatsFramesTxPri3         prometheus.GaugeVec
+	nicPortStatsFramesTxPri4         prometheus.GaugeVec
+	nicPortStatsFramesTxPri5         prometheus.GaugeVec
+	nicPortStatsFramesTxPri6         prometheus.GaugeVec
+	nicPortStatsFramesTxPri7         prometheus.GaugeVec
+	nicPortStatsOctetsRxOk           prometheus.GaugeVec
+	nicPortStatsOctetsRxAll          prometheus.GaugeVec
+	nicPortStatsOctetsTxOk           prometheus.GaugeVec
+	nicPortStatsOctetsTxAll          prometheus.GaugeVec
 
 	//RDMA Stats
 	rdmaTxUcastPkts prometheus.GaugeVec
@@ -458,6 +484,32 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_TRUNCATED.String():      {Metric: na.m.nicPortStatsFramesTxTruncated},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD.String():   {Metric: na.m.nicPortStatsRsfecCorrectableWord},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String():  {Metric: na.m.nicPortStatsRsfecChSymbolErrCnt},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_UNICAST.String():        {Metric: na.m.nicPortStatsFramesRxUnicast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_MULTICAST.String():      {Metric: na.m.nicPortStatsFramesRxMulticast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BROADCAST.String():      {Metric: na.m.nicPortStatsFramesRxBroadcast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_0.String():          {Metric: na.m.nicPortStatsFramesRxPri0},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_1.String():          {Metric: na.m.nicPortStatsFramesRxPri1},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_2.String():          {Metric: na.m.nicPortStatsFramesRxPri2},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_3.String():          {Metric: na.m.nicPortStatsFramesRxPri3},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_4.String():          {Metric: na.m.nicPortStatsFramesRxPri4},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_5.String():          {Metric: na.m.nicPortStatsFramesRxPri5},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_6.String():          {Metric: na.m.nicPortStatsFramesRxPri6},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_7.String():          {Metric: na.m.nicPortStatsFramesRxPri7},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_UNICAST.String():        {Metric: na.m.nicPortStatsFramesTxUnicast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_MULTICAST.String():      {Metric: na.m.nicPortStatsFramesTxMulticast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_BROADCAST.String():      {Metric: na.m.nicPortStatsFramesTxBroadcast},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_0.String():          {Metric: na.m.nicPortStatsFramesTxPri0},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_1.String():          {Metric: na.m.nicPortStatsFramesTxPri1},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_2.String():          {Metric: na.m.nicPortStatsFramesTxPri2},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_3.String():          {Metric: na.m.nicPortStatsFramesTxPri3},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_4.String():          {Metric: na.m.nicPortStatsFramesTxPri4},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_5.String():          {Metric: na.m.nicPortStatsFramesTxPri5},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_6.String():          {Metric: na.m.nicPortStatsFramesTxPri6},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_7.String():          {Metric: na.m.nicPortStatsFramesTxPri7},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_RX_OK.String():             {Metric: na.m.nicPortStatsOctetsRxOk},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_RX_ALL.String():            {Metric: na.m.nicPortStatsOctetsRxAll},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_OK.String():             {Metric: na.m.nicPortStatsOctetsTxOk},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_ALL.String():            {Metric: na.m.nicPortStatsOctetsTxAll},
 		exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String():                      {Metric: na.m.rdmaTxUcastPkts},
 		exportermetrics.NICMetricField_RDMA_TX_CNP_PKTS.String():                        {Metric: na.m.rdmaTxCnpPkts},
 		exportermetrics.NICMetricField_RDMA_RX_UCAST_PKTS.String():                      {Metric: na.m.rdmaRxUcastPkts},
@@ -729,6 +781,136 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsRsfecChSymbolErrCnt: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String()),
 			Help: "Total count of channel symbol errors detected by the RS-FEC (Reed-Solomon Forward Error Correction) mechanism",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxUnicast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_UNICAST.String()),
+			Help: "Total number of unicast frames received",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_MULTICAST.String()),
+			Help: "Total number of multicast frames received",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BROADCAST.String()),
+			Help: "Total number of broadcast frames received",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_0.String()),
+			Help: "Total number of frames received on priority 0",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_1.String()),
+			Help: "Total number of frames received on priority 1",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_2.String()),
+			Help: "Total number of frames received on priority 2",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_3.String()),
+			Help: "Total number of frames received on priority 3",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_4.String()),
+			Help: "Total number of frames received on priority 4",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_5.String()),
+			Help: "Total number of frames received on priority 5",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_6.String()),
+			Help: "Total number of frames received on priority 6",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesRxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_PRI_7.String()),
+			Help: "Total number of frames received on priority 7",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxUnicast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_UNICAST.String()),
+			Help: "Total number of unicast frames transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxMulticast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_MULTICAST.String()),
+			Help: "Total number of multicast frames transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxBroadcast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_BROADCAST.String()),
+			Help: "Total number of broadcast frames transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri0: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_0.String()),
+			Help: "Total number of frames transmitted on priority 0",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri1: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_1.String()),
+			Help: "Total number of frames transmitted on priority 1",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri2: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_2.String()),
+			Help: "Total number of frames transmitted on priority 2",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri3: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_3.String()),
+			Help: "Total number of frames transmitted on priority 3",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri4: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_4.String()),
+			Help: "Total number of frames transmitted on priority 4",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri5: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_5.String()),
+			Help: "Total number of frames transmitted on priority 5",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri6: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_6.String()),
+			Help: "Total number of frames transmitted on priority 6",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsFramesTxPri7: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_PRI_7.String()),
+			Help: "Total number of frames transmitted on priority 7",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsOctetsRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_RX_OK.String()),
+			Help: "Total number of octets (bytes) successfully received",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsOctetsRxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_RX_ALL.String()),
+			Help: "Total number of all octets (bytes) received",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsOctetsTxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_OK.String()),
+			Help: "Total number of octets (bytes) successfully transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsOctetsTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_ALL.String()),
+			Help: "Total number of all octets (bytes) transmitted",
 		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		/* RDMA stats */
