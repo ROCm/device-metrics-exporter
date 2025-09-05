@@ -1064,6 +1064,7 @@ func (tr *TestRunner) exitOnFailure(recipe string, validIDs []string) {
 		testrunnerGen.TestTrigger_PRE_START_JOB_CHECK.String():
 		if len(validIDs) > 0 {
 			tr.RemoveTestRunningLabel(recipe, validIDs)
+			tr.updateStatusDBAfterTestRun(validIDs, types.TestCompleted.String())
 		}
 		os.Exit(1)
 	}
