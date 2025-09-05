@@ -187,6 +187,10 @@ func (na *NICAgentClient) getMetricsAll() error {
 		logger.Log.Printf("failed to list workloads, err: %v", err)
 	}
 	k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
+
+	labels := na.populateLabelsFromNIC("")
+	na.m.nicNodesTotal.With(labels).Set(float64(len(na.nics)))
+
 	for _, client := range na.nicClients {
 		wg.Add(1)
 		go func(client NICInterface) {
