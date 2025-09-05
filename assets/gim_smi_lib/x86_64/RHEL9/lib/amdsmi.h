@@ -141,6 +141,8 @@ typedef enum {
 #define AMDSMI_MAX_ACCELERATOR_PROFILE 32
 #define AMDSMI_MAX_NUM_NUMA_NODES 32
 
+#define MAX_NUMBER_OF_AFIDS_PER_RECORD 12
+
 //! opaque handler point to underlying implementation
 typedef void *amdsmi_socket_handle;
 typedef void *amdsmi_event_set;
@@ -294,6 +296,7 @@ typedef enum {
 	AMDSMI_FW_ID_DMCU,
 	AMDSMI_FW_ID_PSP_RAS,
 	AMDSMI_FW_ID_P2S_TABLE,
+	AMDSMI_FW_ID_PLDM_BUNDLE,
 	AMDSMI_FW_ID__MAX
 } amdsmi_fw_block_t;
 
@@ -1118,6 +1121,15 @@ typedef enum {
 	AMDSMI_DRIVER_MODEL_TYPE__MAX = 3,
 } amdsmi_driver_model_type_t;
 
+typedef enum {
+	AMDSMI_VIRTUALIZATION_MODE_UNKNOWN = 0,
+	AMDSMI_VIRTUALIZATION_MODE_NONE,
+	AMDSMI_VIRTUALIZATION_MODE_HOST,
+
+	AMDSMI_VIRTUALIZATION_MODE_GUEST,
+	AMDSMI_VIRTUALIZATION_MODE_PASSTHROUGH
+} amdsmi_virtualization_mode_t;
+
 /**
  * @brief AUX STRUCTURES
  */
@@ -1194,7 +1206,7 @@ typedef struct {
 		uint64_t fw_version;
 		uint64_t reserved[2];
 	} fw_info_list[AMDSMI_FW_ID__MAX];
-	uint64_t reserved[7];
+	uint64_t reserved[3];
 } amdsmi_fw_info_t;
 
 typedef struct {
@@ -1610,21 +1622,23 @@ typedef struct {
     uint8_t century;
 } amdsmi_cper_timestamp_t;
 
+typedef union {
+    struct valid_bits_ {
+        uint32_t platform_id  : 1;
+        uint32_t timestamp    : 1;
+        uint32_t partition_id : 1;
+        uint32_t reserved     : 29;
+    } valid_bits;
+    uint32_t valid_mask;
+} amdsmi_cper_valid_bits_t;
+
 typedef struct {
     char                     signature[4];  /* "CPER"  */
     uint16_t                 revision;
     uint32_t                 signature_end; /* 0xFFFFFFFF */
     uint16_t                 sec_cnt;
     amdsmi_cper_sev_t error_severity;
-    union {
-        struct {
-            uint32_t platform_id  : 1;
-            uint32_t timestamp    : 1;
-            uint32_t partition_id : 1;
-            uint32_t reserved     : 29;
-        } valid_bits;
-        uint32_t valid_mask;
-    };
+    amdsmi_cper_valid_bits_t cper_valid_bits;
     uint32_t              record_length;    /* Total size of CPER Entry */
     amdsmi_cper_timestamp_t timestamp;
     char                  platform_id[16];
@@ -1636,6 +1650,21 @@ typedef struct {
     uint64_t              persistence_info; /* Reserved */
     uint8_t               reserved[12];     /* Reserved */
 } amdsmi_cper_hdr_t;
+
+typedef enum {
+    AMDSMI_CPER_NOTIFY_TYPE_CMC = 0x450eBDD72DCE8BB1,
+    AMDSMI_CPER_NOTIFY_TYPE_CPE = 0x4a55D8434E292F96,
+    AMDSMI_CPER_NOTIFY_TYPE_MCE = 0x4cc5919CE8F56FFE,
+    AMDSMI_CPER_NOTIFY_TYPE_PCIE = 0x4dfc1A16CF93C01F,
+    AMDSMI_CPER_NOTIFY_TYPE_INIT = 0x454a9308CC5263E8,
+    AMDSMI_CPER_NOTIFY_TYPE_NMI = 0x42c9B7E65BAD89FF,
+    AMDSMI_CPER_NOTIFY_TYPE_BOOT = 0x409aAB403D61A466,
+    AMDSMI_CPER_NOTIFY_TYPE_DMAR = 0x4c27C6B3667DD791,
+    AMDSMI_CPER_NOTIFY_TYPE_SEA = 0x11E4BBE89A78788A,
+    AMDSMI_CPER_NOTIFY_TYPE_SEI = 0x4E87B0AE5C284C81,
+    AMDSMI_CPER_NOTIFY_TYPE_PEI = 0x4214520409A9D5AC,
+    AMDSMI_CPER_NOTIFY_TYPE_CXL_COMPONENT = 0x49A341DF69293BC9,
+} amdsmi_cper_notify_type_t;
 
 #pragma pack(pop)
 
@@ -1895,6 +1924,19 @@ amdsmi_status_t amdsmi_get_gpu_device_uuid(amdsmi_processor_handle processor_han
  *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
  */
 amdsmi_status_t amdsmi_get_vf_uuid(amdsmi_vf_handle_t processor_handle, unsigned int *uuid_length, char *uuid);
+
+/**
+ *  @brief          Returns the virtualization mode for the target device.
+ *
+ *  @platform{gpu_bm_linux} @platform{guest_1vf}  @platform{host}
+ *
+ *  @param[in]      processor_handle PF of a processor for which to query.
+ *
+ *  @param[out]     mode Reference to the enum representing virtualization mode.
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+ amdsmi_status_t amdsmi_get_gpu_virtualization_mode(amdsmi_processor_handle processor_handle, amdsmi_virtualization_mode_t *mode);
 /** @} */  // end of discovery
 
 /*****************************************************************************/
@@ -2327,6 +2369,28 @@ amdsmi_status_t amdsmi_get_gpu_bad_page_info(amdsmi_processor_handle processor_h
  */
 amdsmi_status_t amdsmi_get_gpu_ras_feature_info(amdsmi_processor_handle processor_handle, amdsmi_ras_feature_t *ras_feature);
 
+/**
+ * @brief Get the bad page threshold for a device
+ *
+ * @platform{gpu_bm_linux}  @platform{host}
+ *
+ * @details Given a processor handle @p processor_handle and a pointer to a uint32_t @p threshold,
+ * this function will retrieve the  bad page threshold value associated
+ * with device @p processor_handle and store the value at location pointed to by
+ * @p threshold.  This function require the root permissions.
+ *
+ * @param[in] processor_handle a processor handle
+ *
+ * @param[in,out] threshold pointer to location where  bad page threshold value will
+ * be written.
+ * If this parameter is nullptr, this function will return
+ * ::AMDSMI_STATUS_INVAL if the function is supported with the provided,
+ * arguments and ::AMDSMI_STATUS_NOT_SUPPORTED if it is not supported with the
+ * provided arguments.
+ *
+ * @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t amdsmi_get_bad_page_threshold(amdsmi_processor_handle processor_handle, uint32_t *threshold);
 
 /** @} */  // end of eccinfo
 
@@ -2861,5 +2925,47 @@ amdsmi_set_gpu_accelerator_partition_profile(amdsmi_processor_handle processor_h
 amdsmi_status_t
 amdsmi_get_gpu_cper_entries(amdsmi_processor_handle processor_handle, uint32_t severity_mask, char *cper_data,
 	uint64_t *buf_size, amdsmi_cper_hdr_t** cper_hdrs, uint64_t *entry_count, uint64_t *cursor);
+
+/**
+ *  @brief Get the AFIDs from CPER buffer
+ *
+ *  @platform{gpu_bm_linux}  @platform{host}  @platform{guest_1vf}
+ *  @platform{guest_mvf}
+ *
+ *  @details A utility function which retrieves the AFIDs from the CPER record.
+ *
+ *  @param[in] cper_buffer a pointer to the buffer with one CPER record. The caller must make sure the whole CPER record is loaded into the buffer.
+ *
+ *  @param[in] buf_size is the size of the cper_buffer.
+ *
+ *  @param[out] afids a pointer to an array of uint64_t to which the AF IDs will be written
+ *
+ *  @param[in,out] num_afids As input, the value passed through this parameter is the number of
+ *  uint64_t that may be safely written to the memory pointed to by @p afids. This is the limit
+ *  on how many AF IDs will be written to @p afids. On return, @p num_afids will contain the
+ *  number of AF IDs written to @p afids, or the number of AF IDs that could have been written
+ *  if enough memory had been provided. It is suggest to pass MAX_NUMBER_OF_AFIDS_PER_RECORD for all
+ *  AF Ids.
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t amdsmi_get_afids_from_cper(char *cper_buffer, uint32_t buf_size, uint64_t *afids, uint32_t *num_afids);
+
+/**
+ *  @brief Reset the gpu associated with the device with provided processor handle. It is not
+ *  supported on virtual machine guest
+ *
+ *  @ingroup tagClkPowerPerfQuery
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details Given a processor handle @p processor_handle, this function will reset the GPU
+ *
+ *  @param[in] processor_handle a processor handle
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t amdsmi_reset_gpu(amdsmi_processor_handle processor_handle);
+
 
 #endif // __AMDSMI_H__

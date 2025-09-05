@@ -16,6 +16,7 @@
   - `KFD_PROCESS_ID` label will  now report the process ID using the
   	respective GPU. This enables baremetal debian deployments to have job
   	information where no scheduler is used.
+  - `DEPLOYMENT_MODE` label to specify the GPU operating environment
 
 ### Platform Support
 ROCm 7.0.rc1 MI2xx, MI3xx

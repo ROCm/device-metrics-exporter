@@ -266,7 +266,14 @@ enum GPUMetricLabel {
     // mandatory field GPU_MEMORY_PARTITION_TYPE cannot be disabled
     GPU_MEMORY_PARTITION_TYPE  = 18;
     // KFD_PROCESS_ID cannot be disabled
+    // KFD_PROCESS_ID is a unique identifier for a process running on a GPU
     KFD_PROCESS_ID             = 19;
+    // Deployment mode Mode cannot be disabled
+    // Hypervisor - Virtualization Host gim driver
+    // BareMetal  - PCI passthrough without virtualization host
+    // VM_VF      - Virtual Machine with VF passthrough
+    // VM_PF      - Virtual Machine with PF passthrough
+    DEPLOYMENT_MODE            = 20;
 }
 
 message GPUMetricConfig {

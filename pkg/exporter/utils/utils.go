@@ -145,6 +145,22 @@ func convertFloatToUint(val interface{}) interface{} {
 	}
 }
 
+// VirtualizationModeToDeploymentMode converts the virtualization mode to a string that can be exported to Prometheus.
+// note: hardcoded strings used to avoid proto dependency in this package
+func VirtualizationModeToDeploymentMode(virtualizationMode string) string {
+	switch virtualizationMode {
+	case "baremetal":
+		return "baremetal"
+	case "host":
+		return "hypervisor"
+	case "guest":
+		return "vm_vf"
+	case "passthrough":
+		return "vm_pf"
+	}
+	return "unknown"
+}
+
 // IsValueApplicable checks if the value is applicable for metrics export.
 // It checks if the value is not equal to the maximum value for its type, which indicates NA (not applicable).
 // The function returns true if the value is applicable and false if it is NA.

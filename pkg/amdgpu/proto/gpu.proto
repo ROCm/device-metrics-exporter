@@ -151,6 +151,20 @@ enum GPUMemoryPartitionType {
   GPU_MEMORY_PARTITION_TYPE_NPS8 = 4;
 }
 
+// GPU virtualization mode
+enum GPUVirtualizationMode {
+  // none unknown/invalid virtualization type
+  GPU_VIRTUALIZATION_MODE_NONE        = 0;
+  // baremetal virtualization type
+  GPU_VIRTUALIZATION_MODE_BAREMETAL   = 1;
+  // host virtualization type
+  GPU_VIRTUALIZATION_MODE_HOST        = 2;
+  // guest virtualization type
+  GPU_VIRTUALIZATION_MODE_GUEST       = 3;
+  // passthrough virtualization type
+  GPU_VIRTUALIZATION_MODE_PASSTHROUGH = 4;
+}
+
 // config specification of physical GPU
 message GPUSpec {
   // uuid identifying the GPU
@@ -414,6 +428,8 @@ message GPUStatus {
   uint32                        DRMRenderId       = 27;
   // GPU device DRM  card Id
   uint32                        DRMCardId         = 28;
+  // GPU virtualization mode
+  GPUVirtualizationMode        VirtualizationMode = 29;
 
 }
 

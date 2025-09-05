@@ -56,6 +56,7 @@ var (
 		exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String(),
+		exportermetrics.GPUMetricLabel_DEPLOYMENT_MODE.String(),
 	}
 	// List of supported labels that can be customized
 	allowedCustomLabels = []string{
@@ -1740,6 +1741,12 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 				} else {
 					labels[key] = ""
 				}
+			}
+		case exportermetrics.GPUMetricLabel_DEPLOYMENT_MODE.String():
+			if gpu != nil {
+				virtualizationMode := gpu.Status.VirtualizationMode
+				trimmedValue := strings.TrimPrefix(virtualizationMode.String(), "GPU_VIRTUALIZATION_MODE_")
+				labels[key] = utils.VirtualizationModeToDeploymentMode(trimmedValue)
 			}
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)
