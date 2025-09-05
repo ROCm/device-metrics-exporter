@@ -148,7 +148,7 @@ func convertFloatToUint(val interface{}) interface{} {
 // VirtualizationModeToDeploymentMode converts the virtualization mode to a string that can be exported to Prometheus.
 // note: hardcoded strings used to avoid proto dependency in this package
 func VirtualizationModeToDeploymentMode(virtualizationMode string) string {
-	switch virtualizationMode {
+	switch strings.ToLower(virtualizationMode) {
 	case "baremetal":
 		return "baremetal"
 	case "host":
