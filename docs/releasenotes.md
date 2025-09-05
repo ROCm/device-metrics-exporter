@@ -37,6 +37,24 @@ ROCm 7.0.rc1 MI2xx, MI3xx
 ROCm 7.0.rc1 MI2xx, MI3xx
 
 
+### Issues Fixed
+- fixed metric naming discrepancies between config field and exported field. The
+  following prometheues fields are updated:
+  - xgmi_neighbor_0_nop_tx -> gpu_xgmi_nbr_0_nop_tx
+  - xgmi_neighbor_1_nop_tx -> gpu_xgmi_nbr_1_nop_tx
+  - xgmi_neighbor_0_request_tx -> gpu_xgmi_nbr_0_req_tx
+  - xgmi_neighbor_0_response_tx -> gpu_xgmi_nbr_0_resp_tx
+  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_0_resp_tx
+  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_1_resp_tx
+  - xgmi_neighbor_0_beats_tx -> gpu_xgmi_nbr_0_beats_tx
+  - xgmi_neighbor_1_beats_tx -> gpu_xgmi_nbr_1_beats_tx
+  - xgmi_neighbor_0_tx_throughput -> gpu_xgmi_nbr_0_tx_thrput
+  - xgmi_neighbor_1_tx_throughput -> gpu_xgmi_nbr_1_tx_thrput
+  - xgmi_neighbor_2_tx_throughput -> gpu_xgmi_nbr_2_tx_thrput
+  - xgmi_neighbor_3_tx_throughput -> gpu_xgmi_nbr_3_tx_thrput
+  - xgmi_neighbor_4_tx_throughput -> gpu_xgmi_nbr_4_tx_thrput
+  - xgmi_neighbor_5_tx_throughput -> gpu_xgmi_nbr_5_tx_thrput
+
 ## v1.3.1
 
 ### Release Highlights

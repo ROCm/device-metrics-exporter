@@ -9,7 +9,7 @@ project = "AMD Instinct Hub"
 version = "1.5.0"
 debian_version = "1.5.0"
 release = version
-html_title = f"AMD Device Metrics Exporter"
+html_title = f"AMD Device Metrics Exporter {version}"
 author = "Advanced Micro Devices, Inc."
 copyright = "Copyright (c) 2024 Advanced Micro Devices, Inc. All rights reserved."
 
@@ -23,6 +23,7 @@ html_theme_options = {
         "You're viewing documentation from a development branch. "
         "Please switch to the release branch for the officially released documentation."
     ),
+    "show_navbar_depth": 0,
 }
 
 extensions = [
