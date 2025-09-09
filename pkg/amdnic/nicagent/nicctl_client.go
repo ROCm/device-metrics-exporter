@@ -62,6 +62,7 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 	nc.Lock()
 	defer nc.Unlock()
 
+	/// /* UTgsm
 	fn_ptrs := []func(map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
 		nc.UpdateLifStats,
@@ -78,6 +79,7 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 		}(fn)
 	}
 	wg.Wait()
+	// */ //UTgsm
 	return nil
 }
 
@@ -195,7 +197,7 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 				labels[k] = v
 			}
 			// Add additional labels for NIC metrics
-			labels[LabelLifName] = nc.na.nics[nic.ID].GetLifName(lif.Spec.ID)
+			labels[LabelEthIntfName] = nc.na.nics[nic.ID].GetLifName(lif.Spec.ID)
 			labels[LabelPortName] = nc.na.nics[nic.ID].GetPortName()
 			labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetLifPcieAddr(lif.Spec.ID)
 
@@ -252,7 +254,7 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 							labels[k] = v
 						}
 						// Add LIF labels for QP metrics
-						labels[LabelLifName] = nc.na.nics[nic.ID].GetLifName(qplif.Spec.ID)
+						labels[LabelEthIntfName] = nc.na.nics[nic.ID].GetLifName(qplif.Spec.ID)
 						labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetLifPcieAddr(qplif.Spec.ID)
 
 						for _, qp := range qplif.QPStatsList {

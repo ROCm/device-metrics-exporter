@@ -18,9 +18,7 @@ package nicagent
 
 import (
 	"encoding/json"
-	"fmt"
 	"os/exec"
-	"strings"
 	"sync"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetrics"
@@ -30,8 +28,7 @@ import (
 
 type RDMAStatsClient struct {
 	sync.Mutex
-	na        *NICAgentClient
-	rdmaIfMap map[string]string
+	na *NICAgentClient
 }
 
 func newRDMAStatsClient(na *NICAgentClient) *RDMAStatsClient {
@@ -42,7 +39,6 @@ func newRDMAStatsClient(na *NICAgentClient) *RDMAStatsClient {
 func (rc *RDMAStatsClient) Init() error {
 	rc.Lock()
 	defer rc.Unlock()
-	rc.rdmaIfMap = make(map[string]string)
 	return nil
 }
 func (rc *RDMAStatsClient) IsActive() bool {
@@ -58,21 +54,34 @@ func (rc *RDMAStatsClient) GetClientName() string {
 	return RDMAClientName
 }
 
-func (rc *RDMAStatsClient) checkAndUpdateRdmaIfMap(rdmaIf string) error {
-	if _, ok := rc.rdmaIfMap[rdmaIf]; !ok {
-		cmd := fmt.Sprintf("cat /sys/class/infiniband/%s/device/uevent  | grep PCI_SLOT", rdmaIf)
-		out, err := ExecWithContext(cmd)
-		if err != nil {
-			return fmt.Errorf("could not find PCIe addr for %s: %s", rdmaIf, err)
-		}
-		parts := strings.Split(strings.TrimSpace(string(out)), "=")
-		if len(parts) < 2 || parts[1] == "" {
-			return fmt.Errorf("could not find PCIe addr for %s", rdmaIf)
-		}
-		rc.rdmaIfMap[rdmaIf] = parts[1]
-		logger.Log.Printf("adding rdmaIfmap entry %s:%s", rdmaIf, rc.rdmaIfMap[rdmaIf])
+func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string, workloads map[string]scheduler.Workload) map[string]string {
+
+	var podInfo scheduler.PodResourceInfo
+	var podInfoPtr *scheduler.PodResourceInfo
+
+	wl, exists := workloads[pcieAddr]
+	if exists {
+		podInfo = (wl.Info.(scheduler.PodResourceInfo))
+		podInfoPtr = &podInfo
 	}
-	return nil
+
+	netDevices, err := rc.na.getNetDevicesList(podInfoPtr)
+	if err != nil {
+		logger.Log.Printf("failed to get netdevs in pod %s: %v", podInfo.Pod, err)
+		return map[string]string{}
+	}
+
+	for i := range netDevices {
+		if netDevices[i].RoceDevName == rdmaDevName {
+			logger.Log.Printf("gsm60 rdma %s pci %s pod %s, interface %v", //DELgsm
+				rdmaDevName, pcieAddr, podInfo.Pod, netDevices[i]) //DELgsm
+			return rc.na.populateLabelsForNetDevice(netDevices[i], podInfoPtr)
+		}
+	}
+
+	logger.Log.Printf("gsm6099 failed to get labelmap for rdmaDev %s pci %s pod %s",
+		rdmaDevName, pcieAddr, podInfo.Pod)
+	return map[string]string{}
 }
 
 func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
@@ -92,25 +101,15 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 		logger.Log.Printf("error unmarshaling rdma statistics data: %v", err)
 		return err
 	}
-	var nicID string
-	for _, nic := range rc.na.nics {
-		//TODO..Once lif code is committed, need to match rdma netdev and nic's lif name to find nicID
-		nicID = nic.UUID
-		break
-	}
-	labels := rc.na.populateLabelsFromNIC(nicID)
+
 	for i := range rdmaStats {
-		if err := rc.checkAndUpdateRdmaIfMap(rdmaStats[i].IFNAME); err != nil {
-			return err
+		rdmaDevName := rdmaStats[i].IFNAME
+		if err := rc.na.addRdmaDevPcieAddrIfAbsent(rdmaDevName); err != nil {
+			logger.Log.Printf("failed to get rdma stats for %s: %v", rdmaDevName, err)
 		}
-		rdmaIfName := rdmaStats[i].IFNAME
-		rdmaIfPcieAddr := rc.rdmaIfMap[rdmaIfName]
-		labels[LabelRdmaIfName] = rdmaIfName
-		labels[LabelPcieBusId] = rdmaIfPcieAddr
-		workloadLabels := rc.na.getAssociatedWorkloadLabelsForPcieAddr(rdmaIfPcieAddr, workloads)
-		for k, v := range workloadLabels {
-			labels[k] = v
-		}
+		rdmaDevPcieAddr := rc.na.rdmaDevToPcieAddr[rdmaDevName]
+		labels := rc.populateRdmaDeviceLabels(rdmaDevName, rdmaDevPcieAddr, workloads)
+
 		rc.na.m.rdmaTxUcastPkts.With(labels).Set(float64(rdmaStats[i].RDMA_TX_UCAST_PKTS))
 		rc.na.m.rdmaTxCnpPkts.With(labels).Set(float64(rdmaStats[i].RDMA_TX_CNP_PKTS))
 		rc.na.m.rdmaRxUcastPkts.With(labels).Set(float64(rdmaStats[i].RDMA_RX_UCAST_PKTS))
