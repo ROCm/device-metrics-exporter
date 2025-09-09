@@ -53,6 +53,7 @@ RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.25.4 libamd_smi.so.25
 
 ADD ./rocpctl /home/amd/bin/rocpctl
 ADD ./gpuagent /home/amd/bin/gpuagent
+ADD ./gpuctl /home/amd/bin/gpuctl
 ADD ./amd-metrics-exporter /home/amd/bin/server
 ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./amdgpuhealth /home/amd/bin/amdgpuhealth
