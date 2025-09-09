@@ -59,6 +59,14 @@ type Lif struct {
 	IsPF        bool
 }
 
+type NetDevice struct {
+	IntfName    string // Intf name in Pod ns
+	IntfAlias   string // Intf name in Host ns
+	RoceDevName string // RoCE dev linked to Intf
+	PCIeBusId   string // Pcie Bus ID of network device
+	PodName     string // PID of namespace which contains the Intf
+}
+
 // GetPortName returns the name of the first port associated with the NIC.
 // This is a simplified method assuming a 1:1 mapping between NIC and Port.
 func (n *NIC) GetPortName() string {

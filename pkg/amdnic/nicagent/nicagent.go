@@ -17,8 +17,10 @@
 package nicagent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -35,17 +37,20 @@ import (
 
 type NICAgentClient struct {
 	sync.Mutex
-	nicClients            []NICInterface
-	mh                    *metricsutil.MetricsHandler
-	m                     *metrics // client specific metrics
-	isKubernetes          bool
-	nics                  map[string]*NIC
-	k8sScheduler          scheduler.SchedulerClient
-	k8sApiClient          *k8sclient.K8sClient
-	staticHostLabels      map[string]string // static labels for the host
-	nodeHealthLabellerCfg *utils.NodeHealthLabellerConfig
-	ctx                   context.Context
-	cancel                context.CancelFunc
+	nicClients             []NICInterface
+	mh                     *metricsutil.MetricsHandler
+	m                      *metrics // client specific metrics
+	isKubernetes           bool
+	nics                   map[string]*NIC
+	k8sScheduler           scheduler.SchedulerClient
+	k8sApiClient           *k8sclient.K8sClient
+	staticHostLabels       map[string]string // static labels for the host
+	nodeHealthLabellerCfg  *utils.NodeHealthLabellerConfig
+	ctx                    context.Context
+	cancel                 context.CancelFunc
+	rdmaDevToPcieAddr      map[string]string
+	podnameToProcessId     map[string]int
+	podnameToNetDeviceList map[string][]NetDevice
 }
 
 // NICAgentClientOptions defines the options for the NICAgentClient
@@ -116,6 +121,9 @@ func (na *NICAgentClient) Init() error {
 	nicCtlClient := newNICCtlClient(na)
 	na.nicClients = append(na.nicClients, nicCtlClient)
 
+	na.rdmaDevToPcieAddr = make(map[string]string)
+	na.podnameToProcessId = make(map[string]int)
+	na.podnameToNetDeviceList = make(map[string][]NetDevice)
 	rdmaStatsClient := newRDMAStatsClient(na)
 	na.nicClients = append(na.nicClients, rdmaStatsClient)
 
@@ -130,6 +138,7 @@ func (na *NICAgentClient) Init() error {
 
 	na.mh.RegisterMetricsClient(na)
 
+	// /* UTgsm
 	// fetch all the static data that doesn't change (NIC, Port, Lif, etc.)
 	nics, err := na.getNICs()
 	if err != nil {
@@ -138,6 +147,7 @@ func (na *NICAgentClient) Init() error {
 	}
 	na.nics = nics
 	na.printNICs()
+	// */ //UTgsm
 
 	if err := na.populateStaticHostLabels(); err != nil {
 		logger.Log.Printf("failed to populate static host labels, err: %v", err)
@@ -145,6 +155,147 @@ func (na *NICAgentClient) Init() error {
 	}
 
 	return nil
+}
+
+func (na *NICAgentClient) addRdmaDevPcieAddrIfAbsent(rdmaDev string) error {
+	na.Lock()
+	defer na.Unlock()
+	if _, ok := na.rdmaDevToPcieAddr[rdmaDev]; !ok {
+		cmd := fmt.Sprintf(GetPcieAddrFromRdmaDevCmd, rdmaDev)
+		out, err := ExecWithContext(cmd)
+		if err != nil {
+			return fmt.Errorf("failed to execute cmd %s: %s", cmd, err)
+		}
+		parts := strings.Split(strings.TrimSpace(string(out)), "=")
+		if len(parts) < 2 || parts[1] == "" {
+			return fmt.Errorf("pcie addr info not found for %s", rdmaDev)
+		}
+		na.rdmaDevToPcieAddr[rdmaDev] = parts[1]
+		logger.Log.Printf("gsm60 adding pcieRdmaMap entry %s:%s", rdmaDev, na.rdmaDevToPcieAddr[rdmaDev])
+	}
+	return nil
+}
+
+func (na *NICAgentClient) addPodPidIfAbsent(podName string, podNamespace string) error {
+	na.Lock()
+	defer na.Unlock()
+
+	if _, ok := na.podnameToProcessId[podName]; !ok {
+		processId, err := na.getPidOfPod(podName, podNamespace)
+		if err != nil {
+			logger.Log.Printf("failed to get pid for pod %s : %v", podName, err)
+			return err
+		}
+		na.podnameToProcessId[podName] = processId
+		//gsmTODO cache eviction when Pod gets deleted.
+	}
+	return nil
+}
+
+func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
+
+	logStr := fmt.Sprintf("podname %s, ns %s", podName, ns)
+	containerID, err := na.k8sApiClient.GetContainerIDforPod(podName, ns)
+	if err != nil {
+		return -1, fmt.Errorf("failed to find containerID for %s: %v", logStr, err)
+	}
+
+	cmd := fmt.Sprintf(GetPIDFromContainterIDCmd, containerID)
+	processID, err := ExecWithContext(cmd)
+	if err != nil {
+		logStr = fmt.Sprintf("containerID %s, %s", containerID, logStr)
+		return -1, fmt.Errorf("failed to find pid for %s: %v", logStr, err)
+	}
+	processID = bytes.TrimSpace(processID)
+
+	pidVal, err := strconv.Atoi(string(processID))
+	if err != nil {
+		return -1, fmt.Errorf("failed in integer conversion for pid %s, %s: %v", string(processID), logStr, err)
+	}
+
+	logger.Log.Printf("gsm60 pid %d, %s", pidVal, logStr)
+	return pidVal, nil
+}
+
+func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) ([]NetDevice, error) {
+
+	var netDevices []NetDevice
+	var cmd string
+	var pid int
+	var podName string
+
+	// interfaces in workload pod are cached.
+	if podInfo != nil {
+		podName = podInfo.Pod
+		netDevices, ok := na.podnameToNetDeviceList[podName]
+		if ok {
+			logger.Log.Printf("gsm60 cacheMatch pid %s, interfaces %v", podName, netDevices)
+			return netDevices, nil
+		}
+	}
+
+	if podInfo != nil {
+		pid = na.podnameToProcessId[podName]
+		cmd = fmt.Sprintf(PodNetnsExecCmd+ShowRdmaDevicesCmd, pid)
+	} else {
+		cmd = ShowRdmaDevicesCmd
+	}
+
+	res, err := ExecWithContext(cmd)
+	if err != nil {
+		return netDevices, fmt.Errorf("failed to run cmd %s: %v", cmd, err)
+	}
+
+	lines := strings.Split(string(res), "\n")
+	for i := range lines {
+		roceDevName := ""
+		pcieBusId := ""
+		parts := strings.Fields(lines[i])
+		partsLen := len(parts)
+		for i, p := range parts {
+			if p == "link" && i+1 < partsLen {
+				roceDevName = strings.Split(parts[i+1], "/")[0]
+				if err := na.addRdmaDevPcieAddrIfAbsent(roceDevName); err != nil {
+					return netDevices, err
+				}
+				pcieBusId = na.rdmaDevToPcieAddr[roceDevName]
+			}
+			if p == "netdev" && i+1 < partsLen {
+				intfName := parts[i+1]
+				intfAlias := intfName
+
+				var cmd string
+				if podInfo != nil {
+					cmd = fmt.Sprintf(PodNetnsExecCmd+ShowNetDeviceCmd, pid, intfName)
+				} else {
+					cmd = fmt.Sprintf(ShowNetDeviceCmd, intfName)
+				}
+				res, err := ExecWithContext(cmd)
+				if err == nil {
+					words := strings.Fields(string(res))
+					for idx, w := range words {
+						if w == "alias" && idx+1 < len(words) {
+							//update intfAlias, if present in ip link show output
+							intfAlias = words[idx+1]
+						}
+					}
+				}
+				netDevices = append(netDevices, NetDevice{
+					IntfName:    intfName,
+					RoceDevName: roceDevName,
+					IntfAlias:   intfAlias,
+					PodName:     podName,
+					PCIeBusId:   pcieBusId,
+				})
+
+			}
+		}
+	}
+	if podInfo != nil {
+		na.podnameToNetDeviceList[podName] = netDevices
+	}
+	logger.Log.Printf("gsm60 podname %s, netdevs %v", podName, netDevices)
+	return netDevices, nil
 }
 
 // ListWorkloads returns the list of workloads by device ID
@@ -180,11 +331,18 @@ func (na *NICAgentClient) initLocalCacheIfRequired() {
 
 func (na *NICAgentClient) getMetricsAll() error {
 	var wg sync.WaitGroup
-	na.initLocalCacheIfRequired()
+	na.initLocalCacheIfRequired() /// UTgsm
 
 	workloads, err := na.ListWorkloads()
 	if err != nil {
 		logger.Log.Printf("failed to list workloads, err: %v", err)
+	}
+	for i := range workloads {
+		podInfo := workloads[i].Info.(scheduler.PodResourceInfo)
+		if err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace); err != nil {
+			logger.Log.Printf("failure in pod2pid update for pod %s ns %s: %v",
+				podInfo.Pod, podInfo.Namespace, err)
+		}
 	}
 	k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
 
