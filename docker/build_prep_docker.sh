@@ -66,10 +66,10 @@ if [ "$SRIOV" != "1" ]; then
 
     chmod +x $TOP_DIR/docker/rocpctl
 fi
-ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
 ln -f $TOP_DIR/bin/amd-metrics-exporter $TOP_DIR/docker/amd-metrics-exporter
 ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient
 ln -f $TOP_DIR/bin/amdgpuhealth $TOP_DIR/docker/amdgpuhealth
+ln -f $TOP_DIR/tools/techsupport/metrics-exporter-ts.sh $TOP_DIR/docker/metrics-exporter-ts.sh
 cp $TOP_DIR/LICENSE $TOP_DIR/docker/LICENSE
 
 # Copy AMD SMI library from assets

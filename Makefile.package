@@ -47,6 +47,9 @@ pkg: pkg-clean
 		echo "profiler dependent assets not built, run target libcopy-assets-${UBUNTU_LIBDIR}";\
 		exit 1;\
 	fi
+	@echo "Copying techsupport tool"
+	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${PKG_PATH}/
+	@chmod +x ${PKG_PATH}/metrics-exporter-ts.sh
 	@echo "Copying profiler dependent libraries form ${PROFILER_DEB_LIBS}"
 	@cp -vaf $(PROFILER_DEB_LIBS)/rocprofilerdeplib/lib* ${PKG_LIB_PATH}/lib/
 	ls -lart ${PKG_LIB_PATH}/lib
