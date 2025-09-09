@@ -231,6 +231,9 @@ ret:
 func (ga *GPUAgentClient) SetError(gpuid string, fields []string, values []uint32) error {
 	ga.Lock()
 	defer ga.Unlock()
+	if ga.mockEccField == nil {
+		ga.mockEccField = make(map[string]map[string]uint32)
+	}
 	if _, ok := ga.mockEccField[gpuid]; !ok {
 		ga.mockEccField[gpuid] = make(map[string]uint32)
 	}

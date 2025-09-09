@@ -31,6 +31,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
+	"github.com/ROCm/device-metrics-exporter/test/utils"
 	testutils "github.com/ROCm/device-metrics-exporter/test/utils"
 )
 
@@ -586,6 +587,151 @@ func (s *E2ESuite) Test018HealthSvcToggle(c *C) {
 		return output != ""
 	}, 10*time.Second, 1*time.Second)
 
+}
+
+func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
+	log.Print("Testing ECC error injection via metricsclient")
+
+	// First, ensure ECC fields are included in the metrics
+	fields := []string{
+		"gpu_ecc_uncorrect_fuse",
+		"gpu_ecc_uncorrect_df",
+		"gpu_health",
+	}
+
+	gpu0name := fmt.Sprintf("%v", 0)
+
+	// Create ECC error payload
+	eccPayload := map[string]interface{}{
+		"ID": gpu0name,
+		"Fields": []string{
+			"GPU_ECC_UNCORRECT_FUSE",
+			"GPU_ECC_UNCORRECT_DF",
+		},
+		"Counts": []int{10, 0},
+	}
+
+	// Convert payload to JSON
+	jsonBytes, err := json.MarshalIndent(eccPayload, "", "  ")
+	assert.Nil(c, err)
+
+	// Write JSON to file
+	eccFile := "ecc_errors.json"
+	err = os.WriteFile(eccFile, jsonBytes, 0644)
+	assert.Nil(c, err)
+	defer os.Remove(eccFile)
+
+	// Copy file to exporter container
+	// nolint: gosec
+	_, _ = s.exporter.CopyFileTo(eccFile, "/tmp/ecc_errors.json")
+
+	// Inject ECC errors using metricsclient
+	injectCmd := "docker exec -t test_exporter metricsclient --ecc-file-path /tmp/ecc_errors.json"
+	output := s.tu.LocalCommandOutput(injectCmd)
+	log.Printf("ECC injection output: %s", output)
+
+	// force health service to update
+	err = s.SetFields(fields)
+	assert.Nil(c, err)
+	err = s.RemoveCommonConfig() // Re-enable health service to restore config
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	// Verify ECC errors are reflected in metrics
+	assert.Eventually(c, func() bool {
+		response, err := s.getExporterResponse()
+		if err != nil || response == "" {
+			return false
+		}
+
+		allgpus, err := testutils.ParsePrometheusMetrics(response)
+		if err != nil {
+			log.Printf("Failed to parse metrics: %v", err)
+			return false
+		}
+
+		gpu0, exists := allgpus["\"0\""]
+		if !exists {
+			log.Printf("GPU 0 not found in metrics")
+			return false
+		}
+
+		// check for unhealthy state
+		healthPayload := map[string]*utils.GPUMetric{
+			"0": gpu0,
+		}
+
+		verifyHealth(healthPayload, "0")
+
+		log.Printf("ECC health state verified successfully for GPU 0")
+		return true
+	}, 10*time.Second, 1*time.Second)
+
+	// Clear ECC errors by setting all counts to 0
+	clearPayload := map[string]interface{}{
+		"ID": "0",
+		"Fields": []string{
+			"GPU_ECC_UNCORRECT_FUSE",
+			"GPU_ECC_UNCORRECT_DF",
+		},
+		"Counts": []int{0, 0},
+	}
+
+	// Convert clear payload to JSON
+	clearJsonBytes, err := json.MarshalIndent(clearPayload, "", "  ")
+	assert.Nil(c, err)
+
+	// Write clear JSON to file
+	clearFile := "clear_ecc_errors.json"
+	err = os.WriteFile(clearFile, clearJsonBytes, 0644)
+	assert.Nil(c, err)
+	defer os.Remove(clearFile)
+
+	// Copy clear file to exporter container
+	// nolint: gosec
+	_, _ = s.exporter.CopyFileTo(clearFile, "/tmp/clear_ecc_errors.json")
+
+	// Clear ECC errors using metricsclient
+	clearCmd := "docker exec -t test_exporter metricsclient --ecc-file-path /tmp/clear_ecc_errors.json"
+	clearOutput := s.tu.LocalCommandOutput(clearCmd)
+	log.Printf("ECC clear output: %s", clearOutput)
+
+	// force health service to update
+	err = s.SetFields(fields)
+	assert.Nil(c, err)
+	err = s.RemoveCommonConfig() // Re-enable health service to restore config
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	// Verify ECC errors are cleared
+	assert.Eventually(c, func() bool {
+		response, err := s.getExporterResponse()
+		if err != nil || response == "" {
+			return false
+		}
+
+		allgpus, err := testutils.ParsePrometheusMetrics(response)
+		if err != nil {
+			return false
+		}
+
+		gpu0, exists := allgpus["\"0\""]
+		if !exists {
+			log.Printf("GPU 0 not found in metrics")
+			return false
+		}
+
+		// check for unhealthy state
+		healthPayload := map[string]*utils.GPUMetric{
+			"0": gpu0,
+		}
+
+		// check for healthy state
+		verifyHealth(healthPayload, "1")
+
+		log.Printf("ECC health state successfully cleared for GPU 0")
+		return true
+	}, 10*time.Second, 1*time.Second)
 }
 
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {
