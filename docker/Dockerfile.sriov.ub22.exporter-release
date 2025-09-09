@@ -16,6 +16,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     python3-pip \
     libcap-dev \
     vim \
+    tar \
     net-tools && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -35,12 +36,14 @@ ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./entrypoint-host.sh /home/amd/tools/entrypoint.sh
 ADD ./LICENSE /licenses/LICENSE
 RUN chmod +x /home/amd/tools/entrypoint.sh
+ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
+RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 
-LABEL name="amd-device-metrics-exporter" \ 
+LABEL name="amd-device-metrics-exporter-sriov" \ 
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v2.0.0" \
-    release="v2.0.0" \
+    version="v1.5.0" \
+    release="v1.5.0" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Virtualized Host." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."
 

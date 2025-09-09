@@ -25,7 +25,7 @@ RUN microdnf clean all && \
     echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
     echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
     microdnf update -y && \
-    microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file \
+    microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
     python3 python3-pip libcap-devel vim net-tools numactl numactl-libs && \
     rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
@@ -45,12 +45,14 @@ ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./entrypoint-host.sh /home/amd/tools/entrypoint.sh
 ADD ./LICENSE /licenses/LICENSE
 RUN chmod +x /home/amd/tools/entrypoint.sh
+ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
+RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 
-LABEL name="amd-device-metrics-exporter" \ 
+LABEL name="amd-device-metrics-exporter-sriov" \ 
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v2.0.0" \
-    release="v2.0.0" \
+    version="v1.5.0" \
+    release="v1.5.0" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Virtualized Host." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."
 
