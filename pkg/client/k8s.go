@@ -329,6 +329,26 @@ func (k *K8sClient) GetNodeLabel() (string, error) {
 	return fmt.Sprintf("%+v", node.Labels), nil
 }
 
+func (k *K8sClient) GetContainerIDforPod(podName, ns string) (string, error) {
+
+	pod, err := k.clientset.CoreV1().Pods(ns).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod %s in ns %s: %w", podName, ns, err)
+	}
+	if len(pod.Status.ContainerStatuses) == 0 {
+		return "", fmt.Errorf("no container statuses found in pod %s", podName)
+	}
+	fullID := pod.Status.ContainerStatuses[0].ContainerID
+	if fullID == "" {
+		return "", fmt.Errorf("container ID not set yet")
+	}
+	parts := strings.Split(fullID, "://")
+	if len(parts) != 2 {
+		return fullID, nil
+	}
+	return parts[1], nil
+}
+
 func (k *K8sClient) GetAllPods() (map[string]map[string]string, error) {
 	// Initialize the resulting map
 	k8PodLabelsMap := make(map[string]map[string]string)

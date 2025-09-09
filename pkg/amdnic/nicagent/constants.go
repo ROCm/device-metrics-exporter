@@ -28,20 +28,29 @@ const (
 	// Port ID label for port metrics
 	LabelPortID = "port_id"
 	// RoCE Interface name label for RDMA  metrics
-	LabelRdmaIfName = "rdma_if_name"
+	LabelRdmaDevName = "rdma_dev_name"
 	// Netdevice name label for RDMA  metrics
 	LabelPcieBusId = "pcie_bus_id"
 	// Lif name label for Lif metrics
-	LabelLifName = "lif_name"
+	LabelEthIntfName = "eth_intf_name"
+	// Intf alias label for Intf metrics
+	LabelEthIntfAlias = "eth_intf_alias"
 	// Queue-Pair ID for QP metrics
 	LabelQPID = "qp_id"
 
-	RDMAClientName    = "RDMA_Stats_Client"
-	NICCtlClientName  = "NICCTL_Client"
-	EthtoolClientName = "Ethtool_Client"
-	NICCtlBinary      = "nicctl"
-	RDMABinary        = "rdma"
-	EthtoolBinary     = "ethtool"
+	RDMAClientName            = "RDMA_Stats_Client"
+	NICCtlClientName          = "NICCTL_Client"
+	EthtoolClientName         = "Ethtool_Client"
+	NICCtlBinary              = "nicctl"
+	RDMABinary                = "rdma"
+	EthtoolBinary             = "ethtool"
+	HostNamespacePodName      = "host-ns"
+	PodNetnsExecCmd           = "nsenter --net=/opt/nic/proc/%d/ns/net "
+	ShowRdmaDevicesCmd        = "rdma link"
+	ShowNetDeviceCmd          = "ip link show %s"
+	EthToolCmd                = "ethtool -S %s"
+	GetPIDFromContainterIDCmd = "jq .init_process_pid /opt/nic/run/containerd/runc/k8s.io/%s/state.json"
+	GetPcieAddrFromRdmaDevCmd = "cat /sys/class/infiniband/%s/device/uevent  | grep PCI_SLOT"
 )
 
 var (

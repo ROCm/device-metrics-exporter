@@ -29,7 +29,7 @@ RUN microdnf clean all && \
    microdnf update -y && \
    microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
    libcap-devel amd-smi-lib libdrm-amdgpu vim net-tools numactl numactl-libs \
-   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd && \
+   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq iproute && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 
