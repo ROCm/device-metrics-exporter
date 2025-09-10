@@ -366,7 +366,6 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 		default:
 			logger.Log.Printf("failure to fill value for label %v", key)
 		}
-		logger.Log.Printf("ethtool label %s , val %s", key, labelMap[key]) //DELgsm
 	}
 
 	// Add extra pod labels only if config has mapped any

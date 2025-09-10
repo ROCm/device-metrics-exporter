@@ -73,13 +73,11 @@ func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string
 
 	for i := range netDevices {
 		if netDevices[i].RoceDevName == rdmaDevName {
-			logger.Log.Printf("gsm60 rdma %s pci %s pod %s, interface %v", //DELgsm
-				rdmaDevName, pcieAddr, podInfo.Pod, netDevices[i]) //DELgsm
 			return rc.na.populateLabelsForNetDevice(netDevices[i], podInfoPtr)
 		}
 	}
 
-	logger.Log.Printf("gsm6099 failed to get labelmap for rdmaDev %s pci %s pod %s",
+	logger.Log.Printf("failed to get labelmap for rdmaDev %s pci %s pod %s",
 		rdmaDevName, pcieAddr, podInfo.Pod)
 	return map[string]string{}
 }
