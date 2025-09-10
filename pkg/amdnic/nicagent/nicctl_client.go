@@ -62,7 +62,6 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 	nc.Lock()
 	defer nc.Unlock()
 
-	/// /* UTgsm
 	fn_ptrs := []func(map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
 		nc.UpdateLifStats,
@@ -79,7 +78,6 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 		}(fn)
 	}
 	wg.Wait()
-	// */ //UTgsm
 	return nil
 }
 
