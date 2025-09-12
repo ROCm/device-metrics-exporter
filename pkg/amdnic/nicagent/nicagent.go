@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -197,7 +198,13 @@ func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
 		return -1, fmt.Errorf("failed to find containerID for %s: %v", logStr, err)
 	}
 
-	cmd := fmt.Sprintf(GetPIDFromContainterIDCmd, containerID)
+	var cmd string
+	if _, err := os.Stat(CrioRuntimeSocket); err == nil {
+		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, CrioRuntimeSocket, containerID)
+	}
+	if _, err := os.Stat(ContainerdRuntimeSocket); err == nil {
+		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, ContainerdRuntimeSocket, containerID)
+	}
 	processID, err := ExecWithContext(cmd)
 	if err != nil {
 		logStr = fmt.Sprintf("containerID %s, %s", containerID, logStr)

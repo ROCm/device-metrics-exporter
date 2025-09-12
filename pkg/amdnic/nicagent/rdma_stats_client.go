@@ -18,6 +18,7 @@ package nicagent
 
 import (
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"sync"
 
@@ -54,7 +55,7 @@ func (rc *RDMAStatsClient) GetClientName() string {
 	return RDMAClientName
 }
 
-func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string, workloads map[string]scheduler.Workload) map[string]string {
+func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string, workloads map[string]scheduler.Workload) (map[string]string, error) {
 
 	var podInfo scheduler.PodResourceInfo
 	var podInfoPtr *scheduler.PodResourceInfo
@@ -67,19 +68,19 @@ func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string
 
 	netDevices, err := rc.na.getNetDevicesList(podInfoPtr)
 	if err != nil {
-		logger.Log.Printf("failed to get netdevs in pod %s: %v", podInfo.Pod, err)
-		return map[string]string{}
+		err = fmt.Errorf("failed to get netdevs in pod %s: %v", podInfo.Pod, err)
+		return map[string]string{}, err
 	}
 
 	for i := range netDevices {
 		if netDevices[i].RoceDevName == rdmaDevName {
-			return rc.na.populateLabelsForNetDevice(netDevices[i], podInfoPtr)
+			return rc.na.populateLabelsForNetDevice(netDevices[i], podInfoPtr), nil
 		}
 	}
 
-	logger.Log.Printf("failed to get labelmap for rdmaDev %s pci %s pod %s",
+	err = fmt.Errorf("failed to get labelmap for rdmaDev %s pci %s pod %s",
 		rdmaDevName, pcieAddr, podInfo.Pod)
-	return map[string]string{}
+	return map[string]string{}, err
 }
 
 func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
@@ -104,9 +105,14 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 		rdmaDevName := rdmaStats[i].IFNAME
 		if err := rc.na.addRdmaDevPcieAddrIfAbsent(rdmaDevName); err != nil {
 			logger.Log.Printf("failed to get rdma stats for %s: %v", rdmaDevName, err)
+			continue
 		}
 		rdmaDevPcieAddr := rc.na.rdmaDevToPcieAddr[rdmaDevName]
-		labels := rc.populateRdmaDeviceLabels(rdmaDevName, rdmaDevPcieAddr, workloads)
+		labels, err := rc.populateRdmaDeviceLabels(rdmaDevName, rdmaDevPcieAddr, workloads)
+		if err != nil {
+			logger.Log.Printf("failed to get labels for %s: %v", rdmaDevName, err)
+			continue
+		}
 
 		rc.na.m.rdmaTxUcastPkts.With(labels).Set(float64(rdmaStats[i].RDMA_TX_UCAST_PKTS))
 		rc.na.m.rdmaTxCnpPkts.With(labels).Set(float64(rdmaStats[i].RDMA_TX_CNP_PKTS))
