@@ -424,7 +424,6 @@ func (na *NICAgentClient) GetExportLabels() []string { //TODO .. move to exporte
 		}
 	}
 
-	logger.Log.Printf("Get_export-labels returns %v", labelList)
 	return labelList
 }
 
