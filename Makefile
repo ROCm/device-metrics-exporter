@@ -239,6 +239,12 @@ GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
 	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8)
 
+HELMDOCS = $(shell pwd)/bin/helm-docs
+.PHONY: helm-docs
+helm-docs: ## Download helm-docs locally if necessary
+	$(call go-get-tool,$(HELMDOCS),github.com/norwoodj/helm-docs/cmd/helm-docs@v1.12.0)
+	$(HELMDOCS) -c $(shell pwd)/helm-charts/ -g $(shell pwd)/helm-charts -u --ignore-non-descriptions
+
 # go-get-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
@@ -421,8 +427,25 @@ helm-lint:
 .PHONY: helm-build
 helm-build: helm-lint
 	rm -rf helm-charts/device-metrics-exporter-charts*
-	helm package helm-charts/ --destination ./helm-charts --app-version ${PACKAGE_VERSION} --version ${PACKAGE_VERSION}
-	mv -vf helm-charts/device-metrics-exporter-charts* helm-charts/device-metrics-exporter-charts.tgz
+	# updating project version in helm Chart.yaml
+	sed -i -e 's|appVersion:.*$$|appVersion: "${REL_IMAGE_TAG}"|' helm-charts/Chart.yaml
+	sed -i '0,/version:/s|version:.*|version: ${REL_IMAGE_TAG}|' helm-charts/Chart.yaml
+	${MAKE} helm-docs
+	helm package helm-charts/ --destination ./helm-charts --app-version ${REL_IMAGE_TAG} --version ${REL_IMAGE_TAG}
+	cp -vf helm-charts/device-metrics-exporter-charts* helm-charts/device-metrics-exporter-charts.tgz
+
+# cicd target to build helm chart - requires PROJECT_VERSION, EXPORTER_IMAGE_TAG to be set
+.PHONY: helm
+helm: helm-lint
+	@rm -rf helm-charts-k8s
+	@yq eval -i '.appVersion = "$(EXPORTER_IMAGE_TAG)"' helm-charts/Chart.yaml
+	@yq eval -i '.version = "$(EXPORTER_IMAGE_TAG)"' helm-charts/Chart.yaml
+	@yq eval -i '.image.repository = "$(HELM_EXPORTER_IMAGE)"' helm-charts/values.yaml
+	@yq eval -i '.image.tag = "$(EXPORTER_IMAGE_TAG)"' helm-charts/values.yaml
+	@mkdir -p helm-charts-k8s
+	${MAKE} helm-docs
+	helm package helm-charts/ --destination ./helm-charts-k8s --app-version ${PROJECT_VERSION} --version ${PROJECT_VERSION}
+	cp -vf helm-charts-k8s/device-metrics-exporter-*.tgz helm-charts-k8s/device-metrics-exporter-helm-k8s-${PROJECT_VERSION}.tgz
 
 .PHONY: slurm-sim
 slurm-sim:
