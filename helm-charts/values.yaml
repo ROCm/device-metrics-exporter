@@ -1,3 +1,4 @@
+# -- Specify the platform to deploy the metrics exporter, k8s or openshift
 platform: k8s
 
 # -- Add node selector for the daemonset of metrics exporter
