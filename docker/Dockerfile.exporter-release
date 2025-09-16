@@ -7,8 +7,8 @@ LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
 LABEL ROCM_VERSION="7.0_rc1"
 
 
-ARG ROCM_VERSION=7.0_rc1
-ARG AMDGPU_VERSION=7.0_rc1
+ARG ROCM_VERSION=7.0
+ARG AMDGPU_VERSION=7.0
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 RUN microdnf clean all && \
@@ -52,8 +52,8 @@ ADD ./libamd_smi.so.25.4 /home/amd/lib/libamd_smi.so.25.4
 RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.25.4 libamd_smi.so.25
 
 ADD ./rocpctl /home/amd/bin/rocpctl
-ADD ./gpuagent /home/amd/bin/gpuagent
 ADD ./gpuctl /home/amd/bin/gpuctl
+ADD ./gpuagent /home/amd/bin/gpuagent
 ADD ./amd-metrics-exporter /home/amd/bin/server
 ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./amdgpuhealth /home/amd/bin/amdgpuhealth
