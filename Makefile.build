@@ -4,6 +4,7 @@ WORK_DIR := /usr/src/github.com/ROCm/device-metrics-exporter/
 SMILIB_CONTAINER_WORKDIR := ${WORK_DIR}
 AMDMSMI_SRC_DIR := $(TOP_DIR)/
 AMDSMI_BUILD_DIR := $(TOP_DIR)/tools/smilib-builderimage/
+GIMSMI_BUILD_DIR := $(TOP_DIR)/tools/gimlib-builderimage/
 GPUAGENT_SRC_DIR := $(TOP_DIR)/gpuagent/
 GPUAGENT_BUILD_DIR := $(TOP_DIR)/tools/gpuagent-builderimage/
 GPUAGENT_OUT_DIR := $(TOP_DIR)/gpuagent/sw/nic/build/x86_64/sim/bin/
@@ -88,3 +89,37 @@ rocprofiler-build:
 		-t $(ROCPROFILER_BUILDER_IMAGE) \
 		 . -f $(ROCPROFILER_BUILD_DIR)/Dockerfile.ubuntu22
 
+# these create docker container images for the compilation of respective OS libraries 
+.PHONY: gimsmi-build
+gimsmi-build:
+ifeq ($(OS), RHEL9)
+	$(eval DOCKERFILE=$(GIMSMI_BUILD_DIR)/Dockerfile.rhel9)
+	$(eval BUILDER_IMAGE=$(GIMSMI_BUILDER_IMAGE))
+	$(eval BASE_IMAGE=${AMDSMI_BASE_IMAGE})
+else ifeq ($(OS), UBUNTU22)
+	$(eval DOCKERFILE=$(GIMSMI_BUILD_DIR)/Dockerfile.ubuntu22)
+	$(eval BUILDER_IMAGE=$(GIMSMI_BUILDER_UB22_IMAGE))
+	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU22})
+else ifeq ($(OS), UBUNTU24)
+	$(eval DOCKERFILE=$(GIMSMI_BUILD_DIR)/Dockerfile.ubuntu24)
+	$(eval BUILDER_IMAGE=$(GIMSMI_BUILDER_UB24_IMAGE))
+	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU24})
+else
+	$(error unsupported os)
+endif
+	@echo "Building gimsmi $(OS), $(DOCKERFILE), $(BUILDER_IMAGE), $(BASE_IMAGE)"
+	@docker image rm $(BUILDER_IMAGE) || true
+	@docker build --build-arg BASE_IMAGE=${BASE_IMAGE} \
+		-t $(BUILDER_IMAGE) . -f $(DOCKERFILE)
+
+.PHONY: gimsmi-build-rhel
+gimsmi-build-rhel:
+	OS=RHEL9 ${MAKE} gimsmi-build
+
+.PHONY: gimsmi-build-ub22
+gimsmi-build-ub22:
+	OS=UBUNTU22 ${MAKE} gimsmi-build
+
+.PHONY: gimsmi-build-ub24
+gimsmi-build-ub24:
+	OS=UBUNTU24 ${MAKE} gimsmi-build

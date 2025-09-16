@@ -1,0 +1,19 @@
+ARG BASE_IMAGE=ubuntu24.04
+FROM ${BASE_IMAGE}
+
+
+LABEL maintainer="AMD Inc"
+LABEL OS=${BASE_IMAGE}
+WORKDIR /usr/src/github.com/ROCm/device-metrics-exporter/libgimsmi
+
+RUN apt update && apt-get install -y git build-essential rpm pkg-config g++ libdrm-dev python3-pip python3-wheel
+
+RUN python3 -m pip install --break-system-packages --upgrade setuptools && \
+    python3 -m pip install --break-system-packages cmake virtualenv
+
+ADD tools/gimlib-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]
+

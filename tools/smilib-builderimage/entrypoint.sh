@@ -53,5 +53,5 @@ fi
 
 ls -lart $exporteroutdir
 
-echo "Successfully Build AMI SMI lib $os"
+echo "Successfully Build AMI SMI lib $os branch $BRANCH commit $COMMIT"
 exit 0

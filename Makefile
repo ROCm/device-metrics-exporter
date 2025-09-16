@@ -34,6 +34,9 @@ AMDSMI_BUILDER_IMAGE ?= amdsmi-builder:rhel9
 AMDSMI_BUILDER_UB22_IMAGE ?= amdsmi-builder:ub22
 AMDSMI_BUILDER_UB24_IMAGE ?= amdsmi-builder:ub24
 AMDSMI_BUILDER_AZURE_IMAGE ?= amdsmi-builder:azure
+GIMSMI_BUILDER_IMAGE ?= gimsmi-builder:rhel9
+GIMSMI_BUILDER_UB22_IMAGE ?= gimsmi-builder:ub22
+GIMSMI_BUILDER_UB24_IMAGE ?= gimsmi-builder:ub24
 ROCPROFILER_BUILDER_IMAGE ?= rocprofiler-builder:ub22
 
 # export environment variables used across project
@@ -99,6 +102,8 @@ HTML_DIR := $(BUILD_DIR)/html
 # library branch to build amdsmi libraries for gpuagent
 AMDSMI_BRANCH ?= release/rocm-rel-7.0
 AMDSMI_COMMIT ?= ff168a2
+GIMSMI_BRANCH ?= mainline
+GIMSMI_COMMIT ?= mainline/8.3.0.K
 
 ROCM_VERSION ?= 7.0_rc1
 
@@ -113,6 +118,8 @@ export ${AZURE_DOCKER_CONTAINER_IMG}
 export ${BUILD_VER_ENV}
 export ${AMDSMI_BRANCH}
 export ${AMDSMI_COMMIT}
+export ${GIMSMI_BRANCH}
+export ${GIMSMI_COMMIT}
 
 ASSETS_PATH :=${TOP_DIR}/assets
 # 22.04 - jammy
@@ -464,10 +471,17 @@ amdsmi-compile-all:
 	${MAKE} amdsmi-compile-rhel
 	#${MAKE} amdsmi-compile-azure
 
+.PHONY: gimsmi-compile-all
+gimsmi-compile-all:
+	${MAKE} gimsmi-compile-ub24
+	${MAKE} gimsmi-compile-ub22
+	${MAKE} gimsmi-compile-rhel
+
 # build all components
 .PHONY: build-all
 build-all: 
 	${MAKE} amdsmi-compile-all
+	${MAKE} gimsmi-compile-all
 	# no need to run this everytime, we build and copy assets once
 	#${MAKE} rocprofiler-compile
 	${MAKE} gpuagent-compile
