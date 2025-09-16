@@ -86,6 +86,11 @@ For example, for MI300X GPUs, the following test recipes are currently available
 | xgmi_lvl2          | A \~10m xGMI workload              | /opt/amd/agfhc/recipes/mi300x/xgmi_lvl2.yml       |
 | xgmi_lvl3          | A \~30m xGMI workload              | /opt/amd/agfhc/recipes/mi300x/xgmi_lvl3.yml       |
 | xgmi_lvl4          | A  \~1h xGMI workload              | /opt/amd/agfhc/recipes/mi300x/xgmi_lvl4.yml       |
+| acf_lvl1           | A  \~5m ACF workload               | /opt/amd/agfhc/recipes/mi300x/acf_lvl1.yml        |
+| acf_lvl2           | A \~10m ACF workload               | /opt/amd/agfhc/recipes/mi300x/acf_lvl2.yml        |
+| acf_lvl3           | A \~30m ACF workload               | /opt/amd/agfhc/recipes/mi300x/acf_lvl3.yml        |
+| acf_lvl4           | A  \~1h ACF workload               | /opt/amd/agfhc/recipes/mi300x/acf_lvl4.yml        |
+
 
 NOTE: Each one of the aforementioned recipes could consist of multiple test cases. Execution of _individual_ AGFHC test case is currently not supported.
 
