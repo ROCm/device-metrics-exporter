@@ -1,0 +1,19 @@
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi:9.4 
+
+FROM ${BASE_IMAGE}
+
+
+LABEL maintainer="AMD Inc"
+LABEL OS=${BASE_IMAGE}
+WORKDIR /usr/src/github.com/ROCm/device-metrics-exporter/libgimsmi
+
+RUN dnf install -y 'dnf-command(config-manager)' && \
+    dnf install -y --nobest --allowerasing findutils git gcc-c++ cmake make libstdc++ libstdc++-devel glibc-devel
+RUN dnf config-manager --add-repo=https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/ && \
+    rpm --import https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official && \
+    dnf update -y --nobest --allowerasing && dnf install -y --nobest --allowerasing libdrm-devel
+
+ADD tools/gimlib-builderimage/entrypoint.sh /usr/src/github.com/entrypoint.sh
+RUN chmod +x /usr/src/github.com/entrypoint.sh
+
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]

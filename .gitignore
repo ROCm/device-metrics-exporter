@@ -8,6 +8,7 @@ pkg/bin
 pkg/slurm/sim/slurm-sim
 .venv
 _build
+build*
 helm-charts/config.json
 sw/nic/build/
 build

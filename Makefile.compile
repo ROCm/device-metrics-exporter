@@ -144,4 +144,48 @@ profiler-libdependent-assets:
 	${MAKE} libcopy-assets-UBUNTU22
 	${MAKE} libcopy-assets-UBUNTU24
 
+#compiles the library code from source on respective OS platforms
+.PHONY: gimsmi-compile
+gimsmi-compile:
+ifeq ($(OS), RHEL9)
+	$(eval BUILD_IMAGE_OS=$(GIMSMI_BUILDER_IMAGE))
+else ifeq ($(OS), UBUNTU22)
+	$(eval BUILD_IMAGE_OS=$(GIMSMI_BUILDER_UB22_IMAGE))
+else ifeq ($(OS), UBUNTU24)
+	$(eval BUILD_IMAGE_OS=$(GIMSMI_BUILDER_UB24_IMAGE))
+else
+	$(error unsupported os)
+endif
+	@echo "Building gimsmi library for $(BUILD_IMAGE_OS)"
+	@docker run --rm -it --privileged \
+		--network host \
+		-e "USER_NAME=$(shell whoami)" \
+		-e "USER_UID=$(shell id -u)" \
+		-e "USER_GID=$(shell id -g)" \
+		-e "BRANCH=$(GIMSMI_BRANCH)" \
+		-e "COMMIT=$(GIMSMI_COMMIT)" \
+	    --name gimbuild -v $(AMDMSMI_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
+		-w $(SMILIB_CONTAINER_WORKDIR) $(BUILD_IMAGE_OS)
+	@echo 'Copying gimsmi assets to ${TOP_DIR}/build/assets/${OS}'
+	@rm -rf  ${TOP_DIR}/build/assets/${OS} || true
+	@mkdir -p ${TOP_DIR}/build/assets/${OS}/
+	@cp -rvf ${TOP_DIR}/libgimsmi/build/exporterout ${TOP_DIR}/build/assets/${OS}/
+	@echo "updating prebuilt assets gim_smi_lib directory"
+	@rm -rf ${TOP_DIR}/assets/gim_smi_lib/x86_64/${OS}
+	@mkdir -p ${TOP_DIR}/assets/gim_smi_lib/x86_64/${OS}
+	@cp -ravf ${TOP_DIR}/build/assets/${OS}/exporterout ${TOP_DIR}/assets/gim_smi_lib/x86_64/${OS}/lib
 
+.PHONY: gimsmi-compile-rhel
+gimsmi-compile-rhel:
+	${MAKE} gimsmi-build-rhel
+	OS=RHEL9 ${MAKE} gimsmi-compile
+
+.PHONY: gimsmi-compile-ub22
+gimsmi-compile-ub22:
+	${MAKE} gimsmi-build-ub22
+	OS=UBUNTU22 ${MAKE} gimsmi-compile
+
+.PHONY: gimsmi-compile-ub24
+gimsmi-compile-ub24:
+	${MAKE} gimsmi-build-ub24
+	OS=UBUNTU24 ${MAKE} gimsmi-compile
