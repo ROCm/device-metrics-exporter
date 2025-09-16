@@ -4,23 +4,25 @@ assets:
     branch  : master
 
   - name    : gpuagent_static.bin.gz
-    version : 1.122.0-9 (Private Build)
-    branch  : master
+    version : 5a0e8cd
+    repo    : ROCm/gpu-agent
+    branch  : main
 
   - name    : gpuctl.gobin
-    version : 1.122.0-9 (Private Build)
-    branch  : master
+    version : 5a0e8cd
+    repo    : ROCm/gpu-agent
+    branch  : main
 
   - name    : amd_smi_lib
-    version : ff168a2
-    branch  : release/rocm-rel-7.0
+    version : 37d158a
+    branch  : rocm-7.0.0
 
   - name    : rocprofiler
     version : 7.0.0
-    branch  : release/rocm-rel-7.0
+    branch  : rocm-7.0.0
 
   - name    : profiler_lib
-    version : 7.0_rc1
+    version : 7.0
 
   - name    : gpuagent_sriov_static.bin.gz
     version : 1.120.0-49

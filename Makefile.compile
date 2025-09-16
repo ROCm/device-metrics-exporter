@@ -89,7 +89,7 @@ rocprofiler-compile:
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
-		-e "ROCM_VERSION=7.0.0" \
+		-e "ROCM_VERSION=$(ROCM_VERSION)" \
 		--name rocprofilerbuild -v $(ROCPROFILER_SRC_DIR):$(ROCPROFILER_CONTAINER_WORKDIR) \
 		-w $(ROCPROFILER_CONTAINER_WORKDIR) $(ROCPROFILER_BUILDER_IMAGE)
 	@echo "Copy newly built assets"
