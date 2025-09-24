@@ -204,6 +204,24 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &check;    | ETH_RX_13_DROPPED                        | Count of packets dropped on receive queue 13                                |
 | &check;    | &check;   | &check;    | ETH_RX_14_DROPPED                        | Count of packets dropped on receive queue 14                                |
 | &check;    | &check;   | &check;    | ETH_RX_15_DROPPED                        | Count of packets dropped on receive queue 15                                |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_OK                         | Count of frames received successfully                                       |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_OK                         | Count of frames transmitted successfully                                    |
+| &check;    | &check;   | &check;    | ETH_OCTETS_RX_OK                         | Count of octets/bytes received successfully                                 |
+| &check;    | &check;   | &check;    | ETH_OCTETS_TX_OK                         | Count of octets/bytes transmitted successfully                              |
+| &check;    | &check;   | &check;    | ETH_OCTETS_TX_TOTAL                      | Total count of octets/bytes transmitted                                     |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_UNICAST                    | Count of unicast frames received                                            |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_UNICAST                    | Count of unicast frames transmitted                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_8192B_9215B                | Count of frames received with size 8192-9215 bytes                          |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_8192B_9215B                | Count of frames transmitted with size 8192-9215 bytes                       |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_64B                        | Count of frames transmitted with size 64 bytes                              |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_65B_127B                   | Count of frames transmitted with size 65-127 bytes                          |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_128B_255B                  | Count of frames transmitted with size 128-255 bytes                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_256B_511B                  | Count of frames transmitted with size 256-511 bytes                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_512B_1023B                 | Count of frames transmitted with size 512-1023 bytes                        |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_1024B_1518B                | Count of frames transmitted with size 1024-1518 bytes                       |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_1519B_2047B                | Count of frames transmitted with size 1519-2047 bytes                       |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_2048B_4095B                | Count of frames transmitted with size 2048-4095 bytes                       |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_4096B_8191B                | Count of frames transmitted with size 4096-8191 bytes                       |
 
 
 

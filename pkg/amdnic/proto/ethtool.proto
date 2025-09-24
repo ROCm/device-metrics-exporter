@@ -117,4 +117,22 @@ message EthtoolStats {
     uint64 RX_13_DROPPED                    = 58 [(go.field).tags = 'yaml:"rx_13_dropped,omitempty" json:"rx_13_dropped,omitempty"'];
     uint64 RX_14_DROPPED                    = 59 [(go.field).tags = 'yaml:"rx_14_dropped,omitempty" json:"rx_14_dropped,omitempty"'];
     uint64 RX_15_DROPPED                    = 60 [(go.field).tags = 'yaml:"rx_15_dropped,omitempty" json:"rx_15_dropped,omitempty"'];
+    uint64 FRAMES_RX_OK                     = 61 [(go.field).tags = 'yaml:"frames_rx_ok,omitempty" json:"frames_rx_ok,omitempty"'];
+    uint64 FRAMES_TX_OK                     = 62 [(go.field).tags = 'yaml:"frames_tx_ok,omitempty" json:"frames_tx_ok,omitempty"'];
+    uint64 OCTETS_RX_OK                     = 63 [(go.field).tags = 'yaml:"octets_rx_ok,omitempty" json:"octets_rx_ok,omitempty"'];
+    uint64 OCTETS_TX_OK                     = 64 [(go.field).tags = 'yaml:"octets_tx_ok,omitempty" json:"octets_tx_ok,omitempty"'];
+    uint64 OCTETS_TX_TOTAL                  = 65 [(go.field).tags = 'yaml:"octets_tx_total,omitempty" json:"octets_tx_total,omitempty"'];
+    uint64 FRAMES_RX_UNICAST                = 66 [(go.field).tags = 'yaml:"frames_rx_unicast,omitempty" json:"frames_rx_unicast,omitempty"'];
+    uint64 FRAMES_TX_UNICAST                = 67 [(go.field).tags = 'yaml:"frames_tx_unicast,omitempty" json:"frames_tx_unicast,omitempty"'];
+    uint64 FRAMES_RX_8192B_9215B            = 68 [(go.field).tags = 'yaml:"frames_rx_8192b_9215b,omitempty" json:"frames_rx_8192b_9215b,omitempty"'];
+    uint64 FRAMES_TX_8192B_9215B            = 69 [(go.field).tags = 'yaml:"frames_tx_8192b_9215b,omitempty" json:"frames_tx_8192b_9215b,omitempty"'];
+    uint64 FRAMES_TX_64B                    = 70 [(go.field).tags = 'yaml:"frames_tx_64b,omitempty" json:"frames_tx_64b,omitempty"'];
+    uint64 FRAMES_TX_65B_127B               = 71 [(go.field).tags = 'yaml:"frames_tx_65b_127b,omitempty" json:"frames_tx_65b_127b,omitempty"'];
+    uint64 FRAMES_TX_128B_255B              = 72 [(go.field).tags = 'yaml:"frames_tx_128b_255b,omitempty" json:"frames_tx_128b_255b,omitempty"'];
+    uint64 FRAMES_TX_256B_511B              = 73 [(go.field).tags = 'yaml:"frames_tx_256b_511b,omitempty" json:"frames_tx_256b_511b,omitempty"'];
+    uint64 FRAMES_TX_512B_1023B             = 74 [(go.field).tags = 'yaml:"frames_tx_512b_1023b,omitempty" json:"frames_tx_512b_1023b,omitempty"'];
+    uint64 FRAMES_TX_1024B_1518B            = 75 [(go.field).tags = 'yaml:"frames_tx_1024b_1518b,omitempty" json:"frames_tx_1024b_1518b,omitempty"'];
+    uint64 FRAMES_TX_1519B_2047B            = 76 [(go.field).tags = 'yaml:"frames_tx_1519b_2047b,omitempty" json:"frames_tx_1519b_2047b,omitempty"'];
+    uint64 FRAMES_TX_2048B_4095B            = 77 [(go.field).tags = 'yaml:"frames_tx_2048b_4095b,omitempty" json:"frames_tx_2048b_4095b,omitempty"'];
+    uint64 FRAMES_TX_4096B_8191B            = 78 [(go.field).tags = 'yaml:"frames_tx_4096b_8191b,omitempty" json:"frames_tx_4096b_8191b,omitempty"'];
 }

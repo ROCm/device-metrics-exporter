@@ -266,6 +266,24 @@ type metrics struct {
 	ethRx13Dropped        prometheus.GaugeVec
 	ethRx14Dropped        prometheus.GaugeVec
 	ethRx15Dropped        prometheus.GaugeVec
+	ethFramesRxOk         prometheus.GaugeVec
+	ethFramesTxOk         prometheus.GaugeVec
+	ethOctetsRxOk         prometheus.GaugeVec
+	ethOctetsTxOk         prometheus.GaugeVec
+	ethOctetsTxTotal      prometheus.GaugeVec
+	ethFramesRxUnicast    prometheus.GaugeVec
+	ethFramesTxUnicast    prometheus.GaugeVec
+	ethFramesRx8192b9215b prometheus.GaugeVec
+	ethFramesTx8192b9215b prometheus.GaugeVec
+	ethFramesTx64b        prometheus.GaugeVec
+	ethFramesTx65b127b    prometheus.GaugeVec
+	ethFramesTx128b255b   prometheus.GaugeVec
+	ethFramesTx256b511b   prometheus.GaugeVec
+	ethFramesTx512b1023b  prometheus.GaugeVec
+	ethFramesTx1024b1518b prometheus.GaugeVec
+	ethFramesTx1519b2047b prometheus.GaugeVec
+	ethFramesTx2048b4095b prometheus.GaugeVec
+	ethFramesTx4096b8191b prometheus.GaugeVec
 }
 
 func (na *NICAgentClient) ResetMetrics() error {
@@ -746,6 +764,24 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_RX_13_DROPPED.String():                       {Metric: na.m.ethRx13Dropped},
 		exportermetrics.NICMetricField_ETH_RX_14_DROPPED.String():                       {Metric: na.m.ethRx14Dropped},
 		exportermetrics.NICMetricField_ETH_RX_15_DROPPED.String():                       {Metric: na.m.ethRx15Dropped},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_OK.String():                        {Metric: na.m.ethFramesRxOk},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_OK.String():                        {Metric: na.m.ethFramesTxOk},
+		exportermetrics.NICMetricField_ETH_OCTETS_RX_OK.String():                        {Metric: na.m.ethOctetsRxOk},
+		exportermetrics.NICMetricField_ETH_OCTETS_TX_OK.String():                        {Metric: na.m.ethOctetsTxOk},
+		exportermetrics.NICMetricField_ETH_OCTETS_TX_TOTAL.String():                     {Metric: na.m.ethOctetsTxTotal},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_UNICAST.String():                   {Metric: na.m.ethFramesRxUnicast},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_UNICAST.String():                   {Metric: na.m.ethFramesTxUnicast},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_8192B_9215B.String():               {Metric: na.m.ethFramesRx8192b9215b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_8192B_9215B.String():               {Metric: na.m.ethFramesTx8192b9215b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_64B.String():                       {Metric: na.m.ethFramesTx64b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_65B_127B.String():                  {Metric: na.m.ethFramesTx65b127b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_128B_255B.String():                 {Metric: na.m.ethFramesTx128b255b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_256B_511B.String():                 {Metric: na.m.ethFramesTx256b511b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_512B_1023B.String():                {Metric: na.m.ethFramesTx512b1023b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_1024B_1518B.String():               {Metric: na.m.ethFramesTx1024b1518b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_1519B_2047B.String():               {Metric: na.m.ethFramesTx1519b2047b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_2048B_4095B.String():               {Metric: na.m.ethFramesTx2048b4095b},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_4096B_8191B.String():               {Metric: na.m.ethFramesTx4096b8191b},
 	}
 	logger.Log.Printf("Total NIC fields supported : %+v", len(fieldMetricsMap))
 }
@@ -1680,6 +1716,95 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		ethRx15Dropped: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_RX_15_DROPPED.String()),
 			Help: "Count of packets dropped on receive queue 15",
+		}, deviceLabels),
+		ethFramesRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_RX_OK.String()),
+			Help: "Count of frames received successfully",
+		}, deviceLabels),
+
+		ethFramesTxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_OK.String()),
+			Help: "Count of frames transmitted successfully",
+		}, deviceLabels),
+
+		ethOctetsRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_OCTETS_RX_OK.String()),
+			Help: "Count of octets/bytes received successfully",
+		}, deviceLabels),
+
+		ethOctetsTxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_OCTETS_TX_OK.String()),
+			Help: "Count of octets/bytes transmitted successfully",
+		}, deviceLabels),
+
+		ethOctetsTxTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_OCTETS_TX_TOTAL.String()),
+			Help: "Total count of octets/bytes transmitted",
+		}, deviceLabels),
+
+		ethFramesRxUnicast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_RX_UNICAST.String()),
+			Help: "Count of unicast frames received",
+		}, deviceLabels),
+
+		ethFramesTxUnicast: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_UNICAST.String()),
+			Help: "Count of unicast frames transmitted",
+		}, deviceLabels),
+
+		ethFramesRx8192b9215b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_RX_8192B_9215B.String()),
+			Help: "Count of frames received with size 8192-9215 bytes",
+		}, deviceLabels),
+
+		ethFramesTx8192b9215b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_8192B_9215B.String()),
+			Help: "Count of frames transmitted with size 8192-9215 bytes",
+		}, deviceLabels),
+
+		ethFramesTx64b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_64B.String()),
+			Help: "Count of frames transmitted with size 64 bytes",
+		}, deviceLabels),
+
+		ethFramesTx65b127b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_65B_127B.String()),
+			Help: "Count of frames transmitted with size 65-127 bytes",
+		}, deviceLabels),
+
+		ethFramesTx128b255b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_128B_255B.String()),
+			Help: "Count of frames transmitted with size 128-255 bytes",
+		}, deviceLabels),
+
+		ethFramesTx256b511b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_256B_511B.String()),
+			Help: "Count of frames transmitted with size 256-511 bytes",
+		}, deviceLabels),
+
+		ethFramesTx512b1023b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_512B_1023B.String()),
+			Help: "Count of frames transmitted with size 512-1023 bytes",
+		}, deviceLabels),
+
+		ethFramesTx1024b1518b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_1024B_1518B.String()),
+			Help: "Count of frames transmitted with size 1024-1518 bytes",
+		}, deviceLabels),
+
+		ethFramesTx1519b2047b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_1519B_2047B.String()),
+			Help: "Count of frames transmitted with size 1519-2047 bytes",
+		}, deviceLabels),
+
+		ethFramesTx2048b4095b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_2048B_4095B.String()),
+			Help: "Count of frames transmitted with size 2048-4095 bytes",
+		}, deviceLabels),
+
+		ethFramesTx4096b8191b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_ETH_FRAMES_TX_4096B_8191B.String()),
+			Help: "Count of frames transmitted with size 4096-8191 bytes",
 		}, deviceLabels),
 	}
 	na.initFieldMetricsMap()

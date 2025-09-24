@@ -529,6 +529,24 @@ enum NICMetricField {
     ETH_RX_13_DROPPED                        = 556;
     ETH_RX_14_DROPPED                        = 557;
     ETH_RX_15_DROPPED                        = 558;
+    ETH_FRAMES_RX_OK                         = 559;
+    ETH_FRAMES_TX_OK                         = 560;
+    ETH_OCTETS_RX_OK                         = 561;
+    ETH_OCTETS_TX_OK                         = 562;
+    ETH_OCTETS_TX_TOTAL                      = 563;
+    ETH_FRAMES_RX_UNICAST                    = 564;
+    ETH_FRAMES_TX_UNICAST                    = 565;
+    ETH_FRAMES_RX_8192B_9215B                = 566;
+    ETH_FRAMES_TX_8192B_9215B                = 567;
+    ETH_FRAMES_TX_64B                        = 568;
+    ETH_FRAMES_TX_65B_127B                   = 569;
+    ETH_FRAMES_TX_128B_255B                  = 570;
+    ETH_FRAMES_TX_256B_511B                  = 571;
+    ETH_FRAMES_TX_512B_1023B                 = 572;
+    ETH_FRAMES_TX_1024B_1518B                = 573;
+    ETH_FRAMES_TX_1519B_2047B                = 574;
+    ETH_FRAMES_TX_2048B_4095B                = 575;
+    ETH_FRAMES_TX_4096B_8191B                = 576;
 }
 
 enum NICMetricLabel {
