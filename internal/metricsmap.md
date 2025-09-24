@@ -49,8 +49,8 @@ Platform if specified only applies to that specific model, else applies to all
 | GPU_GFX_ACTIVITY (Applicable for unpartitioned GPU) | stats.usage.gfx_activity                                    | usage.gfx_activity                                |                            |
 | GPU_UMC_ACTIVITY                                    | stats.usage.umc_activity                                    | usage.umc_activity                                |                            |
 | GPU_MMA_ACTIVITY                                    | stats.usage.mm_activity                                     | usage.mm_activity                                 | depricated on all platform |
-| GPU_VCN_ACTIVITY                                    | stats.usage.vcn_activity[i]                                 | metrics_info.vcn_activity [i]                     |                            |
-| GPU_JPEG_ACTIVITY                                   | stats.usage.jpeg_activity[i]                                | metrics_info.jpeg_activity[i]                     |                            |
+| GPU_VCN_ACTIVITY                                    | stats.usage.vcn_activity[i]                                 | metrics_info.vcn_activity [i]                     | depricated on all platform |
+| GPU_JPEG_ACTIVITY                                   | stats.usage.jpeg_activity[i]                                | metrics_info.jpeg_activity[i]                     | depricated on all platform |
 | GPU_VOLTAGE                                         | stats.voltage.voltage                                       | power_info.soc_voltage                            | depricated on all platform |
 | GPU_GFX_VOLTAGE                                     | stats.voltage.gfx_voltage                                   | power_info.gfx_voltage                            | depricated on all platform |
 | GPU_MEMORY_VOLTAGE                                  | stats.voltage.memory_voltage                                | power_info.mem_voltage                            | depricated on all platform |

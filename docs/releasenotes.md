@@ -42,6 +42,16 @@ ROCm 7.0.rc1 MI2xx, MI3xx
 
 - **New Profiler Fields**
   - New fields are added for better understanding of the application
+
+- **Depricated Fields Notice**
+  - Following fields are depricated from 6.14.14 driver onwards
+    - GPU_MMA_ACTIVITY
+    - GPU_JPEG_ACTIVITY
+    - GPU_VCN_ACTIVITY
+
+  - These fields are replaced by following fields
+    - GPU_VCN_BUSY_INSTANTANEOUS
+    - GPU_JPEG_BUSY_INSTANTANEOUS
  
 ### Platform Support
 ROCm 7.0 MI2xx, MI3xx
