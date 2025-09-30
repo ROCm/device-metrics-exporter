@@ -71,7 +71,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           helm repo add rocm https://rocm.github.io/device-metrics-exporter && helm repo update &&
-          helm install ${{ env.HELM_INSTALL_NAME }} rocm/device-metrics-exporter-charts \
+          helm install ${{ env.HELM_INSTALL_NAME }} rocm/device-metrics-exporter \
             --namespace ${{ env.NAMESPACE }} \
             --create-namespace \
             --version $LATEST_CHART
