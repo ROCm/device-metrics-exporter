@@ -44,24 +44,24 @@ type FieldMeta struct {
 var (
 	mandatoryLables = []string{
 		exportermetrics.GPUMetricLabel_GPU_ID.String(),
-		exportermetrics.GPUMetricLabel_SERIAL_NUMBER.String(),
-		exportermetrics.GPUMetricLabel_POD.String(),
-		exportermetrics.GPUMetricLabel_NAMESPACE.String(),
-		exportermetrics.GPUMetricLabel_CONTAINER.String(),
-		exportermetrics.GPUMetricLabel_JOB_ID.String(),
-		exportermetrics.GPUMetricLabel_JOB_USER.String(),
-		exportermetrics.GPUMetricLabel_JOB_PARTITION.String(),
-		exportermetrics.GPUMetricLabel_CARD_MODEL.String(),
-		exportermetrics.GPUMetricLabel_HOSTNAME.String(),
+		exportermetrics.MetricLabel_CARD_MODEL.String(),
 		exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String(),
 		exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String(),
 		exportermetrics.GPUMetricLabel_DEPLOYMENT_MODE.String(),
+		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
+		exportermetrics.MetricLabel_POD.String(),
+		exportermetrics.MetricLabel_NAMESPACE.String(),
+		exportermetrics.MetricLabel_CONTAINER.String(),
+		exportermetrics.MetricLabel_JOB_ID.String(),
+		exportermetrics.MetricLabel_JOB_USER.String(),
+		exportermetrics.MetricLabel_JOB_PARTITION.String(),
+		exportermetrics.MetricLabel_HOSTNAME.String(),
 	}
 	// List of supported labels that can be customized
 	allowedCustomLabels = []string{
-		exportermetrics.GPUMetricLabel_CLUSTER_NAME.String(),
+		exportermetrics.MetricLabel_CLUSTER_NAME.String(),
 	}
 	exportLables      map[string]bool
 	exportFieldMap    map[string]bool // all upper case keys
@@ -265,7 +265,7 @@ func (ga *GPUAgentClient) ResetMetrics() error {
 
 func (ga *GPUAgentClient) GetExporterNonGPULabels() []string {
 	labelList := []string{
-		strings.ToLower(exportermetrics.GPUMetricLabel_HOSTNAME.String()),
+		strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()),
 	}
 	// Add custom labels
 	for label, _ := range customLabelMap {
@@ -1632,43 +1632,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 			if gpu != nil {
 				labels[key] = fmt.Sprintf("%v", getGPUInstanceID(gpu))
 			}
-		case exportermetrics.GPUMetricLabel_POD.String():
-			if gpu != nil {
-				labels[key] = podInfo.Pod
-			}
-		case exportermetrics.GPUMetricLabel_NAMESPACE.String():
-			if gpu != nil {
-				labels[key] = podInfo.Namespace
-			}
-		case exportermetrics.GPUMetricLabel_CONTAINER.String():
-			if gpu != nil {
-				labels[key] = podInfo.Container
-			}
-		case exportermetrics.GPUMetricLabel_JOB_ID.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Id
-			}
-		case exportermetrics.GPUMetricLabel_JOB_USER.String():
-			if gpu != nil {
-				labels[key] = jobInfo.User
-			}
-		case exportermetrics.GPUMetricLabel_JOB_PARTITION.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Partition
-			}
-		case exportermetrics.GPUMetricLabel_CLUSTER_NAME.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Cluster
-			}
-		case exportermetrics.GPUMetricLabel_SERIAL_NUMBER.String():
-			if gpu != nil {
-				if parentPartition != nil {
-					labels[key] = parentPartition.Status.SerialNum
-				} else {
-					labels[key] = gpu.Status.SerialNum
-				}
-			}
-		case exportermetrics.GPUMetricLabel_CARD_SERIES.String():
+		case exportermetrics.MetricLabel_CARD_SERIES.String():
 			if gpu != nil {
 				if parentPartition != nil {
 					labels[key] = parentPartition.Status.CardSeries
@@ -1676,7 +1640,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 					labels[key] = gpu.Status.CardSeries
 				}
 			}
-		case exportermetrics.GPUMetricLabel_CARD_MODEL.String():
+		case exportermetrics.MetricLabel_CARD_MODEL.String():
 			if gpu != nil {
 				if parentPartition != nil {
 					labels[key] = parentPartition.Status.CardModel
@@ -1684,7 +1648,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 					labels[key] = gpu.Status.CardModel
 				}
 			}
-		case exportermetrics.GPUMetricLabel_CARD_VENDOR.String():
+		case exportermetrics.MetricLabel_CARD_VENDOR.String():
 			if gpu != nil {
 				if parentPartition != nil {
 					labels[key] = parentPartition.Status.CardVendor
@@ -1692,16 +1656,52 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 					labels[key] = gpu.Status.CardVendor
 				}
 			}
-		case exportermetrics.GPUMetricLabel_DRIVER_VERSION.String():
+		case exportermetrics.MetricLabel_DRIVER_VERSION.String():
 			if gpu != nil {
 				labels[key] = gpu.Status.DriverVersion
 			}
-		case exportermetrics.GPUMetricLabel_VBIOS_VERSION.String():
+		case exportermetrics.MetricLabel_VBIOS_VERSION.String():
 			if gpu != nil {
 				labels[key] = gpu.Status.VBIOSVersion
 			}
-		case exportermetrics.GPUMetricLabel_HOSTNAME.String():
-			labels[key] = ga.staticHostLabels[exportermetrics.GPUMetricLabel_HOSTNAME.String()]
+		case exportermetrics.MetricLabel_POD.String():
+			if gpu != nil {
+				labels[key] = podInfo.Pod
+			}
+		case exportermetrics.MetricLabel_NAMESPACE.String():
+			if gpu != nil {
+				labels[key] = podInfo.Namespace
+			}
+		case exportermetrics.MetricLabel_CONTAINER.String():
+			if gpu != nil {
+				labels[key] = podInfo.Container
+			}
+		case exportermetrics.MetricLabel_JOB_ID.String():
+			if gpu != nil {
+				labels[key] = jobInfo.Id
+			}
+		case exportermetrics.MetricLabel_JOB_USER.String():
+			if gpu != nil {
+				labels[key] = jobInfo.User
+			}
+		case exportermetrics.MetricLabel_JOB_PARTITION.String():
+			if gpu != nil {
+				labels[key] = jobInfo.Partition
+			}
+		case exportermetrics.MetricLabel_CLUSTER_NAME.String():
+			if gpu != nil {
+				labels[key] = jobInfo.Cluster
+			}
+		case exportermetrics.MetricLabel_SERIAL_NUMBER.String():
+			if gpu != nil {
+				if parentPartition != nil {
+					labels[key] = parentPartition.Status.SerialNum
+				} else {
+					labels[key] = gpu.Status.SerialNum
+				}
+			}
+		case exportermetrics.MetricLabel_HOSTNAME.String():
+			labels[key] = ga.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
 		case exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String():
 			if gpu != nil {
 				if gpu.Status.PartitionId == math.MaxUint32 {
@@ -2233,7 +2233,7 @@ func (ga *GPUAgentClient) populateStaticHostLabels() error {
 		return err
 	}
 	logger.Log.Printf("hostame %v", hostname)
-	ga.staticHostLabels[exportermetrics.GPUMetricLabel_HOSTNAME.String()] = hostname
+	ga.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()] = hostname
 	return nil
 }
 

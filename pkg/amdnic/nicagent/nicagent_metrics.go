@@ -34,8 +34,8 @@ var (
 	mandatoryLables = []string{
 		exportermetrics.NICMetricLabel_NIC_UUID.String(),
 		exportermetrics.NICMetricLabel_NIC_ID.String(),
-		exportermetrics.NICMetricLabel_NIC_SERIAL_NUMBER.String(),
-		exportermetrics.NICMetricLabel_NIC_HOSTNAME.String(),
+		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
+		exportermetrics.MetricLabel_HOSTNAME.String(),
 	}
 	exportLabels        map[string]bool
 	exportFieldMap      map[string]bool
@@ -296,7 +296,7 @@ func (na *NICAgentClient) ResetMetrics() error {
 
 func (na *NICAgentClient) GetExporterNonNICLabels() []string {
 	labelList := []string{
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_HOSTNAME.String()),
+		strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()),
 	}
 	// Add custom labels
 	for label := range customLabelMap {
@@ -332,10 +332,10 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 	for _, key := range netDeviceLabels {
 		switch key {
 
-		case strings.ToLower(exportermetrics.NICMetricLabel_NIC_HOSTNAME.String()):
-			labelMap[key] = na.staticHostLabels[exportermetrics.NICMetricLabel_NIC_HOSTNAME.String()]
+		case strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()):
+			labelMap[key] = na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
 
-		case strings.ToLower(exportermetrics.NICMetricLabel_NIC_SERIAL_NUMBER.String()):
+		case strings.ToLower(exportermetrics.MetricLabel_SERIAL_NUMBER.String()):
 			if nic != nil {
 				labelMap[key] = nic.SerialNumber
 			} else {
@@ -353,19 +353,19 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 			} else {
 				labelMap[key] = ""
 			}
-		case strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String()):
+		case strings.ToLower(exportermetrics.MetricLabel_POD.String()):
 			if podInfo != nil {
 				labelMap[key] = podInfo.Pod
 			} else {
 				labelMap[key] = ""
 			}
-		case strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String()):
+		case strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String()):
 			if podInfo != nil {
 				labelMap[key] = podInfo.Container
 			} else {
 				labelMap[key] = ""
 			}
-		case strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String()):
+		case strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()):
 			if podInfo != nil {
 				labelMap[key] = podInfo.Namespace
 			} else {
@@ -1902,12 +1902,12 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 			if nic != nil {
 				labels[key] = nic.Index
 			}
-		case exportermetrics.NICMetricLabel_NIC_SERIAL_NUMBER.String():
+		case exportermetrics.MetricLabel_SERIAL_NUMBER.String():
 			if nic != nil {
 				labels[key] = nic.SerialNumber
 			}
-		case exportermetrics.NICMetricLabel_NIC_HOSTNAME.String():
-			labels[key] = na.staticHostLabels[exportermetrics.NICMetricLabel_NIC_HOSTNAME.String()]
+		case exportermetrics.MetricLabel_HOSTNAME.String():
+			labels[key] = na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
 
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)
@@ -1930,16 +1930,16 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 
 func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string, workloads map[string]scheduler.Workload) map[string]string {
 	labels := map[string]string{
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String()):       "",
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String()): "",
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String()): "",
+		strings.ToLower(exportermetrics.MetricLabel_POD.String()):       "",
+		strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()): "",
+		strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String()): "",
 	}
 
 	if wl, wlFound := workloads[pcieAddr]; wlFound {
 		podInfo := wl.Info.(scheduler.PodResourceInfo)
-		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String())] = podInfo.Pod
-		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String())] = podInfo.Namespace
-		labels[strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String())] = podInfo.Container
+		labels[strings.ToLower(exportermetrics.MetricLabel_POD.String())] = podInfo.Pod
+		labels[strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String())] = podInfo.Namespace
+		labels[strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String())] = podInfo.Container
 
 		// Add extra pod labels only if config has mapped any
 		if len(extraPodLabelsMap) > 0 {
@@ -1957,9 +1957,9 @@ func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string
 // getAssociatedWorkloadLabels returns the workload labels for a given NIC and LIF
 func (na *NICAgentClient) getAssociatedWorkloadLabels(nicID string, lifID string, workloads map[string]scheduler.Workload) map[string]string {
 	labels := map[string]string{
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String()):       "",
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String()): "",
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String()): "",
+		strings.ToLower(exportermetrics.MetricLabel_POD.String()):       "",
+		strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()): "",
+		strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String()): "",
 	}
 
 	if _, nicFound := na.nics[nicID]; !nicFound {
@@ -2112,7 +2112,7 @@ func (na *NICAgentClient) populateStaticHostLabels() error {
 	if err != nil {
 		return err
 	}
-	na.staticHostLabels[exportermetrics.NICMetricLabel_NIC_HOSTNAME.String()] = hostname
+	na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()] = hostname
 	return nil
 }
 

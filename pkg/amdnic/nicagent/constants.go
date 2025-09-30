@@ -56,8 +56,8 @@ const (
 
 var (
 	workloadLabels = []string{
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_POD.String()),
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_NAMESPACE.String()),
-		strings.ToLower(exportermetrics.NICMetricLabel_NIC_CONTAINER.String()),
+		strings.ToLower(exportermetrics.MetricLabel_POD.String()),
+		strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()),
+		strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String()),
 	}
 )

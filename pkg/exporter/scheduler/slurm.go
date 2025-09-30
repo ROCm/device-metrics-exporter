@@ -34,9 +34,9 @@ import (
 )
 
 var SlurmLabels = map[string]bool{
-	exportermetrics.GPUMetricLabel_JOB_ID.String():        true,
-	exportermetrics.GPUMetricLabel_JOB_USER.String():      true,
-	exportermetrics.GPUMetricLabel_JOB_PARTITION.String(): true,
+	exportermetrics.MetricLabel_JOB_ID.String():        true,
+	exportermetrics.MetricLabel_JOB_USER.String():      true,
+	exportermetrics.MetricLabel_JOB_PARTITION.String(): true,
 }
 
 type client struct {

@@ -27,6 +27,37 @@ syntax = "proto3";
 option go_package = "gen/exportermetrics";
 package exportermetrics;
 
+
+// list of common labels between GPU and NIC
+enum MetricLabel {
+    // cluster name 
+    CLUSTER_NAME               = 0;
+    // mandatory field HOSTNAME cannot be disabled
+    HOSTNAME                   = 1;
+    // mandatory SERIAL_NUMBER cannot be disabled
+    SERIAL_NUMBER              = 2;
+    // mandatory field POD cannot be disabled
+    POD                        = 3;
+    // mandatory field NAMESPACE cannot be disabled
+    NAMESPACE                  = 4;
+    // mandatory field CONTAINER cannot be disabled
+    CONTAINER                  = 5;
+    // mandatory field JOB_ID cannot be disabled (for GPU Metrics)
+    JOB_ID                     = 6;
+    // mandatory field JOB_USER cannot be disabled (for GPU Metrics)
+    JOB_USER                   = 7;
+    // mandatory field JOB_PARTITION cannot be disabled  (for GPU Metrics)
+    JOB_PARTITION              = 8;
+    // Card related fields
+    CARD_SERIES                = 9;
+    // mandatory CARD_MODEL cannot be disabled
+    CARD_MODEL                 = 10;
+    CARD_VENDOR                = 11;
+    DRIVER_VERSION             = 12;
+    VBIOS_VERSION              = 13;
+}
+
+
 enum GPUMetricField {
     GPU_NODES_TOTAL             = 0;
     GPU_PACKAGE_POWER           = 1;
@@ -234,46 +265,23 @@ message GPUHealthThresholds {
 
 enum GPUMetricLabel {
     GPU_UUID                   = 0;
-    // mandatory SERIAL_NUMBER cannot be disabled
-    SERIAL_NUMBER              = 1;
     // mandatory field GPU_ID cannot be disabled
-    GPU_ID                     = 2;
-    // mandatory field POD cannot be disabled
-    POD                        = 3;
-    // mandatory field NAMESPACE cannot be disabled
-    NAMESPACE                  = 4;
-    // mandatory field CONTAINER cannot be disabled
-    CONTAINER                  = 5;
-    // mandatory field JOB_ID cannot be disabled
-    JOB_ID                     = 6;
-    // mandatory field JOB_USER cannot be disabled
-    JOB_USER                   = 7;
-    // mandatory field JOB_PARTITION cannot be disabled
-    JOB_PARTITION              = 8;
-    CLUSTER_NAME               = 9;
-    CARD_SERIES                = 10;
-    // mandatory CARD_MODEL cannot be disabled
-    CARD_MODEL                 = 11;
-    CARD_VENDOR                = 12;
-    DRIVER_VERSION             = 13;
-    VBIOS_VERSION              = 14;
-    // mandatory field HOSTNAME cannot be disabled
-    HOSTNAME                   = 15;
+    GPU_ID                     = 1;
     // mandatory field GPU_PARTITION_ID cannot be disabled
-    GPU_PARTITION_ID           = 16;
+    GPU_PARTITION_ID           = 2;
     // mandatory field GPU_COMPUTE_PARTITION_TYPE cannot be disabled
-    GPU_COMPUTE_PARTITION_TYPE = 17;
+    GPU_COMPUTE_PARTITION_TYPE = 3;
     // mandatory field GPU_MEMORY_PARTITION_TYPE cannot be disabled
-    GPU_MEMORY_PARTITION_TYPE  = 18;
+    GPU_MEMORY_PARTITION_TYPE  = 4;
     // KFD_PROCESS_ID cannot be disabled
     // KFD_PROCESS_ID is a unique identifier for a process running on a GPU
-    KFD_PROCESS_ID             = 19;
+    KFD_PROCESS_ID             = 5;
     // Deployment mode Mode cannot be disabled
     // Hypervisor - Virtualization Host gim driver
     // BareMetal  - PCI passthrough without virtualization host
     // VM_VF      - Virtual Machine with VF passthrough
     // VM_PF      - Virtual Machine with PF passthrough
-    DEPLOYMENT_MODE            = 20;
+    DEPLOYMENT_MODE            = 6;
 }
 
 message GPUMetricConfig {
@@ -551,18 +559,8 @@ enum NICMetricField {
 
 enum NICMetricLabel {
     NIC_UUID                        = 0;
-    // mandatory SERIAL_NUMBER cannot be disabled
-    NIC_SERIAL_NUMBER               = 1;
     // mandatory field NIC_ID cannot be disabled
-    NIC_ID                          = 2;
-    // mandatory field HOSTNAME cannot be disabled
-    NIC_HOSTNAME                    = 3;
-    // mandatory field POD cannot be disabled
-    NIC_POD                         = 4;
-    // mandatory field NAMESPACE cannot be disabled
-    NIC_NAMESPACE                   = 5;
-    // mandatory field CONTAINER cannot be disabled
-    NIC_CONTAINER                   = 6;
+    NIC_ID                          = 1;
 }
 
 message NICMetricConfig {

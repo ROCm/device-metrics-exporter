@@ -33,9 +33,9 @@ import (
 )
 
 var KubernetesLabels = map[string]bool{
-	exportermetrics.GPUMetricLabel_POD.String():       true,
-	exportermetrics.GPUMetricLabel_NAMESPACE.String(): true,
-	exportermetrics.GPUMetricLabel_CONTAINER.String(): true,
+	exportermetrics.MetricLabel_POD.String():       true,
+	exportermetrics.MetricLabel_NAMESPACE.String(): true,
+	exportermetrics.MetricLabel_CONTAINER.String(): true,
 }
 
 type podResourcesClient struct {

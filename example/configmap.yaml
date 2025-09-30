@@ -439,12 +439,12 @@ data:
         ],
         "Labels":[
           "NIC_UUID",     
-          "NIC_SERIAL_NUMBER",
           "NIC_ID",
-          "NIC_HOSTNAME",
-          "NIC_POD",
-          "NIC_NAMESPACE",
-          "NIC_CONTAINER"
+          "HOSTNAME",
+          "SERIAL_NUMBER",
+          "POD",
+          "NAMESPACE",
+          "CONTAINER"
         ],
         "CustomLabels": {
           "CLUSTER_NAME" : "amdnetwork-k8s-metrics-exporter"
