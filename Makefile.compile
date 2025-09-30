@@ -107,6 +107,10 @@ else ifeq ($(OS), UBUNTU24)
 	$(eval BUILDER_IMAGE="proflib-ub24")
 	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU24})
 	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.ubuntu24)
+else ifeq ($(OS), RHEL9)
+	$(eval BUILDER_IMAGE="proflib-rhel9")
+	$(eval BASE_IMAGE=${AMDSMI_BUILDER_IMAGE})
+	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.rhel9)
 else
 	$(error unsupported os)
 endif
@@ -139,10 +143,15 @@ libcopy-assets-UBUNTU22:
 libcopy-assets-UBUNTU24:
 	OS=UBUNTU24 ${MAKE} libcopy-assets
 
+.PHONY: libcopy-assets-RHEL
+libcopy-assets-RHEL9:
+	OS=RHEL9 ${MAKE} libcopy-assets
+
 .PHONY: profiler-libdependent-assets
 profiler-libdependent-assets:
 	${MAKE} libcopy-assets-UBUNTU22
 	${MAKE} libcopy-assets-UBUNTU24
+	${MAKE} libcopy-assets-RHEL9
 
 #compiles the library code from source on respective OS platforms
 .PHONY: gimsmi-compile

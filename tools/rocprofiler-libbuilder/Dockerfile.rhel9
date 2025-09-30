@@ -1,0 +1,37 @@
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.6
+
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="AMD Inc"
+LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
+LABEL ROCM_VERSION="7.0"
+
+
+ARG ROCM_VERSION=7.0
+ARG AMDGPU_VERSION=7.0
+ARG AMDGPU_REPO_URL=https://repo.radeon.com
+
+RUN microdnf clean all && \
+   echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
+   echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "baseurl=${AMDGPU_REPO_URL}/graphics/${AMDGPU_VERSION}/rhel/9.6/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
+   echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
+   echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
+   echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${AMDGPU_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
+   echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
+   echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
+   echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
+   echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
+   microdnf update -y && \
+   microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file \
+   libcap-devel amd-smi-lib libdrm-amdgpu \
+   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd && \
+   rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
+
+ADD tools/rocprofiler-libbuilder/entrypoint.sh /usr/src/github.com/entrypoint.sh
+ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]
+

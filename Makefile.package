@@ -1,9 +1,12 @@
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
 GPUAGENT_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
+GPUAGENT_LIBS_RHEL9 := ${ASSETS_PATH}/amd_smi_lib/x86_64/RHEL9/lib
 PROFILER_DEB_LIBS := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/profilerlibs/
+PROFILER_RPM_LIBS_RHEL9 := ${TOP_DIR}/build/assets/RHEL9/profilerlibs/
 ROCPROFILER_ASSETS := ${ASSETS_PATH}/rocprofiler
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
+RPM_PATH := ${TOP_DIR}/SOURCES/
 PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics
 ROCPROFLER_SDK_ASSETS :=  ${ASSETS_PATH}/rocprofiler-sdk
 SDK_COUNTER_DEF := ${TOP_DIR}/debian/usr/local/metrics/share/rocprofiler-sdk
@@ -13,14 +16,79 @@ METRICS_CONF_DIR := ${TOP_DIR}/debian/etc
 METRICS_CONF_PATH := ${METRICS_CONF_DIR}/metrics
 GPUAGENT_BUILT_BIN := ${TOP_DIR}/build/assets/gpuagent
 BUILT_LIB_PATH := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/exporterout/
+BUILT_LIB_RHEL9_PATH := ${TOP_DIR}/build/assets/RHEL9/exporterout/lib
+RPM_DIR_NAME := amdgpu-exporter-${DEBIAN_VERSION}
+RPM_PACKAGE_DIR := ${TOP_DIR}/${RPM_DIR_NAME}
 
-.PHONY: pkg pkg-clean
-pkg-clean:
+
+.PHONY: deppkg debpkg-clean rpmpkg rpmpkg-clean pkg pkg-clean
+pkg: debpkg rpmpkg
+
+pkg-clean: debpkg-clean rpmpkg-clean
+
+rpmpkg-clean:
+	echo "clean rpm package"
+	@rm -rf ${RPM_PACKAGE_DIR}
+	@rm -rf *.tar.gz
+	@rm -rf ${RPM_PATH}/*.tar.gz
+	@rm -rf ${TOP_DIR}/BUILD
+	@rm -rf ${TOP_DIR}/RPMS
+	@rm -rf ${TOP_DIR}/SRPMS
+	@rm -rf ${TOP_DIR}/BUILDROOT
+	@rm -rf ${TOP_DIR}/SOURCES
+
+rpmpkg: rpmpkg-clean
+	@echo "build rpm package for $(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL)"
+	${MAKE} amdexporter
+	# copy to bin folders for tar
+	@mkdir -p ${RPM_PACKAGE_DIR}/bin
+	@mkdir -p ${RPM_PACKAGE_DIR}/lib
+	@mkdir -p ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
+	tar -xf ${ASSETS_PATH}/gpuagent_static.bin.gz -C ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_DIR}/bin/gpuctl
+	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_DIR}/bin/
+	# copy libraries
+	@echo "Copy prebuilt libraries"
+	@cp -rvf ${GPUAGENT_LIBS_RHEL9}/ ${RPM_PACKAGE_DIR}/
+	@if [ ! -d $(PROFILER_RPM_LIBS_RHEL9) ]; then \
+		echo "profiler dependent assets not built, run target libcopy-assets-RHEL9";\
+		exit 1;\
+	fi
+	@echo "Copying profiler dependent libraries form ${PROFILER_RPM_LIBS_RHEL9}"
+	@cp -vaf $(PROFILER_RPM_LIBS_RHEL9)/rocprofilerdeplib/lib* ${RPM_PACKAGE_DIR}/lib/
+	ls -lart ${RPM_PACKAGE_DIR}/lib
+	@echo "Copying rocprofiler client library and binary"
+	@cp -vf ${ROCPROFILER_ASSETS}/librocpclient* ${RPM_PACKAGE_DIR}/lib/
+	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
+	#copy default config
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_DIR}/bin/config.json
+	@cat ${RPM_PACKAGE_DIR}/bin/config.json
+	@cp -vaf ${TOP_DIR}/debian ${RPM_PACKAGE_DIR}/
+	@cp -vaf LICENSE ${RPM_PACKAGE_DIR}/
+	@cp -vaf README.md ${RPM_PACKAGE_DIR}/
+	@rm -rf ${RPM_PATH}
+	@mkdir -p ${RPM_PATH}
+	@tar czvf ${RPM_DIR_NAME}.tar.gz ${RPM_DIR_NAME}
+	@mv -vf ${RPM_DIR_NAME}.tar.gz ${RPM_PATH}/
+	@tar czf amdgpu-exporter-${RPM_BUILD_VERSION}.tar.gz ${RPM_DIR_NAME}
+	@mv amdgpu-exporter-${RPM_BUILD_VERSION}.tar.gz ${RPM_PATH}
+	# set the version in the spec file
+	@sed -i "s/RPM_BUILD_VERSION/$(RPM_BUILD_VERSION)/g" rpmbuild/amdgpu-exporter.spec
+	@sed -i "s/RPM_RELEASE_LABEL/$(RPM_RELEASE_LABEL)/g" rpmbuild/amdgpu-exporter.spec
+	@rpmbuild -ba --define "_topdir `pwd`" -v --buildroot `pwd`/BUILDROOT/ \
+		--undefine dist rpmbuild/amdgpu-exporter.spec
+	# revert the dynamic version set file
+	@git checkout rpmbuild/amdgpu-exporter.spec
+	# rename for internal build
+	@mv -v ${TOP_DIR}/RPMS/x86_64/amdgpu-exporter*.x86_64.rpm ${TOP_DIR}/bin/amdgpu-exporter-rhel9.x86_64.rpm
+
+debpkg-clean:
 	rm -rf ${TOP_DIR}/bin/*.deb
 	rm -rf ${PKG_LIB_PATH} ${PKG_PATH}
 
-
-pkg: pkg-clean
+debpkg: debpkg-clean
 	${MAKE} amdexporter
 	@echo "Building debian for $(BUILD_VER_ENV)"
 	@echo "library assets build path $(PROFILER_DEB_LIBS)"

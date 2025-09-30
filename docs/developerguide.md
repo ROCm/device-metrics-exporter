@@ -73,9 +73,9 @@ This command builds:
 
 **Note**: AMD Test Runner builds are currently disabled in this branch. Please use prebuilt images to deploy test runner until support for building the component is added here.
 
-### Building a Debian Package
+### Building a Debian/RPM Package
 
-To build a Debian package for Ubuntu:
+To build a Debian ubuntu 22.04, 24.04 and Rhel 9 rpm
 
 #### Build dependent libraries for packaging (once)
 ```bash

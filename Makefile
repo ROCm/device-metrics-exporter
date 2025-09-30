@@ -92,6 +92,7 @@ GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(if $(RELEASE),$(RELEASE),$(GIT_BRANCH))
 
+
 KUBECONFIG ?= ~/.kube/config
 
 # docs build settings
@@ -144,6 +145,10 @@ else
 #apt is only released until this version
 DEBIAN_VERSION := "1.5.0"
 endif
+# Split DEBIAN_VERSION on '-' to get RPM version and release label
+RPM_BUILD_VERSION := $(word 1,$(subst -, ,$(DEBIAN_VERSION)))
+RPM_RELEASE_LABEL_TMP := $(word 2,$(subst -, ,$(DEBIAN_VERSION)))
+RPM_RELEASE_LABEL := $(if $(RPM_RELEASE_LABEL_TMP),$(RPM_RELEASE_LABEL_TMP),0)
 REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
 HELM_VERSION := $(REL_IMAGE_TAG)
 
@@ -153,6 +158,10 @@ DOCS_INSTALLATION_DIR := $(DOCS_DIR)/installation/
 DOCS_INTEGRATION_DIR := $(DOCS_DIR)/integrations/
 
 UPDATE_VERSION_TARGET_DIRS := $(DOCS_DIR)/configuration/ $(DOCS_DIR)/installation/ $(DOCS_DIR)/integrations/
+
+export ${DEBIAN_VERSION}
+export ${RPM_BUILD_VERSION}
+export ${RPM_RELEASE_LABEL}
 
 .PHONY: update-version
 update-version:
