@@ -25,7 +25,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.4.0-beta.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.4.0-beta.0.tgz
     version: v1.4.0-beta.0
   - apiVersion: v2
     appVersion: v1.3.1
@@ -51,7 +51,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.3.1.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.3.1.tgz
     version: v1.3.1
   - apiVersion: v2
     appVersion: v1.3.0
@@ -77,7 +77,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.3.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.3.0.tgz
     version: v1.3.0
   - apiVersion: v2
     appVersion: v1.2.1
@@ -103,7 +103,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.2.1.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.2.1.tgz
     version: v1.2.1
   - apiVersion: v2
     appVersion: v1.2.0
@@ -129,7 +129,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.2.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.2.0.tgz
     version: v1.2.0
   - apiVersion: v2
     appVersion: v1.1.0
@@ -155,7 +155,7 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.1.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.1.0.tgz
     version: v1.1.0
   - apiVersion: v2
     appVersion: v1.0.0
@@ -181,6 +181,6 @@ entries:
     name: device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/gpu-operator/charts/device-metrics-exporter-charts-v1.0.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.0.0.tgz
     version: v1.0.0
 generated: "2025-09-12T21:39:15.907589829Z"
