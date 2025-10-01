@@ -63,7 +63,7 @@ var (
 	allowedCustomLabels = []string{
 		exportermetrics.MetricLabel_CLUSTER_NAME.String(),
 	}
-	exportLables      map[string]bool
+	exportLabels      map[string]bool
 	exportFieldMap    map[string]bool // all upper case keys
 	fieldMetricsMap   map[string]FieldMeta
 	gpuSelectorMap    map[int]bool
@@ -276,7 +276,7 @@ func (ga *GPUAgentClient) GetExporterNonGPULabels() []string {
 
 func (ga *GPUAgentClient) GetExportLabels() []string {
 	labelList := []string{}
-	for key, enabled := range exportLables {
+	for key, enabled := range exportLabels {
 		if !enabled {
 			continue
 		}
@@ -317,25 +317,30 @@ func (ga *GPUAgentClient) GetExportLabels() []string {
 func (ga *GPUAgentClient) initLabelConfigs(config *exportermetrics.GPUMetricConfig) {
 
 	// list of mandatory labels
-	exportLables = make(map[string]bool)
+	exportLabels = make(map[string]bool)
+
+	// common labels
+	for _, name := range exportermetrics.MetricLabel_name {
+		exportLabels[name] = false
+	}
 	for _, name := range exportermetrics.GPUMetricLabel_name {
-		exportLables[name] = false
+		exportLabels[name] = false
 	}
 	// only mandatory labels are set for default
 	for _, name := range mandatoryLables {
-		exportLables[name] = true
+		exportLabels[name] = true
 	}
 
 	if config != nil {
 		for _, name := range config.GetLabels() {
 			name = strings.ToUpper(name)
-			if _, ok := exportLables[name]; ok {
+			if _, ok := exportLabels[name]; ok {
 				logger.Log.Printf("label %v enabled", name)
-				exportLables[name] = true
+				exportLabels[name] = true
 			}
 		}
 	}
-	logger.Log.Printf("export-labels updated to %v", exportLables)
+	logger.Log.Printf("export-labels updated to %v", exportLabels)
 }
 
 func (ga *GPUAgentClient) initProfilerMetrics(config *exportermetrics.GPUMetricConfig) {
@@ -1617,7 +1622,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 		}
 	}
 
-	for ckey, enabled := range exportLables {
+	for ckey, enabled := range exportLabels {
 		if !enabled {
 			continue
 		}

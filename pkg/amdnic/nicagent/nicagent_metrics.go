@@ -32,7 +32,6 @@ import (
 // local variables
 var (
 	mandatoryLables = []string{
-		exportermetrics.NICMetricLabel_NIC_UUID.String(),
 		exportermetrics.NICMetricLabel_NIC_ID.String(),
 		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
 		exportermetrics.MetricLabel_HOSTNAME.String(),
@@ -388,11 +387,20 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 
 	// Add extra pod labels only if config has mapped any
 	if len(extraPodLabelsMap) > 0 {
-		podLabels := utils.GetPodLabels(*podInfo, k8PodLabelsMap)
-		// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
-		for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
-			label := strings.ToLower(prometheusPodlabel)
-			labelMap[label] = podLabels[k8Podlabel]
+		if podInfo != nil {
+			podLabels := utils.GetPodLabels(*podInfo, k8PodLabelsMap)
+			// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
+			for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
+				label := strings.ToLower(prometheusPodlabel)
+				labelMap[label] = podLabels[k8Podlabel]
+			}
+		} else {
+			// No workload associated with this netdevice, skip adding extra pod labels
+			logger.Log.Printf("no pod info associated with netdevice %v, skipping extra pod labels", netDev.IntfName)
+			for prometheusPodlabel := range extraPodLabelsMap {
+				label := strings.ToLower(prometheusPodlabel)
+				labelMap[label] = ""
+			}
 		}
 	}
 
@@ -448,6 +456,11 @@ func (na *NICAgentClient) GetExportLabels() []string { //TODO .. move to exporte
 func (na *NICAgentClient) initLabelConfigs(config *exportermetrics.NICMetricConfig) {
 	// list of mandatory labels
 	exportLabels = make(map[string]bool)
+	// common labels
+	for _, name := range exportermetrics.MetricLabel_name {
+		exportLabels[name] = false
+	}
+	// nic specific labels
 	for _, name := range exportermetrics.NICMetricLabel_name {
 		exportLabels[name] = false
 	}
