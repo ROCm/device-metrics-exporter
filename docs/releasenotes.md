@@ -59,21 +59,30 @@ ROCm 7.0 MI2xx, MI3xx
 
 ### Issues Fixed
 - fixed metric naming discrepancies between config field and exported field. The
-  following prometheues fields are updated:
-  - xgmi_neighbor_0_nop_tx -> gpu_xgmi_nbr_0_nop_tx
-  - xgmi_neighbor_1_nop_tx -> gpu_xgmi_nbr_1_nop_tx
-  - xgmi_neighbor_0_request_tx -> gpu_xgmi_nbr_0_req_tx
-  - xgmi_neighbor_0_response_tx -> gpu_xgmi_nbr_0_resp_tx
-  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_0_resp_tx
-  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_1_resp_tx
-  - xgmi_neighbor_0_beats_tx -> gpu_xgmi_nbr_0_beats_tx
-  - xgmi_neighbor_1_beats_tx -> gpu_xgmi_nbr_1_beats_tx
-  - xgmi_neighbor_0_tx_throughput -> gpu_xgmi_nbr_0_tx_thrput
-  - xgmi_neighbor_1_tx_throughput -> gpu_xgmi_nbr_1_tx_thrput
-  - xgmi_neighbor_2_tx_throughput -> gpu_xgmi_nbr_2_tx_thrput
-  - xgmi_neighbor_3_tx_throughput -> gpu_xgmi_nbr_3_tx_thrput
-  - xgmi_neighbor_4_tx_throughput -> gpu_xgmi_nbr_4_tx_thrput
-  - xgmi_neighbor_5_tx_throughput -> gpu_xgmi_nbr_5_tx_thrput
+  following prometheus fields name are being changed.
+- one config field is being renamed which would require updating the
+  config.json from the released branch for `pcie_nac_received_count` ->
+  `pcie_nack_received_count`
+
+  | S.No | Old Field Name                                  | New Field Name                                     |
+  |------|-------------------------------------------------|----------------------------------------------------|
+  | 1    | xgmi_neighbor_0_nop_tx                          | gpu_xgmi_nbr_0_nop_tx                              |
+  | 2    | xgmi_neighbor_1_nop_tx                          | gpu_xgmi_nbr_1_nop_tx                              |
+  | 3    | xgmi_neighbor_0_request_tx                      | gpu_xgmi_nbr_0_req_tx                              |
+  | 4    | xgmi_neighbor_0_response_tx                     | gpu_xgmi_nbr_0_resp_tx                             |
+  | 5    | xgmi_neighbor_1_response_tx                     | gpu_xgmi_nbr_1_resp_tx                             |
+  | 6    | xgmi_neighbor_0_beats_tx                        | gpu_xgmi_nbr_0_beats_tx                            |
+  | 7    | xgmi_neighbor_1_beats_tx                        | gpu_xgmi_nbr_1_beats_tx                            |
+  | 8    | xgmi_neighbor_0_tx_throughput                   | gpu_xgmi_nbr_0_tx_thrput                           |
+  | 9    | xgmi_neighbor_1_tx_throughput                   | gpu_xgmi_nbr_1_tx_thrput                           |
+  | 10   | xgmi_neighbor_2_tx_throughput                   | gpu_xgmi_nbr_2_tx_thrput                           |
+  | 11   | xgmi_neighbor_3_tx_throughput                   | gpu_xgmi_nbr_3_tx_thrput                           |
+  | 12   | xgmi_neighbor_4_tx_throughput                   | gpu_xgmi_nbr_4_tx_thrput                           |
+  | 13   | xgmi_neighbor_5_tx_throughput                   | gpu_xgmi_nbr_5_tx_thrput                           |
+  | 14   | gpu_violation_vr_thermal_tracking_accumulated   | gpu_violation_vr_thermal_residency_accumulated     |
+  | 15   | pcie_nac_received_count                         | pcie_nack_received_count                           |
+  | 16   | gpu_violation_proc_hot_residency_accumulated    | gpu_violation_processor_hot_residency_accumulated  |
+  | 17   | gpu_violation_soc_thermal_residency_accumulated | gpu_violation_socket_thermal_residency_accumulated |
 
 ## v1.3.1
 
