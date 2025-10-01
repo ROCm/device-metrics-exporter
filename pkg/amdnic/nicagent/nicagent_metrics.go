@@ -387,20 +387,11 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 
 	// Add extra pod labels only if config has mapped any
 	if len(extraPodLabelsMap) > 0 {
-		if podInfo != nil {
-			podLabels := utils.GetPodLabels(*podInfo, k8PodLabelsMap)
-			// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
-			for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
-				label := strings.ToLower(prometheusPodlabel)
-				labelMap[label] = podLabels[k8Podlabel]
-			}
-		} else {
-			// No workload associated with this netdevice, skip adding extra pod labels
-			logger.Log.Printf("no pod info associated with netdevice %v, skipping extra pod labels", netDev.IntfName)
-			for prometheusPodlabel := range extraPodLabelsMap {
-				label := strings.ToLower(prometheusPodlabel)
-				labelMap[label] = ""
-			}
+		podLabels := utils.GetPodLabels(podInfo, k8PodLabelsMap)
+		// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
+		for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
+			label := strings.ToLower(prometheusPodlabel)
+			labelMap[label] = podLabels[k8Podlabel]
 		}
 	}
 
@@ -1956,7 +1947,7 @@ func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string
 
 		// Add extra pod labels only if config has mapped any
 		if len(extraPodLabelsMap) > 0 {
-			podLabels := utils.GetPodLabels(podInfo, k8PodLabelsMap)
+			podLabels := utils.GetPodLabels(&podInfo, k8PodLabelsMap)
 			// populate labels from extraPodLabelsMap; regarless of whether there is a workload or not
 			for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
 				label := strings.ToLower(prometheusPodlabel)

@@ -1761,7 +1761,7 @@ func (ga *GPUAgentClient) populateLabelsFromGPU(
 
 	// Add extra pod labels only if config has mapped any
 	if gpu != nil && len(extraPodLabelsMap) > 0 {
-		podLabels := utils.GetPodLabels(podInfo, k8PodLabelsMap)
+		podLabels := utils.GetPodLabels(&podInfo, k8PodLabelsMap)
 		for prometheusPodlabel, k8Podlabel := range extraPodLabelsMap {
 			label := strings.ToLower(prometheusPodlabel)
 			labels[label] = podLabels[k8Podlabel]

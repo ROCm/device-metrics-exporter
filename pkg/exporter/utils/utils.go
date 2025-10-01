@@ -257,15 +257,17 @@ func NormalizeExtraPodLabels(extraPodLabels map[string]string) map[string]string
 	return extraPodLabelsMap
 }
 
-func GetPodLabels(podInfo scheduler.PodResourceInfo, k8sPodLabelsMap map[string]map[string]string) map[string]string {
-	podName, podNs := podInfo.Pod, podInfo.Namespace
-	if podName != "" && podNs != "" {
-		pKey := types.PodUniqueKey{
-			PodName:   podName,
-			Namespace: podNs,
-		}
-		if labels, exists := k8sPodLabelsMap[pKey.String()]; exists {
-			return labels
+func GetPodLabels(podInfo *scheduler.PodResourceInfo, k8sPodLabelsMap map[string]map[string]string) map[string]string {
+	if podInfo != nil {
+		podName, podNs := podInfo.Pod, podInfo.Namespace
+		if podName != "" && podNs != "" {
+			pKey := types.PodUniqueKey{
+				PodName:   podName,
+				Namespace: podNs,
+			}
+			if labels, exists := k8sPodLabelsMap[pKey.String()]; exists {
+				return labels
+			}
 		}
 	}
 	return map[string]string{}
