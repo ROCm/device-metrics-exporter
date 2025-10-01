@@ -338,15 +338,7 @@ func (k *K8sClient) GetContainerIDforPod(podName, ns string) (string, error) {
 	if len(pod.Status.ContainerStatuses) == 0 {
 		return "", fmt.Errorf("no container statuses found in pod %s", podName)
 	}
-	fullID := pod.Status.ContainerStatuses[0].ContainerID
-	if fullID == "" {
-		return "", fmt.Errorf("container ID not set yet")
-	}
-	parts := strings.Split(fullID, "://")
-	if len(parts) != 2 {
-		return fullID, nil
-	}
-	return parts[1], nil
+	return pod.Status.ContainerStatuses[0].ContainerID, nil
 }
 
 func (k *K8sClient) GetAllPods() (map[string]map[string]string, error) {

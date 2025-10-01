@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -193,21 +192,31 @@ func (na *NICAgentClient) addPodPidIfAbsent(podName string, podNamespace string)
 func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
 
 	logStr := fmt.Sprintf("podname %s, ns %s", podName, ns)
-	containerID, err := na.k8sApiClient.GetContainerIDforPod(podName, ns)
+	cid, err := na.k8sApiClient.GetContainerIDforPod(podName, ns)
 	if err != nil {
 		return -1, fmt.Errorf("failed to find containerID for %s: %v", logStr, err)
 	}
 
+	parts := strings.Split(cid, "://")
+	if len(parts) != 2 {
+		return -1, fmt.Errorf("found invalid containerID: %s for %s", cid, logStr)
+	}
+
 	var cmd string
-	if _, err := os.Stat(CrioRuntimeSocket); err == nil {
+	ctrRuntime := parts[0]
+	containerID := parts[1]
+	switch ctrRuntime {
+	case "cri-o":
 		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, CrioRuntimeSocket, containerID)
-	}
-	if _, err := os.Stat(ContainerdRuntimeSocket); err == nil {
+	case "containerd":
 		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, ContainerdRuntimeSocket, containerID)
+	default:
+		return -1, fmt.Errorf("found unsupported runtime %s for %s", ctrRuntime, logStr)
 	}
+
 	processID, err := ExecWithContext(cmd)
 	if err != nil {
-		logStr = fmt.Sprintf("containerID %s, %s", containerID, logStr)
+		logStr = fmt.Sprintf("runtime %s, containerID %s, %s", ctrRuntime, containerID, logStr)
 		return -1, fmt.Errorf("failed to find pid for %s: %v", logStr, err)
 	}
 	processID = bytes.TrimSpace(processID)
