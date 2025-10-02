@@ -3839,11 +3839,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -3859,11 +3859,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -4014,11 +4014,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -4034,11 +4034,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -4189,11 +4189,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -4209,11 +4209,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -4364,11 +4364,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -4384,11 +4384,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -4882,11 +4882,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -4902,11 +4902,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -5057,11 +5057,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -5077,11 +5077,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
@@ -5232,11 +5232,11 @@
               "instance": true,
               "job": true,
               "namespace": true,
-              "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
               "pod": false,
-              "rdma_dev_name": true
+              "rdma_dev_name": true,
+              "serial_number": true
             },
             "includeByName": {},
             "indexByName": {
@@ -5252,11 +5252,11 @@
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
-              "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
               "pod": 10,
-              "rdma_dev_name": 14
+              "rdma_dev_name": 14,
+              "serial_number": 11
             },
             "renameByName": {
               "Last": "Count",
