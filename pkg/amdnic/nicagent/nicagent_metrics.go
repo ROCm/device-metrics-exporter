@@ -329,8 +329,12 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 	netDeviceLabels := na.GetNetworkDeviceLabels()
 
 	for _, key := range netDeviceLabels {
-		switch key {
+		if _, found := extraPodLabelsMap[key]; found {
+			// skip extra pod labels, will be populated later
+			continue
+		}
 
+		switch key {
 		case strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()):
 			labelMap[key] = na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
 
@@ -1896,6 +1900,12 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 		if !enabled {
 			continue
 		}
+
+		if _, found := extraPodLabelsMap[ckey]; found {
+			// skip extra pod labels, will be populated later
+			continue
+		}
+
 		key := strings.ToLower(ckey)
 		switch ckey {
 		case exportermetrics.NICMetricLabel_NIC_UUID.String():

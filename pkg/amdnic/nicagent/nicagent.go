@@ -138,6 +138,11 @@ func (na *NICAgentClient) Init() error {
 
 	na.mh.RegisterMetricsClient(na)
 
+	if err := na.populateStaticHostLabels(); err != nil {
+		logger.Log.Printf("failed to populate static host labels, err: %v", err)
+		return err
+	}
+
 	// fetch all the static data that doesn't change (NIC, Port, Lif, etc.)
 	nics, err := na.getNICs()
 	if err != nil {
@@ -146,11 +151,6 @@ func (na *NICAgentClient) Init() error {
 	}
 	na.nics = nics
 	na.printNICs()
-
-	if err := na.populateStaticHostLabels(); err != nil {
-		logger.Log.Printf("failed to populate static host labels, err: %v", err)
-		return err
-	}
 
 	return nil
 }
