@@ -2599,7 +2599,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2616,7 +2616,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -2632,7 +2632,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2649,7 +2649,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2751,7 +2751,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_broadcast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_broadcast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -2767,7 +2767,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_multicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_multicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2784,7 +2784,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_unicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_unicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2886,7 +2886,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_broadcast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_broadcast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -2902,7 +2902,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_multicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_multicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2919,7 +2919,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_unicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_unicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3020,7 +3020,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_dma_errors{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_rx_dma_errors{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -3036,7 +3036,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_dma_errors{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "avg(${g_metrics_prefix}nic_lif_stats_tx_dma_errors{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3123,7 +3123,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_ucast_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_ucast_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3142,7 +3142,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}rdma_rx_ucast_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}rdma_rx_ucast_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3160,7 +3160,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_cnp_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_cnp_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3178,7 +3178,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}rdma_rx_cnp_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}rdma_rx_cnp_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3196,7 +3196,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_ecn_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}rdma_rx_ecn_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3214,7 +3214,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}rdma_rx_ecn_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}rdma_rx_ecn_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3288,7 +3288,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}rdma_tx_ucast_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}rdma_tx_ucast_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3307,7 +3307,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}rdma_tx_ucast_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}rdma_tx_ucast_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3325,7 +3325,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}rdma_tx_cnp_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}rdma_tx_cnp_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3343,7 +3343,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}rdma_tx_cnp_pkts{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}rdma_tx_cnp_pkts{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3413,7 +3413,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -3459,7 +3459,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": false,
-          "expr": "{__name__=~\".*rdma_req_rx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*rdma_req_rx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3486,44 +3486,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -3632,7 +3634,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*rdma_req_tx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*rdma_req_tx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3659,44 +3661,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -3759,7 +3763,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -3805,7 +3809,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*rdma_resp_rx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*rdma_resp_rx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -3832,44 +3836,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -3932,7 +3938,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -3978,7 +3984,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*rdma_resp_tx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*rdma_resp_tx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4005,44 +4011,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -4122,7 +4130,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_rx_bytes{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_rx_bytes{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4140,7 +4148,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_rx_bytes{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_rx_bytes{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4158,7 +4166,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_rx_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_rx_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4176,7 +4184,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_rx_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_rx_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4194,7 +4202,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_hw_rx_dropped{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_hw_rx_dropped{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4213,7 +4221,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_hw_rx_dropped{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_hw_rx_dropped{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4287,7 +4295,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_tx_bytes{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_tx_bytes{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4305,7 +4313,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_tx_bytes{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_tx_bytes{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4323,7 +4331,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_tx_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_tx_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4341,7 +4349,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_tx_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_tx_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4359,7 +4367,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(delta(${g_metrics_prefix}eth_hw_tx_dropped{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
+          "expr": "sum(delta(${g_metrics_prefix}eth_hw_tx_dropped{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}[$__interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4378,7 +4386,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(${g_metrics_prefix}eth_hw_tx_dropped{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
+          "expr": "sum(${g_metrics_prefix}eth_hw_tx_dropped{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4448,7 +4456,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -4494,7 +4502,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*eth_frames_rx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*eth_frames_rx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4521,44 +4529,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -4621,7 +4631,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -4667,7 +4677,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*eth_frames_tx_.*\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*eth_frames_tx_.*\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4694,44 +4704,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -4794,7 +4806,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "nic_hostname"
+              "options": "hostname"
             },
             "properties": [
               {
@@ -4840,7 +4852,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "{__name__=~\".*eth_rx_.*_dropped\", nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
+          "expr": "{__name__=~\".*eth_rx_.*_dropped\", hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=~\"$g_eth_intf_name\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -4867,44 +4879,46 @@
           "options": {
             "excludeByName": {
               "__name__": true,
+              "cluster_name": true,
+              "container": true,
               "eth_intf_alias": false,
               "eth_intf_name": true,
               "instance": true,
               "job": true,
-              "nic_container": true,
-              "nic_namespace": true,
-              "nic_pod": false,
+              "namespace": true,
               "nic_serial_number": true,
               "nic_uuid": true,
               "pcie_bus_id": true,
+              "pod": false,
               "rdma_dev_name": true
             },
             "includeByName": {},
             "indexByName": {
               "Field": 0,
-              "Last": 15,
+              "Last": 16,
               "__name__": 1,
+              "cluster_name": 15,
+              "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
               "instance": 6,
+              "hostname": 2,
               "job": 7,
-              "nic_container": 8,
-              "nic_hostname": 2,
+              "namespace": 9,
               "nic_id": 3,
-              "nic_namespace": 9,
-              "nic_pod": 10,
               "nic_serial_number": 11,
               "nic_uuid": 12,
               "pcie_bus_id": 13,
+              "pod": 10,
               "rdma_dev_name": 14
             },
             "renameByName": {
               "Last": "Count",
               "eth_intf_alias": "Interface",
               "eth_intf_name": "",
-              "nic_hostname": "Hostname",
+              "hostname": "Hostname",
               "nic_id": "NIC ID",
-              "nic_pod": "NIC Pod"
+              "pod": "NIC Pod"
             }
           }
         }
@@ -4936,8 +4950,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4981,7 +4994,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}[$__interval]))",
+              "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}[$__interval]))",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -4998,7 +5011,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"})",
+              "expr": "sum(${g_metrics_prefix}nic_lif_stats_rx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"})",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -5014,7 +5027,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}[$__interval]))",
+              "expr": "sum(delta(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}[$__interval]))",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5031,7 +5044,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"})",
+              "expr": "sum(${g_metrics_prefix}nic_lif_stats_tx_unicast_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"})",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5093,8 +5106,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5133,7 +5145,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_rx_broadcast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_rx_broadcast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -5149,7 +5161,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_rx_multicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_rx_multicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5166,7 +5178,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_rx_unicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_rx_unicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5228,8 +5240,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5268,7 +5279,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_tx_broadcast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_tx_broadcast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -5284,7 +5295,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_tx_multicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_tx_multicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5301,7 +5312,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_tx_unicast_drop_packets{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_tx_unicast_drop_packets{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5363,8 +5374,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -5402,7 +5412,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_rx_dma_errors{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_rx_dma_errors{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -5418,7 +5428,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "${g_metrics_prefix}nic_lif_stats_tx_dma_errors{nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
+              "expr": "${g_metrics_prefix}nic_lif_stats_tx_dma_errors{hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\", eth_intf_name=\"$g_eth_intf_name\"}",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -5567,8 +5577,8 @@
           "type": "prometheus",
           "uid": "${DS_AINIC-PROMETHEUS}"
         },
-        "definition": "label_values(nic_hostname)",
-        "hide": 0,
+        "definition": "label_values({hostname=~\"$g_hostname\"},hostname)",
+        "hide": 2,
         "includeAll": true,
         "label": "NIC Hostname",
         "multi": true,
@@ -5576,7 +5586,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(nic_hostname)",
+          "query": "label_values({hostname=~\"$g_hostname\"},hostname)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -5591,7 +5601,7 @@
           "type": "prometheus",
           "uid": "${DS_AINIC-PROMETHEUS}"
         },
-        "definition": "label_values({nic_hostname=~\"$g_nic_hostname\"},nic_id)",
+        "definition": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\"},nic_id)",
         "hide": 0,
         "includeAll": true,
         "label": "NIC ID",
@@ -5600,7 +5610,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({nic_hostname=~\"$g_nic_hostname\"},nic_id)",
+          "query": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\"},nic_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -5615,7 +5625,7 @@
           "type": "prometheus",
           "uid": "${DS_AINIC-PROMETHEUS}"
         },
-        "definition": "label_values({nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\"},eth_intf_name)",
+        "definition": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\"},eth_intf_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Interface Name",
@@ -5624,7 +5634,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({nic_hostname=~\"$g_nic_hostname\", nic_id=~\"$g_nic_id\"},eth_intf_name)",
+          "query": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\", nic_id=~\"$g_nic_id\"},eth_intf_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -5639,7 +5649,7 @@
           "type": "prometheus",
           "uid": "${DS_AINIC-PROMETHEUS}"
         },
-        "definition": "label_values({nic_hostname=~\"$g_nic_hostname\"},nic_pod)",
+        "definition": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\"},pod)",
         "hide": 2,
         "includeAll": true,
         "label": "NIC Pod",
@@ -5648,7 +5658,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({nic_hostname=~\"$g_nic_hostname\"},nic_pod)",
+          "query": "label_values({hostname=~\"$g_nic_hostname|$g_hostname\"},pod)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
