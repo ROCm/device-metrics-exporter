@@ -329,8 +329,8 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 	netDeviceLabels := na.GetNetworkDeviceLabels()
 
 	for _, key := range netDeviceLabels {
-		if _, found := extraPodLabelsMap[key]; found {
-			// skip extra pod labels, will be populated later
+		if isExtraOrCustomLabel(key) {
+			// skip extra pod labels and custom labels for now, will be processed later
 			continue
 		}
 
@@ -1892,7 +1892,7 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 	labels := make(map[string]string)
 
 	nic, found := na.nics[UUID]
-	if !found {
+	if UUID != "" && !found {
 		logger.Log.Printf("could not find NIC: %s from the local cache", UUID)
 	}
 
@@ -1901,8 +1901,8 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 			continue
 		}
 
-		if _, found := extraPodLabelsMap[ckey]; found {
-			// skip extra pod labels, will be populated later
+		if isExtraOrCustomLabel(ckey) {
+			// skip extra pod labels and custom labels here, will be handled separately
 			continue
 		}
 
@@ -2178,4 +2178,14 @@ func (na *NICAgentClient) printNICs() {
 			fmt.Printf("\tLIF ID: %s, Name: %s, PCIe Address: %s, IsPF: %v\n", lifID, lif.Name, lif.PCIeAddress, lif.IsPF)
 		}
 	}
+}
+
+func isExtraOrCustomLabel(key string) bool {
+	if _, ok := extraPodLabelsMap[key]; ok {
+		return true
+	}
+	if _, ok := customLabelMap[key]; ok {
+		return true
+	}
+	return false
 }
