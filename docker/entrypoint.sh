@@ -18,10 +18,25 @@ set -euo pipefail
 #
 #
 # entry point script run on creating a node management container
-LD_PRELOAD=/home/amd/lib/libamd_smi.so.25 /home/amd/bin/gpuagent &
 
-# sleep before starting promethesu server
-sleep 10
+# default is gpu monitoring enabled
+MONITOR_GPU="true"
+
+# Loop through all arguments
+for arg in "$@"; do
+  case $arg in
+    -monitor-gpu=*)
+      MONITOR_GPU="${arg#*=}"   # Extract value after '='
+      ;;
+  esac
+done
+
+if [ "$MONITOR_GPU" == "true" ]; then
+  LD_PRELOAD=/home/amd/lib/libamd_smi.so.25 /home/amd/bin/gpuagent &
+  # sleep before starting prometheus server
+  sleep 10
+fi
+
 # start prometheus serve
 # Run the underlying binary with all arguments passed to the script
 /home/amd/bin/server "$@"
