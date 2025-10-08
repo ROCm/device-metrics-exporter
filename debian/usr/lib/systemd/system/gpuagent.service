@@ -32,6 +32,10 @@ ExecStop=/bin/kill -15 $MAINPID
 #ExecStartPost=
 #ExecStopPost=
 
+# Resource limits
+MemoryHigh=1G
+CPUQuota=50%
+
 # StandardOutput=journal
 # StandardError=inherit
 

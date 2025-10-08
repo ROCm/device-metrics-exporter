@@ -64,6 +64,17 @@ spec:
           {{- end }}
           securityContext:
             privileged: true
+          resources:
+            {{- if .Values.resources }}
+            {{- toYaml .Values.resources | nindent 12 }}
+            {{- else }}
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "512M"
+            {{- end }}
           volumeMounts:
           - mountPath: /dev
             name: dev-volume

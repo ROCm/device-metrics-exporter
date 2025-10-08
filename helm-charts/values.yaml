@@ -27,6 +27,20 @@ image:
   # -- metrics exporter initContainer image
   initContainerImage: busybox:1.36
 
+# -- options for the metrics exporter container - default values are set if not specified
+resources:
+  # -- Resource limits and requests for the metrics exporter container
+  limits:
+    # -- CPU limit for the metrics exporter container
+    cpu: "2"
+    # -- Memory limit for the metrics exporter container
+    memory: "4Gi"
+  requests:
+    # -- CPU request for the metrics exporter container
+    cpu: "500m"
+    # -- Memory request for the metrics exporter container
+    memory: "512M"
+
 service:
   # -- metrics exporter service type, could be ClusterIP or NodePort
   type: ClusterIP
@@ -61,4 +75,3 @@ serviceMonitor:
   relabelings: []
   # -- Relabeling rules applied to individual scraped metrics
   metricRelabelings: []
-

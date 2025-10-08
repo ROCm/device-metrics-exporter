@@ -2,6 +2,11 @@
 
 ## v1.5.0
 
+- **Configurable Resource Limits**
+  - Exporter Pod resource limits can now be configured through the Helm chart
+  - Default limits are set if not specified in the Helm chart
+  - Debian systemd service file is now set with default resource limits
+
 - **Kubevirt**
   - Exporter now supports Kubevirt deployments
     - New exporter with SR-IOV support for hypervisor environments is now available
