@@ -37,6 +37,8 @@ const (
 	LabelEthIntfAlias = "eth_intf_alias"
 	// Queue-Pair ID for QP metrics
 	LabelQPID = "qp_id"
+	// set pod cache size > max concurrent workload pods per node to avoid cache thrashing
+	podCacheSize = 100
 
 	RDMAClientName                = "RDMA_Stats_Client"
 	NICCtlClientName              = "NICCTL_Client"

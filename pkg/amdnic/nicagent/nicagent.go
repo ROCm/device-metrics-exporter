@@ -33,24 +33,25 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 type NICAgentClient struct {
 	sync.Mutex
-	nicClients             []NICInterface
-	mh                     *metricsutil.MetricsHandler
-	m                      *metrics // client specific metrics
-	isKubernetes           bool
-	nics                   map[string]*NIC
-	k8sScheduler           scheduler.SchedulerClient
-	k8sApiClient           *k8sclient.K8sClient
-	staticHostLabels       map[string]string // static labels for the host
-	nodeHealthLabellerCfg  *utils.NodeHealthLabellerConfig
-	ctx                    context.Context
-	cancel                 context.CancelFunc
-	rdmaDevToPcieAddr      map[string]string
-	podnameToProcessId     map[string]int
-	podnameToNetDeviceList map[string][]NetDevice
+	nicClients              []NICInterface
+	mh                      *metricsutil.MetricsHandler
+	m                       *metrics // client specific metrics
+	isKubernetes            bool
+	nics                    map[string]*NIC
+	k8sScheduler            scheduler.SchedulerClient
+	k8sApiClient            *k8sclient.K8sClient
+	staticHostLabels        map[string]string // static labels for the host
+	nodeHealthLabellerCfg   *utils.NodeHealthLabellerConfig
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	rdmaDevToPcieAddr       map[string]string
+	podnameToPidCache       *lru.Cache[string, int]
+	podnameToNetDeviceCache *lru.Cache[string, []NetDevice]
 }
 
 // NICAgentClientOptions defines the options for the NICAgentClient
@@ -117,20 +118,34 @@ func (na *NICAgentClient) Init() error {
 	defer na.Unlock()
 	na.initializeContext()
 
+	var err error
+	na.podnameToNetDeviceCache, err = lru.NewWithEvict(podCacheSize, func(key string, value []NetDevice) {
+		logger.Log.Printf("pod %s evicted from netDevice cache", key)
+	})
+	if err != nil {
+		logger.Log.Printf("netDevice cache init failed: %v", err)
+		return err
+	}
+	na.podnameToPidCache, err = lru.NewWithEvict(podCacheSize, func(key string, value int) {
+		logger.Log.Printf("pod %s evicted from pid cache", key)
+	})
+	if err != nil {
+		logger.Log.Printf("process ID cache init failed: %v", err)
+		return err
+	}
+
 	// create NIC clients and init
 	nicCtlClient := newNICCtlClient(na)
 	na.nicClients = append(na.nicClients, nicCtlClient)
 
 	na.rdmaDevToPcieAddr = make(map[string]string)
-	na.podnameToProcessId = make(map[string]int)
-	na.podnameToNetDeviceList = make(map[string][]NetDevice)
 	rdmaStatsClient := newRDMAStatsClient(na)
 	na.nicClients = append(na.nicClients, rdmaStatsClient)
 
 	ethtoolClient := newEthtoolClient(na)
 	na.nicClients = append(na.nicClients, ethtoolClient)
 
-	err := na.initClients()
+	err = na.initClients()
 	if err != nil {
 		logger.Log.Printf("NIC clients init failure err :%v", err)
 		return err
@@ -177,14 +192,15 @@ func (na *NICAgentClient) addPodPidIfAbsent(podName string, podNamespace string)
 	na.Lock()
 	defer na.Unlock()
 
-	if _, ok := na.podnameToProcessId[podName]; !ok {
+	if _, ok := na.podnameToPidCache.Get(podName); !ok {
 		processId, err := na.getPidOfPod(podName, podNamespace)
 		if err != nil {
 			logger.Log.Printf("failed to get pid for pod %s : %v", podName, err)
 			return err
 		}
-		na.podnameToProcessId[podName] = processId
-		//gsmTODO cache eviction when Pod gets deleted.
+		na.podnameToPidCache.Add(podName, processId)
+		logger.Log.Printf("pid cache add for pod %s: pid %d, cache len %d",
+			podName, processId, na.podnameToPidCache.Len())
 	}
 	return nil
 }
@@ -229,6 +245,29 @@ func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
 	return pidVal, nil
 }
 
+func (na *NICAgentClient) podnameToPidCacheGet(podInfo *scheduler.PodResourceInfo) (pid int, ok bool) {
+
+	if podInfo != nil {
+		pid, ok := na.podnameToPidCache.Get(podInfo.Pod)
+		if ok {
+			return pid, ok
+		} else {
+			//retry one more time in case pod got evicted from LRU cache.
+			err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace)
+			if err == nil {
+				pid, ok = na.podnameToPidCache.Get(podInfo.Pod)
+				return pid, ok
+			} else {
+				logger.Log.Printf("failure in pod2pid retry during Get for pod %s ns %s: %v",
+					podInfo.Pod, podInfo.Namespace, err)
+				return 0, false
+			}
+		}
+	} else {
+		return 0, false
+	}
+}
+
 func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) ([]NetDevice, error) {
 
 	var netDevices []NetDevice
@@ -239,14 +278,17 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 	// interfaces in workload pod are cached.
 	if podInfo != nil {
 		podName = podInfo.Pod
-		netDevices, ok := na.podnameToNetDeviceList[podName]
+		netDevices, ok := na.podnameToNetDeviceCache.Get(podName)
 		if ok {
 			return netDevices, nil
 		}
 	}
 
 	if podInfo != nil {
-		pid = na.podnameToProcessId[podName]
+		pid, ok := na.podnameToPidCacheGet(podInfo)
+		if !ok {
+			return netDevices, fmt.Errorf("failed to get pid for %s", podName)
+		}
 		cmd = fmt.Sprintf(PodNetnsExecCmd+ShowRdmaDevicesCmd, pid)
 	} else {
 		cmd = ShowRdmaDevicesCmd
@@ -303,7 +345,9 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 		}
 	}
 	if podInfo != nil {
-		na.podnameToNetDeviceList[podName] = netDevices
+		na.podnameToNetDeviceCache.Add(podName, netDevices)
+		logger.Log.Printf("netdev cache add for pod %s: devices %v, cache len %d",
+			podName, netDevices, na.podnameToNetDeviceCache.Len())
 	}
 	return netDevices, nil
 }

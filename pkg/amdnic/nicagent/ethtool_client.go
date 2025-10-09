@@ -108,7 +108,7 @@ func (ec *EthtoolClient) fetchEthStatsForDevicesInPod(podInfo *scheduler.PodReso
 
 	for i := range netDevList {
 		labels := ec.na.populateLabelsForNetDevice(netDevList[i], podInfo)
-		if err := ec.populateEthStatsForNetDevice(netDevList[i], labels); err != nil {
+		if err := ec.populateEthStatsForNetDevice(podInfo, netDevList[i], labels); err != nil {
 			logger.Log.Printf("failure in fetch for ethstats of netDev %v : %v", netDevList[i], err)
 		}
 	}
@@ -116,12 +116,16 @@ func (ec *EthtoolClient) fetchEthStatsForDevicesInPod(podInfo *scheduler.PodReso
 	return nil
 }
 
-func (ec *EthtoolClient) populateEthStatsForNetDevice(netDev NetDevice, labels map[string]string) error {
+func (ec *EthtoolClient) populateEthStatsForNetDevice(podInfo *scheduler.PodResourceInfo, netDev NetDevice, labels map[string]string) error {
 	var cmd string
 	if netDev.PodName == "" {
 		cmd = fmt.Sprintf(EthToolCmd, netDev.IntfName)
 	} else {
-		netDevPid := ec.na.podnameToProcessId[netDev.PodName]
+		netDevPid, ok := ec.na.podnameToPidCacheGet(podInfo)
+		if !ok {
+			err := fmt.Errorf("failed to get pid for netdev pod %s", netDev.PodName)
+			return err
+		}
 		cmd = fmt.Sprintf(PodNetnsExecCmd+EthToolCmd, netDevPid, netDev.IntfName)
 	}
 
