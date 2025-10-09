@@ -126,7 +126,7 @@ UBUNTU_LIBDIR = UBUNTU24
 endif
 
 # set version and run `make update-version` to all docs
-PACKAGE_VERSION ?= "1.4.0"
+PACKAGE_VERSION ?= "1.4.1"
 ifneq (,$(findstring exporter,$(RELEASE)))
 #remove prefix from main tag
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | cut -c 10-)
@@ -135,7 +135,7 @@ else ifneq (,$(findstring v,$(RELEASE)))
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
 else
 #apt is only released until this version
-DEBIAN_VERSION := "1.4.0"
+DEBIAN_VERSION := "1.4.1"
 endif
 REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
 HELM_VERSION := $(REL_IMAGE_TAG)
