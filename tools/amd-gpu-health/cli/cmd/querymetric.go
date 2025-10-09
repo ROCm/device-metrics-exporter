@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -40,6 +41,7 @@ var (
 	prometheusBearerTokenPath string
 	prometheusRootCAPath      string
 	prometheusEndpointUrl     string
+	severity                  string
 )
 
 var QueryMetricCmd = &cobra.Command{
@@ -60,6 +62,13 @@ var gaugeMetricCmd = &cobra.Command{
 	Short: "metric of type gauge",
 	Long:  "metric of type gauge",
 	Run:   gaugeMetricCmdHandler,
+}
+
+var inbandRasErrorsCmd = &cobra.Command{
+	Use:   "inband-ras-errors",
+	Short: "query inband ras errors",
+	Long:  "query inband ras errors",
+	Run:   inbandRasErrorsCmdHandler,
 }
 
 func fetchAuthInfo(cmd *cobra.Command) utils.AuthInfo {
@@ -108,10 +117,10 @@ func counterMetricCmdHandler(cmd *cobra.Command, args []string) {
 	}
 
 	// query metrics endpoint
-	response, err := utils.QueryMetricsEndpoint(metricsEndpoint, authInfo)
+	response, err := utils.QueryExporterEndpoint(metricsEndpoint, authInfo)
 	if err != nil {
 		logger.Log.Printf("unable to query metrics endpoint. error:%v", err)
-		utils.InvalidateURLCache()
+		utils.InvalidateExporterEndpointURLCache()
 		os.Exit(2)
 	}
 	logger.Log.Printf("counter metrics response=%s", response)
@@ -174,10 +183,10 @@ func gaugeMetricCmdHandler(cmd *cobra.Command, args []string) {
 		if metricsEndpoint == "" {
 			os.Exit(2)
 		}
-		response, err := utils.QueryMetricsEndpoint(metricsEndpoint, authInfo)
+		response, err := utils.QueryExporterEndpoint(metricsEndpoint, authInfo)
 		if err != nil {
 			logger.Log.Printf("unable to query metrics endpoint. error:%v", err)
-			utils.InvalidateURLCache()
+			utils.InvalidateExporterEndpointURLCache()
 			os.Exit(2)
 		}
 
@@ -197,10 +206,73 @@ func gaugeMetricCmdHandler(cmd *cobra.Command, args []string) {
 	os.Exit(0)
 }
 
+func inbandRasErrorsCmdHandler(cmd *cobra.Command, args []string) {
+	configPath := viper.GetString("kubeConfigPath")
+	//get node name from env variable
+	nodeName, err := exputils.GetHostName()
+	if err != nil {
+		logger.Log.Printf("unable to fetch node name. error:%v", err)
+		os.Exit(2)
+	}
+
+	//fetch auth info
+	authInfo := fetchAuthInfo(cmd)
+
+	isTLS := authInfo.ExporterRootCAPath != ""
+	inbandRASErrorsEndpoint := utils.GetGPUInbandRASErrorsURL(configPath, nodeName, isTLS)
+	// if endpoint is not found, we should not exit with error code 1.
+	if inbandRASErrorsEndpoint == "" {
+		os.Exit(2)
+	}
+	logger.Log.Printf("inband-ras errors endpoint url=%v", inbandRASErrorsEndpoint)
+
+	errorSeverity := ""
+	if cmd.Flags().Changed("severity") {
+		errorSeverity = severity
+		inbandRASErrorsEndpoint = fmt.Sprintf("%s?severity=%s", inbandRASErrorsEndpoint, errorSeverity)
+	}
+	response, err := utils.QueryExporterEndpoint(inbandRASErrorsEndpoint, authInfo)
+	if err != nil {
+		logger.Log.Printf("unable to query inband ras errors endpoint. error:%v", err)
+		utils.InvalidateExporterEndpointURLCache()
+		os.Exit(2)
+	}
+
+	cperEntries := utils.ParseInbandRasErrorsResponse(response)
+	if len(cperEntries) == 0 {
+		os.Exit(0)
+	}
+
+	//get latest processed error timestamp
+	t, _ := utils.GetLatestProcessedInbandErrorTimestamp()
+	for _, gpucperentry := range cperEntries {
+		for _, entry := range gpucperentry.CPEREntry {
+			timestampFormat := "2006-01-02 15:04:05"
+			entryTimestamp, err := time.Parse(timestampFormat, entry.Timestamp)
+			if err != nil {
+				logger.Log.Printf("unable to parse inband ras error timestamp. error:%v", err)
+				continue
+			}
+			if entryTimestamp.After(t) {
+				//below message to stdout will be captured in Node condition message
+				fmt.Printf("inband ras error detected for gpu %v timestamp:%v severity:%v", gpucperentry.GPU, entryTimestamp, entry.Severity)
+				//update latest processed error timestamp file
+				err = utils.UpdateLatestProcessedInbandErrorTimestamp(entryTimestamp)
+				if err != nil {
+					logger.Log.Printf("unable to update latest processed inband error timestamp. error:%v", err)
+				}
+				os.Exit(1)
+			}
+		}
+	}
+	os.Exit(0)
+}
+
 func init() {
 	RootCmd.AddCommand(QueryMetricCmd)
 	QueryMetricCmd.AddCommand(counterMetricCmd)
 	QueryMetricCmd.AddCommand(gaugeMetricCmd)
+	QueryMetricCmd.AddCommand(inbandRasErrorsCmd)
 
 	counterMetricCmd.Flags().StringVarP(&nodeName, "node", "n", "", "Specify node name")
 	counterMetricCmd.Flags().StringVarP(&metricName, "metric", "m", "", "Specify metric name")
@@ -219,4 +291,10 @@ func init() {
 	gaugeMetricCmd.Flags().StringVar(&clientCertPath, "client-cert", "", "Specify client certificate mount path(If exporter endpoint has mTLS enabled) - Optional")
 	gaugeMetricCmd.Flags().StringVar(&prometheusRootCAPath, "prometheus-root-ca", "", "Specify prometheus root CA certificate mount path(If prometheus endpoint has TLS/mTLS enabled) - Optional")
 	gaugeMetricCmd.Flags().StringVar(&prometheusBearerTokenPath, "prometheus-bearer-token", "", "Specify prometheus bearer token mount path(If prometheus endpoint has Authorization enabled) - Optional")
+
+	inbandRasErrorsCmd.Flags().StringVarP(&nodeName, "node", "n", "", "Specify node name")
+	inbandRasErrorsCmd.Flags().StringVarP(&severity, "severity", "s", "", "Specify error severity. Allowed values are CPER_SEVERITY_FATAL, CPER_SEVERITY_NON_FATAL_UNCORRECTED, CPER_SEVERITY_NON_FATAL_CORRECTED")
+	inbandRasErrorsCmd.Flags().StringVar(&exporterRootCAPath, "exporter-root-ca", "", "Specify exporter root CA certificate mount path(If exporter endpoint has TLS/mTLS enabled) - Optional")
+	inbandRasErrorsCmd.Flags().StringVar(&exporterBearerTokenPath, "exporter-bearer-token", "", "Specify exporter bearer token mount path(If exporter endpoint has Authorization enabled) - Optional")
+	inbandRasErrorsCmd.Flags().StringVar(&clientCertPath, "client-cert", "", "Specify client certificate mount path(If exporter endpoint has mTLS enabled) - Optional")
 }

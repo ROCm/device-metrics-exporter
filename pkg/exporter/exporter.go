@@ -97,6 +97,8 @@ func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 	router.Handle(globals.MetricsHandlerPrefix, promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 	// below route is for daemons like node-problem-detector that need all the metrics
 	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUHandlerPrefix, mh.HandleGPUMetricsQuery)
+	// new route for querying inband ras errors
+	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUInbandRASHandlerPrefix, mh.HandleInbandRASErrorsQuery)
 	// pprof
 	router.Methods("GET").Subrouter().Handle("/debug/vars", expvar.Handler())
 	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/", pprof.Index)

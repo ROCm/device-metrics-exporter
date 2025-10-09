@@ -1576,6 +1576,17 @@ func (ga *GPUAgentClient) GetDeviceType() globals.DeviceType {
 	return globals.GPUDevice
 }
 
+func (ga *GPUAgentClient) QueryInbandRASErrors(severity string) (interface{}, error) {
+	var resp *amdgpu.GPUCPERGetResponse
+	var err error
+	resp, err = ga.getGPUCPER(severity)
+	if err != nil {
+		logger.Log.Printf("query inband ras errors returned error:%v", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
 // getWorkloadsString returns the list of workloads associated with the given GPU in following
 // formats
 // kubernetes job  - "pod:pod_name, namespace: pod_namespace,container: container_name"

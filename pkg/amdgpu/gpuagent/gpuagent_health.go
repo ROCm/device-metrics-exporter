@@ -214,6 +214,16 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 				eventErrCheck(evt)
 			}
 		}
+		gpuCper, err = ga.getGPUCPER("CPER_SEVERITY_FATAL")
+		if err != nil || (gpuCper != nil && gpuCper.ApiStatus != 0) {
+			// ignore cper errors log only
+			logger.Log.Printf("gpuagent get cper failed %v", err)
+		} else {
+			// business logic for health detection
+			for _, cper := range gpuCper.CPER {
+				cperErrCheck(cper)
+			}
+		}
 	}
 
 ret:

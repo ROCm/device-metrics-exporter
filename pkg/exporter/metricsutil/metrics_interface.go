@@ -41,6 +41,9 @@ type MetricsInterface interface {
 
 	// get device type - gpu or ainic
 	GetDeviceType() globals.DeviceType
+
+	// get inband-ras errors
+	QueryInbandRASErrors(severity string) (interface{}, error)
 }
 
 type MetricsClient interface {

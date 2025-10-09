@@ -534,6 +534,26 @@ func (ga *GPUAgentClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.Even
 	return res, err
 }
 
+func (ga *GPUAgentClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResponse, error) {
+	ctx, cancel := context.WithTimeout(ga.ctx, queryTimeout)
+	defer cancel()
+
+	req := &amdgpu.GPUCPERGetRequest{}
+	if severity != "" {
+		if sevId, ok := amdgpu.CPERSeverity_value[strings.ToUpper(severity)]; ok {
+			req.Severity = amdgpu.CPERSeverity(sevId)
+		} else {
+			logger.Log.Printf("invalid severity value %v. fetching all cper records", severity)
+		}
+	}
+	res, err := ga.gpuclient.GPUCPERGet(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // ListWorkloads - get all workloads from every client , lock must be taken by
 // the caller
 func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workload, err error) {

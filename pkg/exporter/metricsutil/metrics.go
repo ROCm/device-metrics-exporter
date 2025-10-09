@@ -132,6 +132,32 @@ func (mh *MetricsHandler) HandleGPUMetricsQuery(w http.ResponseWriter, req *http
 	http.Error(w, "An error occured while querying metrics:\n"+err.Error(), http.StatusInternalServerError)
 }
 
+func (mh *MetricsHandler) HandleInbandRASErrorsQuery(w http.ResponseWriter, req *http.Request) {
+	var cperResponse *amdgpu.GPUCPERGetResponse
+	var resp interface{}
+	var err error
+	for _, client := range mh.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			severity := req.URL.Query().Get("severity")
+			resp, err = client.QueryInbandRASErrors(severity)
+			break
+		}
+	}
+	if err != nil {
+		http.Error(w, "an error occured while querying inband ras errors:\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cperResponse, ok := resp.(*amdgpu.GPUCPERGetResponse)
+	if ok && cperResponse != nil {
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(cperResponse)
+		if err == nil {
+			return
+		}
+	}
+	http.Error(w, "an error occured while querying inband ras errors:\n"+err.Error(), http.StatusInternalServerError)
+}
+
 func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.GPUMetricConfig {
 	config := mh.runConf.GetConfig()
 	if config != nil {

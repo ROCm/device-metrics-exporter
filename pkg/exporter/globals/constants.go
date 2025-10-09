@@ -79,8 +79,14 @@ const (
 	// Kube RBAC Proxy port name
 	KubeRBACProxyPortName = "exporter-port"
 
-	// MetricsEndpointURLCachePath - path to the cache file that stores metrics endpoint URL in NPD
-	MetricsEndpointURLCachePath = "/tmp/gpu_metrics_endpoint_cache.txt"
+	// ExporterEndpointURLCachePath - path to the cache file that stores metrics endpoint URL in NPD
+	ExporterEndpointURLCachePath = "/tmp/exporter_endpoint_cache.txt"
+
+	// AMDGPUInbandRASHandlerPrefix - endpoint to get inband RAS errors in JSON format
+	AMDGPUInbandRASHandlerPrefix = "/inbandraserrors"
+
+	// LatestProcessedErrorTimestampFilePath - path to the file that stores the latest processed inband RAS error timestamp
+	LatestProcessedErrorTimestampFilePath = "/tmp/latest_processed_inband_ras_error.txt"
 )
 
 type DeviceType string
