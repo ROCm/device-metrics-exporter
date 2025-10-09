@@ -699,10 +699,10 @@ message GPUGetRequest {
 message GPUGetResponse {
   // result of the API processing
   types.ApiStatus ApiStatus = 1;
-  // list of per GPU information
-  repeated GPU    Response  = 2;
   // specific error code, if any
-  types.ErrorCode ErrorCode = 3;
+  types.ErrorCode ErrorCode = 2;
+  // list of per GPU information
+  repeated GPU    Response  = 3;
 }
 
 // GPU update request message

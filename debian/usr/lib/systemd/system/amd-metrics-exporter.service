@@ -32,6 +32,10 @@ ExecStop=/bin/kill -15 $MAINPID
 #ExecStartPost=
 #ExecStopPost=
 
+# Resource limits (profiler requires more burst resource)
+MemoryHigh=4G
+CPUQuota=100%
+
 # StandardOutput=journal
 # StandardError=inherit
 

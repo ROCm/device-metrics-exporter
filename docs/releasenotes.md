@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.4.1
+
+- **Configurable Resource Limits**
+  - Exporter Pod resource limits can now be configured through the Helm chart
+  - Default limits are set if not specified in the Helm chart
+  - Debian systemd service file is now set with default resource limits
+
+### Platform Support
+ROCm 7.0 MI2xx, MI3xx
+
 ## v1.4.0
 
 - **MI35x Platfform Support**
@@ -54,7 +64,6 @@ ROCm 7.0 MI2xx, MI3xx
   | 16   | gpu_violation_proc_hot_residency_accumulated    | gpu_violation_processor_hot_residency_accumulated  |
   | 17   | gpu_violation_soc_thermal_residency_accumulated | gpu_violation_socket_thermal_residency_accumulated |
 
-
 ### Known Issues
  - violation metrics are broken on rocm 7.0.0 api change, they are not being exported. This is a known issue and will be fixed in the next release.
 
@@ -64,7 +73,8 @@ ROCm 7.0 MI2xx, MI3xx
 
   _Workaround_ is to disable the profiling metrics in the exporter configmap or restart the pod or service at regular intervals.
 
- [Issues] (https://github.com/ROCm/device-metrics-exporter/issues)
+ *Issues* https://github.com/ROCm/device-metrics-exporter/issues
+
 
 ## v1.3.1
 

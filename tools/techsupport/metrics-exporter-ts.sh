@@ -64,6 +64,115 @@ if [ "$DEPLOYMENT" == "container" ]; then
         fi
     fi
 fi
+# Collect dmesg logs
+dmesg > dmesg.log 2>/dev/null
+if [ $? -eq 0 ]; then
+    LOG_FILES+=("dmesg.log")
+fi
+
+# Collect AMD SMI diagnostics if available
+if command -v amd-smi &> /dev/null; then
+    echo "Collecting AMD SMI diagnostics..."
+
+    # Define AMD SMI commands to collect
+    AMD_SMI_COMMANDS=(
+        "amd-smi version"
+        "amd-smi list"
+        "amd-smi static"
+        "amd-smi firmware"
+        "amd-smi metric"
+        "amd-smi topology"
+        "amd-smi process"
+        "amd-smi xgmi"
+        "amd-smi partition"
+    )
+
+    # Execute each command and save to separate log files
+    for cmd in "${AMD_SMI_COMMANDS[@]}"; do
+        # Create filename from command (replace spaces and special chars)
+        log_filename=$(echo "$cmd" | tr ' ' '_' | tr -d '-' | tr -d '/')
+        log_filename="${log_filename}.log"
+
+        echo "Running: $cmd"
+        $cmd > "$log_filename" 2>&1
+
+        # Add to log files array if command succeeded or produced output
+        if [ -s "$log_filename" ]; then
+            LOG_FILES+=("$log_filename")
+        else
+            rm -f "$log_filename"
+        fi
+    done
+fi
+
+# Collect metricsclient diagnostics if available
+if command -v metricsclient &> /dev/null; then
+    echo "Collecting metricsclient diagnostics..."
+
+    # Define metricsclient commands to collect
+    METRICSCLIENT_COMMANDS=(
+        "metricsclient"
+        "metricsclient -gpu"
+        "metricsclient -gpuctl"
+        "metricsclient -label"
+        "metricsclient -npod"
+        "metricsclient -pod"
+    )
+
+    # Execute each command and save to separate log files
+    for cmd in "${METRICSCLIENT_COMMANDS[@]}"; do
+        # Create filename from command (replace spaces and special chars)
+        log_filename=$(echo "$cmd" | tr ' ' '_' | tr -d '-' | tr -d '/')
+        log_filename="${log_filename}.log"
+
+        echo "Running: $cmd"
+        $cmd > "$log_filename" 2>&1
+
+        # Add to log files array if command succeeded or produced output
+        if [ -s "$log_filename" ]; then
+            LOG_FILES+=("$log_filename")
+        else
+            rm -f "$log_filename"
+        fi
+    done
+fi
+
+# Collect gpuctl diagnostics if available
+if command -v gpuctl &> /dev/null; then
+    echo "Collecting gpuctl diagnostics..."
+
+    gpuctl_log="gpuctl_show_gpu_all.log"
+    echo "Running: gpuctl show gpu all"
+    gpuctl show gpu all > "$gpuctl_log" 2>&1
+
+    # Add to log files array if command succeeded or produced output
+    if [ -s "$gpuctl_log" ]; then
+        LOG_FILES+=("$gpuctl_log")
+    else
+        rm -f "$gpuctl_log"
+    fi
+fi
+
+# Collect metrics endpoint output
+METRICS_LOG="metrics_endpoint.log"
+echo "Collecting metrics from localhost:5000/metrics..."
+curl -s localhost:5000/metrics > "$METRICS_LOG" 2>&1
+CURL_EXIT_CODE=$?
+
+if [ $CURL_EXIT_CODE -ne 0 ]; then
+    echo "Failed to collect metrics from endpoint (exit code: $CURL_EXIT_CODE)" >> "$METRICS_LOG"
+    echo "curl command failed with exit code: $CURL_EXIT_CODE" >> "$METRICS_LOG"
+    echo "Error: Failed to collect metrics from localhost:5000/metrics"
+fi
+
+# Add metrics log to archive regardless of success/failure
+if [ -s "$METRICS_LOG" ]; then
+    LOG_FILES+=("$METRICS_LOG")
+else
+    # Create a log file with failure message if empty
+    echo "No output received from metrics endpoint" > "$METRICS_LOG"
+    LOG_FILES+=("$METRICS_LOG")
+fi
 
 # Add existing log files if they exist
 [ -f "/var/log/exporter.log" ] && LOG_FILES+=("/var/log/exporter.log")

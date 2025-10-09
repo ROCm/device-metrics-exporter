@@ -125,7 +125,20 @@ CounterSampler::CounterSampler(rocprofiler_agent_id_t agent) : agent_(agent) {
       "Could not setup buffered service", __FILE__, __LINE__);
 }
 
-CounterSampler::~CounterSampler() { ctx_ = {}; }
+CounterSampler::~CounterSampler() { 
+  // Clean up cached profiles to prevent memory leaks
+  for (auto& [key, profile] : cached_profiles_) {
+    rocprofiler_destroy_profile_config(profile);
+  }
+  cached_profiles_.clear();
+  profile_sizes_.clear();
+  
+  // Destroy context
+  if (ctx_.handle != 0) {
+    rocprofiler_stop_context(ctx_);
+  }
+  ctx_ = {}; 
+}
 
 const std::string& CounterSampler::decode_record_name(
     const rocprofiler_record_counter_t& rec) const {
@@ -199,6 +212,7 @@ void CounterSampler::sample_counter_values(const std::vector<std::string>& count
                                                 << " not found in profile_sizes_." << std::endl);
     throw std::runtime_error("Profile handle not found in profile_sizes_");
   }
+  out.clear();
   out.resize(profile_sizes_.at(profile_cached->second.handle));
   profile_ = profile_cached->second;
   rocprofiler_start_context(ctx_);
@@ -265,6 +279,7 @@ int CounterSampler::runSample(std::vector<std::string> &metric_fields)
 		uint32_t count = 0;
 		for (uint32_t mindex = 0; mindex < metrics.size(); mindex++) {
 			thread_local std::vector<rocprofiler_record_counter_t> records;
+			records.clear(); // Clear any previous data to prevent memory leak
 			try {
 				cs.sample_counter_values({metrics[mindex]} , records, 10);
 			} catch (const std::exception& e) {

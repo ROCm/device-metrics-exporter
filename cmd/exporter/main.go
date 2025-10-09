@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -129,6 +131,22 @@ func main() {
 		exporterHandler.Close()
 		os.Exit(0)
 	}()
+
+	// Start garbage collection routine
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				runtime.GC()
+			case <-sigChan:
+				return
+			}
+		}
+	}()
+
 	exporterHandler.StartMain(enableDebugAPI)
 
 }

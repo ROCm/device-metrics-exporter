@@ -1,6 +1,6 @@
 # device-metrics-exporter-charts
 
-![Version: v1.4.0](https://img.shields.io/badge/Version-v1.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.4.0](https://img.shields.io/badge/AppVersion-v1.4.0-informational?style=flat-square)
+![Version: v1.4.1](https://img.shields.io/badge/Version-v1.4.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.4.1](https://img.shields.io/badge/AppVersion-v1.4.1-informational?style=flat-square)
 
 A Helm chart for AMD Device Metric Exporter
 
@@ -30,6 +30,12 @@ Kubernetes: `>= 1.29.0-0`
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |
 | platform | string | `"k8s"` | Specify the platform to deploy the metrics exporter, k8s or openshift |
+| resources | object | `{"limits":{"cpu":"2","memory":"4Gi"},"requests":{"cpu":"500m","memory":"512M"}}` | options for the metrics exporter container - default values are set if not specified |
+| resources.limits | object | `{"cpu":"2","memory":"4Gi"}` | Resource limits and requests for the metrics exporter container |
+| resources.limits.cpu | string | `"2"` | CPU limit for the metrics exporter container |
+| resources.limits.memory | string | `"4Gi"` | Memory limit for the metrics exporter container |
+| resources.requests.cpu | string | `"500m"` | CPU request for the metrics exporter container |
+| resources.requests.memory | string | `"512M"` | Memory request for the metrics exporter container |
 | service.ClusterIP.port | int | `5000` | set port for ClusterIP type service |
 | service.NodePort.nodePort | int | `32500` | set nodePort for NodePort type service   |
 | service.NodePort.port | int | `5000` | set port for NodePort type service    |
