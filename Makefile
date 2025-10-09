@@ -443,12 +443,16 @@ helm-lint:
 .PHONY: helm-build
 helm-build: helm-lint
 	rm -rf helm-charts/device-metrics-exporter-charts*
+	rm -rf helm-charts/manifests.yaml
 	# updating project version in helm Chart.yaml
 	sed -i -e 's|appVersion:.*$$|appVersion: "${REL_IMAGE_TAG}"|' helm-charts/Chart.yaml
 	sed -i '0,/version:/s|version:.*|version: ${REL_IMAGE_TAG}|' helm-charts/Chart.yaml
 	${MAKE} helm-docs
 	helm package helm-charts/ --destination ./helm-charts --app-version ${REL_IMAGE_TAG} --version ${REL_IMAGE_TAG}
 	cp -vf helm-charts/device-metrics-exporter-charts* helm-charts/device-metrics-exporter-charts.tgz
+	helm template device-metrics-exporter helm-charts/device-metrics-exporter-charts.tgz -n kube-amd-gpu -f helm-charts/values.yaml > helm-charts/manifests.yaml
+	kubectl kustomize helm-charts/ > /dev/null || { echo "Error: kubectl kustomize failed"; rm -rf helm-charts/manifests.yaml; exit 1; }
+	rm -rf helm-charts/manifests.yaml
 
 # cicd target to build helm chart - requires PROJECT_VERSION, EXPORTER_IMAGE_TAG to be set
 .PHONY: helm
