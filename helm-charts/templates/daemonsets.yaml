@@ -4,7 +4,6 @@ metadata:
   name: {{ .Release.Name }}-amdgpu-metrics-exporter
   labels:
     app: amdgpu-metrics-exporter
-    app.kubernetes.io/name: metrics-exporter
   {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 spec:
   selector:
