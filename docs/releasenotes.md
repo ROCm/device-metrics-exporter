@@ -2,11 +2,6 @@
 
 ## v1.5.0
 
-- **Configurable Resource Limits**
-  - Exporter Pod resource limits can now be configured through the Helm chart
-  - Default limits are set if not specified in the Helm chart
-  - Debian systemd service file is now set with default resource limits
-
 - **Kubevirt**
   - Exporter now supports Kubevirt deployments
     - New exporter with SR-IOV support for hypervisor environments is now available
@@ -28,7 +23,26 @@
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
 
 ### Platform Support
-ROCm 7.0.rc1 MI2xx, MI3xx
+ROCm 7.0 MI2xx, MI3xx
+
+## v1.4.1
+
+- **Configurable Resource Limits**
+  - Exporter Pod resource limits can now be configured through the Helm chart
+  - Default limits are set if not specified in the Helm chart
+  - Debian systemd service file is now set with default resource limits
+
+- **Profiler Failure Handling**
+  - **Profiler Failure Handling**
+    - Profiler is hardware sensitive for failures. To better handle potential system disruption from coredumps or profiler failures, the exporter will automatically disable profiler metrics to maintain critical exporter functionality and server stability:
+      - **Coredump**: Profiler will be disabled immediately upon detection
+      - **Non-crash errors**: If the profiler encounters 3 consecutive non-crash errors, it will be automatically disabled
+    - **Re-enabling**: Profiler can be re-enabled by restarting/deleting the exporter pod on that node/server
+
+- **_Note_** Profiler metrics are prefixed by `gpu_prof_` in [metrics list](./configuration/metricslist.md)
+
+### Platform Support
+ROCm 7.0 MI2xx, MI3xx
 
 ## v1.4.0
 

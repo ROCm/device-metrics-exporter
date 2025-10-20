@@ -47,27 +47,37 @@ main(int argc, char** argv)
     int ntotdevice = 0;
     HIP_CALL(hipGetDeviceCount(&ntotdevice));
 
-	std::vector<std::string> metric_fields;
-    long ndevice = 0;
+    // Check if any GPU devices are available
+    if(ntotdevice == 0) {
+        std::cerr << "No GPU devices found. Exiting." << std::endl;
+        return -1;
+    }
+
+    std::vector<std::string> metric_fields;
+    long ndevice = ntotdevice;  // Use actual device count
 
     if(ndevice > ntotdevice) ndevice = ntotdevice;
     if(ndevice < 1) ndevice = ntotdevice;
 
-	try {
-		// build the metrics vector argument
-		for (int i = 1; i < argc; ++i) {
-			metric_fields.push_back(argv[i]);
-		}
-
-		//printf("[%s] Number of devices used: %li\n", exe_name, ndevice);
-		int rc = amd::rocp::CounterSampler::runSample(metric_fields);
-		if (rc != 0) {
-			std::cerr << "run sample err: " << rc << "\n"; 
-			return -1;
-		}
-	} catch (...) {
-		std::exception_ptr p = std::current_exception();
-		std::cerr <<(p ? p.__cxa_exception_type()->name() : "null") << std::endl;
-	}
+    try {
+        // Build the metrics vector argument
+        for (int i = 1; i < argc; ++i) {
+            if(argv[i] != nullptr) {  // Add null check for safety
+                metric_fields.push_back(argv[i]);
+            }
+        }
+        
+        int rc = amd::rocp::CounterSampler::runSample(metric_fields);
+        if (rc != 0) {
+            std::cerr << "run sample err: " << rc << "\n"; 
+            return -1;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+        return -1;
+    } catch (...) {
+        std::cerr << "Unknown exception caught" << std::endl;
+        return -1;
+    }
     return 0;
 }

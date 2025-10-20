@@ -603,6 +603,11 @@ func (ga *GPUAgentClient) Close() {
 		ga.slurmScheduler.Close()
 		ga.slurmScheduler = nil
 	}
+	if ga.rocpclient != nil {
+		logger.Log.Printf("gpuagent rocp reset connection")
+		ga.rocpclient.ResetFailureCount()
+	}
+
 	// cancel all context
 	ga.cancel()
 }
