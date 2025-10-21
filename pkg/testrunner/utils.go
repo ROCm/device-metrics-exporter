@@ -418,12 +418,13 @@ func GetTestRunningLabelKeyValue(category, recipe string, indexes []string) ([]s
 	return keys, "running"
 }
 
-func GetEventLabels(category, trigger, recipe, hostName string, gpuIndexes, kfdIDs []string) map[string]string {
+func GetEventLabels(category, trigger, framework, recipe, hostName string, gpuIndexes, kfdIDs []string) map[string]string {
 	labels := map[string]string{
-		"testrunner.amd.com/category": strings.ToLower(category),
-		"testrunner.amd.com/trigger":  strings.ToLower(trigger),
-		"testrunner.amd.com/recipe":   recipe,
-		"testrunner.amd.com/hostname": hostName,
+		"testrunner.amd.com/category":  strings.ToLower(category),
+		"testrunner.amd.com/trigger":   strings.ToLower(trigger),
+		"testrunner.amd.com/recipe":    recipe,
+		"testrunner.amd.com/hostname":  hostName,
+		"testrunner.amd.com/framework": framework,
 	}
 	// find the commonly shorter length of 2 list: gpuIndexes and kfdIDs
 	// make sure the loop is not out of boundary
