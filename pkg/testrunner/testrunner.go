@@ -40,6 +40,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
@@ -132,6 +133,7 @@ type TestRunner struct {
 	k8sClient       *k8sclient.K8sClient
 	k8sPodName      string
 	k8sPodNamespace string
+	k8sPodUID       string
 
 	// signal handling
 	signalCtx       context.Context
@@ -225,7 +227,7 @@ func (tr *TestRunner) validateCfg() {
 	_, foundGlobalTest := categoryConfig.TestLocationTrigger[globals.GlobalTestTriggerKeyword]
 	if !foundGlobalTest && !foundHostSpecificTest {
 		fmt.Printf("cannot find neither global test config nor host specific config under category %+v: %+v\n", tr.testCategory, categoryConfig)
-		tr.generateK8sEvent("", v1.EventTypeWarning,
+		tr.generateK8sEvent("", "", v1.EventTypeWarning,
 			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 			fmt.Sprintf("failed to find global or node %+v specific trigger for test category %+v", tr.hostName, tr.testCategory), []string{})
 		os.Exit(1)
@@ -267,7 +269,8 @@ func (tr *TestRunner) validateCfg() {
 
 	// 4. validate specific GPU model's test recipe
 	testParams := tr.getTestParameters(false)
-	switch strings.ToUpper(Deref(testParams.TestCases[0].Framework)) {
+	framework := strings.ToUpper(Deref(testParams.TestCases[0].Framework))
+	switch framework {
 	case testrunnerGen.TestParameter_RVS.String():
 		gpuModelSubDir, err := getGPUModelTestRecipeDir(tr.amdSMIPath)
 		if err != nil {
@@ -308,7 +311,7 @@ func (tr *TestRunner) validateCfg() {
 		}
 		if _, err := os.Stat(testCfgPath); err != nil {
 			fmt.Printf("Trigger %+v cannot find corresponding test config file %+v, err: %+v\n", tr.testTrigger, testCfgPath, err)
-			tr.generateK8sEvent("", v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 				fmt.Sprintf("failed to find test recipe %+v", testCfgPath), []string{})
 			os.Exit(1)
@@ -317,7 +320,7 @@ func (tr *TestRunner) validateCfg() {
 		gpuModelSubDir, err := getGPUModelTestRecipeDir(tr.amdSMIPath)
 		if err != nil || gpuModelSubDir == "" {
 			logger.Log.Printf("failed to get GPU model specific folder for agfhc test recipe err %+v", err)
-			tr.generateK8sEvent("", v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 				"failed to find AGFHC test recipes folder for current GPU model, please check test runner and AGFHC docs for supported GPU models", []string{})
 			os.Exit(1)
@@ -331,7 +334,7 @@ func (tr *TestRunner) validateCfg() {
 
 		if _, err := os.Stat(testCfgPath); err != nil {
 			fmt.Printf("Trigger %+v cannot find corresponding test config file %+v, err: %+v\n", tr.testTrigger, testCfgPath, err)
-			tr.generateK8sEvent("", v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 				fmt.Sprintf("failed to find test recipe %+v", testCfgPath), []string{})
 			os.Exit(1)
@@ -340,14 +343,14 @@ func (tr *TestRunner) validateCfg() {
 
 	if Deref(testParams.TestCases[0].Iterations) == 0 {
 		fmt.Printf("Trigger %+v has been configured to run with 0 iteration, should be non-zero iterations\n", tr.testTrigger)
-		tr.generateK8sEvent("", v1.EventTypeWarning,
+		tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 			fmt.Sprintf("unable to execute test with Iterations == 0 test parameters: %+v", testParams.TestCases[0]), []string{})
 		os.Exit(1)
 	}
 	if Deref(testParams.TestCases[0].TimeoutSeconds) == 0 {
 		fmt.Printf("Trigger %+v has been configured to run with 0 TimeoutSeconds, should be non-zero TimeoutSeconds\n", tr.testTrigger)
-		tr.generateK8sEvent("", v1.EventTypeWarning,
+		tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 			fmt.Sprintf("unable to execute test with TimeoutSeconds == 0 test parameters: %+v", testParams.TestCases[0]), []string{})
 		os.Exit(1)
@@ -387,7 +390,7 @@ func (tr *TestRunner) readCfg(configPath string) {
 	err = json.Unmarshal(bytes, &config)
 	if err != nil {
 		// if unmarshal failed that means users provided an invalid config file
-		tr.generateK8sEvent("", v1.EventTypeWarning,
+		tr.generateK8sEvent("", "", v1.EventTypeWarning,
 			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 			fmt.Sprintf("failed to parse config at %+v err %+v", configPath, err), []string{})
 		os.Exit(1)
@@ -624,7 +627,8 @@ func (tr *TestRunner) setTestRunner() {
 
 	var runnerType types.TestRunnerType
 	var binPath string
-	switch strings.ToUpper(Deref(testParams.TestCases[0].Framework)) {
+	framework := strings.ToUpper(Deref(testParams.TestCases[0].Framework))
+	switch framework {
 	case testrunnerGen.TestParameter_RVS.String():
 		runnerType = types.RVSRunner
 		binPath = tr.rvsPath
@@ -633,7 +637,7 @@ func (tr *TestRunner) setTestRunner() {
 		binPath = tr.agfhcPath
 	default:
 		logger.Log.Printf("unsupported test framework %v for category %v, location %v, trigger %v", testParams.TestCases[0].Framework, tr.testCategory, tr.testLocation, tr.testTrigger)
-		tr.generateK8sEvent("", v1.EventTypeWarning,
+		tr.generateK8sEvent(framework, "", v1.EventTypeWarning,
 			testrunnerGen.TestEventReason_TestConfigError.String(), nil,
 			fmt.Sprintf("cannot execute unsupported test framework %+v", testParams.TestCases[0].Framework), []string{})
 		os.Exit(1)
@@ -859,6 +863,7 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		extraArgs = strings.Split(*parameters.TestCases[0].Arguments, ",")
 	}
 	testRecipe := Deref(parameters.TestCases[0].Recipe)
+	framework := strings.ToUpper(Deref(parameters.TestCases[0].Framework))
 	handler, err := tr.testRunnerIntf.GetTestHandler(testRecipe, types.TestParams{
 		Iterations:    uint(Deref(parameters.TestCases[0].Iterations)),
 		StopOnFailure: Deref(parameters.TestCases[0].StopOnFailure),
@@ -900,8 +905,8 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		handler.StopTest()
 		// when the test timedout
 		// save whatever test console logs that are cached
-		tr.saveAndExportHandlerLogs(handler, ids, testRecipe, validIDs)
-		tr.generateK8sEvent(testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
+		tr.saveAndExportHandlerLogs(handler, ids, testRecipe, validIDs, framework)
+		tr.generateK8sEvent(framework, testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
 		// exit on non-auto trigger's failure
 		tr.exitOnFailure(testRecipe, validIDs)
 	case <-handler.Done():
@@ -911,25 +916,25 @@ func (tr *TestRunner) testGPU(trigger string, ids []string, isRerun bool) {
 		logger.Log.Printf("Trigger: %v Test: %v GPU Indexes: %v completed. Result: %v", trigger, testRecipe, validIDs, result)
 
 		// save log into gzip file
-		tr.saveAndExportHandlerLogs(handler, ids, testRecipe, validIDs)
+		tr.saveAndExportHandlerLogs(handler, ids, testRecipe, validIDs, framework)
 
 		switch tr.getOverallResult(result, validIDs) {
 		case types.Success:
-			tr.generateK8sEvent(testRecipe, v1.EventTypeNormal,
+			tr.generateK8sEvent(framework, testRecipe, v1.EventTypeNormal,
 				testrunnerGen.TestEventReason_TestPassed.String(), result, "", validIDs)
 		case types.Queued:
-			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, testRecipe, v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestQueued.String(), result, "", validIDs)
 		case types.Skipped:
-			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, testRecipe, v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestSkipped.String(), result, "", validIDs)
 		case types.Failure:
-			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning,
+			tr.generateK8sEvent(framework, testRecipe, v1.EventTypeWarning,
 				testrunnerGen.TestEventReason_TestFailed.String(), result, "", validIDs)
 			// exit on non-auto trigger's failure
 			tr.exitOnFailure(testRecipe, validIDs)
 		case types.Timedout:
-			tr.generateK8sEvent(testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
+			tr.generateK8sEvent(framework, testRecipe, v1.EventTypeWarning, testrunnerGen.TestEventReason_TestTimedOut.String(), result, "", validIDs)
 			// exit on non-auto trigger's failure
 			tr.exitOnFailure(testRecipe, validIDs)
 		}
@@ -975,7 +980,7 @@ func (tr *TestRunner) updateStatusDBAfterTestRun(validIDs []string, status strin
 	}
 }
 
-func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterface, ids []string, recipe string, gpuIndexes []string) {
+func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterface, ids []string, recipe string, gpuIndexes []string, framework string) {
 	for _, res := range handler.Result() {
 		var filesToExport []string
 		resultsJson, resultDir, err := tr.testRunnerIntf.ExtractLogLocation(res.Stdout)
@@ -1047,10 +1052,10 @@ func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterfac
 				parameters := tr.getTestParameters(true)
 				if len(uploadFailed) == 0 { // generate success event
 					msg := fmt.Sprintf("Logs export to %s succeeded", strings.Join(uploadPassed, ", "))
-					tr.generateK8sEvent(Deref(parameters.TestCases[0].Recipe), v1.EventTypeNormal, testrunnerGen.TestEventReason_LogsExportPassed.String(), nil, msg, gpuIndexes)
+					tr.generateK8sEvent(framework, Deref(parameters.TestCases[0].Recipe), v1.EventTypeNormal, testrunnerGen.TestEventReason_LogsExportPassed.String(), nil, msg, gpuIndexes)
 				} else { // generate failure event
 					msg := fmt.Sprintf("Logs export to %s failed", strings.Join(uploadFailed, ", "))
-					tr.generateK8sEvent(Deref(parameters.TestCases[0].Recipe), v1.EventTypeWarning, testrunnerGen.TestEventReason_LogsExportFailed.String(), nil, msg, gpuIndexes)
+					tr.generateK8sEvent(framework, Deref(parameters.TestCases[0].Recipe), v1.EventTypeWarning, testrunnerGen.TestEventReason_LogsExportFailed.String(), nil, msg, gpuIndexes)
 				}
 			}
 
@@ -1147,7 +1152,7 @@ func (tr *TestRunner) manualTestGPU() {
 	if len(allKFDIDs) == 0 {
 		logger.Log.Println("no GPU was detected by amd-smi")
 		result := BuildNoGPUTestSummary()
-		tr.generateK8sEvent(Deref(parameters.TestCases[0].Recipe), v1.EventTypeWarning, testrunnerGen.TestEventReason_TestFailed.String(), result, "", []string{})
+		tr.generateK8sEvent("", Deref(parameters.TestCases[0].Recipe), v1.EventTypeWarning, testrunnerGen.TestEventReason_TestFailed.String(), result, "", []string{})
 		// exit on non-auto trigger's failure
 		os.Exit(1)
 	}
@@ -1174,6 +1179,9 @@ func (tr *TestRunner) ReadPodInfo() {
 	}
 	if tr.k8sPodNamespace == "" {
 		tr.k8sPodNamespace = os.Getenv("POD_NAMESPACE")
+	}
+	if tr.k8sPodUID == "" {
+		tr.k8sPodUID = os.Getenv("POD_UID")
 	}
 }
 
@@ -1249,7 +1257,7 @@ func (tr *TestRunner) getHostName() {
 	logger.Log.Printf("HostName: %v", tr.hostName)
 }
 
-func (tr *TestRunner) generateK8sEvent(testRecipe, evtType, reason string, summary []*types.IterationResult, message string, gpuIndexes []string) {
+func (tr *TestRunner) generateK8sEvent(framework, testRecipe, evtType, reason string, summary []*types.IterationResult, message string, gpuIndexes []string) {
 	if !tr.isK8s {
 		// return if it is not running in k8s cluster
 		return
@@ -1288,7 +1296,7 @@ func (tr *TestRunner) generateK8sEvent(testRecipe, evtType, reason string, summa
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: evtNamePrefix,
 			Namespace:    tr.k8sPodNamespace,
-			Labels:       GetEventLabels(tr.testCategory, tr.testTrigger, testRecipe, tr.hostName, gpuIndexes, kfdIDs),
+			Labels:       GetEventLabels(tr.testCategory, tr.testTrigger, framework, testRecipe, tr.hostName, gpuIndexes, kfdIDs),
 		},
 		FirstTimestamp: metav1.Time{
 			Time: currTime,
@@ -1304,6 +1312,7 @@ func (tr *TestRunner) generateK8sEvent(testRecipe, evtType, reason string, summa
 			Kind:      "Pod",
 			Namespace: tr.k8sPodNamespace,
 			Name:      tr.k8sPodName,
+			UID:       k8stypes.UID(tr.k8sPodUID),
 		},
 		Source: v1.EventSource{
 			Host:      tr.hostName,
