@@ -11,7 +11,7 @@ docker run -d  \
 --privileged   \
 --network=host \
 -v ./config:/etc/metrics \
--v /usr/sbin/nicctl:/usr/sbin/nicctl  -v ./config:/etc/metrics  \
+-v /usr/sbin/nicctl:/usr/sbin/nicctl \
 --name network-device-metrics-exporter \
 rocm/device-metrics-exporter:v|version| -monitor-nic=true -monitor-gpu=false
 ```
