@@ -183,7 +183,7 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 			}
 		}
 	}
-    cperErrCheck := func(c *amdgpu.GPUCPEREntry) {
+	cperErrCheck := func(c *amdgpu.GPUCPEREntry) {
 		uuid, _ := uuid.FromBytes(c.GPU)
 		gpuuid := uuid.String()
 		for _, record := range c.CPEREntry {
@@ -201,7 +201,6 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 			}
 		}
 	}
-
 
 	gpumetrics, _, err = ga.getGPUs()
 	if err != nil || (gpumetrics != nil && gpumetrics.ApiStatus != 0) {

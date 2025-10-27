@@ -76,7 +76,7 @@ func (m *MockExporter) Start() error {
 	if m.configPath != "" {
 		mountOps = fmt.Sprintf(" -v %v:/etc/metrics ", m.configPath)
 	}
-    cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIMENABLED=1 -e PATH=$PATH:/home/amd/bin/ %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL)
+	cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIMENABLED=1 -e PATH=$PATH:/home/amd/bin/ %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL)
 	log.Print(cmd)
 	resp := m.tu.LocalCommandOutput(cmd)
 	if resp == "" {

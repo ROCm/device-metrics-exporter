@@ -17,6 +17,7 @@
 package utils
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"reflect"
@@ -297,4 +298,12 @@ func UUIDToString(uuidBytes []byte) string {
 		return string(uuidBytes)
 	}
 	return uuid.String()
+}
+
+// GetDRAKey returns the DRA key for the given gpuCardId and gpuRenderId.
+func GetDRAKey(gpuCardId, gpuRenderId string) string {
+	if gpuCardId != "" && gpuRenderId != "" {
+		return fmt.Sprintf("gpu-%v-%v", gpuCardId, gpuRenderId)
+	}
+	return ""
 }

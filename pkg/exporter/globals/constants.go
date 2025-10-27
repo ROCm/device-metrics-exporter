@@ -70,6 +70,9 @@ const (
 	// Path of amdgpuhealth utility
 	AMDGPUHealthContainerPath = "/home/amd/bin/amdgpuhealth"
 
+	// AMD GPU DRA (Dynamic Resource Allocation) Driver name
+	AMDGPUDriverName = "gpu.amd.com"
+
 	// GPUHealthLabelPrefix - prefix for GPU health labels
 	GPUHealthLabelPrefix = "metricsexporter.amd.com.gpu"
 

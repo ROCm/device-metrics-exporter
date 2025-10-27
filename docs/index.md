@@ -16,6 +16,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Slurm integration support
 - Configurable service ports
 - Container-based deployment
+- Beta: Kubernetes Dynamic Resource Allocation (DRA) GPU claim support (Kubernetes 1.34+)
 
 ## Requirements
 
