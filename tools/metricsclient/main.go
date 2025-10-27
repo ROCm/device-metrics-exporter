@@ -38,7 +38,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/kubelet/pkg/apis/podresources/v1alpha1"
+	kube "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
 
 // printLabels prints labels in key=value format, sorted by key
@@ -273,25 +273,38 @@ func getPodResources() {
 		return
 	}
 
-	found := false
+	mode := "" // "plugin" or "dra"
 	for _, pod := range resp.PodResources {
 		for _, container := range pod.Containers {
-			for _, devs := range container.GetDevices() {
-				if strings.HasPrefix(devs.ResourceName, globals.AMDGPUResourcePrefix) {
-					for _, devId := range devs.DeviceIds {
-						fmt.Printf("dev:ns/pod/container [{%v}%v/%v/%v]\n",
-							devId, pod.Name, pod.Namespace, container.Name)
-						found = true
+			if mode != "dra" {
+				for _, devs := range container.GetDevices() {
+					if strings.HasPrefix(devs.ResourceName, globals.AMDGPUResourcePrefix) {
+						for _, devId := range devs.DeviceIds {
+							fmt.Printf("dev:ns/pod/container [{%v}%v/%v/%v]\n",
+								devId, pod.Name, pod.Namespace, container.Name)
+							mode = "plugin"
+						}
+					}
+				}
+			}
+			if mode != "plugin" {
+				for _, devs := range container.GetDynamicResources() {
+					for _, claim := range devs.ClaimResources {
+						if strings.HasPrefix(claim.DriverName, globals.AMDGPUDriverName) {
+							fmt.Printf("dev:ns/pod/container [{%v}%v/%v/%v]\n",
+								claim.DeviceName, pod.Name, pod.Namespace, container.Name)
+							mode = "dra"
+						}
 					}
 				}
 			}
 		}
 	}
-	if found {
-		return
+
+	if mode == "" {
+		fmt.Printf("no associations found\n")
 	}
-	fmt.Printf("no associations found\n")
-	fmt.Printf("pod resp:\n %+v\n", resp)
+	fmt.Printf("\npod resp:\n %+v\n", resp)
 }
 
 func getNodePods(kubeconfig string) {

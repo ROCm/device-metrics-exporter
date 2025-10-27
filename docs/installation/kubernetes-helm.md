@@ -56,3 +56,13 @@ helm install exporter \
   https://github.com/ROCm/device-metrics-exporter/releases/download/v1.4.0/device-metrics-exporter-charts-v1.4.0.tgz \
   -n mynamespace -f values.yaml --create-namespace
 ```
+
+## Enabling DRA (Beta)
+
+Dynamic Resource Allocation (DRA) GPU claim support is available starting with exporter v1.4.1 on Kubernetes 1.34+.
+Pod association works natively with both the AMD Kubernetes device plugin (k8s-device-plugin) and the AMD GPU DRA driver (k8s-gpu-dra-driver) without any additional Helm configuration. The exporter first uses device plugin allocations and, if absent, automatically inspects DRA resource claims.
+
+Checklist:
+1. Cluster version: Kubernetes 1.34+.
+2. DRA GPU driver deployed [AMD GPU DRA driver](https://github.com/ROCm/k8s-gpu-dra-driver).
+3. Pods use resource claims referencing the AMD GPU driver.

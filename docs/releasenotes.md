@@ -6,6 +6,7 @@
   - Exporter Pod resource limits can now be configured through the Helm chart
   - Default limits are set if not specified in the Helm chart
   - Debian systemd service file is now set with default resource limits
+  - Beta: DRA (Dynamic Resource Allocation) device support — exporter can detect and report DRA-allocated GPU devices from the device plugin/pod resources.
 
 - **Profiler Failure Handling**
   - **Profiler Failure Handling**
@@ -17,7 +18,7 @@
 - **_Note_** Profiler metrics are prefixed by `gpu_prof_` in [metrics list](./configuration/metricslist.md)
 
 ### Platform Support
-ROCm 7.0 MI2xx, MI3xx
+ROCm 7.0 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 ## v1.4.0
 

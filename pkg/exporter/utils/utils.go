@@ -255,3 +255,11 @@ func ValidateAndExport(metric prometheus.GaugeVec, fieldName string,
 	metric.With(labels).Set(floatVal)
 	return ErrorNone
 }
+
+// GetDRAKey returns the DRA key for the given gpuCardId and gpuRenderId.
+func GetDRAKey(gpuCardId, gpuRenderId string) string {
+	if gpuCardId != "" && gpuRenderId != "" {
+		return fmt.Sprintf("gpu-%v-%v", gpuCardId, gpuRenderId)
+	}
+	return ""
+}

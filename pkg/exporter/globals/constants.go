@@ -69,6 +69,9 @@ const (
 
 	// Path of amdgpuhealth utility
 	AMDGPUHealthContainerPath = "/home/amd/bin/amdgpuhealth"
+
+	// AMD GPU DRA (Dynamic Resource Allocation) Driver name
+	AMDGPUDriverName = "gpu.amd.com"
 )
 
 // Handling token authorization and TLS for device metrics exporter and prometheus endpoints

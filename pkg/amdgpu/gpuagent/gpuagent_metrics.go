@@ -1488,6 +1488,13 @@ func getGPURenderId(gpu *amdgpu.GPU) string {
 	return ""
 }
 
+func getGPUCardId(gpu *amdgpu.GPU) string {
+	if gpu != nil && gpu.Status != nil {
+		return fmt.Sprintf("%v", gpu.Status.DRMCardId)
+	}
+	return ""
+}
+
 func getGPUInstanceID(gpu *amdgpu.GPU) int {
 	return int(gpu.Status.Index)
 }
@@ -1553,7 +1560,16 @@ func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu
 	}
 	gpuId := fmt.Sprintf("%v", getGPUInstanceID(gpu))
 	gpuRenderId := getGPURenderId(gpu)
+	gpuCardId := getGPUCardId(gpu)
 	deviceName, _ := ga.fsysDeviceHandler.GetDeviceNameFromRenderID(gpuRenderId)
+
+	// DRA device name support
+	if draKey := utils.GetDRAKey(gpuCardId, gpuRenderId); draKey != "" {
+		if workload, ok := wls[draKey]; ok {
+			return &workload
+		}
+	}
+
 	// populate with workload info
 	if gpu.Status.PCIeStatus != nil {
 		if workload, ok := wls[strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)]; ok {
@@ -1563,6 +1579,7 @@ func (ga *GPUAgentClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu
 	if workload, ok := wls[deviceName]; ok {
 		return &workload
 	}
+
 	// ignore errors as we always expect slurm deployment as default
 	if workload, ok := wls[gpuRenderId]; ok {
 		return &workload
