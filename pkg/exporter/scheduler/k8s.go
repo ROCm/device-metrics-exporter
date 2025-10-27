@@ -27,7 +27,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	kube "k8s.io/kubelet/pkg/apis/podresources/v1alpha1"
+	kube "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"os"
 )
@@ -90,24 +90,47 @@ func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
 	}
 
 	podInfo := make(map[string]Workload)
+	// Iterate through all pods and their containers to find AMD GPU allocations
+	// Allocations can be done via device plugin or via DRA
+	// If device plugin is used, the resource name will have the prefix "amd.com"
+	// If DRA is used, the claim driver name will be "gpu.amd.com"
+	// All pods in a node can have allocations serviced by either device plugin or the DRA driver, not both
+	mode := "" // "plugin" or "dra"
 	for _, pod := range resp.PodResources {
 		for _, container := range pod.Containers {
-			for _, devs := range container.GetDevices() {
-				if strings.HasPrefix(devs.ResourceName, globals.AMDGPUResourcePrefix) {
-					for _, devId := range devs.DeviceIds {
-						podInfo[strings.ToLower(devId)] = Workload{
-							Type: Kubernetes,
-							Info: PodResourceInfo{
-								Pod:       pod.Name,
-								Namespace: pod.Namespace,
-								Container: container.Name,
-							},
+			wl := Workload{
+				Type: Kubernetes,
+				Info: PodResourceInfo{
+					Pod:       pod.Name,
+					Namespace: pod.Namespace,
+					Container: container.Name,
+				},
+			}
+			// If not locked or locked to plugin, examine plugin devices
+			if mode != "dra" {
+				for _, devs := range container.GetDevices() {
+					if strings.HasPrefix(devs.ResourceName, globals.AMDGPUResourcePrefix) {
+						mode = "plugin"
+						for _, devId := range devs.DeviceIds {
+							podInfo[strings.ToLower(devId)] = wl
+						}
+					}
+				}
+			}
+			// If not locked or locked to DRA, examine dynamic resources
+			if mode != "plugin" {
+				for _, dyn := range container.GetDynamicResources() {
+					for _, claim := range dyn.ClaimResources {
+						if strings.HasPrefix(claim.DriverName, globals.AMDGPUDriverName) {
+							mode = "dra"
+							podInfo[strings.ToLower(claim.DeviceName)] = wl
 						}
 					}
 				}
 			}
 		}
 	}
+
 	return podInfo, nil
 }
 
