@@ -158,13 +158,30 @@ func (mh *MetricsHandler) HandleInbandRASErrorsQuery(w http.ResponseWriter, req 
 	http.Error(w, "an error occured while querying inband ras errors:\n"+err.Error(), http.StatusInternalServerError)
 }
 
-func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.GPUMetricConfig {
+func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.MetricConfig {
+	config := mh.runConf.GetConfig()
+	if config != nil {
+		return config
+	}
+	return nil
+}
+
+func (mh *MetricsHandler) GetGPUMetricsConfig() *exportermetrics.GPUMetricConfig {
 	config := mh.runConf.GetConfig()
 	if config != nil {
 		return config.GetGPUConfig()
 	}
 	return nil
 }
+
+func (mh *MetricsHandler) GetIFOEMetricsConfig() *exportermetrics.IFOEMetricConfig {
+	config := mh.runConf.GetConfig()
+	if config != nil {
+		return config.GetIFOEConfig()
+	}
+	return nil
+}
+
 func (mh *MetricsHandler) GetNICMetricsConfig() *exportermetrics.NICMetricConfig {
 	config := mh.runConf.GetConfig()
 	if config != nil {

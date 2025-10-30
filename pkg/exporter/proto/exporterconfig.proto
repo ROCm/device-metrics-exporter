@@ -587,6 +587,34 @@ message NICHealthCheckConfig {
     bool InterfaceAdminDownAsUnhealthy  = 1;
 }
 
+enum IFOEMetricLabel {
+    // mandatory field 
+    IFOE_UUID                   = 0;
+}
+
+enum IFOEMetricField {
+    IFOE_TOTAL_DEVICES              = 0;
+    IFOE_TOTAL_STATIONS             = 1;
+    IFOE_TOTAL_PORTS                = 2;
+    IFOE_NUMBER_FAILEDOVER_STREAMS  = 3;
+    IFOE_NUMBER_PAUSED_STREAMS      = 4;
+}
+
+message IFOEMetricConfig
+{
+    // list of all IFOEMetricField to be exported
+    repeated string Fields = 1;
+
+    // list of labels to be exported
+    repeated string Labels = 2;
+
+    // User Defined Custom Labels and values
+    map<string, string> CustomLabels = 3;
+
+    // Map of extra pod labels to be exported (prometheus metric name as Key, pod label as value)
+    map<string, string> ExtraPodLabels = 4;
+}
+
 message MetricConfig {
     // server config port
     uint32 ServerPort         = 1;
@@ -599,4 +627,7 @@ message MetricConfig {
 
     // NIC Metric config for export
     NICMetricConfig NICConfig = 4;
+
+    // IFOE Metric config for export
+    IFOEMetricConfig IFOEConfig = 5;
 }

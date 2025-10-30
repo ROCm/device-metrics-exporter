@@ -44,7 +44,7 @@ var (
 )
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
-	for _, label := range gpuagent.GetGPUAgentMandatoryLabels() {
+	for _, label := range gpuagent.GetGPUMandatoryLabels() {
 		mandatoryLabels = append(mandatoryLabels, strings.ToLower(label))
 	}
 	log.Print("Testing basic http response after docker deployment")

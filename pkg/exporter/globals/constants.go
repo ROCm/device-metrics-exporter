@@ -92,6 +92,7 @@ const (
 type DeviceType string
 
 const (
-	GPUDevice DeviceType = "GPU"
-	NICDevice DeviceType = "NIC"
+	GPUDevice  DeviceType = "GPU"
+	NICDevice  DeviceType = "NIC"
+	IFOEDevice DeviceType = "IFOE"
 )

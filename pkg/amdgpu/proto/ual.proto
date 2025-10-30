@@ -1,0 +1,552 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+///
+/// \file
+/// objects and APIs for Universal Accelerated Link (UAL)
+///
+//----------------------------------------------------------------------------
+
+syntax = "proto3";
+package amdgpu;
+option go_package="gen/amdgpu";
+
+import "types.proto";
+
+// NOTE:
+//
+// 1. this file captures UAL functionality in generic way irrespective
+//    of the underlying hardware implementation of the functionality
+//
+// 2. underlying backend transport in the scale up network can be
+//    UAL or UALoE or IFoE based on the capabilities of underlying hardware,
+//    but these APIs are designed to be agnostic as much as possible
+//    (however, currently only IFoE is supported)
+//
+// Object Modeling Design:
+//
+// 1. Each GPU has a PF and if operating in virtualization mode, there are
+//    corresonding VFs as well
+// 2. There is one accelerator id per GPU (allocated by agent) and assigned
+//    during initial configuration time (using UAL APIs here)
+// 3. Each GPU (PF/VF) device has corresponding UAL (pcie) device
+// 4. Each UAL device has multiple UAL stations underneath and those are
+//    configured either by UAL device level API (which applies the config
+//    to all UAL stations/ports under that) or individual station/port level
+//    APIs
+// 5. Each UAL device can communication with many remote accelerators (1024 or
+//    more depending on h/w capabilities)
+//
+// The hierachy of objects looks like below:
+//
+// UAL device -> UAL stations -> UAL ports
+//
+// A UAL device is 1-1 with PCIe device of a GPU PF/VF device
+//
+// UAL
+//  - A given UAL device can have multiple UAL stations under it
+//  - Each UAL station can handle upto 800Gbs by interfacing with mutilple
+//    ports under it
+//  - Each port can be 1x800G, 2x400G, 4x200G (a subset of this or other
+//    combinations might be possible based on the h/w capabilites)
+
+// gRPC APIs to manage UAL functions
+service UALSvc {
+  // UAL network port update API
+  rpc UALNetworkPortUpdate(UALNetworkPortUpdateRequest) returns (UALNetworkPortUpdateResponse) {}
+  // UAL network port get API
+  rpc UALNetworkPortGet(UALNetworkPortGetRequest) returns (UALNetworkPortGetResponse) {}
+
+  // UAL station update API
+  rpc UALStationUpdate(UALStationUpdateRequest) returns (UALStationUpdateResponse) {}
+  // UAL station get API
+  rpc UALStationGet(UALStationGetRequest) returns (UALStationGetResponse) {}
+
+  // UAL device get API
+  rpc UALDeviceGet(UALDeviceGetRequest) returns (UALDeviceGetResponse) {}
+  // UAL device update API
+  rpc UALDeviceUpdate(UALDeviceUpdateRequest) returns (UALDeviceUpdateResponse) {}
+  // UAL device datapath reset
+  rpc UALDeviceDatapathReset(UALDeviceDatapathResetRequest) returns (UALDeviceDatapathResetResponse) {}
+}
+
+// UAL port adiministrative states
+enum UALPortState {
+  // UAL port state invalid/unknown
+  UAL_PORT_STATE_NONE      = 0;
+  // UAL port is powered off
+  UAL_PORT_STATE_POWER_OFF = 1;
+  // UAL port is powered on but traffic flow not enabled
+  UAL_PORT_STATE_IDLE      = 2;
+  // UAL port is fully enabled for traffic flow
+  UAL_PORT_STATE_ENABLED   = 3;
+}
+
+// accelerator identifier and corresponding MAC address
+message AcceleratorMAC {
+  // accelerator id
+  uint32 AcceleratorId = 1;
+  // MAC address of the accelerator
+  bytes  MACAddress    = 2;
+}
+
+// configuration specification of the UAL network port
+message UALNetworkPortSpec {
+  // globally unique identifier of the network port
+  bytes                   Id             = 1;
+  // network station the port is associated with
+  bytes                   UALStation     = 2;
+  // admin state of the port
+  UALPortState            AdminState     = 3;
+  // MAC address used for network traffic (e.g. IFoE)
+  bytes                   NwMACAddress   = 4;
+  // MAC address for out-of-band communication
+  bytes                   OOBMACAddress  = 5;
+  // list of accelerators and their MAC address
+  // NOTE:
+  // this is mutable only in PROVIDER config phase
+  repeated AcceleratorMAC AcceleratorMAC = 6;
+}
+
+// operational status of UAL network port
+message UALNetworkPortStatus {
+  // name of the network port
+  string       Name           = 1;
+  // logical index of the network port
+  // TODO:
+  // 1. is this unique across all stations of a given GPU?
+  // 2. is this unique across all stations of all GPUs in a compute rack?
+  uint32       LogicalIndex   = 2;
+  // local (to the station) port index (starts from 0)
+  uint32       LocalPortIndex = 3;
+  // operational state of the port
+  UALPortState OperState      = 4;
+}
+
+// statistics of a UAL network port
+message UALNetworkPortStats {
+  // current number of streams currently in failover state and remapped
+  // to an alternative network port
+  uint32 NumFailedoverStreams = 1;
+  // number of streams currently in paused state due to retrasmission
+  // timeout and failover is either not possible or failover is disabled
+  uint32 NumPausedStreams     = 2;
+}
+
+// UAL network port config, operational status and statistics
+message UALNetworkPort {
+  // UAL network port config specification
+  UALNetworkPortSpec   Spec   = 1;
+  // UAL network port operational status
+  UALNetworkPortStatus Status = 2;
+  // UAL network port statistics
+  UALNetworkPortStats  Stats  = 3;
+}
+
+// UAL network port get request message
+// TODO:
+// we can define filters later
+message UALNetworkPortGetRequest {
+  // list of UAL network port uuids
+  repeated bytes Id = 1;
+}
+
+// response to UAL network port get request
+message UALNetworkPortGetResponse {
+  // result of the API processing
+  types.ApiStatus         ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode         ErrorCode = 2;
+  // list of per UAL network port information
+  repeated UALNetworkPort Response  = 3;
+}
+
+// UAL network port update request
+message UALNetworkPortUpdateRequest {
+  // list of UAL network port config specs to update
+  repeated UALNetworkPortSpec Spec = 1;
+}
+
+// response to UAL network port update request
+message UALNetworkPortUpdateResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+}
+
+// physical or logical UAL/UALoE/IFoE link state
+// NOTE:
+// UAL station has logical link that consists of potentially multiple
+// physical links
+enum UALLinkState {
+  // unknown/invalid link state
+  UAL_LINK_STATE_NONE = 0;
+  // link state is up
+  UAL_LINK_STATE_UP   = 1;
+  // link state is down
+  UAL_LINK_STATE_DOWN = 2;
+}
+
+// UAL station states
+enum UALStationState {
+  // unknown/invalid state
+  UAL_STATION_STATE_NONE     = 0;
+  // when UAL station state is disabled, corresponding
+  // networks ports are powered off
+  UAL_STATION_STATE_DISABLED = 1;
+  // when UAL station state is stopped, corresponding
+  // network ports are powered on but traffic from SDP as
+  // well as from network is dropped
+  UAL_STATION_STATE_STOPPED  = 2;
+  // when UAL station state is active, traffic flow is enabled
+  UAL_STATION_STATE_ACTIVE   = 3;
+}
+
+// UAL station config specification
+message UALStationSpec {
+  // uuid identifying the UAL station
+  // this uuid is generated and will be globally unique
+  bytes           Id           = 1;
+  // UAL device the station is associated with
+  bytes           UALDevice    = 2;
+  // UAL station admin state
+  UALStationState AdminState   = 3;
+  // list of network ports associated with the UAL station
+  repeated bytes  NetworkPorts = 4;
+}
+
+// operational state of UAL station
+message UALStationStatus {
+  // UAL station name
+  string       Name                      = 1;
+  // logical index of UAL station (within the UAL device)
+  // NOTE:
+  // logical indices values have accelerator-local significance and start with 0
+  uint32       LogicalIndex              = 2;
+  // physical index of UAL station (within the UAL devie)
+  uint32       PhysicalIndex             = 3;
+  // operational state of the logical link of the UAL station
+  UALLinkState OperState                 = 4;
+  // current avaialble b/w of the UAL station logical link in Gbits/s
+  // NOTE:
+  // 1. total logical link b/w available is sum of bandwidths of all
+  //    its constituent ports
+  // 2. if underlying network ports of a logical link are down
+  //    this current available b/w will be less than max. b/w available
+  uint32       CurrentAvailableBandwidth = 5;
+}
+
+// statistics associated with a UAL station
+message UALStationStats {
+  // TODO
+}
+
+// UAL station config, operational status and statistics
+message UALStation {
+  // UAL station config specification
+  UALStationSpec   Spec   = 1;
+  // UAL station operational status
+  UALStationStatus Status = 2;
+  // UAL station statistics
+  UALStationStats  Stats  = 3;
+}
+
+// UAL station get request message
+message UALStationGetRequest {
+  // list of UAL station uuids
+  repeated bytes Id = 1;
+}
+
+// response to UAL station get request
+message UALStationGetResponse {
+  // result of the API processing
+  types.ApiStatus     ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode     ErrorCode = 2;
+  // list of per UAL station information
+  repeated UALStation Response  = 3;
+}
+
+// UAL station update request
+message UALStationUpdateRequest {
+  // list of UAL station config specs to update
+  repeated UALStationSpec Spec = 1;
+}
+
+// response to UAL station update request
+message UALStationUpdateResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+}
+
+// various configuration phases of UAL/UALoE/IFoE device
+// NOTE:
+// 1. config phases MUST progress in the following sequence:
+//      SYSTEM -> PROVIDER -> TENANT -> ENABLED
+// 2. applicaiton is expected to see UAL device in PROVIDER state
+//    directly (SYSTEM state is internal) and transition it to
+//    ENABLED state
+enum UALConfigPhase {
+  // unknown or invalid configuration phase
+  UAL_CONFIG_PHASE_NONE     = 0;
+  // SYSTEM config phase is transient during initialization,
+  // and network port bringup
+  // NOTE:
+  // host is not expected to see UAL sub-system in this phase
+  // as all this happenes before host OS boots up
+  UAL_CONFIG_PHASE_SYSTEM   = 1;
+  // in PROVIDER phase, UAL is waiting for the provider to
+  // configure the datapath
+  UAL_CONFIG_PHASE_PROVIDER = 2;
+  // once the provider configuration is done, TENANT state is
+  // entered waiting to receive the tenant configuration
+  UAL_CONFIG_PHASE_TENANT   = 3;
+  // in COMPLETE state, the datapath is active
+  UAL_CONFIG_PHASE_ENABLED  = 4;
+}
+
+// UAL device virtualization mode
+enum UALVirtualizationMode {
+  // invalid/unknown virtualization mode
+  UAL_VIRTUALIZATION_MODE_NONE       = 0;
+  // bare-metal (i.e., just pf and no virtualization)
+  UAL_VIRTUALIZATION_MODE_BARE_METAL = 1;
+  // hypervisor+guest (i.e. pf + vf) virtualization
+  UAL_VIRTUALIZATION_MODE_HYPERVISOR = 2;
+}
+
+// supported UAL encapsulation types by the UAL device
+enum UALEncapType {
+  // unknown/invalid encapsulation type
+  UAL_ENCAP_TYPE_NONE     = 0;
+  // IFoE with ethernet encapsulation
+  UAL_ENCAP_TYPE_IFoE_ETH = 1;
+  // IFoE with TF1 encapsulation
+  // NOTE:
+  // TF1 encap is custom encap
+  UAL_ENCAP_TYPE_IFoE_TF1 = 2;
+  // IFoE with IP encapsulation
+  UAL_ENCAP_TYPE_IFoE_IP  = 3;
+}
+
+// encryptions supported for network traffic by UAL device
+enum UALCryptoMode {
+  // unknown/invalid mode
+  UAL_CRYPTO_MODE_NONE        = 0;
+  // crypto is off
+  UAL_CRYPTO_MODE_OFF         = 1;
+  // encrypt/decrypt using AES-GCM
+  UAL_CRYPTO_MODE_AES_GCM_256 = 2;
+}
+
+// crypto key identifiers to encrypt/decrypt traffic
+enum UALCryptoKeyId {
+  // invalid/unknown key id
+  UAL_CRYPTO_KEY_ID_NONE = 0;
+  // key id 0
+  UAL_CRYPTO_KEY_ID_0    = 1;
+  // key id 1
+  UAL_CRYPTO_KEY_ID_1    = 2;
+}
+
+// UAL failover modes
+enum UALFailoverMode {
+  // invalliid/unknown failover mode
+  UAL_FAILOVER_MODE_NONE     = 0;
+  // DISABLED indicates that stream(s) will be paused when
+  // retransmission timeout occurs
+  UAL_FAILOVER_MODE_DISABLED = 1;
+  // ENABLED indicates that stream(s) will be automatically
+  // remapped to alternate path (if possible) when retransmission
+  // timeouts happen
+  UAL_FAILOVER_MODE_ENABLED  = 2;
+}
+
+// UAL device capability information
+message UALDeviceCapability {
+  // no. of UAL stations configured for use by the device
+  uint32 NumUALStation            = 1;
+  // max. no. of accelerators UAL device is capable of communicating with
+  uint32 NumAccelerator           = 2;
+  // no. of network ports configured for use by the UAL device
+  uint32 NumNetworkPort           = 3;
+  // no. of network ports configured per UAL station
+  uint32 NumNetworkPortPerStation = 4;
+  // no. of network paths configured per station
+  uint32 NumPathPerStation        = 5;
+}
+
+// crypto key information for encryption/decryption
+message UALDeviceCryptoKeyInfo {
+  // key identifier
+  UALCryptoKeyId KeyId = 1;
+  // crypto key to be programmed
+  // NOTE:
+  // 1. Key bytes can be empty for Rx key to disable the crypto key
+  // 2. max. crypto key size allowed is 8 bytes currently
+  bytes          Key   = 2;
+}
+
+// UAL device crypto configuration
+message UALDeviceCryptoSpec {
+  // crypto mode of the UAL device
+  // NOTE:
+  // 1. crypto is mutable only in TENANT config phase
+  UALCryptoMode                   CryptoMode       = 1;
+  // crypto key information for Tx/egress traffic from the device
+  // NOTE:
+  // 1. UAL device must be in TENANT or ENABLED config phase
+  // 2. For Tx key, key bytes can't be empty; to disable encryption
+  //    update CryptoMode to UAL_CRYPTO_MODE_OFF
+  repeated UALDeviceCryptoKeyInfo TxCryptoKeyInfo = 2;
+  // crypto key information for Rx/ingress traffic into the device
+  // NOTE:
+  // 1. UAL device must be in TENANT or ENABLED config phase
+  // 2. if key id is specified but key bytes are empty, that implies
+  //    key is being disabled
+  // 3. to facilitate key rotation, two keys might be active for short
+  //    interval for decrypting received traffic
+  repeated UALDeviceCryptoKeyInfo RxCryptoKeyInfo = 3;
+}
+
+// UAL device is a collection of UAL stations that are associated
+// with same GPU device
+// NOTE:
+// some of the attribute updates in this object may require UAL device reset
+message UALDeviceSpec {
+  // unique identifier for the UAL device
+  bytes                 Id                      = 1;
+  // local accelerator id associated with the UAL device
+  // NOTE:
+  // 1. this is mutable only when UAL device is in PROVIDER config phase
+  uint32                AcceleratorId           = 2;
+  // UAL device configuration phase to transition to
+  UALConfigPhase        ConfigPhase             = 3;
+  // virtualization mode
+  // NOTE:
+  // 1. this is mutable only when UAL device is in PROVIDER config phase
+  UALVirtualizationMode VirtualizationMode      = 4;
+  // encap type
+  // NOTE:
+  // 1. this is mutable only when UAL device is in PROVIDER config phase
+  UALEncapType          EncapType               = 5;
+  // failover mode
+  // NOTE:
+  // 1. this is mutable only when UAL device is in PROVIDER config phase
+  UALFailoverMode       FailoverMode            = 6;
+  // UAL device crypto configuration
+  UALDeviceCryptoSpec   CryptoSpec              = 7;
+  // accelerators that are local to the device
+  // 1. this list is mutable only when device is in PROVIDER config phase
+  // NOTE:
+  repeated uint32       LocalAccelerators       = 8;
+  // list of all accelerators in the same vPod as the UAL device
+  // NOTE:
+  // 1. this list is super-set of LocalAccelerators (includes both local
+  //    and remote accelerators)
+  // 2. this list is mutable only when device is in PROVIDER config phase
+  // 3. (white) list of allowed accelerators device can communicate with is
+  //    a subset of this list
+  repeated uint32       vPodAccelerators        = 9;
+  // list of accelerators the UAL device is allowed to communicate with
+  // NOTE:
+  // 1. this list includes both local and remote accelerators
+  // 2. this list may or not include local accelerator id, local accelerator
+  //    is implicitly added, if missing
+  // 3. this list is mutable only when device is in TENANT config phase
+  repeated uint32       WhitelistedAccelerators = 10;
+  // UAL device capability details
+  // NOTE:
+  // this is not mutable but configured at init time based on h/w capability
+  // and is static)
+  UALDeviceCapability   Capability              = 11;
+}
+
+// UAL device version information
+message UALDeviceVersionInfo {
+  // UAL library version
+  types.SemanticVersion UALLibVersion    = 1;
+  // firmware version
+  types.SemanticVersion FirmwareVersion  = 2;
+  // telemetry version
+  types.SemanticVersion TelemetryVersion = 3;
+}
+
+// operational status of the UAL device
+message UALDeviceStatus {
+  // version information of various components
+  UALDeviceVersionInfo Version = 1;
+}
+
+// statistics of UAL device, if any
+message UALDeviceStats {
+}
+
+// UAL device config, operational status and statistics
+message UALDevice {
+  // UAL device config specification
+  UALDeviceSpec   Spec   = 1;
+  // UAL device operational status
+  UALDeviceStatus Status = 2;
+  // UAL device statistics
+  UALDeviceStats  Stats  = 3;
+}
+
+// UAL device get request message
+message UALDeviceGetRequest {
+  // list of UAL device uuids
+  repeated bytes Id = 1;
+}
+
+// response to UAL device get request
+message UALDeviceGetResponse {
+  // result of the API processing
+  types.ApiStatus    ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode    ErrorCode = 2;
+  // list of per UAL device information
+  repeated UALDevice Response  = 3;
+}
+
+// UAL device update request
+message UALDeviceUpdateRequest {
+  // list of UAL device config specs to update
+  repeated UALDeviceSpec Spec = 1;
+}
+
+// response to UAL device update request
+message UALDeviceUpdateResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+}
+
+// datapath reset request for UAL device(s)
+message UALDeviceDatapathResetRequest {
+  // list of UAL device uuids
+  repeated bytes Id = 1;
+}
+
+// response to UAL device datapath reset request
+message UALDeviceDatapathResetResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode ErrorCode = 2;
+}

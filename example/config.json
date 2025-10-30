@@ -450,5 +450,25 @@
     "HealthCheckConfig": {
       "InterfaceAdminDownAsUnhealthy": false
     }
+  },
+  "IFOEConfig": {
+    "Labels": [
+      "IFOE_UUID",
+      "HOSTNAME"
+    ],
+    "Fields": [
+      "IFOE_TOTAL_DEVICES",
+      "IFOE_TOTAL_STATIONS",
+      "IFOE_TOTAL_PORTS",
+      "IFOE_NUMBER_FAILEDOVER_STREAMS",
+      "IFOE_NUMBER_PAUSED_STREAMS"
+    ],
+    "CustomLabels": {
+      "CLUSTER_NAME": "amdifoe-k8s-metrics-exporter"
+    },
+    "ExtraPodLabels": {
+      "WORKLOAD_ID": "amd-workload-id",
+      "USERGROUP_ID": "amd-usergroup-id"
+    }
   }
 }

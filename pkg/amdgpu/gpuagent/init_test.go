@@ -42,6 +42,7 @@ var (
 	eventMockCl      *mock_gen.MockEventSvcClient
 	slurmSchedMockCl *mock_gen.MockSchedulerClient
 	k8sSchedMockCl   *mock_gen.MockSchedulerClient
+	ifoeMockCl       *mock_gen.MockUALSvcClient
 	mh               *metricsutil.MetricsHandler
 	mConfig          *config.ConfigHandler
 )
@@ -64,7 +65,9 @@ func setupTest(t *testing.T) func(t *testing.T) {
 	eventMockCl = mock_gen.NewMockEventSvcClient(mockCtl)
 	slurmSchedMockCl = mock_gen.NewMockSchedulerClient(mockCtl)
 	k8sSchedMockCl = mock_gen.NewMockSchedulerClient(mockCtl)
+	ifoeMockCl := mock_gen.NewMockUALSvcClient(mockCtl)
 
+	// setup gpu mock responses
 	gpumock_resp := &amdgpu.GPUGetResponse{
 		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
 		Response: []*amdgpu.GPU{
@@ -131,9 +134,57 @@ func setupTest(t *testing.T) func(t *testing.T) {
 		},
 	}
 
+	// setup ifoe mock responses
+	ifoe_mockresp := &amdgpu.UALNetworkPortGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALNetworkPort{
+			{
+				Spec: &amdgpu.UALNetworkPortSpec{
+					Id:         []byte("ual-port-1"),
+					UALStation: []byte("station-1"),
+				},
+				Status: &amdgpu.UALNetworkPortStatus{
+					Name:           "ual-port-1",
+					LogicalIndex:   32,
+					LocalPortIndex: 1,
+					OperState:      amdgpu.UALPortState_UAL_PORT_STATE_ENABLED,
+				},
+				Stats: &amdgpu.UALNetworkPortStats{},
+			},
+		},
+	}
+
+	ifoe_mockstationresp := &amdgpu.UALStationGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALStation{
+			{
+				Spec: &amdgpu.UALStationSpec{
+					Id: []byte("station-1"),
+				},
+				Status: &amdgpu.UALStationStatus{
+					Name: "ual-station-1",
+				},
+			},
+		},
+	}
+
+	ifoe_mockdeviceresp := &amdgpu.UALDeviceGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALDevice{
+			{
+				Spec: &amdgpu.UALDeviceSpec{
+					Id: []byte(uuid.New().String()),
+				},
+			},
+		},
+	}
+
 	gpuMockCl.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(gpumock_resp, nil).AnyTimes()
 	gpuMockCl.EXPECT().GPUCPERGet(gomock.Any(), gomock.Any()).Return(cper_mockresp, nil).AnyTimes()
 	eventMockCl.EXPECT().EventGet(gomock.Any(), gomock.Any()).Return(event_mockcriticalresp, nil).AnyTimes()
+	ifoeMockCl.EXPECT().UALNetworkPortGet(gomock.Any(), gomock.Any()).Return(ifoe_mockresp, nil).AnyTimes()
+	ifoeMockCl.EXPECT().UALStationGet(gomock.Any(), gomock.Any()).Return(ifoe_mockstationresp, nil).AnyTimes()
+	ifoeMockCl.EXPECT().UALDeviceGet(gomock.Any(), gomock.Any()).Return(ifoe_mockdeviceresp, nil).AnyTimes()
 
 	mConfig = config.NewConfigHandler("config.json", globals.GPUAgentPort)
 
@@ -207,10 +258,69 @@ func getNewAgent(t *testing.T) *GPUAgentClient {
 		WithK8sClient(nil),
 		WithZmq(true),
 		WithK8sSchedulerClient(nil),
+		WithGPUMonitoring(true),
 	)
-	ga.initializeContext()
-	ga.gpuclient = gpuMockCl
-	ga.evtclient = eventMockCl
+	gpuClient, err := NewGPUAgentGPUClient(ga)
+	if err != nil {
+		t.Fatalf("error initializing gpu client: %v", err)
+	}
+
+	ga.Init()
+
+	ga.gpuClient = gpuClient
+	ga.gpuClient.gpuclient = gpuMockCl
+	ga.gpuClient.evtclient = eventMockCl
+
 	ga.isKubernetes = false
+
+	return ga
+}
+
+func getNewAgentWithoutScheduler(t *testing.T) *GPUAgentClient {
+	// setup zmq mock port
+	ga := NewAgent(
+		mh,
+		WithK8sClient(nil),
+		WithZmq(false),
+		WithK8sSchedulerClient(nil),
+		WithSlurmClient(false),
+		WithGPUMonitoring(true),
+	)
+
+	gpuClient, err := NewGPUAgentGPUClient(ga)
+	if err != nil {
+		t.Fatalf("error initializing gpu client: %v", err)
+	}
+	ga.Init()
+
+	ga.gpuClient = gpuClient
+	ga.gpuClient.gpuclient = gpuMockCl
+	ga.gpuClient.evtclient = eventMockCl
+	ga.isKubernetes = false
+	return ga
+}
+
+func getNewAgentWithOnlyIFOE(t *testing.T) *GPUAgentClient {
+	// setup zmq mock port
+	ga := NewAgent(
+		mh,
+		WithK8sClient(nil),
+		WithZmq(false),
+		WithK8sSchedulerClient(nil),
+		WithSlurmClient(false),
+		WithGPUMonitoring(false),
+		WithIFOEMonitoring(true),
+	)
+
+	ga.gpuClient = nil
+	ga.isKubernetes = false
+	ifoeClient, err := NewGPUAgentIFOEClient(ga)
+	if err != nil {
+		t.Fatalf("error initializing ifoe client: %v", err)
+	}
+	ga.Init()
+
+	ga.ifoeClient = ifoeClient
+	ga.ifoeClient.ualClient = ifoeMockCl
 	return ga
 }
