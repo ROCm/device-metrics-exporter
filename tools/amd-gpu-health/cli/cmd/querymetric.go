@@ -42,6 +42,7 @@ var (
 	prometheusRootCAPath      string
 	prometheusEndpointUrl     string
 	severity                  string
+	afid                      uint64
 )
 
 var QueryMetricCmd = &cobra.Command{
@@ -245,8 +246,12 @@ func inbandRasErrorsCmdHandler(cmd *cobra.Command, args []string) {
 
 	//get latest processed error timestamp
 	t, _ := utils.GetLatestProcessedInbandErrorTimestamp()
+
 	for _, gpucperentry := range cperEntries {
 		for _, entry := range gpucperentry.CPEREntry {
+			if afid != 0 && !utils.IsAFIDPresentInCPER(entry, afid) {
+				continue
+			}
 			timestampFormat := "2006-01-02 15:04:05"
 			entryTimestamp, err := time.Parse(timestampFormat, entry.Timestamp)
 			if err != nil {
@@ -294,6 +299,7 @@ func init() {
 
 	inbandRasErrorsCmd.Flags().StringVarP(&nodeName, "node", "n", "", "Specify node name")
 	inbandRasErrorsCmd.Flags().StringVarP(&severity, "severity", "s", "", "Specify error severity. Allowed values are CPER_SEVERITY_FATAL, CPER_SEVERITY_NON_FATAL_UNCORRECTED, CPER_SEVERITY_NON_FATAL_CORRECTED")
+	inbandRasErrorsCmd.Flags().Uint64Var(&afid, "afid", 0, "Specify AFID to filter inband ras events - Optional")
 	inbandRasErrorsCmd.Flags().StringVar(&exporterRootCAPath, "exporter-root-ca", "", "Specify exporter root CA certificate mount path(If exporter endpoint has TLS/mTLS enabled) - Optional")
 	inbandRasErrorsCmd.Flags().StringVar(&exporterBearerTokenPath, "exporter-bearer-token", "", "Specify exporter bearer token mount path(If exporter endpoint has Authorization enabled) - Optional")
 	inbandRasErrorsCmd.Flags().StringVar(&clientCertPath, "client-cert", "", "Specify client certificate mount path(If exporter endpoint has mTLS enabled) - Optional")

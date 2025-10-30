@@ -672,3 +672,12 @@ func GetLatestProcessedInbandErrorTimestamp() (time.Time, error) {
 func UpdateLatestProcessedInbandErrorTimestamp(t time.Time) error {
 	return os.WriteFile(globals.LatestProcessedErrorTimestampFilePath, []byte(t.Format(time.RFC3339)), 0644)
 }
+
+func IsAFIDPresentInCPER(cper *amdgpu.CPEREntry, id uint64) bool {
+	for _, afid := range cper.AFId {
+		if afid == id {
+			return true
+		}
+	}
+	return false
+}
