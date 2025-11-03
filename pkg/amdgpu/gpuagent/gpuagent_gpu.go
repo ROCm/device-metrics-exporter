@@ -227,6 +227,11 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	return nil
 }
 
+// IsActive returns true if the client is initialized and active
+func (ga *GPUAgentGPUClient) isActive() bool {
+	return ga.gpuclient != nil && ga.evtclient != nil
+}
+
 // FetchPodLabelsForNode fetches pod labels for all pods running on this node
 func (ga *GPUAgentGPUClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
 	if !ga.gpuHandler.enabledK8sApi {

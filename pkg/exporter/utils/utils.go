@@ -23,12 +23,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gofrs/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
-	"github.com/gofrs/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -287,6 +288,9 @@ func GetPodLabels(podInfo *scheduler.PodResourceInfo, k8sPodLabelsMap map[string
 }
 
 func UUIDToString(uuidBytes []byte) string {
-	uuid, _ := uuid.FromBytes(uuidBytes)
+	uuid, err := uuid.FromBytes(uuidBytes)
+	if err != nil {
+		return string(uuidBytes)
+	}
 	return uuid.String()
 }

@@ -234,6 +234,18 @@ func (ga *GPUAgentIFOEClient) initFieldRegistration() error {
 	return nil
 }
 
+func (ga *GPUAgentIFOEClient) InitConfigs() error {
+	logger.Log.Printf("Initializing GPU Agent IFOE Client configs")
+	filedConfigs := ga.gpuHandler.mh.GetIFOEMetricsConfig()
+
+	ga.initCustomLabels(filedConfigs)
+	ga.initLabelConfigs(filedConfigs)
+	ga.initFieldConfig(filedConfigs)
+	ga.InitPodExtraLabels(filedConfigs)
+	ga.initPrometheusMetrics()
+	return ga.initFieldRegistration()
+}
+
 func (ga *GPUAgentIFOEClient) InitPodExtraLabels(config *exportermetrics.IFOEMetricConfig) {
 	// initialize pod labels maps
 	ga.k8PodLabelsMap = make(map[string]map[string]string)

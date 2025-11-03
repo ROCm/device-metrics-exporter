@@ -21,13 +21,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
+
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
-	"github.com/gofrs/uuid"
 )
 
 func (ga *GPUAgentGPUClient) getHealthThreshholds() *exportermetrics.GPUHealthThresholds {
@@ -266,7 +267,7 @@ func (ga *GPUAgentGPUClient) getMockError(gpuid, field string) uint32 {
 	return mv
 }
 
-func (ga *GPUAgentGPUClient) GetGPUHealthStates() (map[string]interface{}, error) {
+func (ga *GPUAgentGPUClient) GetHealthStates() (map[string]interface{}, error) {
 	ga.Lock()
 	defer ga.Unlock()
 	if len(ga.healthState) == 0 {

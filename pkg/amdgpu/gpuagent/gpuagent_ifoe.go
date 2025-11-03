@@ -60,32 +60,44 @@ func NewGPUAgentIFOEClient(gpuHandler *GPUAgentClient) (*GPUAgentIFOEClient, err
 	return ifoeClient, nil
 }
 
+// nolint
 func (ga *GPUAgentIFOEClient) Close() {
 	// No op for now
-	ga.ualClient = nil
 }
 
 // InitClients initializes the IFOE client
 func (ga *GPUAgentIFOEClient) InitClients() error {
-
 	conn := ga.gpuHandler.GetGRPCConnection()
 	if conn == nil {
 		return fmt.Errorf("gRPC connection is nil")
 	}
 	ga.ualClient = amdgpu.NewUALSvcClient(conn)
-
 	return nil
 }
 
-func (ga *GPUAgentIFOEClient) InitConfigs() error {
-	logger.Log.Printf("Initializing GPU Agent IFOE Client configs")
-	filedConfigs := ga.gpuHandler.mh.GetIFOEMetricsConfig()
+// GetGPUHealthStates - no op
+func (ga *GPUAgentIFOEClient) GetHealthStates() (map[string]interface{}, error) {
+	return nil, nil
+}
 
-	ga.initCustomLabels(filedConfigs)
-	ga.initLabelConfigs(filedConfigs)
-	ga.initFieldConfig(filedConfigs)
-	ga.initPrometheusMetrics()
-	return ga.initFieldRegistration()
+// SetError - no op
+func (ga *GPUAgentIFOEClient) SetError(id string, fields []string, counts []uint32) error {
+	return nil
+}
+
+// processHealthValidation - no op
+func (ga *GPUAgentIFOEClient) processHealthValidation() error {
+	return nil
+}
+
+// sendNodeLabelUpdate - no op
+func (ga *GPUAgentIFOEClient) sendNodeLabelUpdate() error {
+	return nil
+}
+
+// IsActive checks if the IFOE client is active
+func (ga *GPUAgentIFOEClient) isActive() bool {
+	return ga.ualClient != nil
 }
 
 func (ga *GPUAgentIFOEClient) GetContext() context.Context {
@@ -282,7 +294,7 @@ func (ga *GPUAgentIFOEClient) updateMetrics() error {
 		}
 		devUuid := utils.UUIDToString(station.Spec.UALDevice)
 		// TBD : remove after testing
-		logger.Log.Printf("Processing UALPort: %s, Station: %s Device: %s", portUuid, stationUuid, devUuid)
+		logger.Log.Printf("Processing UALPort: %v, Station: %v Device: %v PortName: %s", portUuid, stationUuid, devUuid, portName)
 
 		ifoeLabels["station_uuid"] = stationUuid
 		ifoeLabels["port_name"] = portName

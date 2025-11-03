@@ -17,8 +17,9 @@
 package gpuagent
 
 import (
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 )
 
 type FieldMeta struct {
@@ -27,6 +28,9 @@ type FieldMeta struct {
 }
 
 type GPUAgentClientInterface interface {
+	// general methods
+	isActive() bool
+
 	InitConfigs() error
 
 	InitClients() error
@@ -39,5 +43,17 @@ type GPUAgentClientInterface interface {
 
 	Close()
 
+	// prometheus metrics methods
+
 	metricsutil.MetricsInterface
+
+	// health methods
+
+	processHealthValidation() error
+
+	sendNodeLabelUpdate() error
+
+	GetHealthStates() (map[string]interface{}, error)
+
+	SetError(id string, fields []string, counts []uint32) error
 }

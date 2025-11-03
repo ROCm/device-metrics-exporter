@@ -57,10 +57,8 @@ type GPUAgentClient struct {
 	extraPodLabelsMap      map[string]string
 	k8PodLabelsMap         map[string]map[string]string
 
-	fl         *fieldLogger
-	gpuClient  *GPUAgentGPUClient
-	ifoeClient *GPUAgentIFOEClient
-	clients    []GPUAgentClientInterface
+	fl      *fieldLogger
+	clients []GPUAgentClientInterface
 }
 
 // GPUAgentClientOptions set desired options
@@ -150,8 +148,6 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 	ga := &GPUAgentClient{
 		mh:                     mh,
 		computeNodeHealthState: true,
-		gpuClient:              nil,
-		ifoeClient:             nil,
 		enableGPUMonitoring:    true,
 		enableIFOEMonitoring:   false,
 	}
@@ -172,8 +168,7 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 			logger.Log.Printf("error creating GPU client: %v", err)
 			return nil
 		}
-		ga.gpuClient = gpuClient
-		ga.clients = append(ga.clients, ga.gpuClient)
+		ga.clients = append(ga.clients, gpuClient)
 	}
 
 	if ga.enableIFOEMonitoring {
@@ -182,8 +177,7 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 			logger.Log.Printf("error creating IFOE client: %v", err)
 			return nil
 		}
-		ga.ifoeClient = ifoeClient
-		ga.clients = append(ga.clients, ga.ifoeClient)
+		ga.clients = append(ga.clients, ifoeClient)
 	}
 
 	mh.RegisterMetricsClient(ga)
@@ -246,17 +240,23 @@ func (ga *GPUAgentClient) populateStaticHostLabels() error {
 }
 
 func (ga *GPUAgentClient) GetGPUHealthStates() (map[string]interface{}, error) {
-	if ga.gpuClient == nil {
-		return nil, fmt.Errorf("gpu client not initialized")
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		return client.GetHealthStates()
 	}
-	return ga.gpuClient.GetGPUHealthStates()
+	return nil, nil
 }
 
 func (ga *GPUAgentClient) SetError(id string, fields []string, counts []uint32) error {
-	if ga.gpuClient == nil {
-		return fmt.Errorf("gpu client not initialized")
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		return client.SetError(id, fields, counts)
 	}
-	return ga.gpuClient.SetError(id, fields, counts)
+	return nil
 }
 
 func (ga *GPUAgentClient) SetComputeNodeHealthState(state bool) {
@@ -287,7 +287,12 @@ func (ga *GPUAgentClient) reconnect() error {
 func (ga *GPUAgentClient) isActive() bool {
 	ga.Lock()
 	defer ga.Unlock()
-	return ga.gpuClient != nil && ga.gpuClient.gpuclient != nil
+	for _, client := range ga.clients {
+		if !client.isActive() {
+			return false
+		}
+	}
+	return true
 }
 
 func (ga *GPUAgentClient) StartMonitor() {
@@ -307,16 +312,44 @@ func (ga *GPUAgentClient) StartMonitor() {
 				}
 
 				if ga.enableGPUMonitoring {
-					if err := ga.gpuClient.processHealthValidation(); err != nil {
+					if err := ga.processHealthValidation(); err != nil {
 						logger.Log.Printf("gpuagent health validation failed %v", err)
 					}
-					if err := ga.gpuClient.sendNodeLabelUpdate(); err != nil {
+					if err := ga.sendNodeLabelUpdate(); err != nil {
 						logger.Log.Printf("gpuagent failed to send node label update %v", err)
 					}
 				}
 			}
 		}
 	}
+}
+
+// processHealthValidation - process health validation for all clients
+func (ga *GPUAgentClient) processHealthValidation() error {
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		err := client.processHealthValidation()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sendNodeLabelUpdate - send node label update for all clients
+func (ga *GPUAgentClient) sendNodeLabelUpdate() error {
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		err := client.sendNodeLabelUpdate()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func strDoubleToFloat(strValue string) float64 {
