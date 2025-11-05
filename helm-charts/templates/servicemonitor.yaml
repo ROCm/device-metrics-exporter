@@ -4,7 +4,7 @@ kind: ServiceMonitor
 metadata:
   name: {{ .Release.Name }}-amd-metrics-exporter
   labels:
-    app: {{ .Release.Name }}-amdgpu-metrics-exporter
+    {{- include "metrics-exporter.appLabelWithReleaseName" . | indent 4 }}
     {{- if .Values.serviceMonitor.labels }}
 {{ toYaml .Values.serviceMonitor.labels | indent 4 }}
     {{- else }}
@@ -14,7 +14,7 @@ spec:
   jobLabel: app
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-amdgpu-metrics-exporter
+      {{- include "metrics-exporter.appLabelWithReleaseName" . | indent 6 }}
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
