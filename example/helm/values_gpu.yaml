@@ -21,6 +21,11 @@ service:
   ClusterIP:
     port: 5000
 
+monitor:
+  resources:
+    # Monitor GPU resources
+    gpu: true
+
 # Enable and configure ServiceMonitor for Prometheus Operator
 serviceMonitor:
   # Enable ServiceMonitor creation
