@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -231,9 +232,9 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 				defer wg.Done()
 
 				cmd := fmt.Sprintf("nicctl show rdma queue-pair statistics --lif %s -j", lif.UUID)
-				qpLifStatsOut, err := ExecWithContext(cmd)
+				qpLifStatsOut, err := ExecWithContextTimeout(cmd, 20*time.Second)
 				if err != nil {
-					logger.Log.Printf("error getting QP stats for %s, err: %+v", lif.Name, err)
+					logger.Log.Printf("error getting QP stats for %s, %s, err: %+v", lif.UUID, lif.Name, err)
 					return
 				}
 
