@@ -43,7 +43,7 @@ type ConfigHandler struct {
 }
 
 func NewConfigHandler(configPath string, port int) *ConfigHandler {
-	logger.Log.Printf("Running Config :%+v, gpuagent port %v", configPath, port)
+	logger.Log.Printf("Running Config :%+v", configPath)
 	c := &ConfigHandler{
 		configPath:    configPath,
 		runningConfig: NewConfig(),

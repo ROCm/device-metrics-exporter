@@ -60,6 +60,7 @@ func main() {
 	enableGPUMonitoring := fs.Bool("monitor-gpu", true, "Enable GPU Monitoring (default: true, enabled by default)")
 	sriov := fs.Bool("sriov-enable", false, "sriov host mode (default: false, disabled by default)")
 	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server (default: 0.0.0.0)")
+	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path (default: /var/log/exporter.log)")
 
 	// Parse with error handling
 	err := fs.Parse(os.Args[1:])
@@ -100,6 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger.SetLogFilePath(*logFilePath)
 	logger.Init(utils.IsKubernetes())
 
 	logger.Log.Printf("Version : %v", Version)

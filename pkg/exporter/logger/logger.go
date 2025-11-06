@@ -46,6 +46,12 @@ func SetLogDir(dir string) {
 	logdir = dir
 }
 
+// SetLogFilePath sets the full path to the log file
+func SetLogFilePath(path string) {
+	logdir = filepath.Dir(path)
+	logfile = filepath.Base(path)
+}
+
 func initLogger(console bool) {
 	if console {
 		Log = log.New(os.Stdout, logPrefix, log.Lmsgprefix)
