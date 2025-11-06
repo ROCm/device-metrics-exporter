@@ -504,7 +504,7 @@ endif
 
 ifeq ($(NIC_BUILD),1)
 	cp -vf helm-charts/nic-device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts/nic-device-metrics-exporter-charts.tgz
-	helm template nic-device-metrics-exporter helm-charts/nic-device-metrics-exporter-charts.tgz -n kube-amd-gpu -f helm-charts/values.yaml > helm-charts/manifests.yaml
+	helm template nic-device-metrics-exporter helm-charts/nic-device-metrics-exporter-charts.tgz -n kube-amd-network -f helm-charts/values.yaml > helm-charts/manifests.yaml
 	kubectl kustomize helm-charts/ > /dev/null || { echo "Error: kubectl kustomize failed"; rm -rf helm-charts/manifests.yaml; exit 1; }
 	rm -rf helm-charts/manifests.yaml
 	cp -vf helm-charts/nic-device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts-k8s/nic-device-metrics-exporter-helm-k8s-${PROJECT_VERSION}.tgz
