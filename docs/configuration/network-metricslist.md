@@ -1,5 +1,22 @@
 # List of Available AINIC Metrics
 
+This section provides an overview of the AINIC statistics available, based on the environment where the device metrics exporter is running: BareMetal, Hypervisor, or Virtual Machine (VM).
+
+In a typical deployment where:
+* AINIC Physical Function (PF) interfaces reside on the baremetal or hypervisor.
+* AINIC Virtual Function (VF) interfaces are assigned to guest VMs.
+
+### Exporter Running on BareMetal / Hypervisor
+When the metrics exporter runs on the host system, it can collect the following metrics:
+* AINIC Port statistics
+* PF interfaces: LIF, Queue Pair, RDMA & Ethtool statistics
+* VF interfaces: LIF & Queue Pair statistics
+
+### Exporter Running Inside a VM
+When the metrics exporter runs inside a guest VM, the following metrics are available:
+* VF interfaces: RDMA & Ethtool stats
+
+## Supported AINIC metrics list
 The following table contains a full list of AINIC Metrics that are available using the Device Metrics Exporter. 
 
 | Baremetal  | Hypervisor| Guest VM   | Metric                                   | Description                                                                 |
