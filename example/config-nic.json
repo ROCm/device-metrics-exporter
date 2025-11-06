@@ -1,7 +1,10 @@
 {
   "ServerPort": 5001,
   "CommonConfig": {
-      "MetricsFieldPrefix": "amd_"
+      "MetricsFieldPrefix": "amd_",
+      "HealthService": {
+          "Enable" : true
+      }
   },
   "NICConfig": {
     "Fields": [

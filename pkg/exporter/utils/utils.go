@@ -31,7 +31,9 @@ import (
 )
 
 const (
-	ServiceFile = "/usr/lib/systemd/system/amd-metrics-exporter.service"
+	ServiceFile      = "/usr/lib/systemd/system/amd-metrics-exporter.service"
+	SriovServiceFile = "/usr/lib/systemd/system/amd-metrics-exporter-sriov.service"
+	NICServiceFile   = "/usr/lib/systemd/system/amd-nic-metrics-exporter.service"
 )
 
 func GetNodeName() string {
@@ -45,16 +47,21 @@ func GetNodeName() string {
 }
 
 func IsDebianInstall() bool {
-	_, err := os.Stat(ServiceFile)
-	return err == nil
+	serviceFiles := []string{ServiceFile, SriovServiceFile, NICServiceFile}
+	for _, file := range serviceFiles {
+		if _, err := os.Stat(file); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func IsKubernetes() bool {
-	if s := os.Getenv("KUBERNETES_SERVICE_HOST"); s != "" {
-		return true
-	}
 	if IsDebianInstall() {
 		return false
+	}
+	if s := os.Getenv("KUBERNETES_SERVICE_HOST"); s != "" {
+		return true
 	}
 	if _, err := os.Stat(globals.PodResourceSocket); err == nil {
 		return true
@@ -84,7 +91,6 @@ func GetHostName() (string, error) {
 	}
 	return hostname, nil
 }
-
 
 // NormalizeFloat - return 0 if any of the value is of MaxFloat indication NA
 //   - return x as float64 otherwise

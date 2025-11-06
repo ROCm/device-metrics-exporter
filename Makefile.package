@@ -22,6 +22,11 @@ RPM_SRIOV_DIR_NAME := amdgpu-exporter-sriov-$(RPM_BUILD_VERSION)-$(RPM_RELEASE_L
 RPM_PACKAGE_DIR := ${TOP_DIR}/${RPM_DIR_NAME}
 RPM_PACKAGE_SRIOV_DIR := ${TOP_DIR}/${RPM_SRIOV_DIR_NAME}
 
+# NIC debian build related variables
+NIC_DEBIAN_CONTROL = ${TOP_DIR}/nic-debian/DEBIAN/control
+NIC_PKG_PATH := ${TOP_DIR}/nic-debian/usr/local/bin
+NIC_METRICS_CONF_DIR := ${TOP_DIR}/nic-debian/etc
+NIC_METRICS_CONF_PATH := ${NIC_METRICS_CONF_DIR}/metrics
 
 .PHONY: deppkg debpkg-clean rpmpkg rpmpkg-clean pkg pkg-clean debpkg-sriov-clean debpkg-sriov rpmpkg-sriov
 pkg: debpkg rpmpkg
@@ -255,3 +260,38 @@ debpkg-sriov: debpkg-sriov-clean
 	# rename for internal build
 	@mv -vf ${TOP_DIR}/bin/amdgpu-exporter-sriov_*~${UBUNTU_VERSION_NUMBER}_amd64.deb ${TOP_DIR}/bin/amdgpu-exporter-sriov_${UBUNTU_VERSION_NUMBER}_amd64.deb
 
+nic-debpkg:
+	${MAKE} amdexporter
+	@echo "Building debian package for $(BUILD_VER_ENV)"
+
+	# Ensure directories exist
+	@mkdir -p $(NIC_METRICS_CONF_PATH)
+	@mkdir -p $(NIC_PKG_PATH)
+
+	# Copy default config and remove unwanted fields
+	@jq 'del(.NICConfig.ExtraPodLabels, .NICConfig.HealthCheckConfig) | .CommonConfig.HealthService.Enable = false' \
+		$(CONFIG_DIR)/config-nic.json > $(NIC_METRICS_CONF_PATH)/config-nic.json
+	@echo "Generated NIC config:"
+	@cat $(NIC_METRICS_CONF_PATH)/config-nic.json
+
+	# Copy exporter binary
+	@cp -vf $(CURDIR)/bin/amd-metrics-exporter $(NIC_PKG_PATH)/amd-nic-metrics-exporter
+	@strip $(NIC_PKG_PATH)/amd-nic-metrics-exporter
+
+	# Build debian package
+	@cd $(TOP_DIR) && \
+		sed -i "s/BUILD_VER_ENV/$(DEBIAN_VERSION)/g" $(NIC_DEBIAN_CONTROL) && \
+		dpkg-deb -Zxz --build nic-debian bin
+
+	# Clean up copied files
+	@rm -rf $(NIC_METRICS_CONF_PATH)
+
+	# Revert dynamic version change in control file
+	@git checkout $(NIC_DEBIAN_CONTROL)
+
+	# copy the builds for jammy and nobel
+	@cp -vf $(TOP_DIR)/bin/amdnic-exporter_$(DEBIAN_VERSION)_amd64.deb \
+		$(TOP_DIR)/bin/amdnic-exporter_22.04_amd64.deb
+	@cp -vf $(TOP_DIR)/bin/amdnic-exporter_$(DEBIAN_VERSION)_amd64.deb \
+		$(TOP_DIR)/bin/amdnic-exporter_24.04_amd64.deb
+	@rm $(TOP_DIR)/bin/amdnic-exporter_$(DEBIAN_VERSION)_amd64.deb
