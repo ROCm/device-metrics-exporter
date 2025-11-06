@@ -19,9 +19,11 @@ subtrees:
     entries:
       - file: configuration/configuration-settings   
       - file: configuration/docker
+      - file: configuration/network-exporter-docker
       - file: configuration/configmap
       - file: configuration/troubleshooting 
-      - file: configuration/metricslist       
+      - file: configuration/metricslist
+      - file: configuration/network-metricslist
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana
