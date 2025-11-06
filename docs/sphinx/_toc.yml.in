@@ -23,7 +23,7 @@ subtrees:
       - file: configuration/configmap
       - file: configuration/troubleshooting 
       - file: configuration/metricslist
-      - file: configuration/ntework-metricslist
+      - file: configuration/network-metricslist
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana
