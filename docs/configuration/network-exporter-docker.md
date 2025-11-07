@@ -1,4 +1,4 @@
-# Standalone container configuration
+# Standalone container configuration for NIC Monitoring
 
 To use a custom configuration with the AMD Network Device Metrics Exporter container:
 

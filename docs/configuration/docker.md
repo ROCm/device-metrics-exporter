@@ -1,4 +1,4 @@
-# Standalone container configuration
+# Standalone container configuration for GPU Monitoring
 
 To use a custom configuration with the AMD Device Metrics Exporter container:
 
