@@ -30,3 +30,12 @@ func ExecWithContext(cmd string) ([]byte, error) {
 	command := exec.CommandContext(ctx, "/bin/bash", "-c", cmd)
 	return command.Output()
 }
+
+// ExecWithContextTimeout executes a command with a specified context timeout
+func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	command := exec.CommandContext(ctx, "/bin/bash", "-c", cmd)
+	return command.Output()
+}

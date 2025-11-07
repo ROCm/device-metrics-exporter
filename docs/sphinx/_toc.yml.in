@@ -9,6 +9,7 @@ subtrees:
       - file: installation/kubernetes-helm
       - file: installation/gpu-operator
       - file: installation/deb-package
+      - file: installation/nic-debian-package
       - file: installation/singularity.md
   - caption: Release Notes
     entries:
@@ -18,9 +19,11 @@ subtrees:
     entries:
       - file: configuration/configuration-settings   
       - file: configuration/docker
+      - file: configuration/network-exporter-docker
       - file: configuration/configmap
       - file: configuration/troubleshooting 
-      - file: configuration/metricslist       
+      - file: configuration/metricslist
+      - file: configuration/network-metricslist
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana

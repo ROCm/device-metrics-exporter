@@ -1,10 +1,9 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: amdgpu-metrics-exporter
+  {{- include "metrics-exporter.name" . | nindent 2 }}
   labels:
-    app.kubernetes.io/component: amd-gpu
-    app.kubernetes.io/part-of: amd-gpu
+  {{- include "metrics-exporter.labels" . | nindent 4 }}
   {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 
 ---
@@ -14,8 +13,7 @@ kind: ClusterRole
 metadata:
   name: {{ include "helm-charts-exporter.fullname" . }}-metrics-exporter
   labels:
-    app.kubernetes.io/component: amd-gpu
-    app.kubernetes.io/part-of: amd-gpu
+  {{- include "metrics-exporter.labels" . | nindent 4 }}
   {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 rules:
 - apiGroups:
@@ -53,8 +51,7 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ include "helm-charts-exporter.fullname" . }}-metrics-exporter
   labels:
-    app.kubernetes.io/component: amd-gpu
-    app.kubernetes.io/part-of: amd-gpu
+  {{- include "metrics-exporter.labels" . | nindent 4 }}
   {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -62,5 +59,5 @@ roleRef:
   name: '{{ include "helm-charts-exporter.fullname" . }}-metrics-exporter'
 subjects:
 - kind: ServiceAccount
-  name: amdgpu-metrics-exporter
+  {{- include "metrics-exporter.name" . | nindent 2 }}
   namespace: '{{ .Release.Namespace }}'

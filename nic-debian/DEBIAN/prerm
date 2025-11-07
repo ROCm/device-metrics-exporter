@@ -1,0 +1,4 @@
+#!/bin/bash
+systemctl stop amd-nic-metrics-exporter.service
+
+systemctl disable amd-nic-metrics-exporter.service

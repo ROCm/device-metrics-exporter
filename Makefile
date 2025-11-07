@@ -136,10 +136,26 @@ UBUNTU_LIBDIR = UBUNTU24
 endif
 
 # set version and run `make update-version` to all docs
-PACKAGE_VERSION ?= "1.5.0"
+PROJECT_VERSION ?= v1.5.0
+HELM_CHARTS_VERSION ?= $(PROJECT_VERSION)
+NIC_BUILD ?= 0
+
+ifneq (,$(findstring nic-,$(PROJECT_VERSION)))
+  # extract v1.0.0 from the nic-v1.0.0 format
+  NIC_BUILD := 1
+  HELM_CHARTS_VERSION := $(subst ",,$(subst nic-,,$(PROJECT_VERSION)))
+else ifneq (,$(findstring exporter-,$(PROJECT_VERSION)))
+  HELM_CHARTS_VERSION := $(subst ",,$(subst exporter-,,$(PROJECT_VERSION)))
+endif
+
+
+# Derive DEBIAN_VERSION from RELEASE tag
 ifneq (,$(findstring exporter,$(RELEASE)))
 #remove prefix from main tag
-DEBIAN_VERSION := $(shell echo "$(RELEASE)" | cut -c 10-)
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^exporter-//')
+else ifneq (,$(findstring nic,$(RELEASE)))
+#parse nic release tag to extract version after "nic-"
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^nic-v//')
 else ifneq (,$(findstring v,$(RELEASE)))
 #remove prefix for release tag
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
@@ -147,19 +163,16 @@ else
 #apt is only released until this version
 DEBIAN_VERSION := "1.5.0"
 endif
-# Split DEBIAN_VERSION on '-' to get RPM version and release label
+
+# Remove 'v' from PROJECT_VERSION to get PACKAGE_VERSION
+PACKAGE_VERSION := $(subst v,,$(PROJECT_VERSION))
+
+# Split DEBIAN_VERSION on '-' to get RPM version and release labe`l
 RPM_BUILD_VERSION := $(word 1,$(subst -, ,$(DEBIAN_VERSION)))
 RPM_RELEASE_LABEL_TMP := $(word 2,$(subst -, ,$(DEBIAN_VERSION)))
 RPM_RELEASE_LABEL := $(if $(RPM_RELEASE_LABEL_TMP),$(RPM_RELEASE_LABEL_TMP),0)
-REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
-HELM_VERSION := $(REL_IMAGE_TAG)
-
-DOCS_DIR := $(TOP_DIR)/docs
-DOCS_CONFIG_DIR := $(DOCS_DIR)/configuration/
-DOCS_INSTALLATION_DIR := $(DOCS_DIR)/installation/
-DOCS_INTEGRATION_DIR := $(DOCS_DIR)/integrations/
-
-UPDATE_VERSION_TARGET_DIRS := $(DOCS_DIR)/configuration/ $(DOCS_DIR)/installation/ $(DOCS_DIR)/integrations/
+REL_IMAGE_TAG := $(PROJECT_VERSION)
+HELM_INSTALL_URL := https://github.com/ROCm/device-metrics-exporter/releases/download/${REL_IMAGE_TAG}/device-metrics-exporter-charts-${REL_IMAGE_TAG}\.tgz
 
 export ${DEBIAN_VERSION}
 export ${RPM_BUILD_VERSION}
@@ -442,36 +455,66 @@ k8s-e2e:
 
 .PHONY: helm-lint
 helm-lint:
+	@echo "Project Version is $(PROJECT_VERSION)"
+	@echo "RELEASE tag is $(RELEASE)"
 	#copy default config
-	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels, .NICConfig)' $(CONFIG_DIR)/config.json > $(HELM_CHARTS_DIR)/config.json
+ifeq ($(NIC_BUILD),1)
+	jq 'del(.ServerPort, .NICConfig.ExtraPodLabels)' $(CONFIG_DIR)/config-nic.json > $(HELM_CHARTS_DIR)/config.json
+else
+	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config-gpu.json > $(HELM_CHARTS_DIR)/config.json
+endif
 	cd $(HELM_CHARTS_DIR); helm lint
-
-.PHONY: helm-build
-helm-build: helm-lint
-	rm -rf helm-charts/device-metrics-exporter-charts*
-	rm -rf helm-charts/manifests.yaml
-	# updating project version in helm Chart.yaml
-	sed -i -e 's|appVersion:.*$$|appVersion: "${REL_IMAGE_TAG}"|' helm-charts/Chart.yaml
-	sed -i '0,/version:/s|version:.*|version: ${REL_IMAGE_TAG}|' helm-charts/Chart.yaml
-	${MAKE} helm-docs
-	helm package helm-charts/ --destination ./helm-charts --app-version ${REL_IMAGE_TAG} --version ${REL_IMAGE_TAG}
-	cp -vf helm-charts/device-metrics-exporter-charts* helm-charts/device-metrics-exporter-charts.tgz
-	helm template device-metrics-exporter helm-charts/device-metrics-exporter-charts.tgz -n kube-amd-gpu -f helm-charts/values.yaml > helm-charts/manifests.yaml
-	kubectl kustomize helm-charts/ > /dev/null || { echo "Error: kubectl kustomize failed"; rm -rf helm-charts/manifests.yaml; exit 1; }
-	rm -rf helm-charts/manifests.yaml
 
 # cicd target to build helm chart - requires PROJECT_VERSION, EXPORTER_IMAGE_TAG to be set
 .PHONY: helm
 helm: helm-lint
 	@rm -rf helm-charts-k8s
-	@yq eval -i '.appVersion = "$(EXPORTER_IMAGE_TAG)"' helm-charts/Chart.yaml
-	@yq eval -i '.version = "$(EXPORTER_IMAGE_TAG)"' helm-charts/Chart.yaml
+	@rm -rf helm-charts/nic-device-metrics-exporter*
+	@rm -rf helm-charts/device-metrics-exporter*
+	@rm -rf helm-charts/manifests.yaml
+	# updating project version in helm Chart.yaml
+	@yq eval -i '.appVersion = "$(HELM_CHARTS_VERSION)"' helm-charts/Chart.yaml
+	@yq eval -i '.version = "$(HELM_CHARTS_VERSION)"' helm-charts/Chart.yaml
+	# set exporter image repo and tag
 	@yq eval -i '.image.repository = "$(HELM_EXPORTER_IMAGE)"' helm-charts/values.yaml
-	@yq eval -i '.image.tag = "$(EXPORTER_IMAGE_TAG)"' helm-charts/values.yaml
-	@mkdir -p helm-charts-k8s
+	@yq eval -i '.image.tag = "$(PROJECT_VERSION)"' helm-charts/values.yaml
+
+# update monitoring flags in values.yaml based on RELEASE tag
+ifeq ($(NIC_BUILD),1)
+	@echo "Detected NIC build from tag ${PROJECT_VERSION} — enabling NIC monitoring";
+	@yq eval -i '.name = "nic-device-metrics-exporter-charts"' helm-charts/Chart.yaml;
+	@yq eval -i '.monitor.resources.nic = true | .monitor.resources.gpu = false' helm-charts/values.yaml;
+	@yq eval -i '.hostNetwork = true' helm-charts/values.yaml;
+	@yq eval -i '.service.ClusterIP.port = 5001' helm-charts/values.yaml;
+	@yq eval -i '.service.NodePort.port = 5001' helm-charts/values.yaml;
+	@yq eval -i '.service.NodePort.nodePort = 32501' helm-charts/values.yaml;
+else
+	@echo "Standard build detected — enabling GPU monitoring";
+	@yq eval -i '.name = "device-metrics-exporter-charts"' helm-charts/Chart.yaml;
+	@yq eval -i '.monitor.resources.nic = false | .monitor.resources.gpu = true' helm-charts/values.yaml;
+	@yq eval -i '.hostNetwork = false' helm-charts/values.yaml;
+	@yq eval -i '.service.ClusterIP.port = 5000' helm-charts/values.yaml;
+	@yq eval -i '.service.NodePort.port = 5000' helm-charts/values.yaml;
+	@yq eval -i '.service.NodePort.nodePort = 32500' helm-charts/values.yaml;
+endif
+
 	${MAKE} helm-docs
-	helm package helm-charts/ --destination ./helm-charts-k8s --app-version ${PROJECT_VERSION} --version ${PROJECT_VERSION}
-	cp -vf helm-charts-k8s/device-metrics-exporter-*.tgz helm-charts-k8s/device-metrics-exporter-helm-k8s-${PROJECT_VERSION}.tgz
+	@mkdir -p helm-charts-k8s
+	helm package helm-charts/ --destination ./helm-charts
+
+ifeq ($(NIC_BUILD),1)
+	cp -vf helm-charts/nic-device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts/nic-device-metrics-exporter-charts.tgz
+	helm template nic-device-metrics-exporter helm-charts/nic-device-metrics-exporter-charts.tgz -n kube-amd-network -f helm-charts/values.yaml > helm-charts/manifests.yaml
+	kubectl kustomize helm-charts/ > /dev/null || { echo "Error: kubectl kustomize failed"; rm -rf helm-charts/manifests.yaml; exit 1; }
+	rm -rf helm-charts/manifests.yaml
+	cp -vf helm-charts/nic-device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts-k8s/nic-device-metrics-exporter-helm-k8s-${PROJECT_VERSION}.tgz
+else
+	cp -vf helm-charts/device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts/device-metrics-exporter-charts.tgz
+	helm template device-metrics-exporter helm-charts/device-metrics-exporter-charts.tgz -n kube-amd-gpu -f helm-charts/values.yaml > helm-charts/manifests.yaml
+	kubectl kustomize helm-charts/ > /dev/null || { echo "Error: kubectl kustomize failed"; rm -rf helm-charts/manifests.yaml; exit 1; }
+	rm -rf helm-charts/manifests.yaml
+	cp -vf helm-charts/device-metrics-exporter-charts-$(HELM_CHARTS_VERSION).tgz helm-charts-k8s/device-metrics-exporter-helm-k8s-${PROJECT_VERSION}.tgz
+endif
 
 .PHONY: slurm-sim
 slurm-sim:
