@@ -60,3 +60,60 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Determine the exporter app label based on monitoring configuration
+*/}}
+{{- define "metrics-exporter.appLabelWithReleaseName" }}
+{{- if .Values.monitor.resources.gpu }}
+app: {{ .Release.Name }}-amdgpu-metrics-exporter
+{{- else }}
+app: {{ .Release.Name }}-amd-device-metrics-exporter
+{{- end }}
+{{- end }}
+
+{{/*
+Determine the exporter app label based on monitoring configuration
+*/}}
+{{- define "metrics-exporter.appLabel" }}
+{{- if .Values.monitor.resources.gpu }}
+app: amdgpu-metrics-exporter
+{{- else }}
+app: amd-device-metrics-exporter
+{{- end }}
+{{- end }}
+
+{{/*
+Determine the exporter name based on monitoring configuration
+*/}}
+{{- define "metrics-exporter.nameWithRelease" }}
+{{- if .Values.monitor.resources.gpu }}
+name: {{ .Release.Name }}-amdgpu-metrics-exporter
+{{- else }}
+name: {{ .Release.Name }}-amd-device-metrics-exporter
+{{- end }}
+{{- end }}
+
+{{/*
+Determine the exporter name based on monitoring configuration
+*/}}
+{{- define "metrics-exporter.name" }}
+{{- if .Values.monitor.resources.gpu }}
+name: amdgpu-metrics-exporter
+{{- else }}
+name: amd-device-metrics-exporter
+{{- end }}
+{{- end }}
+
+{{/*
+Determine the exporter labels based on monitoring configuration
+*/}}
+{{- define "metrics-exporter.labels" -}}
+{{- if .Values.monitor.resources.gpu }}
+app.kubernetes.io/component: amd-gpu
+app.kubernetes.io/part-of: amd-gpu
+{{- else }}
+app.kubernetes.io/component: amd-device
+app.kubernetes.io/part-of: amd-device
+{{- end }}
+{{- end }}

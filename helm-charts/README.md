@@ -21,6 +21,7 @@ Kubernetes: `>= 1.29.0-0`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | configMap | string | `""` | configMap name for the customizing configs and mount into metrics exporter container |
+| hostNetwork | bool | `false` | Use host network for the metrics exporter pods |
 | image.initContainerImage | string | `"busybox:1.36"` | metrics exporter initContainer image |
 | image.pullPolicy | string | `"Always"` | metrics exporter image pullPolicy |
 | image.pullSecrets | string | `""` | metrics exporter image pullSecret name |
@@ -28,6 +29,8 @@ Kubernetes: `>= 1.29.0-0`
 | image.tag | string | `"v1.5.0"` | metrics exporter image tag |
 | kubelet | object | `{"podResourceAPISocketPath":"/var/lib/kubelet/pod-resources"}` | kubelet configuration |
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
+| monitor | object | `{"resources":{"gpu":true,"nic":false}}` | monitoring configuration |
+| monitor.resources | object | `{"gpu":true,"nic":false}` | Enable or disable specific resource monitoring components. |
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |
 | platform | string | `"k8s"` | Specify the platform to deploy the metrics exporter, k8s or openshift |
 | podAnnotations | object | `{}` | Add annotations to the pods |

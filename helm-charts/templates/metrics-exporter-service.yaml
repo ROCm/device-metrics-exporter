@@ -3,14 +3,14 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-amd-metrics-exporter-svc
   labels:
-    app: {{ .Release.Name }}-amdgpu-metrics-exporter
+  {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 2 }}
   {{- if .Values.service.annotations }}
   annotations:
     {{- toYaml .Values.service.annotations | nindent 4 }}
   {{- end }}
 spec:
   selector:
-    app: {{ .Release.Name }}-amdgpu-metrics-exporter
+    {{- include "metrics-exporter.appLabelWithReleaseName" . | indent 6 }}
   internalTrafficPolicy: Local
   type: {{ .Values.service.type }}
   {{- if eq .Values.service.type "NodePort" }}
