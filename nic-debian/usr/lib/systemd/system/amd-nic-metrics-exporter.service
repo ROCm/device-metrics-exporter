@@ -1,0 +1,34 @@
+[Unit]
+Description=AMD NIC Prometheus Exporter Service
+
+[Service]
+# Run as root (required for NIC monitoring)
+User=root
+Group=root
+
+# Automatically restart on failure
+Restart=on-failure
+RestartSec=10
+
+# Simple process type: systemd just starts the process and tracks it
+Type=simple
+
+# Wait a few seconds before starting (allows dependent services to initialize)
+ExecStartPre=/bin/sleep 5
+
+# Main service command
+ExecStart=/usr/local/bin/amd-nic-metrics-exporter --monitor-nic=true --monitor-gpu=false \
+    --amd-metrics-config=/etc/metrics/config-nic.json \
+    --log-file-path=/var/log/amd-nic-metrics-exporter.log
+
+# Explicit stop command (systemd sends SIGTERM automatically, so optional)
+ExecStop=/bin/kill -15 $MAINPID
+
+# Match Docker-like behavior (no throttling)
+MemoryMax=0
+CPUQuota=0
+TasksMax=infinity
+
+[Install]
+# Enable service for multi-user mode
+WantedBy=multi-user.target
