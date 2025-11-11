@@ -216,8 +216,25 @@ func (ga *GPUAgentIFOEClient) updateMockMetrics() error {
 			Name: "eth0",
 		},
 		Stats: &amdgpu.UALNetworkPortStats{
-			NumFailedoverStreams: 3,
-			NumPausedStreams:     4,
+			NumFailedoverStreams:      3,
+			NumPausedStreams:          4,
+			BitErrorRate:              100,
+			FECCodeWordSymbolErrors0:  1000,
+			FECCodeWordSymbolErrors1:  900,
+			FECCodeWordSymbolErrors2:  800,
+			FECCodeWordSymbolErrors3:  700,
+			FECCodeWordSymbolErrors4:  600,
+			FECCodeWordSymbolErrors5:  500,
+			FECCodeWordSymbolErrors6:  400,
+			FECCodeWordSymbolErrors7:  300,
+			FECCodeWordSymbolErrors8:  200,
+			FECCodeWordSymbolErrors9:  100,
+			FECCodeWordSymbolErrors10: 90,
+			FECCodeWordSymbolErrors11: 80,
+			FECCodeWordSymbolErrors12: 70,
+			FECCodeWordSymbolErrors13: 60,
+			FECCodeWordSymbolErrors14: 50,
+			FECCodeWordSymbolErrors15: 40,
 		},
 	}
 
@@ -234,6 +251,23 @@ func (ga *GPUAgentIFOEClient) updateMockMetrics() error {
 
 	ga.metrics.numFailedoverStreams.With(ifoeLabels).Set(float64(3))
 	ga.metrics.numPausedStreams.With(ifoeLabels).Set(float64(4))
+	ga.metrics.bitErrorRate.With(ifoeLabels).Set(float64(100))
+	ga.metrics.fecCodeWordSymbolErrors0.With(ifoeLabels).Set(float64(1000))
+	ga.metrics.fecCodeWordSymbolErrors1.With(ifoeLabels).Set(float64(900))
+	ga.metrics.fecCodeWordSymbolErrors2.With(ifoeLabels).Set(float64(800))
+	ga.metrics.fecCodeWordSymbolErrors3.With(ifoeLabels).Set(float64(700))
+	ga.metrics.fecCodeWordSymbolErrors4.With(ifoeLabels).Set(float64(600))
+	ga.metrics.fecCodeWordSymbolErrors5.With(ifoeLabels).Set(float64(500))
+	ga.metrics.fecCodeWordSymbolErrors6.With(ifoeLabels).Set(float64(400))
+	ga.metrics.fecCodeWordSymbolErrors7.With(ifoeLabels).Set(float64(300))
+	ga.metrics.fecCodeWordSymbolErrors8.With(ifoeLabels).Set(float64(200))
+	ga.metrics.fecCodeWordSymbolErrors9.With(ifoeLabels).Set(float64(100))
+	ga.metrics.fecCodeWordSymbolErrors10.With(ifoeLabels).Set(float64(90))
+	ga.metrics.fecCodeWordSymbolErrors11.With(ifoeLabels).Set(float64(80))
+	ga.metrics.fecCodeWordSymbolErrors12.With(ifoeLabels).Set(float64(70))
+	ga.metrics.fecCodeWordSymbolErrors13.With(ifoeLabels).Set(float64(60))
+	ga.metrics.fecCodeWordSymbolErrors14.With(ifoeLabels).Set(float64(50))
+	ga.metrics.fecCodeWordSymbolErrors15.With(ifoeLabels).Set(float64(40))
 
 	return nil
 }
@@ -304,6 +338,23 @@ func (ga *GPUAgentIFOEClient) updateMetrics() error {
 		if stats != nil {
 			ga.metrics.numFailedoverStreams.With(ifoeLabels).Set(float64(stats.NumFailedoverStreams))
 			ga.metrics.numPausedStreams.With(ifoeLabels).Set(float64(stats.NumPausedStreams))
+			ga.metrics.bitErrorRate.With(ifoeLabels).Set(float64(stats.BitErrorRate))
+			ga.metrics.fecCodeWordSymbolErrors0.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors0))
+			ga.metrics.fecCodeWordSymbolErrors1.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors1))
+			ga.metrics.fecCodeWordSymbolErrors2.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors2))
+			ga.metrics.fecCodeWordSymbolErrors3.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors3))
+			ga.metrics.fecCodeWordSymbolErrors4.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors4))
+			ga.metrics.fecCodeWordSymbolErrors5.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors5))
+			ga.metrics.fecCodeWordSymbolErrors6.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors6))
+			ga.metrics.fecCodeWordSymbolErrors7.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors7))
+			ga.metrics.fecCodeWordSymbolErrors8.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors8))
+			ga.metrics.fecCodeWordSymbolErrors9.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors9))
+			ga.metrics.fecCodeWordSymbolErrors10.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors10))
+			ga.metrics.fecCodeWordSymbolErrors11.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors11))
+			ga.metrics.fecCodeWordSymbolErrors12.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors12))
+			ga.metrics.fecCodeWordSymbolErrors13.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors13))
+			ga.metrics.fecCodeWordSymbolErrors14.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors14))
+			ga.metrics.fecCodeWordSymbolErrors15.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors15))
 		}
 	}
 	return nil

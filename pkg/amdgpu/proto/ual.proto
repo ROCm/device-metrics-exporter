@@ -139,10 +139,45 @@ message UALNetworkPortStatus {
 message UALNetworkPortStats {
   // current number of streams currently in failover state and remapped
   // to an alternative network port
-  uint32 NumFailedoverStreams = 1;
+  uint32 NumFailedoverStreams      = 1;
   // number of streams currently in paused state due to retrasmission
   // timeout and failover is either not possible or failover is disabled
-  uint32 NumPausedStreams     = 2;
+  uint32 NumPausedStreams          = 2;
+  // current Bit Error Rate (BER) reported by the network port expressed as
+  // errors per 10^12 bits
+  uint64 BitErrorRate              = 3;
+  // total number of FEC codewords with 0 symbol errors
+  uint64 FECCodeWordSymbolErrors0  = 4;
+  // total number of FEC codewords with 1 symbol errors
+  uint64 FECCodeWordSymbolErrors1  = 5;
+  // total number of FEC codewords with 2 symbol errors
+  uint64 FECCodeWordSymbolErrors2  = 6;
+  // total number of FEC codewords with 3 symbol errors
+  uint64 FECCodeWordSymbolErrors3  = 7;
+  // total number of FEC codewords with 4 symbol errors
+  uint64 FECCodeWordSymbolErrors4  = 8;
+  // total number of FEC codewords with 5 symbol errors
+  uint64 FECCodeWordSymbolErrors5  = 9;
+  // total number of FEC codewords with 6 symbol errors
+  uint64 FECCodeWordSymbolErrors6  = 10;
+  // total number of FEC codewords with 7 symbol errors
+  uint64 FECCodeWordSymbolErrors7  = 11;
+  // total number of FEC codewords with 8 symbol errors
+  uint64 FECCodeWordSymbolErrors8  = 12;
+  // total number of FEC codewords with 9 symbol errors
+  uint64 FECCodeWordSymbolErrors9  = 13;
+  // total number of FEC codewords with 10 symbol errors
+  uint64 FECCodeWordSymbolErrors10 = 14;
+  // total number of FEC codewords with 11 symbol errors
+  uint64 FECCodeWordSymbolErrors11 = 15;
+  // total number of FEC codewords with 12 symbol errors
+  uint64 FECCodeWordSymbolErrors12 = 16;
+  // total number of FEC codewords with 13 symbol errors
+  uint64 FECCodeWordSymbolErrors13 = 17;
+  // total number of FEC codewords with 14 symbol errors
+  uint64 FECCodeWordSymbolErrors14 = 18;
+  // total number of FEC codewords with 15 symbol errors
+  uint64 FECCodeWordSymbolErrors15 = 19;
 }
 
 // UAL network port config, operational status and statistics
