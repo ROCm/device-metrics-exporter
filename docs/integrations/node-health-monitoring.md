@@ -1,4 +1,34 @@
-# Node Problem Detector Integration
+# Node Health Monitoring
+
+Device metrics exporter is capable of integrating with node health monitoring tools or daemons. It provides a command line utility tool `amdgpuhealth` which can monitor specific metrics or inband-ras errors and determine if the values are within the defined threshold.
+
+## amdgpuhealth tool
+
+The tool can be used to monitor AMD GPU node health in Kubernetes and standalone debian deployments. The amdgpuhealth CLI can be used to monitor counter metrics, gauge metrics and inband-ras events. The CLI is designed to be used as a standalone tool or to be integrated with Node Problem Detector(NPD) in Kubernetes environments.
+
+## amdgpuhealth tool usage guide
+
+We can specify the metric that we want to query and a threshold beyond which the we treat the GPU as unhealthy. The tool output and exit code can be used to determine if a particular metric or inband-ras has crossed it's threshold. If threshold value is not provided, default value is considered as 0.
+
+1. Exit code 0 - indicates the metric or error is below the specified threshold. Indicates GPU/Node is healthy.
+
+2. Exit code 1 - indicated the metric or error crossed the specified threshold. Indicates the node is unhealthy.
+
+3. Exit code 2 - indicated there is some error when trying to query the metric or inband-ras error.
+
+```bash
+./amdgpuhealth query counter-metric -m <metric_name> -t <threshold_value>
+
+./amdgpuhealth query gauge-metric -m <metric_name> -t <threshold_value>
+
+./amdgpuhealth query inband-ras-errors -a <AFID> -s <severity> -t <threshold_value>
+```
+
+# Integration with debian deployment
+
+The `amdgpuhealth` tool gets packaged with standalone device-metrics-exporter debain and rpm package. The tool can be invoked directly via a terminal or through a shell script. This tool can be helpful in case we meed to monitor multiple critical metrics and inabnd-ras errors. We can have a script which can monitor multiple metrics and can do it at regular intervals using cron job, etc.
+
+# Integration with Kubernetes deployment using Node Problem Detector
 
 Node-problem-detector(NPD) aims to make various node problems visible to the upstream layers in the cluster management stack. It is a daemon that runs on each node, detects node problems and reports them to apiserver. NPD can be extended to detect AMD GPU problems.
 
@@ -23,6 +53,8 @@ Example usage of amdgpuhealth CLI:
 ./amdgpuhealth query counter-metric -m <metric_name> -t <threshold_value>
 
 ./amdgpuhealth query gauge-metric -m <metric_name> -d <duration> -t <threshold_value>
+
+./amdgpuhealth query inband-ras-errors -a <AFID> -s <severity> -t <threshold_value>
 ```
 
 In the above examples, the program queries either a counter or gauge metric. You can define a threshold for each metric. If the reported AMD GPU metric value exceeds the threshold, `amdgpuhealth` prints an error message to standard output and exits with code 1. The NPD plugin uses this exit code and output to update the node condition's status and message respectively, indicating problem with AMD GPU.

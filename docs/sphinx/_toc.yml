@@ -33,7 +33,7 @@ subtrees:
     - file: integrations/prometheus-grafana
     - file: integrations/slurm-integration  
     - file: integrations/prometheus-servicemonitor
-    - file: integrations/node-problem-detector
+    - file: integrations/node-health-monitoring
   - caption: Developer Guide
     entries:
     - file: developerguide

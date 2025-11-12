@@ -84,9 +84,6 @@ const (
 
 	// AMDGPUInbandRASHandlerPrefix - endpoint to get inband RAS errors in JSON format
 	AMDGPUInbandRASHandlerPrefix = "/inbandraserrors"
-
-	// LatestProcessedErrorTimestampFilePath - path to the file that stores the latest processed inband RAS error timestamp
-	LatestProcessedErrorTimestampFilePath = "/tmp/latest_processed_inband_ras_error.txt"
 )
 
 type DeviceType string

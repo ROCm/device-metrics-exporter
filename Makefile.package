@@ -57,6 +57,7 @@ rpmpkg: rpmpkg-clean
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_DIR}/bin/
 	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${RPM_PACKAGE_DIR}/bin/
 	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${RPM_PACKAGE_DIR}/bin/metrics-exporter-ts.sh
 	# copy libraries
 	@echo "Copy prebuilt libraries"
@@ -107,6 +108,7 @@ rpmpkg-sriov: rpmpkg-clean
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_SRIOV_DIR}/bin/amd-metrics-exporter-sriov
 	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_SRIOV_DIR}/bin/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${RPM_PACKAGE_SRIOV_DIR}/bin/
 	@cp -rvf  ${PKG_LUA_PATH}/ ${PKG_SRIOV_LUA_PATH}/../
 	@cp -vf ${LIB_CONF_PATH} ${PKG_SRIOV_LUA_PATH}/../
 	@cp -vf ${LUA_PROTO} ${PKG_SRIOV_LUA_PATH}/plugin.proto
@@ -200,6 +202,7 @@ debpkg: debpkg-clean
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
 	@strip ${PKG_PATH}/amd-metrics-exporter
 	@cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${PKG_PATH}/
 	@cd ${TOP_DIR}
 	@sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
 	@dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
@@ -247,6 +250,7 @@ debpkg-sriov: debpkg-sriov-clean
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_SRIOV_PATH}/amd-metrics-exporter-sriov
 	@strip ${PKG_SRIOV_PATH}/amd-metrics-exporter-sriov
 	@cp -vf $(CURDIR)/bin/metricsclient ${PKG_SRIOV_PATH}/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${PKG_SRIOV_PATH}/
 	@cd ${TOP_DIR}
 	@sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_SRIOV_CONTROL)
 	@dpkg-deb -Zxz --build debian-sriov ${TOP_DIR}/bin
