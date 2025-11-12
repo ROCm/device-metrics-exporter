@@ -18,6 +18,7 @@ package nicagent
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"time"
 )
@@ -31,11 +32,25 @@ func ExecWithContext(cmd string) ([]byte, error) {
 	return command.Output()
 }
 
-// ExecWithContextTimeout executes a command with a specified context timeout
+// ExecWithContextTimeout executes a command with a specified context timeout.
+// It specifically checks if the command timed out.
 func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	command := exec.CommandContext(ctx, "/bin/bash", "-c", cmd)
-	return command.Output()
+	output, err := command.Output()
+	if err != nil {
+		// if the context was cancelled due to the timeout, the error will contain
+		// the DeadlineExceeded message.
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("command timed out after %s: %w", timeout, ctx.Err())
+		}
+
+		// other non-timeout execution errors (e.g., command not found, non-zero exit code)
+		return nil, err
+	}
+
+	// successful execution
+	return output, nil
 }

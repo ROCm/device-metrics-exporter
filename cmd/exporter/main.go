@@ -104,6 +104,7 @@ func main() {
 	logger.SetLogFilePath(*logFilePath)
 	logger.Init(utils.IsKubernetes())
 
+	logger.Log.Printf("CPUs: %d, GOMAXPROCS: %d, Goroutines: %d\n", runtime.NumCPU(), runtime.GOMAXPROCS(0), runtime.NumGoroutine())
 	logger.Log.Printf("Version : %v", Version)
 	logger.Log.Printf("BuildDate: %v", BuildDate)
 	logger.Log.Printf("GitCommit: %v", GitCommit)
