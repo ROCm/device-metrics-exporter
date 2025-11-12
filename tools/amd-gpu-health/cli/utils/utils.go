@@ -663,7 +663,7 @@ func IsAFIDPresentInCPER(cper *amdgpu.CPEREntry, id uint64) bool {
 	return false
 }
 
-func GetEndpointURLDebian() (string, error) {
+func GetEndpointURLLocalhost() (string, error) {
 	data, err := os.ReadFile(globals.AMDMetricsFile)
 	if err != nil {
 		logger.Log.Printf("unable to read config file. error:%v", err)
@@ -683,8 +683,8 @@ func GetEndpointURLDebian() (string, error) {
 	return fmt.Sprintf("http://localhost:%s", strings.TrimSpace(fmt.Sprintf("%+v", serverPort))), nil
 }
 
-func GetMetricsEndpointURLDebian() (string, error) {
-	ep, err := GetEndpointURLDebian()
+func GetMetricsEndpointURLLocalhost() (string, error) {
+	ep, err := GetEndpointURLLocalhost()
 	if err != nil {
 		logger.Log.Printf("unable to get endpoint url. error:%v", err)
 		return "", err
@@ -692,8 +692,8 @@ func GetMetricsEndpointURLDebian() (string, error) {
 	return fmt.Sprintf("%s%s", ep, globals.AMDGPUHandlerPrefix), nil
 }
 
-func GetInbandRASErrorsEndpointURLDebian() (string, error) {
-	ep, err := GetEndpointURLDebian()
+func GetInbandRASErrorsEndpointURLLocalhost() (string, error) {
+	ep, err := GetEndpointURLLocalhost()
 	if err != nil {
 		logger.Log.Printf("unable to get endpoint url. error:%v", err)
 		return "", err

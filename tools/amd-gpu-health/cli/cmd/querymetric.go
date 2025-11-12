@@ -98,14 +98,14 @@ func (e *EnvProvider) Initialize(cmd *cobra.Command) error {
 
 func (e *EnvProvider) GetMetricsEndpointURL() (string, error) {
 	if exputils.IsDebianInstall() {
-		return utils.GetMetricsEndpointURLDebian()
+		return utils.GetMetricsEndpointURLLocalhost()
 	}
 	return utils.GetGPUMetricsEndpointURL(e.configPath, e.nodeName, e.isTLS)
 }
 
 func (e *EnvProvider) GetInbandRASErrorsEndpointURL() (string, error) {
 	if exputils.IsDebianInstall() {
-		return utils.GetInbandRASErrorsEndpointURLDebian()
+		return utils.GetInbandRASErrorsEndpointURLLocalhost()
 	}
 	return utils.GetGPUInbandRASErrorsURL(e.configPath, e.nodeName, e.isTLS)
 }
