@@ -56,4 +56,7 @@ Device Metrics Exporter provides extensive GPU metrics including:
   - Link speed
   - Error counts
 
-For a full list of available metrics see [this page](./configuration/metricslist.md).
+For a full list of available metrics:
+- [GPU Metrics](./configuration/metricslist.md)
+- [AINIC Metrics](./configuration/network-metricslist.md)
+- [IFOE Metrics](./configuration/ifoe-metricslist.md)
