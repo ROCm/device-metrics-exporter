@@ -31,9 +31,9 @@ Replace the filename with the specific Ubuntu version you are targeting (for exa
 sudo apt install ./amdnic-exporter_<ubuntu-version>_amd64.deb
 ```
 
-`apt` will automatically handle dependencies.
+Using `apt` ensures the `ethtool` and `iproute2` dependencies are pulled in automatically. If you prefer to use `dpkg`, run `sudo dpkg -i ./amdnic-exporter_<ubuntu-version>_amd64.deb` followed by `sudo apt install -f` to resolve dependencies.
 
-## Enable and Start the Service
+### Enable and Start the Service
 
 ```bash
 sudo systemctl daemon-reload
@@ -52,13 +52,57 @@ Check logs if you need to troubleshoot startup:
 journalctl -u amd-nic-metrics-exporter.service -f
 ```
 
-## Validate Metrics Collection
+### Validate Metrics Collection
 
 - Scrape the metrics endpoint locally:
 
   ```bash
   curl http://127.0.0.1:5001/metrics | head
   ```
+
+## Metrics Exporter Default Settings
+
+- **Metrics endpoint:** ``http://localhost:5001/metrics``
+- **Configuration file:** ``/etc/metrics/config-nic.json``
+- **Log file:** ``/var/log/amd-nic-metrics-exporter.log``
+- **Server port:** ``5001``
+
+The Exporter HTTP port is configurable via the ServerPort field in the configuration file.
+
+## Metrics Exporter Custom Configuration
+
+### Update the configuration
+
+Edit the NIC configuration file to adjust scrape settings (for example, to change the port or enable additional metrics):
+
+```bash
+sudo vi /etc/metrics/config-nic.json
+```
+
+The exporter watches this file and automatically reloads the new settings when it changes. For reference, see [example/config-nic.json](./../../example/config-nic.json).
+
+### Change the log file path
+
+1. Open the systemd unit:
+
+```bash
+sudo vi /usr/lib/systemd/system/amd-nic-metrics-exporter.service
+```
+
+2. Update the `--log-file-path` flag on the `ExecStart` line.
+
+```bash
+ExecStart=/usr/local/bin/amd-nic-metrics-exporter --monitor-nic=true --monitor-gpu=false \
+    --amd-metrics-config=/etc/metrics/config-nic.json \
+    --log-file-path=/var/log/amd-nic-metrics-exporter.log
+```
+
+3. Reload systemd and restart the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart amd-nic-metrics-exporter.service
+```
 
 ## Uninstall the Package
 
