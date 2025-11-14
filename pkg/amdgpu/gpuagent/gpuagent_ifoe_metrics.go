@@ -419,8 +419,8 @@ func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
 		switch ckey {
 		case exportermetrics.IFOEMetricLabel_IFOE_UUID.String():
 			if ualPort != nil {
-				// ifoeUUID := utils.UUIDToString(ualPort.Spec.Id)
-				labels[key] = "ifoe_uuid_placeholder"
+				ifoeUUID := utils.UUIDToString(ualPort.Spec.Id)
+				labels[key] = ifoeUUID
 			}
 		case exportermetrics.MetricLabel_CARD_SERIES.String():
 			if ualPort != nil {
