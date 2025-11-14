@@ -21,6 +21,28 @@
 - **New Field**
   - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
+  - Violation Metrics 1.8 version fields
+    - Current percentag and Per Compute Core violation metrics available for
+      - `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE`
+
+  - Clock Metrics Added `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK`
+
+ - **Label Value Change**
+   - Clock type was not normalized in previous releases, now clock type label values
+     are normalized without prefixes of `GPU_CLOCK_TYPE_`. More details can be found
+     [here](./configuration/metricslist.md#clock-metrics)
 
 ### Platform Support
 ROCm 7.0 MI2xx, MI3xx
