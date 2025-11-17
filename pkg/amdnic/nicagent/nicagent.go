@@ -387,18 +387,22 @@ func (na *NICAgentClient) getMetricsAll() error {
 	var wg sync.WaitGroup
 	na.initLocalCacheIfRequired()
 
-	workloads, err := na.ListWorkloads()
-	if err != nil {
-		logger.Log.Printf("failed to list workloads, err: %v", err)
-	}
-	for i := range workloads {
-		podInfo := workloads[i].Info.(scheduler.PodResourceInfo)
-		if err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace); err != nil {
-			logger.Log.Printf("failure in pod2pid update for pod %s ns %s: %v",
-				podInfo.Pod, podInfo.Namespace, err)
+	workloads := make(map[string]scheduler.Workload)
+	var err error
+	if na.isKubernetes {
+		workloads, err = na.ListWorkloads()
+		if err != nil {
+			logger.Log.Printf("failed to list workloads, err: %v", err)
 		}
+		for i := range workloads {
+			podInfo := workloads[i].Info.(scheduler.PodResourceInfo)
+			if err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace); err != nil {
+				logger.Log.Printf("failure in pod2pid update for pod %s ns %s: %v",
+					podInfo.Pod, podInfo.Namespace, err)
+			}
+		}
+		k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
 	}
-	k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
 
 	labels := na.populateLabelsFromNIC("")
 	na.m.nicNodesTotal.With(labels).Set(float64(len(na.nics)))
