@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	// AMD Vendor ID
+	AMDVendorID = "0x1dd8"
 	// Port name label for port metrics
 	LabelPortName = "port_name"
 	// Port ID label for port metrics
