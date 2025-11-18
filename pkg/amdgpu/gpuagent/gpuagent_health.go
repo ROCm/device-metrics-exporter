@@ -161,6 +161,7 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 
 	var gpumetrics *amdgpu.GPUGetResponse
 	var evtData *amdgpu.EventResponse
+	var gpuCper *amdgpu.GPUCPERGetResponse
 	var newGPUState map[string]*metricssvc.GPUState
 
 	errOccured := false
@@ -182,6 +183,25 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 			}
 		}
 	}
+    cperErrCheck := func(c *amdgpu.GPUCPEREntry) {
+		uuid, _ := uuid.FromBytes(c.GPU)
+		gpuuid := uuid.String()
+		for _, record := range c.CPEREntry {
+			ts := record.GetTimestamp()
+			logger.Log.Printf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
+				gpuuid, ts, record.RecordId, record.Severity.String(), record.Revision, record.CreatorId)
+			logger.Log.Printf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
+			if record.Severity == amdgpu.CPERSeverity_CPER_SEVERITY_FATAL {
+				if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
+					newGPUState[gpuid].Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+					logger.Log.Printf("gpuid[%v] is set to unhealthy for cper[%+v]", gpuid, c)
+				} else {
+					logger.Log.Printf("ignoring invalid gpuid[%v] is set to unhealthy for cper[%+v]", gpuuid, c)
+				}
+			}
+		}
+	}
+
 
 	gpumetrics, _, err = ga.getGPUs()
 	if err != nil || (gpumetrics != nil && gpumetrics.ApiStatus != 0) {

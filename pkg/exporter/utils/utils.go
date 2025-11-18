@@ -48,6 +48,10 @@ func GetNodeName() string {
 	return ""
 }
 
+func IsSimEnabled() bool {
+	return os.Getenv("SIMENABLED") == "1"
+}
+
 func IsDebianInstall() bool {
 	serviceFiles := []string{ServiceFile, SriovServiceFile, NICServiceFile}
 	for _, file := range serviceFiles {
