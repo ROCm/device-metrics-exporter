@@ -461,7 +461,11 @@ helm-lint:
 	@echo "Project Version is $(PROJECT_VERSION)"
 	@echo "RELEASE tag is $(RELEASE)"
 	#copy default config
-	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > $(HELM_CHARTS_DIR)/config.json
+ifeq ($(NIC_BUILD),1)
+	jq 'del(.ServerPort, .NICConfig.ExtraPodLabels)' $(CONFIG_DIR)/config-nic.json > $(HELM_CHARTS_DIR)/config.json
+else
+	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config-gpu.json > $(HELM_CHARTS_DIR)/config.json
+endif
 	cd $(HELM_CHARTS_DIR); helm lint
 
 # cicd target to build helm chart - requires PROJECT_VERSION, EXPORTER_IMAGE_TAG to be set

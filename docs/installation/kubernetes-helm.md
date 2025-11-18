@@ -22,6 +22,10 @@ nodeSelector: {} # Optional: Add custom nodeSelector
 tolerations: []  # Optional: Add custom tolerations
 kubelet:
   podResourceAPISocketPath: /var/lib/kubelet/pod-resources
+monitor:
+  resources:
+    gpu: true      # Monitor GPU resources (enable for GPU nodes)
+    nic: false     # Monitor NIC resources (enable for network metrics)
 image:
   repository: docker.io/rocm/device-metrics-exporter
   tag: v1.5.0
