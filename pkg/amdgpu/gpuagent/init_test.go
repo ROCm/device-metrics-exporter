@@ -23,6 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"gotest.tools/assert"
+
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
@@ -30,10 +35,6 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
-	"github.com/google/uuid"
-	"go.uber.org/mock/gomock"
-	"google.golang.org/protobuf/types/known/timestamppb"
-	"gotest.tools/assert"
 )
 
 var (
@@ -42,6 +43,7 @@ var (
 	eventMockCl      *mock_gen.MockEventSvcClient
 	slurmSchedMockCl *mock_gen.MockSchedulerClient
 	k8sSchedMockCl   *mock_gen.MockSchedulerClient
+	ualMockCl        *mock_gen.MockUALSvcClient
 	mh               *metricsutil.MetricsHandler
 	mConfig          *config.ConfigHandler
 )
@@ -60,11 +62,16 @@ func setupTest(t *testing.T) func(t *testing.T) {
 
 	mockCtl = gomock.NewController(t)
 
+	// gpuagent mocks
 	gpuMockCl = mock_gen.NewMockGPUSvcClient(mockCtl)
 	eventMockCl = mock_gen.NewMockEventSvcClient(mockCtl)
+	ualMockCl = mock_gen.NewMockUALSvcClient(mockCtl)
+
+	// scheduler mocks
 	slurmSchedMockCl = mock_gen.NewMockSchedulerClient(mockCtl)
 	k8sSchedMockCl = mock_gen.NewMockSchedulerClient(mockCtl)
 
+	// setup gpu mock responses
 	gpumock_resp := &amdgpu.GPUGetResponse{
 		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
 		Response: []*amdgpu.GPU{
@@ -131,9 +138,64 @@ func setupTest(t *testing.T) func(t *testing.T) {
 		},
 	}
 
+	portuuid := uuid.New().String()
+	stationuuid := uuid.New().String()
+	deviceuuid := uuid.New().String()
+	// setup ifoe mock responses
+	ifoe_mockresp := &amdgpu.UALNetworkPortGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALNetworkPort{
+			{
+				Spec: &amdgpu.UALNetworkPortSpec{
+					Id:         []byte(portuuid),
+					UALStation: []byte(stationuuid),
+				},
+				Status: &amdgpu.UALNetworkPortStatus{
+					Name:           "ual-port-1",
+					LogicalIndex:   32,
+					LocalPortIndex: 1,
+					OperState:      amdgpu.UALPortState_UAL_PORT_STATE_ENABLED,
+				},
+				Stats: &amdgpu.UALNetworkPortStats{
+					NumFailedoverStreams: 5,
+					NumPausedStreams:     2,
+				},
+			},
+		},
+	}
+
+	ifoe_mockstationresp := &amdgpu.UALStationGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALStation{
+			{
+				Spec: &amdgpu.UALStationSpec{
+					Id:        []byte(stationuuid),
+					UALDevice: []byte(deviceuuid),
+				},
+				Status: &amdgpu.UALStationStatus{
+					Name: "ual-station-1",
+				},
+			},
+		},
+	}
+
+	ifoe_mockdeviceresp := &amdgpu.UALDeviceGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.UALDevice{
+			{
+				Spec: &amdgpu.UALDeviceSpec{
+					Id: []byte(deviceuuid),
+				},
+			},
+		},
+	}
+
 	gpuMockCl.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(gpumock_resp, nil).AnyTimes()
 	gpuMockCl.EXPECT().GPUCPERGet(gomock.Any(), gomock.Any()).Return(cper_mockresp, nil).AnyTimes()
 	eventMockCl.EXPECT().EventGet(gomock.Any(), gomock.Any()).Return(event_mockcriticalresp, nil).AnyTimes()
+	ualMockCl.EXPECT().UALNetworkPortGet(gomock.Any(), gomock.Any()).Return(ifoe_mockresp, nil).AnyTimes()
+	ualMockCl.EXPECT().UALStationGet(gomock.Any(), gomock.Any()).Return(ifoe_mockstationresp, nil).AnyTimes()
+	ualMockCl.EXPECT().UALDeviceGet(gomock.Any(), gomock.Any()).Return(ifoe_mockdeviceresp, nil).AnyTimes()
 
 	mConfig = config.NewConfigHandler("config.json", globals.GPUAgentPort)
 
@@ -207,10 +269,77 @@ func getNewAgent(t *testing.T) *GPUAgentClient {
 		WithK8sClient(nil),
 		WithZmq(true),
 		WithK8sSchedulerClient(nil),
+		WithGPUMonitoring(true),
 	)
-	ga.initializeContext()
-	ga.gpuclient = gpuMockCl
-	ga.evtclient = eventMockCl
+
+	ga.Init()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuMockCl
+	gpuclient.evtclient = eventMockCl
+
 	ga.isKubernetes = false
+
+	return ga
+}
+
+func getNewAgentWithoutScheduler(t *testing.T) *GPUAgentClient {
+	// setup zmq mock port
+	ga := NewAgent(
+		mh,
+		WithK8sClient(nil),
+		WithZmq(false),
+		WithK8sSchedulerClient(nil),
+		WithSlurmClient(false),
+		WithGPUMonitoring(true),
+	)
+
+	ga.Init()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuMockCl
+	gpuclient.evtclient = eventMockCl
+
+	ga.isKubernetes = false
+	return ga
+}
+
+func getNewAgentWithOnlyIFOE(t *testing.T) *GPUAgentClient {
+	// setup zmq mock port
+	ga := NewAgent(
+		mh,
+		WithK8sClient(nil),
+		WithZmq(false),
+		WithK8sSchedulerClient(nil),
+		WithSlurmClient(false),
+		WithGPUMonitoring(false),
+		WithIFOEMonitoring(true),
+	)
+
+	ga.Init()
+
+	ga.isKubernetes = false
+
+	var ualClient *GPUAgentIFOEClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.IFOEDevice {
+			ualClient = client.(*GPUAgentIFOEClient)
+			break
+		}
+	}
+	ualClient.ualClient = ualMockCl
+
 	return ga
 }

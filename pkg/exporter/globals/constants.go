@@ -79,13 +79,17 @@ const (
 	// Kube RBAC Proxy port name
 	KubeRBACProxyPortName = "exporter-port"
 
-	// MetricsEndpointURLCachePath - path to the cache file that stores metrics endpoint URL in NPD
-	MetricsEndpointURLCachePath = "/tmp/gpu_metrics_endpoint_cache.txt"
+	// ExporterEndpointURLCachePath - path to the cache file that stores metrics endpoint URL in NPD
+	ExporterEndpointURLCachePath = "/tmp/exporter_endpoint_cache.txt"
+
+	// AMDGPUInbandRASHandlerPrefix - endpoint to get inband RAS errors in JSON format
+	AMDGPUInbandRASHandlerPrefix = "/inbandraserrors"
 )
 
 type DeviceType string
 
 const (
-	GPUDevice DeviceType = "GPU"
-	NICDevice DeviceType = "NIC"
+	GPUDevice  DeviceType = "GPU"
+	NICDevice  DeviceType = "NIC"
+	IFOEDevice DeviceType = "IFOE"
 )

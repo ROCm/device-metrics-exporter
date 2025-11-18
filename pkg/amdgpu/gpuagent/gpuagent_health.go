@@ -21,17 +21,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
+
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
-	"github.com/gofrs/uuid"
 )
 
-func (ga *GPUAgentClient) getHealthThreshholds() *exportermetrics.GPUHealthThresholds {
-	rConfig := ga.mh.GetRunConfig()
+func (ga *GPUAgentGPUClient) getHealthThreshholds() *exportermetrics.GPUHealthThresholds {
+	rConfig := ga.gpuHandler.mh.GetRunConfig()
 	// config is never nil as the handler preserves default config
 	if rConfig != nil && rConfig.GetConfig() != nil {
 		gpuConfig := rConfig.GetConfig()
@@ -44,7 +45,7 @@ func (ga *GPUAgentClient) getHealthThreshholds() *exportermetrics.GPUHealthThres
 }
 
 // returns list of
-func (ga *GPUAgentClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[string]scheduler.Workload) map[string]*metricssvc.GPUState {
+func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[string]scheduler.Workload) map[string]*metricssvc.GPUState {
 
 	gpuHealthMap := make(map[string]*metricssvc.GPUState)
 	metricErrCheck := func(gpuid string, fieldName string, threshold uint32, count float64) {
@@ -113,7 +114,7 @@ func (ga *GPUAgentClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[str
 // to make all gpu unavailable through
 // device plugin - populate the old pcie bus entries with updated workload
 // list
-func (ga *GPUAgentClient) setUnhealthyGPU(wls map[string]scheduler.Workload) error {
+func (ga *GPUAgentGPUClient) setUnhealthyGPU(wls map[string]scheduler.Workload) error {
 	// valid only for k8s case
 	ga.Lock()
 	defer ga.Unlock()
@@ -132,7 +133,7 @@ func (ga *GPUAgentClient) setUnhealthyGPU(wls map[string]scheduler.Workload) err
 	return nil
 }
 
-func (ga *GPUAgentClient) updateNewHealthState(newGPUState map[string]*metricssvc.GPUState) error {
+func (ga *GPUAgentGPUClient) updateNewHealthState(newGPUState map[string]*metricssvc.GPUState) error {
 	ga.Lock()
 	defer ga.Unlock()
 	ga.healthState = make(map[string]*metricssvc.GPUState)
@@ -142,14 +143,14 @@ func (ga *GPUAgentClient) updateNewHealthState(newGPUState map[string]*metricssv
 	return nil
 }
 
-func (ga *GPUAgentClient) processHealthValidation() error {
-	wls, err := ga.ListWorkloads()
+func (ga *GPUAgentGPUClient) processHealthValidation() error {
+	wls, err := ga.gpuHandler.ListWorkloads()
 	if err != nil {
 		logger.Log.Printf("Error listing workloads: %v", err)
 	}
 
 	ga.Lock()
-	if !ga.computeNodeHealthState { // unhealthy
+	if !ga.gpuHandler.computeNodeHealthState { // unhealthy
 		ga.Unlock()
 		_ = ga.setUnhealthyGPU(wls)
 		err := fmt.Errorf("compute node unhealthy, cannot process metrics")
@@ -160,6 +161,7 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 
 	var gpumetrics *amdgpu.GPUGetResponse
 	var evtData *amdgpu.EventResponse
+	var gpuCper *amdgpu.GPUCPERGetResponse
 	var newGPUState map[string]*metricssvc.GPUState
 
 	errOccured := false
@@ -181,6 +183,25 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 			}
 		}
 	}
+    cperErrCheck := func(c *amdgpu.GPUCPEREntry) {
+		uuid, _ := uuid.FromBytes(c.GPU)
+		gpuuid := uuid.String()
+		for _, record := range c.CPEREntry {
+			ts := record.GetTimestamp()
+			logger.Log.Printf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
+				gpuuid, ts, record.RecordId, record.Severity.String(), record.Revision, record.CreatorId)
+			logger.Log.Printf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
+			if record.Severity == amdgpu.CPERSeverity_CPER_SEVERITY_FATAL {
+				if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
+					newGPUState[gpuid].Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+					logger.Log.Printf("gpuid[%v] is set to unhealthy for cper[%+v]", gpuid, c)
+				} else {
+					logger.Log.Printf("ignoring invalid gpuid[%v] is set to unhealthy for cper[%+v]", gpuuid, c)
+				}
+			}
+		}
+	}
+
 
 	gpumetrics, _, err = ga.getGPUs()
 	if err != nil || (gpumetrics != nil && gpumetrics.ApiStatus != 0) {
@@ -202,8 +223,8 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 		gpuUUIDMap[gpuuid] = gpuid
 	}
 
-	// for gim driver we disable events for now
-	if !ga.enableSriov {
+	// disable events for gpus with sriov or sim enabled
+	if !(ga.gpuHandler.enableSriov || utils.IsSimEnabled()) {
 		evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
 		if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
 			errOccured = true
@@ -212,6 +233,16 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 			// business logic for health detection
 			for _, evt := range evtData.Event {
 				eventErrCheck(evt)
+			}
+		}
+		gpuCper, err = ga.getGPUCPER("CPER_SEVERITY_FATAL")
+		if err != nil || (gpuCper != nil && gpuCper.ApiStatus != 0) {
+			// ignore cper errors log only
+			logger.Log.Printf("gpuagent get cper failed %v", err)
+		} else {
+			// business logic for health detection
+			for _, cper := range gpuCper.CPER {
+				cperErrCheck(cper)
 			}
 		}
 	}
@@ -228,7 +259,7 @@ ret:
 	return ga.updateNewHealthState(newGPUState)
 }
 
-func (ga *GPUAgentClient) SetError(gpuid string, fields []string, values []uint32) error {
+func (ga *GPUAgentGPUClient) SetError(gpuid string, fields []string, values []uint32) error {
 	ga.Lock()
 	defer ga.Unlock()
 	if ga.mockEccField == nil {
@@ -243,7 +274,7 @@ func (ga *GPUAgentClient) SetError(gpuid string, fields []string, values []uint3
 	return nil
 }
 
-func (ga *GPUAgentClient) getMockError(gpuid, field string) uint32 {
+func (ga *GPUAgentGPUClient) getMockError(gpuid, field string) uint32 {
 	ga.Lock()
 	defer ga.Unlock()
 	if _, ok := ga.mockEccField[gpuid]; !ok {
@@ -256,7 +287,7 @@ func (ga *GPUAgentClient) getMockError(gpuid, field string) uint32 {
 	return mv
 }
 
-func (ga *GPUAgentClient) GetGPUHealthStates() (map[string]interface{}, error) {
+func (ga *GPUAgentGPUClient) GetHealthStates() (map[string]interface{}, error) {
 	ga.Lock()
 	defer ga.Unlock()
 	if len(ga.healthState) == 0 {
@@ -271,17 +302,17 @@ func (ga *GPUAgentClient) GetGPUHealthStates() (map[string]interface{}, error) {
 }
 
 // SetComputeNodeHealthState sets the compute node health state
-func (ga *GPUAgentClient) SetComputeNodeHealthState(state bool) {
+func (ga *GPUAgentGPUClient) SetComputeNodeHealthState(state bool) {
 	ga.Lock()
 
 	// If the state is unchanged, no action is needed.
-	if ga.computeNodeHealthState == state {
+	if ga.gpuHandler.computeNodeHealthState == state {
 		ga.Unlock()
 		return
 	}
 
-	logger.Log.Printf("updating compute node health from: %v, to: %v", ga.computeNodeHealthState, state)
-	ga.computeNodeHealthState = state
+	logger.Log.Printf("updating compute node health from: %v, to: %v", ga.gpuHandler.computeNodeHealthState, state)
+	ga.gpuHandler.computeNodeHealthState = state
 	ga.Unlock()
 
 	if !state { // Mark GPUs as unavailable only if the state is unhealthy (false).
@@ -291,7 +322,7 @@ func (ga *GPUAgentClient) SetComputeNodeHealthState(state bool) {
 	}
 }
 
-func (ga *GPUAgentClient) updateAllGPUsHealthState(healthStr string) {
+func (ga *GPUAgentGPUClient) updateAllGPUsHealthState(healthStr string) {
 	// If health state is already set, mark all GPUs as unhealthy
 	if len(ga.healthState) > 0 {
 		logger.Log.Printf("GPUs are already fetched, setting health state")
@@ -303,7 +334,7 @@ func (ga *GPUAgentClient) updateAllGPUsHealthState(healthStr string) {
 
 	logger.Log.Printf("fetch GPUs and set health state")
 	// If health state is not set, fetch GPUs and mark them as unhealthy
-	wls, _ := ga.ListWorkloads()
+	wls, _ := ga.gpuHandler.ListWorkloads()
 	gpus, _, err := ga.getGPUs()
 	if err != nil || (gpus != nil && gpus.ApiStatus != 0) {
 		logger.Log.Printf("gpuagent get GPUs failed %v", err)

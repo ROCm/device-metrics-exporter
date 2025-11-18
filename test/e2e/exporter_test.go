@@ -44,7 +44,7 @@ var (
 )
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
-	for _, label := range gpuagent.GetGPUAgentMandatoryLabels() {
+	for _, label := range gpuagent.GetGPUMandatoryLabels() {
 		mandatoryLabels = append(mandatoryLabels, strings.ToLower(label))
 	}
 	log.Print("Testing basic http response after docker deployment")
@@ -773,37 +773,6 @@ func (s *E2ESuite) Test020ProfilerFailureHandling(c *C) {
 		return s.CheckExporterLogForString("rocpclient has been disabled after system failure")
 	}, 10*time.Second, 1*time.Second)
 
-}
-
-func (s *E2ESuite) Test021EnableGpuAfidErrorsField(c *C) {
-	log.Print("Testing enabling gpu_afid_errors field in config")
-
-	// Add "gpu_afid_errors" to the list of fields
-	fields := []string{
-		"gpu_afid_errors",
-	}
-	err := s.SetFields(fields)
-	assert.Nil(c, err)
-	time.Sleep(5 * time.Second) // Wait for config update to take effect
-
-	var response string
-	assert.Eventually(c, func() bool {
-		response, _ = s.getExporterResponse()
-		return response != ""
-	}, 5*time.Second, 1*time.Second)
-
-	allgpus, err := testutils.ParsePrometheusMetrics(response)
-	assert.Nil(c, err)
-
-	// Check that "gpu_afid_errors" is present for each GPU
-	for id, gpu := range allgpus {
-		entry, ok := gpu.Fields["gpu_afid_errors"]
-		assert.Equal(c, true, ok, fmt.Sprintf("gpu_afid_errors field not found for GPU[%v]", id))
-		_, ok = entry.Labels["severity"]
-		assert.Equal(c, true, ok, fmt.Sprintf("severity label not found for GPU[%v]", id))
-		_, ok = entry.Labels["afid_index"]
-		assert.Equal(c, true, ok, fmt.Sprintf("afid_index label not found for GPU[%v]", id))
-	}
 }
 
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {

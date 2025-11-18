@@ -29,6 +29,16 @@ option go_package="gen/amdgpu";
 // empty message
 message Empty {}
 
+// semantic version information
+message SemanticVersion {
+  // major version number
+  uint32 Major = 1;
+  // minor version number
+  uint32 Minor = 2;
+  // patch version number
+  uint32 Patch = 3;
+}
+
 // API return codes (more descriptive than protobuf enums)
 enum ApiStatus {
   API_STATUS_OK                      = 0;  // success
@@ -44,18 +54,37 @@ enum ApiStatus {
 
 // API error codes (set in cases where ApiStatus is not API_STATUS_OK
 enum ErrorCode {
-  ERR_CODE_NONE                                           = 0;
+  ERR_CODE_NONE                                             = 0;
 
   // GPU specific error codes
-  ERR_CODE_GPU_CLOCK_FREQ_RANGE_INVALID                   = 4096;
-  ERR_CODE_GPU_OVERDRIVE_OUT_OF_RANGE                     = 4097;
-  ERR_CODE_GPU_NUM_CLOCK_FREQ_RANGE_EXCEEDED              = 4098;
-  ERR_CODE_GPU_DUPLICATE_CLOCK_FREQ_RANGE                 = 4099;
-  ERR_CODE_GPU_CLOCK_TYPE_FREQ_RANGE_UPDATE_NOT_SUPPORTED = 4100;
+  ERR_CODE_GPU_CLOCK_FREQ_RANGE_INVALID                     = 4096;
+  ERR_CODE_GPU_OVERDRIVE_OUT_OF_RANGE                       = 4097;
+  ERR_CODE_GPU_NUM_CLOCK_FREQ_RANGE_EXCEEDED                = 4098;
+  ERR_CODE_GPU_DUPLICATE_CLOCK_FREQ_RANGE                   = 4099;
+  ERR_CODE_GPU_CLOCK_TYPE_FREQ_RANGE_UPDATE_NOT_SUPPORTED   = 4100;
+
+  // UAL device object specific error codes
+  ERR_CODE_UAL_DEVICE_INVALID_ACCELERATOR_CONFIG            = 4224;
+  ERR_CODE_UAL_DEVICE_ACCELERATOR_ID_UPDATE_PHASE_INVALID   = 4225;
+  ERR_CODE_UAL_DEVICE_CONFIG_PHASE_UPDATE_PHASE_INVALID     = 4226;
+  ERR_CODE_UAL_DEVICE_VIRT_MODE_UPDATE_PHASE_INVALID        = 4227;
+  ERR_CODE_UAL_DEVICE_ENCAP_TYPE_UPDATE_PHASE_INVALID       = 4228;
+  ERR_CODE_UAL_DEVICE_FAILOVER_MODE_UPDATE_PHASE_INVALID    = 4229;
+  ERR_CODE_UAL_DEVICE_ACCELERATOR_UPDATE_PHASE_INVALID      = 4230;
+  ERR_CODE_UAL_DEVICE_CRYPTO_MODE_UPDATE_PHASE_INVALID      = 4231;
+  ERR_CODE_UAL_DEVICE_CRYPTO_KEY_UPDATE_PHASE_INVALID       = 4232;
+
+  // UAL station object specific error codes
+  ERR_CODE_UAL_STATION_ADMIN_STATE_UPDATE_PHASE_INVALID     = 4352;
+
+  // UAL network port object specific error codes
+  ERR_CODE_UAL_NW_PORT_ADMIN_STATE_UPDATE_PHASE_INVALID     = 4480;
+  ERR_CODE_UAL_NW_PORT_MAC_ADDR_UPDATE_PHASE_INVALID        = 4481;
+  ERR_CODE_UAL_NW_PORT_ACCELERATOR_MAC_UPDATE_PHASE_INVALID = 4482;
 
   // smi layer object specific error codes
-  ERR_CODE_SMI_GPU_POWER_CAP_OUT_OF_RANGE                 = 65536;
+  ERR_CODE_SMI_GPU_POWER_CAP_OUT_OF_RANGE                   = 65536;
 
   // catch all error code
-  ERR_CODE_UNKNOWN                                        = 0x1FFFFFFF;
+  ERR_CODE_UNKNOWN                                          = 0x1FFFFFFF;
 }

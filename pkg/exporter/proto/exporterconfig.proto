@@ -179,6 +179,26 @@ enum GPUMetricField {
     // Last occured list of AFID errors in a single RAS event
     GPU_AFID_ERRORS              = 104;
 
+    // 1.8 violation metrics
+    GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE    = 105;
+    GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE              = 106;
+    GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE   = 107;
+    GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE       = 108;
+    GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE      = 109;
+    // partition level violation metrics per xcd
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED       = 110;
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED     = 111;
+    GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED              = 112;
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED        = 113;
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE         = 114;
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE       = 115;
+    GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE                = 116;
+    GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE         = 117;
+
+    // current GFX clock min and max
+    GPU_MAX_CLOCK                = 118;
+    GPU_MIN_CLOCK                = 119;
+
     // Profiler Metrics (reserving 801 to 1200)
     GPU_PROF_GRBM_GUI_ACTIVE                                 = 801;
     GPU_PROF_SQ_WAVES                                        = 802;
@@ -587,6 +607,51 @@ message NICHealthCheckConfig {
     bool InterfaceAdminDownAsUnhealthy  = 1;
 }
 
+enum IFOEMetricLabel {
+    // mandatory field 
+    IFOE_UUID                   = 0;
+}
+
+enum IFOEMetricField {
+    IFOE_TOTAL_DEVICES               = 0;
+    IFOE_TOTAL_STATIONS              = 1;
+    IFOE_TOTAL_PORTS                 = 2;
+    IFOE_NUMBER_FAILEDOVER_STREAMS   = 3;
+    IFOE_NUMBER_PAUSED_STREAMS       = 4;
+    IFOE_BIT_ERROR_RATE              = 5;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS0 = 6;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS1 = 7;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS2 = 8;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS3 = 9;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS4 = 10;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS5 = 11;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS6 = 12;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS7 = 13;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS8 = 14;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS9 = 15;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS10 = 16;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS11 = 17;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS12 = 18;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS13 = 19;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS14 = 20;
+    IFOE_FEC_CODEWORD_SYMBOL_ERRORS15 = 21;
+}
+
+message IFOEMetricConfig
+{
+    // list of all IFOEMetricField to be exported
+    repeated string Fields = 1;
+
+    // list of labels to be exported
+    repeated string Labels = 2;
+
+    // User Defined Custom Labels and values
+    map<string, string> CustomLabels = 3;
+
+    // Map of extra pod labels to be exported (prometheus metric name as Key, pod label as value)
+    map<string, string> ExtraPodLabels = 4;
+}
+
 message MetricConfig {
     // server config port
     uint32 ServerPort         = 1;
@@ -599,4 +664,7 @@ message MetricConfig {
 
     // NIC Metric config for export
     NICMetricConfig NICConfig = 4;
+
+    // IFOE Metric config for export
+    IFOEMetricConfig IFOEConfig = 5;
 }

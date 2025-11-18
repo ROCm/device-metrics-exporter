@@ -105,7 +105,7 @@ func getTLSConfig(authInfo AuthInfo) (*tls.Config, error) {
 	return tlsConf, nil
 }
 
-func QueryMetricsEndpoint(url string, authInfo AuthInfo) (data string, err error) {
+func QueryExporterEndpoint(url string, authInfo AuthInfo) (data string, err error) {
 	var resp *http.Response
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -579,17 +579,18 @@ func writeToCache(cacheFilePath string, cache UrlCache) error {
 	return nil
 }
 
-func InvalidateURLCache() {
-	os.Remove(globals.MetricsEndpointURLCachePath)
+func InvalidateExporterEndpointURLCache() {
+	os.Remove(globals.ExporterEndpointURLCachePath)
 }
 
 // GetGPUMetricsEndpointURL returns the URL for the GPU metrics endpoint.
 // We try to fetch metrics from cache first. If not found, we query K8s API server
-func GetGPUMetricsEndpointURL(configPath, nodeName string, isTLS bool) string {
-	cacheData, err := readFromCache(globals.MetricsEndpointURLCachePath)
+func GetGPUMetricsEndpointURL(configPath, nodeName string, isTLS bool) (string, error) {
+	cacheData, err := readFromCache(globals.ExporterEndpointURLCachePath)
 	if err == nil && cacheData.URL != "" {
-		logger.Log.Printf("returning cached metrics endpoint URL: %s", cacheData.URL)
-		return cacheData.URL
+		cachedURL := fmt.Sprintf("%s%s", cacheData.URL, globals.AMDGPUHandlerPrefix)
+		logger.Log.Printf("returning cached metrics endpoint URL: %s", cachedURL)
+		return cachedURL, nil
 	}
 	logger.Log.Printf("cache not found or stale. Querying K8s API server for metrics endpoint URL")
 	//cache not found, or the cache is stale. Query K8s API server for metrics endpoint URL
@@ -598,12 +599,104 @@ func GetGPUMetricsEndpointURL(configPath, nodeName string, isTLS bool) string {
 	k8sc, err := k8sclient.NewClient(ctx, configPath, nodeName)
 	if err != nil {
 		logger.Log.Printf("unable to instantiate k8s client. error:%v", err)
-		return ""
+		return "", fmt.Errorf("unable to instantiate k8s client")
 	}
-	metricsEndpoint := k8sc.GetGPUMetricsEndpointURL(nodeName, isTLS)
+	exporterEndpoint := k8sc.GetExporterEndpoint(nodeName, isTLS)
+	var metricsEndpoint string
 	// cache the metrics endpoint URL
-	if metricsEndpoint != "" {
-		_ = writeToCache(globals.MetricsEndpointURLCachePath, UrlCache{Timestamp: time.Now().UTC(), URL: metricsEndpoint})
+	if exporterEndpoint != "" {
+		metricsEndpoint = exporterEndpoint + globals.AMDGPUHandlerPrefix
+		_ = writeToCache(globals.ExporterEndpointURLCachePath, UrlCache{Timestamp: time.Now().UTC(), URL: exporterEndpoint})
 	}
-	return metricsEndpoint
+	return metricsEndpoint, nil
+}
+
+// GetGPUInbandRASErrorsURL returns the URL for the GPU inband RAS errors endpoint.
+// We try to fetch URL from cache first. If not found, we query K8s API server
+func GetGPUInbandRASErrorsURL(configPath, nodeName string, isTLS bool) (string, error) {
+	cacheData, err := readFromCache(globals.ExporterEndpointURLCachePath)
+	if err == nil && cacheData.URL != "" {
+		cachedURL := fmt.Sprintf("%s%s", cacheData.URL, globals.AMDGPUInbandRASHandlerPrefix)
+		logger.Log.Printf("returning cached inband RAS errors URL: %s", cachedURL)
+		return cachedURL, nil
+	}
+	logger.Log.Printf("cache not found or stale for inband-ras errors url. querying k8s api server.")
+	//cache not found, or the cache is stale. Query K8s API server for inband RAS errors URL
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	k8sc, err := k8sclient.NewClient(ctx, configPath, nodeName)
+	if err != nil {
+		logger.Log.Printf("unable to instantiate k8s client. error:%v", err)
+		return "", fmt.Errorf("unable to instantiate k8s client")
+	}
+	exporterEndpoint := k8sc.GetExporterEndpoint(nodeName, isTLS)
+	var inbandRASErrorsURL string
+	// cache the inband RAS errors URL
+	if exporterEndpoint != "" {
+		inbandRASErrorsURL = exporterEndpoint + globals.AMDGPUInbandRASHandlerPrefix
+		_ = writeToCache(globals.ExporterEndpointURLCachePath, UrlCache{Timestamp: time.Now().UTC(), URL: exporterEndpoint})
+	}
+	return inbandRASErrorsURL, nil
+}
+
+func ParseInbandRasErrorsResponse(response string) []*amdgpu.GPUCPEREntry {
+	var cperResponse amdgpu.GPUCPERGetResponse
+	err := json.Unmarshal([]byte(response), &cperResponse)
+	var res []*amdgpu.GPUCPEREntry
+	if err != nil {
+		logger.Log.Printf("unable to parse inband RAS errors response. error:%v", err)
+		return res
+	}
+	if cperResponse.ApiStatus != 0 {
+		logger.Log.Printf("inband ras errors response has non-zero api status: %d", cperResponse.ApiStatus)
+		return res
+	}
+	return cperResponse.CPER
+}
+
+func IsAFIDPresentInCPER(cper *amdgpu.CPEREntry, id uint64) bool {
+	for _, afid := range cper.AFId {
+		if afid == id {
+			return true
+		}
+	}
+	return false
+}
+
+func GetEndpointURLLocalhost() (string, error) {
+	data, err := os.ReadFile(globals.AMDMetricsFile)
+	if err != nil {
+		logger.Log.Printf("unable to read config file. error:%v", err)
+		return "", err
+	}
+	var config map[string]interface{}
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		logger.Log.Printf("unable to parse config file. error:%v", err)
+		return "", err
+	}
+	serverPort, ok := config["ServerPort"]
+	if !ok {
+		logger.Log.Printf("server port not found in config file")
+		return "", fmt.Errorf("server port not found in config file")
+	}
+	return fmt.Sprintf("http://localhost:%s", strings.TrimSpace(fmt.Sprintf("%+v", serverPort))), nil
+}
+
+func GetMetricsEndpointURLLocalhost() (string, error) {
+	ep, err := GetEndpointURLLocalhost()
+	if err != nil {
+		logger.Log.Printf("unable to get endpoint url. error:%v", err)
+		return "", err
+	}
+	return fmt.Sprintf("%s%s", ep, globals.AMDGPUHandlerPrefix), nil
+}
+
+func GetInbandRASErrorsEndpointURLLocalhost() (string, error) {
+	ep, err := GetEndpointURLLocalhost()
+	if err != nil {
+		logger.Log.Printf("unable to get endpoint url. error:%v", err)
+		return "", err
+	}
+	return fmt.Sprintf("%s%s", ep, globals.AMDGPUInbandRASHandlerPrefix), nil
 }

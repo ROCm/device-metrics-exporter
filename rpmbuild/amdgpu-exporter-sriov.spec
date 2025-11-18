@@ -68,6 +68,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/local/metrics/lib
 install -p %{SRC_DIR}/bin/amd-metrics-exporter-sriov $RPM_BUILD_ROOT%{DEST_BIN}/amd-metrics-exporter-sriov
 install -p %{SRC_DIR}/bin/gpuagent-sriov $RPM_BUILD_ROOT%{DEST_BIN}/gpuagent-sriov
 install -p %{SRC_DIR}/bin/metricsclient $RPM_BUILD_ROOT%{DEST_BIN}/metricsclient
+install -p %{SRC_DIR}/bin/amdgpuhealth $RPM_BUILD_ROOT%{DEST_BIN}/amdgpuhealth
 install -p %{SRC_DIR}/bin/gpuctl $RPM_BUILD_ROOT%{DEST_BIN}/gpuctl
 install -p %{SRC_DIR}/bin/metrics-exporter-ts.sh $RPM_BUILD_ROOT%{DEST_BIN}/metrics-exporter-ts.sh
 
@@ -99,6 +100,7 @@ install -p %{SRC_DIR}/lib/* $RPM_BUILD_ROOT%{DEST_LIB}/
 %attr(755, root, root) %{DEST_BIN}/amd-metrics-exporter-sriov
 %attr(755, root, root) %{DEST_BIN}/gpuagent-sriov
 %attr(755, root, root) %{DEST_BIN}/metricsclient
+%attr(755, root, root) %{DEST_BIN}/amdgpuhealth
 %attr(755, root, root) %{DEST_BIN}/gpuctl
 %attr(755, root, root) %{DEST_BIN}/metrics-exporter-ts.sh
 

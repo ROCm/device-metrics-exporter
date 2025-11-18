@@ -2,11 +2,6 @@
 
 ## v1.5.0
 
-- **Configurable Resource Limits**
-  - Exporter Pod resource limits can now be configured through the Helm chart
-  - Default limits are set if not specified in the Helm chart
-  - Debian systemd service file is now set with default resource limits
-
 - **Kubevirt**
   - Exporter now supports Kubevirt deployments
     - New exporter with SR-IOV support for hypervisor environments is now available
@@ -26,9 +21,50 @@
 - **New Field**
   - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
+  - Violation Metrics 1.8 version fields
+    - Current percentag and Per Compute Core violation metrics available for
+      - `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE`
+      - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE`
+
+  - Clock Metrics Added `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK`
+
+ - **Label Value Change**
+   - Clock type was not normalized in previous releases, now clock type label values
+     are normalized without prefixes of `GPU_CLOCK_TYPE_`. More details can be found
+     [here](./configuration/metricslist.md#clock-metrics)
 
 ### Platform Support
-ROCm 7.0.rc1 MI2xx, MI3xx
+ROCm 7.0 MI2xx, MI3xx
+
+## v1.4.1
+
+- **Configurable Resource Limits**
+  - Exporter Pod resource limits can now be configured through the Helm chart
+  - Default limits are set if not specified in the Helm chart
+  - Debian systemd service file is now set with default resource limits
+
+- **Profiler Failure Handling**
+  - **Profiler Failure Handling**
+    - Profiler is hardware sensitive for failures. To better handle potential system disruption from coredumps or profiler failures, the exporter will automatically disable profiler metrics to maintain critical exporter functionality and server stability:
+      - **Coredump**: Profiler will be disabled immediately upon detection
+      - **Non-crash errors**: If the profiler encounters 3 consecutive non-crash errors, it will be automatically disabled
+    - **Re-enabling**: Profiler can be re-enabled by restarting/deleting the exporter pod on that node/server
+
+- **_Note_** Profiler metrics are prefixed by `gpu_prof_` in [metrics list](./configuration/metricslist.md)
+
+### Platform Support
+ROCm 7.0 MI2xx, MI3xx
 
 ## v1.4.0
 
@@ -42,6 +78,16 @@ ROCm 7.0.rc1 MI2xx, MI3xx
 
 - **New Profiler Fields**
   - New fields are added for better understanding of the application
+
+- **Depricated Fields Notice**
+  - Following fields are depricated from 6.14.14 driver onwards
+    - GPU_MMA_ACTIVITY
+    - GPU_JPEG_ACTIVITY
+    - GPU_VCN_ACTIVITY
+
+  - These fields are replaced by following fields
+    - GPU_VCN_BUSY_INSTANTANEOUS
+    - GPU_JPEG_BUSY_INSTANTANEOUS
  
 ### Platform Support
 ROCm 7.0 MI2xx, MI3xx
@@ -49,21 +95,30 @@ ROCm 7.0 MI2xx, MI3xx
 
 ### Issues Fixed
 - fixed metric naming discrepancies between config field and exported field. The
-  following prometheues fields are updated:
-  - xgmi_neighbor_0_nop_tx -> gpu_xgmi_nbr_0_nop_tx
-  - xgmi_neighbor_1_nop_tx -> gpu_xgmi_nbr_1_nop_tx
-  - xgmi_neighbor_0_request_tx -> gpu_xgmi_nbr_0_req_tx
-  - xgmi_neighbor_0_response_tx -> gpu_xgmi_nbr_0_resp_tx
-  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_0_resp_tx
-  - xgmi_neighbor_1_response_tx -> gpu_xgmi_nbr_1_resp_tx
-  - xgmi_neighbor_0_beats_tx -> gpu_xgmi_nbr_0_beats_tx
-  - xgmi_neighbor_1_beats_tx -> gpu_xgmi_nbr_1_beats_tx
-  - xgmi_neighbor_0_tx_throughput -> gpu_xgmi_nbr_0_tx_thrput
-  - xgmi_neighbor_1_tx_throughput -> gpu_xgmi_nbr_1_tx_thrput
-  - xgmi_neighbor_2_tx_throughput -> gpu_xgmi_nbr_2_tx_thrput
-  - xgmi_neighbor_3_tx_throughput -> gpu_xgmi_nbr_3_tx_thrput
-  - xgmi_neighbor_4_tx_throughput -> gpu_xgmi_nbr_4_tx_thrput
-  - xgmi_neighbor_5_tx_throughput -> gpu_xgmi_nbr_5_tx_thrput
+  following prometheus fields name are being changed.
+- one config field is being renamed which would require updating the
+  config.json from the released branch for `pcie_nac_received_count` ->
+  `pcie_nack_received_count`
+
+  | S.No | Old Field Name                                  | New Field Name                                     |
+  |------|-------------------------------------------------|----------------------------------------------------|
+  | 1    | xgmi_neighbor_0_nop_tx                          | gpu_xgmi_nbr_0_nop_tx                              |
+  | 2    | xgmi_neighbor_1_nop_tx                          | gpu_xgmi_nbr_1_nop_tx                              |
+  | 3    | xgmi_neighbor_0_request_tx                      | gpu_xgmi_nbr_0_req_tx                              |
+  | 4    | xgmi_neighbor_0_response_tx                     | gpu_xgmi_nbr_0_resp_tx                             |
+  | 5    | xgmi_neighbor_1_response_tx                     | gpu_xgmi_nbr_1_resp_tx                             |
+  | 6    | xgmi_neighbor_0_beats_tx                        | gpu_xgmi_nbr_0_beats_tx                            |
+  | 7    | xgmi_neighbor_1_beats_tx                        | gpu_xgmi_nbr_1_beats_tx                            |
+  | 8    | xgmi_neighbor_0_tx_throughput                   | gpu_xgmi_nbr_0_tx_thrput                           |
+  | 9    | xgmi_neighbor_1_tx_throughput                   | gpu_xgmi_nbr_1_tx_thrput                           |
+  | 10   | xgmi_neighbor_2_tx_throughput                   | gpu_xgmi_nbr_2_tx_thrput                           |
+  | 11   | xgmi_neighbor_3_tx_throughput                   | gpu_xgmi_nbr_3_tx_thrput                           |
+  | 12   | xgmi_neighbor_4_tx_throughput                   | gpu_xgmi_nbr_4_tx_thrput                           |
+  | 13   | xgmi_neighbor_5_tx_throughput                   | gpu_xgmi_nbr_5_tx_thrput                           |
+  | 14   | gpu_violation_vr_thermal_tracking_accumulated   | gpu_violation_vr_thermal_residency_accumulated     |
+  | 15   | pcie_nac_received_count                         | pcie_nack_received_count                           |
+  | 16   | gpu_violation_proc_hot_residency_accumulated    | gpu_violation_processor_hot_residency_accumulated  |
+  | 17   | gpu_violation_soc_thermal_residency_accumulated | gpu_violation_socket_thermal_residency_accumulated |
 
 ## v1.3.1
 

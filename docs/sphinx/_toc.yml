@@ -15,6 +15,10 @@ subtrees:
     entries:
       - file: releasenotes
         title: Release Notes
+  - caption: Known Issues
+    entries:
+    - file: knownissues
+      title: Known Issues
   - caption: Configuration
     entries:
       - file: configuration/configuration-settings   
@@ -24,12 +28,13 @@ subtrees:
       - file: configuration/troubleshooting 
       - file: configuration/metricslist
       - file: configuration/network-metricslist
+      - file: configuration/ifoe-metricslist       
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana
     - file: integrations/slurm-integration  
     - file: integrations/prometheus-servicemonitor
-    - file: integrations/node-problem-detector
+    - file: integrations/node-health-monitoring
   - caption: Developer Guide
     entries:
     - file: developerguide

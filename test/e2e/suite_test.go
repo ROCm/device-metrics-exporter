@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"testing"
@@ -132,6 +133,45 @@ func (s *E2ESuite) SetCommonConfigHealth(enable bool) error {
 		HealthService: &exportermetrics.HealthServiceConfig{
 			Enable: enable,
 		},
+	}
+	return s.WriteConfig(config)
+}
+
+func (s *E2ESuite) CheckExporterLogForString(str string) bool {
+	// Copy the log file from container to local temp file
+	tempFile, err := os.CreateTemp("", "exporter-log-*.log")
+	if err != nil {
+		log.Printf("Failed to create temp file: %v", err)
+		return false
+	}
+	defer tempFile.Close()
+
+	copyCmd := fmt.Sprintf("docker cp test_exporter:/var/log/exporter.log %s", tempFile.Name())
+	s.tu.LocalCommandOutput(copyCmd)
+
+	// Read the log file and search for the string
+	logContent, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		log.Printf("Failed to read temp file: %v", err)
+		return false
+	}
+	logStr := string(logContent)
+	if logStr != "" && strings.Contains(logStr, str) {
+		log.Printf("String '%s' found in exporter log", str)
+		return true
+	}
+	log.Printf("String '%s' not found in exporter log", str)
+	log.Printf("Exporter log content: %s", logStr)
+	return false
+}
+
+func (s *E2ESuite) SetProfilerState(state bool) error {
+	config := s.ReadConfig()
+	if config.GetGPUConfig() == nil {
+		config.GPUConfig = &exportermetrics.GPUMetricConfig{}
+	}
+	config.GPUConfig.ProfilerMetrics = map[string]bool{
+		"all": state,
 	}
 	return s.WriteConfig(config)
 }

@@ -1,20 +1,18 @@
-//
-// Copyright(C) Advanced Micro Devices, Inc. All rights reserved.
-//
-// You may not use this software and documentation (if any) (collectively,
-// the "Materials") except in compliance with the terms and conditions of
-// the Software License Agreement included with the Materials or otherwise as
-// set forth in writing and signed by you and an authorized signatory of AMD.
-// If you do not have a copy of the Software License Agreement, contact your
-// AMD representative for a copy.
-//
-// You agree that you will not reverse engineer or decompile the Materials,
-// in whole or in part, except as allowed by applicable law.
-//
-// THE MATERIALS ARE DISTRIBUTED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR
-// REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
-//
-//----------------------------------------------------------------------------
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 ///
 /// \file
 /// GPU object protobuf APIs
@@ -41,6 +39,8 @@ service GPUSvc {
   rpc GPUMemoryPartitionSet(GPUMemoryPartitionSetRequest) returns (GPUMemoryPartitionSetResponse) {}
   // GPU memory partition get API
   rpc GPUMemoryPartitionGet(GPUMemoryPartitionGetRequest) returns (GPUMemoryPartitionGetResponse) {}
+  // GPU CPER get API
+  rpc GPUCPERGet (GPUCPERGetRequest) returns (GPUCPERGetResponse) {}
 
   // operational APIs or tasks
   // GPU reset API
@@ -369,67 +369,67 @@ message GPUBadPageGetResponse {
 // operational information of a physical GPU
 message GPUStatus {
   // assigned GPU index local to the compute node
-  uint32                        Index             = 1;
+  uint32                      Index              = 1;
   // GPU handle
-  uint64                        GPUHandle         = 2;
+  uint64                      GPUHandle          = 2;
   // serial number of the GPU
-  string                        SerialNum         = 3;
+  string                      SerialNum          = 3;
   // product series of the GPU
-  string                        CardSeries        = 4;
+  string                      CardSeries         = 4;
   // model of the GPU
-  string                        CardModel         = 5;
+  string                      CardModel          = 5;
   // GPU vendor
-  string                        CardVendor        = 6;
+  string                      CardVendor         = 6;
   // SKU of the GPU card
-  string                        CardSKU           = 7;
+  string                      CardSKU            = 7;
   // operational status of the device
-  GPUOperStatus                 OperStatus        = 8;
+  GPUOperStatus               OperStatus         = 8;
   // driver version
-  string                        DriverVersion     = 9;
+  string                      DriverVersion      = 9;
   // VBIOS part number
-  string                        VBIOSPartNumber   = 10;
+  string                      VBIOSPartNumber    = 10;
   // VBIOS version
-  string                        VBIOSVersion      = 11;
+  string                      VBIOSVersion       = 11;
   // firmware versions of various components
-  repeated GPUFirmwareVersion   FirmwareVersion   = 12;
+  repeated GPUFirmwareVersion FirmwareVersion    = 12;
   // memory component vendor
-  string                        MemoryVendor      = 13;
+  string                      MemoryVendor       = 13;
   // GPU clock status
-  repeated GPUClockStatus       ClockStatus       = 14;
+  repeated GPUClockStatus     ClockStatus        = 14;
   // Kernel Fusion Driver (KFD) process ids using the GPU
-  repeated uint32               KFDProcessId      = 15;
+  repeated uint32             KFDProcessId       = 15;
   // RAS (Reliability, Availability & Serviceability) information
-  GPURASStatus                  RASStatus         = 16;
+  GPURASStatus                RASStatus          = 16;
   // XGMI status
-  GPUXGMIStatus                 XGMIStatus        = 17;
+  GPUXGMIStatus               XGMIStatus         = 17;
   // VRAM status
-  GPUVRAMStatus                 VRAMStatus        = 18;
+  GPUVRAMStatus               VRAMStatus         = 18;
   // PCIe status
-  GPUPCIeStatus                 PCIeStatus        = 19;
+  GPUPCIeStatus               PCIeStatus         = 19;
   // throttling status
-  GPUThrottlingStatus           ThrottlingStatus  = 20;
+  GPUThrottlingStatus         ThrottlingStatus   = 20;
   // firmware timestamp in ns (10ns resolution)
-  uint64                        FWTimestamp       = 21;
+  uint64                      FWTimestamp        = 21;
   // GPU compute partition id; only valid when partition type is not SPX
-  uint32                        PartitionId       = 22;
+  uint32                      PartitionId        = 22;
   // GPU partitions (aka. child GPUs)
   // NOTE:
   // only valid for physical GPUs which have been partitioned
-  repeated bytes                GPUPartition      = 23;
+  repeated bytes              GPUPartition       = 23;
   // physical GPU (aka. parent GPU)
   // NOTE:
   // only valid for GPU partitions (child GPUs)
-  bytes                         PhysicalGPU       = 24;
+  bytes                       PhysicalGPU        = 24;
   // GPU KFD id
-  uint64                        KFDId             = 25;
+  uint64                      KFDId              = 25;
   // GPU node id
-  uint32                        NodeId            = 26;
+  uint32                      NodeId             = 26;
   // GPU device DRM render Id
-  uint32                        DRMRenderId       = 27;
+  uint32                      DRMRenderId        = 27;
   // GPU device DRM  card Id
-  uint32                        DRMCardId         = 28;
+  uint32                      DRMCardId          = 28;
   // GPU virtualization mode
-  GPUVirtualizationMode        VirtualizationMode = 29;
+  GPUVirtualizationMode       VirtualizationMode = 29;
 
 }
 
@@ -540,17 +540,43 @@ message GPUXGMILinkStats {
 // GPU violation stats
 message GPUViolationStats {
   // current acummulated counter
-  uint64 CurrentAccumulatedCounter         = 1;
+  uint64          CurrentAccumulatedCounter         = 1;
   // processor hot residency accumulated
-  uint64 ProcessorHotResidencyAccumulated  = 2;
+  uint64          ProcessorHotResidencyAccumulated  = 2;
   // Package Power Tracking (PPT) residency accumulated
-  uint64 PPTResidencyAccumulated           = 3;
+  uint64          PPTResidencyAccumulated           = 3;
   // socket thermal residency accumulated
-  uint64 SocketThermalResidencyAccumulated = 4;
+  uint64          SocketThermalResidencyAccumulated = 4;
   // Voltage Rail (VR) thermal residency accumulated
-  uint64 VRThermalResidencyAccumulated     = 5;
+  uint64          VRThermalResidencyAccumulated     = 5;
   // High Bandwidth Memory (HBM) thermal residency accumulated
-  uint64 HBMThermalResidencyAccumulated    = 6;
+  uint64          HBMThermalResidencyAccumulated    = 6;
+  // processor hot residency percentage
+  uint64          ProcessorHotResidencyPercentage   = 7;
+  // Package Power Tracking (PPT) residency percentage
+  uint64          PPTResidencyPercentage            = 8;
+  // socket thermal residency percentage
+  uint64          SocketThermalResidencyPercentage  = 9;
+  // Voltage Rail (VR) thermal residency percentage
+  uint64          VRThermalResidencyPercentage      = 10;
+  // High Bandwidth Memory (HBM) thermal residency percentage
+  uint64          HBMThermalResidencyPercentage     = 11;
+  // gfx clock below host limit power accumulated
+  repeated uint64 GFXBelowHostLimitPowerAccumulated = 12;
+  // gfx clock below host limit thermal accumulated
+  repeated uint64 GFXBelowHostLimitTHMAccumulated   = 13;
+  // gfx low utilization accumulated
+  repeated uint64 GFXLowUtilizationAccumulated      = 14;
+  // gfx clock below host limit total accumulated
+  repeated uint64 GFXBelowHostLimitTotalAccumulated = 15;
+  // gfx clock below host limit power percentage
+  repeated uint64 GFXBelowHostLimitPowerPercentage  = 16;
+  // gfx clock below host limit thermal percentage
+  repeated uint64 GFXBelowHostLimitTHMPercentage    = 17;
+  // gfx low utilization percentage
+  repeated uint64 GFXLowUtilizationPercentage       = 18;
+  // gfx below host limit total percentage
+  repeated uint64 GFXBelowHostLimitTotalPercentage  = 19;
 }
 
 // GPU statistics
@@ -715,10 +741,10 @@ message GPUGetRequest {
 message GPUGetResponse {
   // result of the API processing
   types.ApiStatus ApiStatus = 1;
-  // list of per GPU information
-  repeated GPU    Response  = 2;
   // specific error code, if any
-  types.ErrorCode ErrorCode = 3;
+  types.ErrorCode ErrorCode = 2;
+  // list of per GPU information
+  repeated GPU    Response  = 3;
 }
 
 // GPU update request message
@@ -854,4 +880,94 @@ message GPUMemoryPartitionGetResponse {
   types.ErrorCode             ErrorCode = 2;
   // list of per GPU information
   repeated GPUMemoryPartition Response  = 3;
+}
+
+// CPER error severity
+enum CPERSeverity {
+  // invalid severity
+  CPER_SEVERITY_NONE                  = 0;
+  // non-fatal uncorrected errors
+  CPER_SEVERITY_NON_FATAL_UNCORRECTED = 1;
+  // fatal errors
+  CPER_SEVERITY_FATAL                 = 2;
+  // non-fatal corrected errors
+  CPER_SEVERITY_NON_FATAL_CORRECTED   = 3;
+}
+
+// GPU CPER get request
+message GPUCPERGetRequest {
+  // list of GPU uuids
+  repeated bytes Id       = 1;
+  // severity of CPER entries to be retrieved
+  // CPER_SEVERITY_NONE implies all CPER records
+  CPERSeverity   Severity = 2;
+}
+
+// CPER notify type
+enum CPERNotificationType {
+  // invalid notification type
+  CPER_NOTIFICATION_TYPE_NONE          = 0;
+  // Corrected Memory Check (CMC)
+  CPER_NOTIFICATION_TYPE_CMC           = 1;
+  // Corrected Platform Error (CPE)
+  CPER_NOTIFICATION_TYPE_CPE           = 2;
+  // Machine Check Exception (MCE)
+  CPER_NOTIFICATION_TYPE_MCE           = 3;
+  // PCI express error
+  CPER_NOTIFICATION_TYPE_PCIE          = 4;
+  // initialization error
+  CPER_NOTIFICATION_TYPE_INIT          = 5;
+  // Non-Maskable Interrupt (NMI)
+  CPER_NOTIFICATION_TYPE_NMI           = 6;
+  // boot error
+  CPER_NOTIFICATION_TYPE_BOOT          = 7;
+  // Direct Memory Access Remapping (DMAR) error
+  CPER_NOTIFICATION_TYPE_DMAR          = 8;
+  // System Error Architecture (SEA)
+  CPER_NOTIFICATION_TYPE_SEA           = 9;
+  // System Error Interface (SEI)
+  CPER_NOTIFICATION_TYPE_SEI           = 10;
+  // Platform Error Interface (PEI)
+  CPER_NOTIFICATION_TYPE_PEI           = 11;
+  // Compute Express Link (CXL) component error
+  CPER_NOTIFICATION_TYPE_CXL_COMPONENT = 12;
+}
+
+// CPER entry information
+message CPEREntry {
+  // CPER entry identifier
+  string                RecordId         = 1;
+  // CPER error severity
+  CPERSeverity          Severity         = 2;
+  // CPER format revision
+  uint32                Revision         = 3;
+  // CPER error timestamp
+  string                Timestamp        = 4;
+  // CPER entry creator
+  string                CreatorId        = 5;
+  // CPER notify type
+  CPERNotificationType  NotificationType = 6;
+  // AMD field ids in CPER entry
+  // NOTE:
+  // https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List has
+  // more information about AMD field ids and their usage
+  repeated uint64       AFId             = 7;
+}
+
+// GPU CPER entry
+message GPUCPEREntry {
+  // GPU id
+  bytes              GPU       = 1;
+  // CPER entries
+  repeated CPEREntry CPEREntry = 2;
+}
+
+// GPU CPER get response
+message GPUCPERGetResponse {
+  // result of the API processing
+  types.ApiStatus       ApiStatus = 1;
+  // specific error code, if any
+  types.ErrorCode       ErrorCode = 2;
+  // GPU CPER entries
+  repeated GPUCPEREntry CPER      = 3;
 }

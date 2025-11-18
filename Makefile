@@ -106,7 +106,7 @@ AMDSMI_COMMIT ?= 37d158a
 GIMSMI_BRANCH ?= mainline
 GIMSMI_COMMIT ?= mainline/8.3.0.K
 GPUAGENT_BRANCH ?= main
-GPUAGENT_COMMIT ?= 4cd3409
+GPUAGENT_COMMIT ?= 6e5d3a5
 
 ROCM_VERSION ?= 7.0
 
@@ -185,7 +185,7 @@ export ${RPM_RELEASE_LABEL}
 update-version:
 	@echo "Replacing versions with $(PACKAGE_VERSION)..."
 	@echo "Helm URL : $(HELM_INSTALL_URL)"
-	sed -i -e 's|version = .*|version = ${PACKAGE_VERSION}|' docs/conf.py
+	sed -i -e 's|version = .*|version = "${PACKAGE_VERSION}"|' docs/conf.py
 	for file in docs/installation/kubernetes-helm.md \
 	    helm-charts/values.yaml; do \
 	    sed -i -e 's|tag:.*|tag: ${REL_IMAGE_TAG}|' $$file; \

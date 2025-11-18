@@ -2,7 +2,7 @@
 
 To use a custom configuration with the AMD Device Metrics Exporter container:
 
-1. Create a config file based on the provided example [config.json](https://raw.githubusercontent.com/ROCm/device-metrics-exporter/refs/heads/main/example/config.json)
+1. Create a config file based on the provided example [config.json](../../example/config.json)
 2. Save `config.json` in the `config/` folder
 3. Mount the `config/` folder when starting the container:
 
@@ -13,7 +13,7 @@ docker run -d \
   -p 5000:5000 \
   -v ./config:/etc/metrics \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.3.1
+  rocm/device-metrics-exporter:v1.5.0
 ```
 
 The exporter polls for configuration changes every minute, so updates take effect without container restarts.

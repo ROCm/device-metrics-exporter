@@ -127,7 +127,7 @@ func (s *E2ESuite) Test002MetricsServer(c *C) {
 func (s *E2ESuite) Test003LabelUpdate(c *C) {
 	ctx := context.Background()
 	log.Print("Test metrics server is updating labels")
-	mandatoryLabels := gpuagent.GetGPUAgentMandatoryLabels()
+	mandatoryLabels := gpuagent.GetGPUMandatoryLabels()
 	cmLabels := []string{"card_vendor", "driver_version"}
 	config := exporterConfig{
 		GPUConfig: &gpuconfig{

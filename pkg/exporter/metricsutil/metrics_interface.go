@@ -27,9 +27,6 @@ type MetricsInterface interface {
 	// ondemand query request for client to update current stat
 	UpdateMetricsStats() error
 
-	// metric lable for interal usage within client
-	GetExportLabels() []string
-
 	// metrics registration must be done in this
 	InitConfigs() error
 
@@ -41,6 +38,9 @@ type MetricsInterface interface {
 
 	// get device type - gpu or ainic
 	GetDeviceType() globals.DeviceType
+
+	// get inband-ras errors
+	QueryInbandRASErrors(severity string) (interface{}, error)
 }
 
 type MetricsClient interface {
