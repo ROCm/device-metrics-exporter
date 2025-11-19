@@ -2170,12 +2170,12 @@ func (na *NICAgentClient) getPCIeAddress(ethBDF string) (string, error) {
 
 func (na *NICAgentClient) printNICs() {
 	for nicID, nic := range na.nics {
-		fmt.Printf("NIC ID: %s, Product Name: %s, Serial Number: %s, BDF: %s\n", nicID, nic.ProductName, nic.SerialNumber, nic.EthBDF)
+		logger.Log.Printf("NIC ID: %s, Product Name: %s, Serial Number: %s, BDF: %s", nicID, nic.ProductName, nic.SerialNumber, nic.EthBDF)
 		for portID, port := range nic.Ports {
-			fmt.Printf("\tPort ID: %s, Name: %s, MAC Address: %s\n", portID, port.Name, port.MACAddress)
+			logger.Log.Printf("Port ID: %s, Name: %s, MAC Address: %s", portID, port.Name, port.MACAddress)
 		}
 		for lifID, lif := range nic.Lifs {
-			fmt.Printf("\tLIF ID: %s, Name: %s, PCIe Address: %s, IsPF: %v\n", lifID, lif.Name, lif.PCIeAddress, lif.IsPF)
+			logger.Log.Printf("LIF ID: %s, Name: %s, PCIe Address: %s, IsPF: %v", lifID, lif.Name, lif.PCIeAddress, lif.IsPF)
 		}
 	}
 }

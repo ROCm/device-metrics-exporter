@@ -55,10 +55,12 @@ func (rc *RDMAStatsClient) GetClientName() string {
 	return RDMAClientName
 }
 
-func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string, workloads map[string]scheduler.Workload) (map[string]string, error) {
-
+func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string,
+	workloads map[string]scheduler.Workload, hostNetDevices []NetDevice) (map[string]string, error) {
 	var podInfo scheduler.PodResourceInfo
 	var podInfoPtr *scheduler.PodResourceInfo
+	var netDevices []NetDevice
+	var err error
 
 	wl, exists := workloads[pcieAddr]
 	if exists {
@@ -66,10 +68,14 @@ func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string
 		podInfoPtr = &podInfo
 	}
 
-	netDevices, err := rc.na.getNetDevicesList(podInfoPtr)
-	if err != nil {
-		err = fmt.Errorf("failed to get netdevs in pod %s: %v", podInfo.Pod, err)
-		return map[string]string{}, err
+	if podInfoPtr == nil {
+		netDevices = hostNetDevices // use cached host net devices info
+	} else {
+		netDevices, err = rc.na.getNetDevicesList(podInfoPtr)
+		if err != nil {
+			err = fmt.Errorf("failed to get netdevs in pod %s: %v", podInfo.Pod, err)
+			return map[string]string{}, err
+		}
 	}
 
 	for i := range netDevices {
@@ -89,7 +95,8 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 	}
 	rc.Lock()
 	defer rc.Unlock()
-	res, err := exec.Command("rdma", "statistic", "-j").CombinedOutput()
+	cmd := "rdma statistic -j"
+	res, err := ExecWithContextTimeout(cmd, longCmdTimeout)
 	if err != nil {
 		logger.Log.Printf("RDMA cmd failure err :%v", err)
 		return err
@@ -101,14 +108,29 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 		return err
 	}
 
+	hostNetDevices, err := rc.na.getNetDevicesList(nil)
+	if err != nil {
+		logger.Log.Printf("failed to get host net devices: %v", err)
+		return err
+	}
+
 	for i := range rdmaStats {
 		rdmaDevName := rdmaStats[i].IFNAME
+		vendorID, err := getVendor(rdmaDevName)
+		if err != nil {
+			logger.Log.Printf("failed to get vendor ID for %s: %v", rdmaDevName, err)
+			continue
+		}
+		if vendorID != AMDVendorID {
+			continue
+		}
+
 		if err := rc.na.addRdmaDevPcieAddrIfAbsent(rdmaDevName); err != nil {
 			logger.Log.Printf("failed to get rdma stats for %s: %v", rdmaDevName, err)
 			continue
 		}
 		rdmaDevPcieAddr := rc.na.rdmaDevToPcieAddr[rdmaDevName]
-		labels, err := rc.populateRdmaDeviceLabels(rdmaDevName, rdmaDevPcieAddr, workloads)
+		labels, err := rc.populateRdmaDeviceLabels(rdmaDevName, rdmaDevPcieAddr, workloads, hostNetDevices)
 		if err != nil {
 			logger.Log.Printf("failed to get labels for %s: %v", rdmaDevName, err)
 			continue

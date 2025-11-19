@@ -19,12 +19,25 @@ package nicagent
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
 // ExecWithContext executes a command with a context timeout
 func ExecWithContext(cmd string) ([]byte, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		ms := float64(elapsed.Milliseconds()) // int64 → float64 for formatting
+		if ms > 100 {
+			logger.Log.Printf("ExecWithContext took %.2f ms for cmd: %s", ms, cmd)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -35,6 +48,13 @@ func ExecWithContext(cmd string) ([]byte, error) {
 // ExecWithContextTimeout executes a command with a specified context timeout.
 // It specifically checks if the command timed out.
 func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		if elapsed > 2*time.Second {
+			logger.Log.Printf("ExecWithContextTimeout took %.2f seconds for cmd: %s", elapsed.Seconds(), cmd)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -53,4 +73,14 @@ func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
 
 	// successful execution
 	return output, nil
+}
+
+// getVendor retrieves the vendor ID of the RDMA device.
+func getVendor(rdmaDev string) (string, error) {
+	devicePath := filepath.Join("/sys/class/infiniband", rdmaDev, "device")
+	data, err := os.ReadFile(filepath.Join(devicePath, "vendor"))
+	if err != nil {
+		return "", err
+	}
+	return strings.ToLower(strings.TrimSpace(string(data))), nil
 }
