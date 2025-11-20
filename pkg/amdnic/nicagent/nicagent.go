@@ -278,7 +278,7 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 	defer func() {
 		elapsed := time.Since(startTime)
 		ms := float64(elapsed.Milliseconds())
-		if ms > 100 {
+		if ms > 500 {
 			logger.Log.Printf("getNetDevicesList took %.2f ms for pod %v", ms, podInfo)
 		}
 	}()
@@ -439,7 +439,7 @@ func (na *NICAgentClient) getMetricsAll() error {
 					logger.Log.Printf("failed to update NIC stats, err: %v", err)
 				}
 			}
-			if time.Since(startTime) > 2*time.Second {
+			if time.Since(startTime) > 10*time.Second {
 				logger.Log.Printf("warning: %s UpdateNICStats took %.2f seconds", client.GetClientName(), time.Since(startTime).Seconds())
 			}
 		}(client)
