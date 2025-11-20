@@ -34,7 +34,7 @@ func ExecWithContext(cmd string) ([]byte, error) {
 	defer func() {
 		elapsed := time.Since(startTime)
 		ms := float64(elapsed.Milliseconds()) // int64 → float64 for formatting
-		if ms > 100 {
+		if ms > 500 {                         // log only if it takes more than 500 ms
 			logger.Log.Printf("ExecWithContext took %.2f ms for cmd: %s", ms, cmd)
 		}
 	}()
@@ -51,7 +51,7 @@ func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
-		if elapsed > 2*time.Second {
+		if elapsed > 10*time.Second {
 			logger.Log.Printf("ExecWithContextTimeout took %.2f seconds for cmd: %s", elapsed.Seconds(), cmd)
 		}
 	}()
