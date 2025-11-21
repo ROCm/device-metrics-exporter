@@ -21,9 +21,47 @@ sudo apt upgrade -y
 
 **Note**: For air-gapped environments, ensure ethtool and iproute2 are available locally, or mirror them in your repository so .deb dependencies can be resolved.
 
-## Install the Package
+## Install the NIC Metrics Exporter
 
-### Using a downloaded .deb package
+### 1. Install via APT
+
+#### Install Prerequisites
+1. Update the package list and install necessary tools, keyrings and keys:
+    ```bash
+    # Install necessary tools
+    sudo apt update
+    sudo apt install vim wget gpg
+
+    # Create the keyrings directory with the appropriate permissions:
+    sudo mkdir --parents --mode=0755 /etc/apt/keyrings
+
+    # Download the ROCm GPG key and add it to the keyrings:
+    wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
+    ```
+
+2. Edit or create the sources list `/etc/apt/sources.list.d/amdnic-exporter.list` to add the Device Metrics Exporter repository:
+
+    On Ubuntu 22.04:
+    ```bash
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 jammy main
+    ```
+
+    On Ubuntu 24.04:
+    ```bash
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 noble main
+    ```
+
+3. Update Package List and Install NIC Metrics Exporter
+
+    ```bash
+    # Update packages list
+    sudo apt update
+
+    # Install NIC metrics exporter
+    sudo apt install amdnic-exporter
+    ```
+
+### 2. Install using a downloaded .deb file
 
 Replace the filename with the specific Ubuntu version you are targeting (for example, `amdnic-exporter_24.04_amd64.deb` for Ubuntu 24.04):
 
@@ -33,7 +71,7 @@ sudo apt install ./amdnic-exporter_<ubuntu-version>_amd64.deb
 
 Using `apt` ensures the `ethtool` and `iproute2` dependencies are pulled in automatically. If you prefer to use `dpkg`, run `sudo dpkg -i ./amdnic-exporter_<ubuntu-version>_amd64.deb` followed by `sudo apt install -f` to resolve dependencies.
 
-### Enable and Start the Service
+### 3. Enable and Start the Service
 
 ```bash
 sudo systemctl daemon-reload
@@ -52,7 +90,7 @@ Check logs if you need to troubleshoot startup:
 journalctl -u amd-nic-metrics-exporter.service -f
 ```
 
-### Validate Metrics Collection
+### 4. Validate Metrics Collection
 
 - Scrape the metrics endpoint locally:
 
