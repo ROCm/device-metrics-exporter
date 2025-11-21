@@ -7,36 +7,6 @@
   - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
   - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
 
-## v1.5.0
-
-- **Configurable Resource Limits**
-  - Exporter Pod resource limits can now be configured through the Helm chart
-  - Default limits are set if not specified in the Helm chart
-  - Debian systemd service file is now set with default resource limits
-
-- **Kubevirt**
-  - Exporter now supports Kubevirt deployments
-    - New exporter with SR-IOV support for hypervisor environments is now available
-      - Legacy exporter remains applicable for existing deployments:
-        1. Baremetal passthrough
-        2. Guest VM
-
-- **Slinky**
-  - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
-
-- **New Label**
-  - `KFD_PROCESS_ID` label will  now report the process ID using the
-  	respective GPU. This enables baremetal debian deployments to have job
-  	information where no scheduler is used.
-  - `DEPLOYMENT_MODE` label to specify the GPU operating environment
-  
-- **New Field**
-  - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
-    - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
-
-### Platform Support
-ROCm 7.0.rc1 MI2xx, MI3xx
-
 ## v1.4.0
 
 - **MI35x Platfform Support**
