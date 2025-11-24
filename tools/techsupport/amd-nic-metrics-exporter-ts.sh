@@ -17,7 +17,18 @@
 
 # collect tech support on a non k8s container or debian deployment
 # usage:
-#    nic-metrics-exporter-ts.sh
+#    amd-nic-metrics-exporter-ts.sh
+
+TIME_LOGS="time_logs.log"
+echo "Collecting timing information..." > "$TIME_LOGS"
+LOG_FILES+=("$TIME_LOGS")
+
+capture_time() {
+    local start=$(date +%s%3N)
+    "$@"
+    local end=$(date +%s%3N)
+    echo "$(date +%Y-%m-%d %H:%M:%S): $*, time taken: $(( end - start )) ms" >> "$TIME_LOGS"
+}
 
 DEPLOYMENT="baremetal"
 SYSTEM_SERVICE_NAME="amd-nic-metrics-exporter.service"
@@ -72,7 +83,7 @@ fi
 METRICS_LOG="metrics_endpoint.log"
 echo "Collecting metrics from localhost:$SERVER_PORT/metrics..."
 # Use curl with -f to fail on HTTP errors and -S to show errors
-if curl -fsS "http://localhost:$SERVER_PORT/metrics" > "$METRICS_LOG" 2>&1; then
+if capture_time curl -fsS http://localhost:$SERVER_PORT/metrics > "$METRICS_LOG" 2>&1; then
     echo "Metrics successfully collected into $METRICS_LOG"
     CURL_EXIT_CODE=0
 else
@@ -92,7 +103,7 @@ fi
 # Add rdma stats output
 RDMA_LOG="rdma_stats.log"
 if command -v rdma >/dev/null 2>&1; then
-    rdma statistic -j > "$RDMA_LOG" 2>/dev/null
+    capture_time rdma statistic -j > "$RDMA_LOG" 2>/dev/null
     if [ $? -eq 0 ]; then
         LOG_FILES+=("$RDMA_LOG")
     else
@@ -108,7 +119,7 @@ if command -v ethtool >/dev/null 2>&1; then
         VENDOR_ID=$(cat /sys/class/net/"${iface}"/device/vendor 2>/dev/null)
         if [ "$VENDOR_ID" == "0x1dd8" ]; then
             echo "Collecting ethtool stats for interface: $iface" >> "$ETHTOOL_LOG"
-            ethtool -S "$iface" >> "$ETHTOOL_LOG" 2>/dev/null
+            capture_time ethtool -S "$iface" >> "$ETHTOOL_LOG" 2>/dev/null
             echo "" >> "$ETHTOOL_LOG" # add a new line for better readability
         fi
     done
@@ -123,11 +134,11 @@ fi
 # Add nicctl port, lif and queue pair stats
 NICCTL_LOG="nicctl_stats.log"
 if command -v nicctl >/dev/null 2>&1; then
-    nicctl show port statistics -j >> "$NICCTL_LOG" 2>/dev/null
+    capture_time nicctl show port statistics -j >> "$NICCTL_LOG" 2>/dev/null
     echo  >> "$NICCTL_LOG" # add a new line for better readability
-    nicctl show lif statistics -j >> "$NICCTL_LOG" 2>/dev/null
+    capture_time nicctl show lif statistics -j >> "$NICCTL_LOG" 2>/dev/null
     echo "" >> "$NICCTL_LOG"
-    nicctl show rdma queue-pair statistics -j >> "$NICCTL_LOG" 2>/dev/null
+    capture_time nicctl show rdma queue-pair statistics -j >> "$NICCTL_LOG" 2>/dev/null
     if [ $? -eq 0 ]; then
         LOG_FILES+=("$NICCTL_LOG")
     else

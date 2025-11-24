@@ -278,6 +278,10 @@ nic-debpkg:
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter $(NIC_PKG_PATH)/amd-nic-metrics-exporter
 	@strip $(NIC_PKG_PATH)/amd-nic-metrics-exporter
 
+	@echo "Copying techsupport tool"
+	@cp -vaf ${TOP_DIR}/tools/techsupport/amd-nic-metrics-exporter-ts.sh ${NIC_PKG_PATH}/
+	@chmod +x ${NIC_PKG_PATH}/amd-nic-metrics-exporter-ts.sh
+
 	# Build debian package
 	@cd $(TOP_DIR) && \
 		sed -i "s/BUILD_VER_ENV/$(DEBIAN_VERSION)/g" $(NIC_DEBIAN_CONTROL) && \
