@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
+
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 )
 
 func TestGpuAgent(t *testing.T) {
@@ -29,12 +31,7 @@ func TestGpuAgent(t *testing.T) {
 	ga := getNewAgent(t)
 	t.Logf("gpuagent : %+v", ga)
 
-	req, _, err := ga.getGPUs()
-	assert.Assert(t, err == nil, "expecting nil response")
-
-	t.Logf("req :%+v", req)
-
-	err = ga.InitConfigs()
+	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	err = ga.UpdateStaticMetrics()
@@ -43,8 +40,13 @@ func TestGpuAgent(t *testing.T) {
 	err = ga.UpdateMetricsStats()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.processHealthValidation()
-	assert.Assert(t, err == nil, "expecting success health validation")
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		err = client.processHealthValidation()
+		assert.Assert(t, err == nil, "expecting success health validation")
+	}
 
 	wls, err := ga.ListWorkloads()
 	assert.Assert(t, err == nil, "expecting success workload list")
@@ -66,12 +68,7 @@ func TestGpuAgentSlurm(t *testing.T) {
 	ga := getNewAgent(t)
 	t.Logf("gpuagent : %+v", ga)
 
-	req, err := ga.getGPUs()
-	assert.Assert(t, err == nil, "expecting nil response")
-
-	t.Logf("req :%+v", req)
-
-	err = ga.InitConfigs()
+	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	err = ga.UpdateStaticMetrics()
@@ -80,8 +77,13 @@ func TestGpuAgentSlurm(t *testing.T) {
 	err = ga.UpdateMetricsStats()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.processHealthValidation()
-	assert.Assert(t, err == nil, "expecting success health validation")
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		err = client.processHealthValidation()
+		assert.Assert(t, err == nil, "expecting success health validation")
+	}
 
 	ga.slurmScheduler = newSlurmMockClient()
 	wls, err := ga.ListWorkloads()
@@ -97,12 +99,7 @@ func TestGpuAgentK8s(t *testing.T) {
 	ga := getNewAgent(t)
 	t.Logf("gpuagent : %+v", ga)
 
-	req, err := ga.getGPUs()
-	assert.Assert(t, err == nil, "expecting nil response")
-
-	t.Logf("req :%+v", req)
-
-	err = ga.InitConfigs()
+	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	err = ga.UpdateStaticMetrics()
@@ -111,13 +108,55 @@ func TestGpuAgentK8s(t *testing.T) {
 	err = ga.UpdateMetricsStats()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.processHealthValidation()
-	assert.Assert(t, err == nil, "expecting success health validation")
-
+	for _, client := range ga.clients {
+		if client.GetDeviceType() != globals.GPUDevice {
+			continue
+		}
+		err = client.processHealthValidation()
+		assert.Assert(t, err == nil, "expecting success health validation")
+	}
 	ga.isKubernetes = true
 	ga.k8sScheduler = newK8sSchedulerMock()
 	wls, err := ga.ListWorkloads()
 	assert.Assert(t, err == nil, "expecting success workload list")
 	assert.Assert(t, len(wls) == 2, "expecting success 2 workloads on slurm")
+	ga.Close()
+}
+
+func TestGPUAgentWithoutScheduler(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgentWithoutScheduler(t)
+	t.Logf("gpuagent : %+v", ga)
+
+	err := ga.InitConfigs()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	wls, err := ga.ListWorkloads()
+	assert.Assert(t, err == nil, "expecting success workload list")
+	assert.Assert(t, len(wls) == 0, "expecting success 0 workloads as scheduler is not initialized")
+	ga.Close()
+}
+
+func TestGPUAgentIFOEOnly(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgentWithOnlyIFOE(t)
+	t.Logf("gpuagent : %+v", ga)
+
+	err := ga.InitConfigs()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	err = ga.UpdateStaticMetrics()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	err = ga.UpdateMetricsStats()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	wls, err := ga.ListWorkloads()
+	assert.Assert(t, err == nil, "expecting success workload list")
+	assert.Assert(t, len(wls) == 0, "expecting success 0 workloads as scheduler is not initialized")
 	ga.Close()
 }

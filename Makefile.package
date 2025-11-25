@@ -57,6 +57,7 @@ rpmpkg: rpmpkg-clean
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_DIR}/bin/
 	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${RPM_PACKAGE_DIR}/bin/
 	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${RPM_PACKAGE_DIR}/bin/metrics-exporter-ts.sh
 	# copy libraries
 	@echo "Copy prebuilt libraries"
@@ -73,7 +74,7 @@ rpmpkg: rpmpkg-clean
 	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${RPM_PACKAGE_DIR}/bin/
 	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
 	#copy default config
-	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_DIR}/bin/config.json
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_DIR}/bin/config.json
 	@cat ${RPM_PACKAGE_DIR}/bin/config.json
 	@cp -vaf ${TOP_DIR}/debian ${RPM_PACKAGE_DIR}/
 	@cp -vaf LICENSE ${RPM_PACKAGE_DIR}/
@@ -107,6 +108,7 @@ rpmpkg-sriov: rpmpkg-clean
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_SRIOV_DIR}/bin/amd-metrics-exporter-sriov
 	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_SRIOV_DIR}/bin/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${RPM_PACKAGE_SRIOV_DIR}/bin/
 	@cp -rvf  ${PKG_LUA_PATH}/ ${PKG_SRIOV_LUA_PATH}/../
 	@cp -vf ${LIB_CONF_PATH} ${PKG_SRIOV_LUA_PATH}/../
 	@cp -vf ${LUA_PROTO} ${PKG_SRIOV_LUA_PATH}/plugin.proto
@@ -114,7 +116,7 @@ rpmpkg-sriov: rpmpkg-clean
 	@echo "Copy prebuilt libraries"
 	@cp -rvf ${GPUAGENT_SRIOV_LIBS_RHEL9}/ ${RPM_PACKAGE_SRIOV_DIR}/
 	#copy default config
-	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_SRIOV_DIR}/bin/config.json
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_SRIOV_DIR}/bin/config.json
 	@cat ${RPM_PACKAGE_SRIOV_DIR}/bin/config.json
 	@cp -vaf ${TOP_DIR}/debian-sriov ${RPM_PACKAGE_SRIOV_DIR}/
 	@cp -vaf LICENSE ${RPM_PACKAGE_SRIOV_DIR}/
@@ -180,7 +182,7 @@ debpkg: debpkg-clean
 	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${PKG_PATH}/rocpctl
 	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${SDK_COUNTER_DEF}/
 	#copy default config
-	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
 	@cat ${METRICS_CONF_PATH}/config.json
 	# list all the files
 	@ls -lart ${PKG_LIB_PATH}/lib
@@ -200,6 +202,7 @@ debpkg: debpkg-clean
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_PATH}/
 	@strip ${PKG_PATH}/amd-metrics-exporter
 	@cp -vf $(CURDIR)/bin/metricsclient ${PKG_PATH}/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${PKG_PATH}/
 	@cd ${TOP_DIR}
 	@sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_CONTROL)
 	@dpkg-deb -Zxz --build debian ${TOP_DIR}/bin
@@ -230,7 +233,7 @@ debpkg-sriov: debpkg-sriov-clean
 	@chmod +x ${PKG_SRIOV_PATH}/metrics-exporter-ts.sh
 	ls -lart ${PKG_SRIOV_LIB_PATH}/lib
 	#copy default config
-	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .GPUConfig.Fields, .GPUConfig.ProfilerMetrics, .NICConfig)' $(CONFIG_DIR)/config.json > ${METRICS_SRIOV_CONF_PATH}/config.json
+	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .GPUConfig.Fields, .GPUConfig.ProfilerMetrics, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${METRICS_SRIOV_CONF_PATH}/config.json
 	@cat ${METRICS_SRIOV_CONF_PATH}/config.json
 	# list all the files
 	@ls -lart ${PKG_SRIOV_LIB_PATH}/lib
@@ -247,6 +250,7 @@ debpkg-sriov: debpkg-sriov-clean
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${PKG_SRIOV_PATH}/amd-metrics-exporter-sriov
 	@strip ${PKG_SRIOV_PATH}/amd-metrics-exporter-sriov
 	@cp -vf $(CURDIR)/bin/metricsclient ${PKG_SRIOV_PATH}/
+	@cp -vf $(CURDIR)/bin/amdgpuhealth ${PKG_SRIOV_PATH}/
 	@cd ${TOP_DIR}
 	@sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_SRIOV_CONTROL)
 	@dpkg-deb -Zxz --build debian-sriov ${TOP_DIR}/bin

@@ -432,7 +432,7 @@ func (k *K8sClient) GetMetricsExporterService(ns string) (*v1.Service, error) {
 	return nil, fmt.Errorf("metrics exporter service not found")
 }
 
-func (k *K8sClient) GetGPUMetricsEndpointURL(nodeName string, isTLS bool) (url string) {
+func (k *K8sClient) GetExporterEndpoint(nodeName string, isTLS bool) (url string) {
 	podInfo, err := k.GetMetricsExporterPodOnNode(nodeName)
 	if err != nil || podInfo == nil {
 		return
@@ -470,7 +470,7 @@ func (k *K8sClient) GetGPUMetricsEndpointURL(nodeName string, isTLS bool) (url s
 		if isTLS {
 			prefix = "https"
 		}
-		url = fmt.Sprintf("%s://%s:%s%s", prefix, endpointIP, port, globals.AMDGPUHandlerPrefix)
+		url = fmt.Sprintf("%s://%s:%s", prefix, endpointIP, port)
 	}
 	return
 }

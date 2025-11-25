@@ -50,13 +50,12 @@ Step 2: Install AMDGPU Driver
 .. note::
    For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page. The below instructions are the most current instructions as of ROCm 7.0.rc1.
 
-1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example if you want to get the latest ROCm 7.0.rc1 drivers for Ubuntu 22.04 you would run the following command:
+1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example if you want to get the latest ROCm 7.0.0 drivers for Ubuntu 22.04 you would run the following command:
 
    .. code-block:: bash
 
-      sudo mkdir --parents --mode=0755 /etc/apt/keyrings
-      wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
-      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/30.10_rc1/ubuntu jammy main" sudo tee /etc/apt/sources.list.d/amdgpu.list
+      wget https://repo.radeon.com/amdgpu-install/7.0/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb
+      sudo apt install ./amdgpu-install_7.0.70000-1_all.deb
       sudo apt update
 
    Please note that the above url will be different depending on what version of the drivers you will be installing and type of Operating System you are using.

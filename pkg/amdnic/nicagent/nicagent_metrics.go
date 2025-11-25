@@ -1880,6 +1880,10 @@ func (na *NICAgentClient) GetDeviceType() globals.DeviceType {
 	return globals.NICDevice
 }
 
+func (na *NICAgentClient) QueryInbandRASErrors(severity string) (interface{}, error) {
+	return nil, nil
+}
+
 func GetNICMandatoryLabels() []string {
 	return mandatoryLables
 }

@@ -58,6 +58,7 @@ func main() {
 	versionOpt := fs.Bool("version", false, "show version")
 	enableNICMonitoring := fs.Bool("monitor-nic", false, "Enable NIC Monitoring")
 	enableGPUMonitoring := fs.Bool("monitor-gpu", true, "Enable GPU Monitoring (default: true, enabled by default)")
+	enableIFOEMonitoring := fs.Bool("monitor-ifoe", false, "Enable IFOE Monitoring")
 	sriov := fs.Bool("sriov-enable", false, "sriov host mode (default: false, disabled by default)")
 	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server (default: 0.0.0.0)")
 	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path (default: /var/log/exporter.log)")
@@ -96,8 +97,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !*enableNICMonitoring && !*enableGPUMonitoring {
-		fmt.Printf("NIC Agent and GPU Agent are both disabled, exiting")
+	if !*enableNICMonitoring && !*enableGPUMonitoring && !*enableIFOEMonitoring {
+		fmt.Printf("NIC Agent, GPU Agent and IFOE Agent are all disabled, exiting")
 		os.Exit(1)
 	}
 
@@ -116,6 +117,8 @@ func main() {
 		exporter.WithGPUMonitoring(*enableGPUMonitoring),
 		exporter.WithSRIOV(*sriov),
 		exporter.WithBindAddr(*bindAddr),
+		exporter.WithSlurmClient(true),
+		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),
 	)
 
 	enableDebugAPI := true // default

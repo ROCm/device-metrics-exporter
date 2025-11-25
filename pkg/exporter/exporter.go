@@ -59,19 +59,21 @@ type ExporterOption func(e *Exporter)
 
 // Exporter Handler
 type Exporter struct {
-	agentGrpcPort       int
-	configFile          string
-	zmqDisable          bool
-	enableNICMonitoring bool
-	enableGPUMonitoring bool
-	disableK8sApi       bool
-	enableSriov         bool
-	bindAddr            string
-	k8sApiClient        *k8sclient.K8sClient
-	svcHandler          *metricsserver.SvcHandler
-	k8sScl              scheduler.SchedulerClient
-	ctx                 context.Context
-	cancel              context.CancelFunc
+	agentGrpcPort        int
+	configFile           string
+	zmqDisable           bool
+	enableNICMonitoring  bool
+	enableGPUMonitoring  bool
+	enableIFOEMonitoring bool
+	disableK8sApi        bool
+	enableSlurmScl       bool
+	enableSriov          bool
+	bindAddr             string
+	k8sApiClient         *k8sclient.K8sClient
+	svcHandler           *metricsserver.SvcHandler
+	k8sScl               scheduler.SchedulerClient
+	ctx                  context.Context
+	cancel               context.CancelFunc
 }
 
 // get the info from gpu agent and update the current metrics registery
@@ -97,6 +99,8 @@ func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 	router.Handle(globals.MetricsHandlerPrefix, promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 	// below route is for daemons like node-problem-detector that need all the metrics
 	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUHandlerPrefix, mh.HandleGPUMetricsQuery)
+	// new route for querying inband ras errors
+	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUInbandRASHandlerPrefix, mh.HandleInbandRASErrorsQuery)
 	// pprof
 	router.Methods("GET").Subrouter().Handle("/debug/vars", expvar.Handler())
 	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/", pprof.Index)
@@ -314,6 +318,13 @@ func WithGPUMonitoring(enableGPUAgent bool) ExporterOption {
 	}
 }
 
+func WithenableIFOEMonitoring(enableIFOEAgent bool) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("IFOE monitoring enable %v", enableIFOEAgent)
+		e.enableIFOEMonitoring = enableIFOEAgent
+	}
+}
+
 func WithSRIOV(enableSriov bool) ExporterOption {
 	return func(e *Exporter) {
 		logger.Log.Printf("Host SRIOV mode set to %v", enableSriov)
@@ -325,6 +336,13 @@ func WithNoK8sApiclient() ExporterOption {
 	return func(e *Exporter) {
 		e.disableK8sApi = true
 		e.k8sApiClient = nil
+	}
+}
+
+func WithSlurmClient(enable bool) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("slurm scheduler mode set to %v", enable)
+		e.enableSlurmScl = enable
 	}
 }
 
@@ -342,6 +360,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 		metricsserver.WithDebugAPIOption(enableDebugAPI),
 		metricsserver.WithNICMonitoring(e.enableNICMonitoring),
 		metricsserver.WithGPUMonitoring(e.enableGPUMonitoring),
+		metricsserver.WithIFOEMonitoring(e.enableIFOEMonitoring),
 	)
 
 	// create scheduler client
@@ -361,7 +380,11 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 			gpuagent.WithK8sClient(e.GetK8sApiClient()),
 			gpuagent.WithSRIOV(e.enableSriov),
 			gpuagent.WithK8sSchedulerClient(e.k8sScl),
+			gpuagent.WithSlurmClient(e.enableSlurmScl),
+			gpuagent.WithGPUMonitoring(true),
+			gpuagent.WithIFOEMonitoring(e.enableIFOEMonitoring),
 		)
+
 		if err := gpuclient.Init(); err != nil {
 			logger.Log.Printf("gpuclient init err :%+v", err)
 		}
@@ -369,6 +392,22 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 		if err := e.svcHandler.RegisterGPUHealthClient(gpuclient); err != nil {
 			logger.Log.Printf("health client registration err: %+v", err)
 		}
+	}
+
+	if !e.enableGPUMonitoring && e.enableIFOEMonitoring {
+		logger.Log.Printf("IFOE monitoring enabled without GPU monitoring, creating minimal GPU agent client")
+		gpuclient = gpuagent.NewAgent(mh,
+			gpuagent.WithZmq(!e.zmqDisable),
+			gpuagent.WithK8sClient(e.GetK8sApiClient()),
+			gpuagent.WithSRIOV(e.enableSriov),
+			gpuagent.WithK8sSchedulerClient(e.k8sScl),
+			gpuagent.WithGPUMonitoring(false),
+			gpuagent.WithIFOEMonitoring(true),
+		)
+		if err := gpuclient.Init(); err != nil {
+			logger.Log.Printf("gpuclient init err :%+v", err)
+		}
+		go gpuclient.StartMonitor()
 	}
 
 	if e.enableNICMonitoring {

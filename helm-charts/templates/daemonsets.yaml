@@ -1,25 +1,30 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ .Release.Name }}-amdgpu-metrics-exporter
+  {{- include "metrics-exporter.nameWithRelease" . | nindent 2 }}
   labels:
-    app: amdgpu-metrics-exporter
-  {{- include "helm-charts-exporter.labels" . | nindent 4 }}
+    {{- include "metrics-exporter.appLabel" . | nindent 4 }}
+    {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-amdgpu-metrics-exporter
+      {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-amdgpu-metrics-exporter
+        {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 8 }}
         app.kubernetes.io/name: metrics-exporter
       {{- if .Values.podAnnotations }}
       annotations:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
       {{- end }}
     spec:
+      hostNetwork: {{ .Values.hostNetwork }}
+      {{- if .Values.monitor.resources.gpu }}
       serviceAccountName: amdgpu-metrics-exporter
+      {{- else }}
+      serviceAccountName: amd-device-metrics-exporter
+      {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
@@ -32,8 +37,41 @@ spec:
       - command:
         - sh
         - -c
-        - while [ ! -d /host-sys/class/kfd ] || [ ! -d /host-sys/module/amdgpu/drivers/
-          ]; do echo "amdgpu driver is not loaded "; sleep 2 ;done
+        {{- if and .Values.monitor.resources.gpu .Values.monitor.resources.nic }}
+        - |
+          echo "Checking for both AMD GPU and NIC drivers..."
+          # GPU driver check
+          while [ ! -d /host-sys/class/kfd ] || \
+                [ ! -d /host-sys/module/amdgpu/drivers ]; do
+            echo "amdgpu driver is not loaded"
+            sleep 2
+          done
+
+          # NIC driver check
+          while [ ! -d /host-sys/class/infiniband ] || \
+                [ ! -d /host-sys/class/infiniband_verbs ] || \
+                [ ! -d /host-sys/module/ionic/drivers ]; do
+            echo "amd ionic driver is not loaded"
+            sleep 2
+          done
+        {{- else if .Values.monitor.resources.gpu }}
+        - |
+          echo "Checking for AMD GPU driver..."
+          while [ ! -d /host-sys/class/kfd ] || \
+                [ ! -d /host-sys/module/amdgpu/drivers ]; do
+            echo "amdgpu driver is not loaded"
+            sleep 2
+          done
+        {{- else if .Values.monitor.resources.nic }}
+        - |
+          echo "Checking for AMD NIC driver..."
+          while [ ! -d /host-sys/class/infiniband ] || \
+                [ ! -d /host-sys/class/infiniband_verbs ] || \
+                [ ! -d /host-sys/module/ionic/drivers ]; do
+            echo "amd ionic driver is not loaded"
+            sleep 2
+          done
+        {{- end }}
         image: {{ .Values.image.initContainerImage }}
         imagePullPolicy: IfNotPresent
         name: driver-init
@@ -43,9 +81,16 @@ spec:
         - mountPath: /host-sys
           name: sys-volume
       containers:
+        {{- if .Values.monitor.resources.gpu }}
         - name: amdgpu-metrics-exporter-container
+        {{- else }}
+        - name: amd-device-metrics-exporter-container
+        {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--monitor-gpu={{ .Values.monitor.resources.gpu }}"
+            - "--monitor-nic={{ .Values.monitor.resources.nic }}"
           env:
           - name: NODE_NAME
             valueFrom:
@@ -91,6 +136,24 @@ spec:
             name: exporter-slurm-job
           - name: metrics-config-volume
             mountPath: /etc/metrics/
+          {{- if .Values.monitor.resources.nic }}
+          - name: host-proc
+            mountPath: /host/proc
+          - name: run-containerd
+            mountPath: /host/run/containerd
+          - name: run-crio
+            mountPath: /host/run/crio
+          - name: usr-bin
+            mountPath: /opt/nic/bin
+          - name: usr-sbin
+            mountPath: /opt/nic/sbin
+          - name: opt-amd
+            mountPath: /opt/amd
+          - name: libmnl-so
+            mountPath: /lib64/libmnl.so.0
+          - name: libpci-so
+            mountPath: /lib64/libpci.so.3
+          {{- end }}
           workingDir: /root
       {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
@@ -121,6 +184,40 @@ spec:
           path: /var/run/exporter
           type: DirectoryOrCreate
         name: exporter-slurm-job
+    {{- if .Values.monitor.resources.nic }}
+      - name: host-proc
+        hostPath:
+          path: /proc
+          type: Directory
+      - name: run-containerd
+        hostPath:
+          path: /run/containerd
+          type: DirectoryOrCreate
+      - name: run-crio
+        hostPath:
+          path: /run/crio
+          type: DirectoryOrCreate
+      - name: usr-bin
+        hostPath:
+          path: /usr/bin
+          type: Directory
+      - name: usr-sbin
+        hostPath:
+          path: /usr/sbin
+          type: Directory
+      - name: opt-amd
+        hostPath:
+          path: /opt/amd
+          type: Directory
+      - name: libmnl-so
+        hostPath:
+          path: /lib/x86_64-linux-gnu/libmnl.so.0
+          type: File
+      - name: libpci-so
+        hostPath:
+          path: /lib/x86_64-linux-gnu/libpci.so.3
+          type: File
+      {{- end }}
       - name: metrics-config-volume
         configMap:
       {{- if .Values.configMap }}

@@ -1,5 +1,5 @@
 .PHONY: mock_gen
-TO_MOCK := gpu events
+TO_MOCK := gpu events ual
 mock_gen:
 	@echo "building mock gen"
 	@mkdir -p ${MOCK_DIR}
