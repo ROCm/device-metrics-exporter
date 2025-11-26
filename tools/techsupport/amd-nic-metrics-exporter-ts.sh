@@ -78,9 +78,11 @@ LOG_FILES+=("$TIME_LOGS")
 
 # Add existing log files if they exist
 # move it to a file directly instead of copying to /var/log
+echo "Collecting existing log files..."
 [ -f "/var/log/amd-nic-metrics-exporter.log" ] && LOG_FILES+=("/var/log/amd-nic-metrics-exporter.log")
 
 # Add configuration file if it exists
+echo "Collecting configuration files..."
 [ -f "/etc/metrics/config-nic.json" ] && LOG_FILES+=("/etc/metrics/config-nic.json")
 
 # Determine server port from config file or use default
@@ -97,7 +99,6 @@ METRICS_LOG="metrics_endpoint.log"
 echo "Collecting metrics from localhost:$SERVER_PORT/metrics..."
 # Use curl with -f to fail on HTTP errors and -S to show errors
 if capture_time curl -fsS http://localhost:$SERVER_PORT/metrics > "$METRICS_LOG" 2>&1; then
-    echo "Metrics successfully collected into $METRICS_LOG"
     CURL_EXIT_CODE=0
 else
     CURL_EXIT_CODE=$?
@@ -116,6 +117,7 @@ fi
 # Add rdma stats output
 RDMA_LOG="rdma_stats.log"
 if command -v rdma >/dev/null 2>&1; then
+    echo "Collecting RDMA statistics..."
     capture_time rdma statistic -j > "$RDMA_LOG" 2>/dev/null
     if [ $? -eq 0 ]; then
         LOG_FILES+=("$RDMA_LOG")
@@ -128,6 +130,7 @@ fi
 # Add ethtool stats for all interfaces and add check for vendor AMD (vendor: 1dd8)
 ETHTOOL_LOG="ethtool_stats.log"
 if command -v ethtool >/dev/null 2>&1; then
+    echo "Collecting ethtool statistics for AMD interfaces..."
     for iface in $(ls /sys/class/net/); do
         VENDOR_ID=$(cat /sys/class/net/"${iface}"/device/vendor 2>/dev/null)
         if [ "$VENDOR_ID" == "0x1dd8" ]; then
@@ -147,10 +150,17 @@ fi
 # Add nicctl port, lif and queue pair stats
 NICCTL_LOG="nicctl_stats.log"
 if command -v nicctl >/dev/null 2>&1; then
+    echo "Collecting nicctl statistics..."
+    echo "NICCTL Port Statistics:" >> "$NICCTL_LOG"
     capture_time nicctl show port statistics -j >> "$NICCTL_LOG" 2>/dev/null
     echo  >> "$NICCTL_LOG" # add a new line for better readability
+    echo "NICCTL LIF Statistics:" >> "$NICCTL_LOG"
     capture_time nicctl show lif statistics -j >> "$NICCTL_LOG" 2>/dev/null
     echo "" >> "$NICCTL_LOG"
+    echo "NICCTL RDMA Queue Pair:" >> "$NICCTL_LOG"
+    capture_time nicctl show rdma queue-pair >> "$NICCTL_LOG" 2>/dev/null # total qps by LIF
+    echo "" >> "$NICCTL_LOG"
+    echo "NICCTL RDMA Queue Pair Statistics:" >> "$NICCTL_LOG"
     capture_time nicctl show rdma queue-pair statistics -j >> "$NICCTL_LOG" 2>/dev/null
     if [ $? -eq 0 ]; then
         LOG_FILES+=("$NICCTL_LOG")
@@ -160,8 +170,21 @@ if command -v nicctl >/dev/null 2>&1; then
     fi
 fi
 
+# Get goroutine dump
+GOROUTINE_DUMP="goroutine.pprof"
+echo "Collecting goroutine dump from localhost:$SERVER_PORT/debug/pprof/goroutine..."
+capture_time curl -X GET localhost:$SERVER_PORT/debug/pprof/goroutine -o "$GOROUTINE_DUMP" 2>/dev/null
+if [ $? -eq 0 ]; then
+    LOG_FILES+=("$GOROUTINE_DUMP")
+else
+    echo "Failed to collect goroutine dump" > "$GOROUTINE_DUMP"
+    LOG_FILES+=("$GOROUTINE_DUMP")
+fi
+
+
 # Archive log files
 ARCHIVE_NAME="amd-nic-metrics-exporter-techsupport-$(date +%Y%m%d-%H%M%S).tar.gz"
+echo "Creating tech support tarball..."
 tar -czf "$ARCHIVE_DIR/$ARCHIVE_NAME" "${LOG_FILES[@]}" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "Failed to create tech support tarball"
