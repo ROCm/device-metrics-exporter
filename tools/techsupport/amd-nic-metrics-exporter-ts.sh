@@ -19,15 +19,23 @@
 # usage:
 #    amd-nic-metrics-exporter-ts.sh
 
-TIME_LOGS="time_logs.log"
-echo "Collecting timing information..." > "$TIME_LOGS"
-LOG_FILES+=("$TIME_LOGS")
-
 capture_time() {
-    local start=$(date +%s%3N)
+    local start
+    start=$(date +%s%3N)
+
     "$@"
-    local end=$(date +%s%3N)
-    echo "$(date +%Y-%m-%d %H:%M:%S): $*, time taken: $(( end - start )) ms" >> "$TIME_LOGS"
+    local exit_code=$?
+
+    local end
+    end=$(date +%s%3N)
+
+    printf "%s: %s, time taken: %d ms (exit: %d)\n" \
+        "$(date '+%Y-%m-%d %H:%M:%S')" \
+        "$*" \
+        "$(( end - start ))" \
+        "$exit_code" >> "$TIME_LOGS"
+
+    return $exit_code
 }
 
 DEPLOYMENT="baremetal"
@@ -62,6 +70,11 @@ dmesg > dmesg.log 2>/dev/null
 if [ $? -eq 0 ]; then
     LOG_FILES+=("dmesg.log")
 fi
+
+TIME_LOGS="time_logs.log"
+echo "Collecting timing information..." > "$TIME_LOGS"
+echo "Hostname: $(hostname)" >> "$TIME_LOGS"
+LOG_FILES+=("$TIME_LOGS")
 
 # Add existing log files if they exist
 # move it to a file directly instead of copying to /var/log
