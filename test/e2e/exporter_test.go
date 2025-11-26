@@ -775,6 +775,116 @@ func (s *E2ESuite) Test020ProfilerFailureHandling(c *C) {
 
 }
 
+func (s *E2ESuite) Test021EnableGpuAfidErrorsField(c *C) {
+	log.Print("Testing enabling gpu_afid_errors field in config")
+
+	// Add "gpu_afid_errors" to the list of fields
+	fields := []string{
+		"gpu_afid_errors",
+	}
+	err := s.SetFields(fields)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	var response string
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 5*time.Second, 1*time.Second)
+
+	allgpus, err := testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+
+	// Check that "gpu_afid_errors" is present for each GPU
+	for id, gpu := range allgpus {
+		entry, ok := gpu.Fields["gpu_afid_errors"]
+		assert.Equal(c, true, ok, fmt.Sprintf("gpu_afid_errors field not found for GPU[%v]", id))
+		_, ok = entry.Labels["severity"]
+		assert.Equal(c, true, ok, fmt.Sprintf("severity label not found for GPU[%v]", id))
+		_, ok = entry.Labels["afid_index"]
+		assert.Equal(c, true, ok, fmt.Sprintf("afid_index label not found for GPU[%v]", id))
+	}
+}
+
+func (s *E2ESuite) Test022LoggerConfigUpdate(c *C) {
+	log.Print("Testing logger config update")
+
+	// Set initial logger config with INFO level
+	err := s.SetLoggerConfig("INFO", 1, 1, 1)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	// Verify exporter is still responsive after logger config change
+	var response string
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 10*time.Second, 1*time.Second)
+
+	// Parse metrics to ensure they're still valid
+	allgpus, err := testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+	assert.True(c, len(allgpus) > 0, "Expected at least one GPU in metrics")
+
+	// Check logs for INFO level logging
+	assert.Eventually(c, func() bool {
+		return s.CheckExporterLogForString("starting server on")
+	}, 10*time.Second, 1*time.Second)
+
+	// Update to DEBUG level and text format
+	err = s.SetLoggerConfig("DEBUG", 2, 1, 2)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	// Verify exporter gracefully handles the config change
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 10*time.Second, 1*time.Second)
+
+	// Parse metrics again to ensure functionality is preserved
+	allgpus, err = testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+	assert.True(c, len(allgpus) > 0, "Expected at least one GPU in metrics after logger config change")
+
+	// Verify DEBUG level logs are now present
+	assert.Eventually(c, func() bool {
+		return s.CheckExporterLogForString("loading new config on")
+	}, 10*time.Second, 1*time.Second)
+}
+
+func (s *E2ESuite) Test023LoggerConfigWithInvalidLevel(c *C) {
+	log.Print("Testing logger config with invalid log level")
+
+	// Set invalid logger level
+	err := s.SetLoggerConfig("INVALID_LEVEL", 1, 1, 1)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	// Verify exporter remains functional despite invalid config
+	var response string
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 10*time.Second, 1*time.Second)
+
+	// Ensure metrics are still being collected
+	allgpus, err := testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+	assert.True(c, len(allgpus) > 0, "Expected at least one GPU in metrics with invalid logger config")
+
+	// Reset to valid config
+	err = s.SetLoggerConfig("INFO", 1, 1, 1)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second)
+
+	// Verify recovery
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 10*time.Second, 1*time.Second)
+}
+
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {
 	if len(allgpus) == 0 {
 		return fmt.Errorf("invalid input, expecting non empty payload")

@@ -249,7 +249,7 @@ func NewAgfhcTestRunner(binPath, testSuitesDir, resultLogDir string) (types.Test
 	obj := &AgfhcTestRunner{
 		binaryLocation: binPath,
 		logDir:         resultLogDir,
-		logger:         logger.Log,
+		logger:         logger.Log.Log,
 		testSuites:     make(map[string]bool),
 		testSuitesDir:  testSuitesDir,
 	}

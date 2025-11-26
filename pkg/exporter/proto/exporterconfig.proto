@@ -339,12 +339,43 @@ message HealthServiceConfig {
     bool Enable = 1;
 }
 
+enum LogLevel {
+    DEBUG = 0;
+    INFO  = 1;
+    WARN  = 2;
+    ERROR = 3;
+    FATAL = 4;
+}
+
+message LoggingConfig {
+    // level enum(LogLevel): debug, info, warn, error
+    string Level = 1;
+
+    // below fields are applicable for non console mode only
+    // for non kubernetes deployments
+
+    // max size of log file in MB
+    // 0 implies default of 10 MB
+    uint32 MaxFileSizeMB = 2;
+
+    // max backup log files to retain
+    // 0 implies default of 3
+    uint32 MaxBackups = 3;
+
+    // max age of log files in days
+    // 0 implies default is 7 days
+    uint32 MaxAgeDays = 4;
+}
+
 message CommonConfig {
 	// string to add as perfix to all exported fields
 	string MetricsFieldPrefix = 1;
 
     // Health Service config
     HealthServiceConfig HealthService = 2;
+
+    // Logging config
+    LoggingConfig Logging = 3;
 }
 
 enum NICMetricField {

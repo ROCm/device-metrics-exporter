@@ -99,6 +99,37 @@ func (c *ConfigHandler) GetServerPort() uint32 {
 	return c.runningConfig.GetServerPort()
 }
 
+func (c *ConfigHandler) GetLoggerConfig() *exportermetrics.LoggingConfig {
+	c.Lock()
+	defer c.Unlock()
+	loggerConfig := logger.DefaultLogConfig()
+	// set the rest of the fields from config
+	cfg := c.runningConfig.GetConfig()
+	if cfg != nil && cfg.GetCommonConfig() != nil {
+		loggerSettings := cfg.GetCommonConfig().GetLogging()
+		if loggerSettings != nil {
+			// set log level
+			if loggerSettings.GetLevel() != "" {
+				level := loggerSettings.GetLevel()
+				loggerConfig.Level = level
+			}
+			// set max file size
+			if loggerSettings.GetMaxFileSizeMB() != 0 {
+				loggerConfig.MaxFileSizeMB = loggerSettings.GetMaxFileSizeMB()
+			}
+			// set max backups
+			if loggerSettings.GetMaxBackups() != 0 {
+				loggerConfig.MaxBackups = loggerSettings.GetMaxBackups()
+			}
+			// set max age
+			if loggerSettings.GetMaxAgeDays() != 0 {
+				loggerConfig.MaxAgeDays = loggerSettings.GetMaxAgeDays()
+			}
+		}
+	}
+	return loggerConfig
+}
+
 // GetNICHealthCheckConfig returns the NIC health check settings
 func (c *ConfigHandler) GetNICHealthCheckConfig() *exportermetrics.NICHealthCheckConfig {
 	c.Lock()

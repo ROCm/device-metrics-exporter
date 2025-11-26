@@ -65,7 +65,8 @@ func TestNewRvsTestRunner(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
+	logger.Init(false)
+	logger.Log.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
 
 	// Test case 1: Valid initialization
 	runner, err := NewRvsTestRunner(mockBinPath, testSuitesDir, resultLogDir)
@@ -118,13 +119,14 @@ func TestGetTestHandler(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(io.Discard, "", 0) // Use a silent logger for tests
+	logger.Init(false)
+	logger.Log.Log = log.New(io.Discard, "", 0) // Use a silent logger for tests
 
 	// Create an RVSTestRunner instance for testing
 	rvsRunner := &RVSTestRunner{
 		binaryLocation: mockBinPath,
 		logDir:         resultLogDir,
-		logger:         logger.Log,
+		logger:         logger.Log.Log,
 		testSuites:     map[string]bool{testSuiteName: true},
 		testSuitesDir:  testSuitesDir,
 	}
@@ -310,13 +312,14 @@ func TestLoadTestSuites(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(io.Discard, "", 0) // Use a silent logger for tests
+	logger.Init(false)
+	logger.Log.Log = log.New(io.Discard, "", 0) // Use a silent logger for tests
 
 	// Create an RVSTestRunner instance for testing
 	rvsRunner := &RVSTestRunner{
 		testSuitesDir: testSuitesDir,
 		testSuites:    make(map[string]bool),
-		logger:        logger.Log,
+		logger:        logger.Log.Log,
 	}
 
 	// Call loadTestSuites
@@ -336,7 +339,7 @@ func TestLoadTestSuites(t *testing.T) {
 	rvsRunner = &RVSTestRunner{
 		testSuitesDir: filepath.Join(tmpDir, "nonexistent"),
 		testSuites:    make(map[string]bool),
-		logger:        logger.Log,
+		logger:        logger.Log.Log,
 	}
 
 	err = rvsRunner.loadTestSuites()

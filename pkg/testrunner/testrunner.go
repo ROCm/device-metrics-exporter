@@ -1280,7 +1280,7 @@ func (tr *TestRunner) generateK8sEvent(framework, testRecipe, evtType, reason st
 		// just save result into json message
 		msgbytes, err := json.Marshal(summary)
 		if err != nil {
-			logger.Log.Panicf("failed to marshal test summary %+v err %+v", summary, err)
+			logger.Fatalf("failed to marshal test summary %+v err %+v", summary, err)
 			return
 		}
 		msg = string(msgbytes)
