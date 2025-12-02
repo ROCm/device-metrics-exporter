@@ -212,7 +212,7 @@ func NewRvsTestRunner(rvsBinPath, testSuitesDir, resultLogDir string) (types.Tes
 	obj := &RVSTestRunner{
 		binaryLocation: rvsBinPath,
 		logDir:         resultLogDir,
-		logger:         logger.Log,
+		logger:         logger.Log.Log,
 		testSuites:     make(map[string]bool),
 		testSuitesDir:  testSuitesDir,
 	}

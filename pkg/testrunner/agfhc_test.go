@@ -65,7 +65,8 @@ func TestNewAgfhcTestRunner(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
+	logger.Init(false)
+	logger.Log.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
 
 	// Test case 1: Valid initialization
 	runner, err := NewAgfhcTestRunner(mockBinPath, testSuitesDir, resultLogDir)
@@ -130,7 +131,8 @@ func TestAgfhcGetTestHandler(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
+	logger.Init(false)
+	logger.Log.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
 
 	// Create a test runner
 	runner, err := NewAgfhcTestRunner(mockBinPath, testSuitesDir, resultLogDir)
@@ -379,13 +381,13 @@ func TestAgfhcLoadTestSuites(t *testing.T) {
 	}
 
 	// Setup logger
-	logger.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
+	logger.Log.Log = log.New(os.Stdout, "TEST: ", log.LstdFlags)
 
 	// Create a test runner
 	runner := &AgfhcTestRunner{
 		testSuitesDir: testSuitesDir,
 		testSuites:    make(map[string]bool),
-		logger:        logger.Log,
+		logger:        logger.Log.Log,
 	}
 
 	// Test loadTestSuites function

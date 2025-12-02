@@ -54,7 +54,7 @@ func TestCheckUnsupportedFields(t *testing.T) {
 func TestLogUnsupportedField(t *testing.T) {
 	// Capture log output
 	var buf bytes.Buffer
-	logger.Log = log.New(&buf, "", 0)
+	logger.Log.SetOutput(&buf)
 
 	fl := NewFieldLogger()
 
@@ -67,7 +67,7 @@ func TestLogUnsupportedField(t *testing.T) {
 
 	output := buf.String()
 	if !strings.Contains(output, "Platform doesn't support field name: test_field") {
-		t.Error("Expected log message not found")
+		t.Errorf("Expected log message not found, got %v", output)
 	}
 
 	// Test logging the same field again (should not log twice)
@@ -96,7 +96,7 @@ func TestLogUnsupportedField(t *testing.T) {
 func TestLogWithValidateAndExport(t *testing.T) {
 	// Capture log output
 	var buf bytes.Buffer
-	logger.Log = log.New(&buf, "", 0)
+	logger.Log.Log = log.New(&buf, "", 0)
 
 	fl := NewFieldLogger()
 

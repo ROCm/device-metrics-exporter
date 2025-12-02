@@ -11,6 +11,12 @@ data:
           "MetricsFieldPrefix": "amd_",
           "HealthService": {
              "Enable" : true
+          },
+          "LoggerConfig": {
+            "Level": "info",
+            "MaxFileSizeMB": 10,
+            "MaxBackups": 3,
+            "MaxAgeDays": 7
           }
       },
       "GPUConfig": {

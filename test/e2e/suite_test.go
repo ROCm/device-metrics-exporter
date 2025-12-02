@@ -176,6 +176,20 @@ func (s *E2ESuite) SetProfilerState(state bool) error {
 	return s.WriteConfig(config)
 }
 
+func (s *E2ESuite) SetLoggerConfig(level string, maxSize int, maxBackups int, maxAge int) error {
+	config := s.ReadConfig()
+	if config.GetCommonConfig() == nil {
+		config.CommonConfig = &exportermetrics.CommonConfig{}
+	}
+	config.CommonConfig.Logging = &exportermetrics.LoggingConfig{
+		Level:         level,
+		MaxFileSizeMB: uint32(maxSize),
+		MaxBackups:    uint32(maxBackups),
+		MaxAgeDays:    uint32(maxAge),
+	}
+	return s.WriteConfig(config)
+}
+
 func (s *E2ESuite) SetPrefix(prefix string) error {
 	config := s.ReadConfig()
 	if config.GetCommonConfig() == nil {

@@ -464,6 +464,8 @@ func (ga *GPUAgentGPUClient) initFieldConfig(config *exportermetrics.GPUMetricCo
 	for k, v := range ga.exportFieldMap {
 		if !v {
 			logger.Log.Printf("%v field is disabled", k)
+		} else {
+			logger.Debugf("%v field is enabled", k)
 		}
 	}
 }

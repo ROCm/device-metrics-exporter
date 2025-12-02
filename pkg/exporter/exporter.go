@@ -151,6 +151,10 @@ func foreverWatcher(e *Exporter) {
 		if !serverRunning() {
 			mh.InitConfig()
 			serverPort := runConf.GetServerPort()
+			err := logger.Log.ConfigureFromConfig(runConf.GetLoggerConfig())
+			if err != nil {
+				logger.Errorf("logger configuration error: %v", err)
+			}
 			logger.Log.Printf("starting server on %s:%v", e.bindAddr, serverPort)
 			srvHandler = startMetricsServer(runConf, e.bindAddr)
 			go func() {

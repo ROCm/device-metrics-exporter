@@ -147,7 +147,7 @@ func (ga *GPUAgentGPUClient) PopulateStaticHostLabels() error {
 	if err != nil {
 		return err
 	}
-	logger.Log.Printf("hostame %v", hostname)
+	logger.Infof("hostame %v", hostname)
 	ga.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()] = hostname
 	return nil
 }
@@ -193,7 +193,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 		return err
 	}
 	if resp != nil && resp.ApiStatus != 0 {
-		logger.Log.Printf("resp status :%v", resp.ApiStatus)
+		logger.Errorf("resp status :%v", resp.ApiStatus)
 		return fmt.Errorf("%v", resp.ApiStatus)
 	}
 	cper, err := ga.getLatestCPER()
@@ -209,7 +209,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	}
 	ga.k8PodLabelsMap, err = ga.FetchPodLabelsForNode()
 	if err != nil {
-		logger.Log.Printf("FetchPodLabelsForNode failed with err : %v", err)
+		logger.Errorf("FetchPodLabelsForNode failed with err : %v", err)
 	}
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
@@ -269,7 +269,7 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 	if ga.gCache.lastResponse != nil && now.Sub(ga.gCache.lastTimestamp) < cacheTimer {
 		res := ga.gCache.lastResponse
 		ga.gCache.RUnlock()
-		logger.Log.Printf("returning metrics from cache")
+		logger.Debug("returning metrics from cache")
 		return res, nil
 	}
 	ga.gCache.RUnlock()
@@ -280,7 +280,7 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 
 	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
 	if ga.gCache.lastResponse != nil && time.Since(ga.gCache.lastTimestamp) < cacheTimer {
-		logger.Log.Printf("returning metrics from cache (after double-check)")
+		logger.Debug("returning metrics from cache (after double-check)")
 		return ga.gCache.lastResponse, nil
 	}
 
@@ -306,7 +306,7 @@ func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error)
 	if ga.gCache.lastCperResponse != nil && now.Sub(ga.gCache.lastCperTimestamp) < cacheTimer {
 		res := ga.gCache.lastCperResponse
 		ga.gCache.RUnlock()
-		logger.Log.Printf("returning CPER metrics from cache")
+		logger.Debug("returning CPER metrics from cache")
 		return res, nil
 	}
 	ga.gCache.RUnlock()
@@ -317,7 +317,7 @@ func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error)
 
 	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
 	if ga.gCache.lastCperResponse != nil && time.Since(ga.gCache.lastCperTimestamp) < cacheTimer {
-		logger.Log.Printf("returning CPER metrics from cache (after double-check)")
+		logger.Debug("returning CPER metrics from cache (after double-check)")
 		return ga.gCache.lastCperResponse, nil
 	}
 
@@ -346,7 +346,7 @@ func (ga *GPUAgentGPUClient) getLatestCPER() (map[string]*amdgpu.CPEREntry, erro
 		return nil, err
 	}
 	if gpuCpers != nil && gpuCpers.ApiStatus != 0 {
-		logger.Log.Printf("CPER resp status :%v", gpuCpers.ApiStatus)
+		logger.Errorf("CPER resp status :%v", gpuCpers.ApiStatus)
 		return nil, fmt.Errorf("%v", gpuCpers.ApiStatus)
 	}
 
@@ -445,7 +445,7 @@ func (ga *GPUAgentGPUClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResp
 		if sevId, ok := amdgpu.CPERSeverity_value[strings.ToUpper(severity)]; ok {
 			req.Severity = amdgpu.CPERSeverity(sevId)
 		} else {
-			logger.Log.Printf("invalid severity value %v. fetching all cper records", severity)
+			logger.Errorf("invalid severity value %v. fetching all cper records", severity)
 		}
 	}
 	res, err := ga.gpuclient.GPUCPERGet(ctx, req)
@@ -463,7 +463,7 @@ func (ga *GPUAgentGPUClient) sendNodeLabelUpdate() error {
 	// send update to label , reconnect logic tbd
 	nodeName := utils.GetNodeName()
 	if nodeName == "" {
-		logger.Log.Printf("error getting node name on k8s deployment, skip label update")
+		logger.Errorf("error getting node name on k8s deployment, skip label update")
 		return fmt.Errorf("node name not found")
 	}
 	gpuHealthStates := make(map[string]string)

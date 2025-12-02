@@ -66,6 +66,7 @@ if [ "$SRIOV" != "1" ]; then
 
     chmod +x $TOP_DIR/docker/rocpctl
 fi
+ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
 ln -f $TOP_DIR/bin/amd-metrics-exporter $TOP_DIR/docker/amd-metrics-exporter
 ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient
 ln -f $TOP_DIR/bin/amdgpuhealth $TOP_DIR/docker/amdgpuhealth
