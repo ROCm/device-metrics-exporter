@@ -122,19 +122,23 @@ func (rts *RVSTestRunner) GetTestHandler(testName string, params types.TestParam
 
 // loadTestSuites loads the testsuite info
 func (rts *RVSTestRunner) loadTestSuites() error {
-	files, err := os.ReadDir(rts.testSuitesDir)
-	if err != nil {
-		return err
-	}
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".conf") {
-			// Add the testsuite to the map
-			testSuiteName := strings.Split(file.Name(), ".")[0]
+	return filepath.WalkDir(rts.testSuitesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".conf") {
+			// Get relative path from testSuitesDir
+			relPath, err := filepath.Rel(rts.testSuitesDir, path)
+			if err != nil {
+				return err
+			}
+			// Remove .conf extension to get test suite name
+			testSuiteName := strings.TrimSuffix(relPath, ".conf")
 			logger.Log.Printf("loaded test suite %+v", testSuiteName)
 			rts.testSuites[testSuiteName] = true
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // ExtractLogFile uses a simple regex to find the json log file path

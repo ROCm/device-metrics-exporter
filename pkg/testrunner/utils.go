@@ -176,6 +176,8 @@ func SaveTestResultToGz(output, path string) {
 
 func GetLogFilePath(resultLogDir, ts, trigger, testName, suffix string) string {
 	fileName := ts + "_" + trigger + "_" + testName + "_" + suffix + ".gz"
+	// normalize file name to avoid illegeal file name chars
+	fileName = strings.ReplaceAll(fileName, "/", "_")
 	return filepath.Join(resultLogDir, fileName)
 }
 
@@ -412,6 +414,8 @@ func BuildNoGPUTestSummary() []*types.IterationResult {
 
 func GetTestRunningLabelKeyValue(category, recipe string, indexes []string) ([]string, string) {
 	keys := []string{}
+	// normalize test recipe name to avoid illegeal label chars
+	recipe = strings.ReplaceAll(recipe, "/", "_")
 	for _, idx := range indexes {
 		keys = append(keys, strings.ToLower(fmt.Sprintf("testrunner.amd.com.%v.%v.gpu%v", category, recipe, idx)))
 	}
@@ -419,6 +423,8 @@ func GetTestRunningLabelKeyValue(category, recipe string, indexes []string) ([]s
 }
 
 func GetEventLabels(category, trigger, framework, recipe, hostName string, gpuIndexes, kfdIDs []string) map[string]string {
+	// normalize test recipe name to avoid illegeal label chars
+	recipe = strings.ReplaceAll(recipe, "/", "_")
 	labels := map[string]string{
 		"testrunner.amd.com/category":  strings.ToLower(category),
 		"testrunner.amd.com/trigger":   strings.ToLower(trigger),
