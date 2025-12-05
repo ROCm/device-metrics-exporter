@@ -59,6 +59,10 @@ const (
 	// test log dir
 	TestLogDir = "/var/tmp"
 
+	// GPU partitioning related const
+	MemoryPartitionTypePrefix  = "GPU_MEMORY_PARTITION_TYPE_"
+	ComputePartitionTypePrefix = "GPU_COMPUTE_PARTITION_TYPE_"
+
 	// rvs team recommended use gst_single as default test recipe
 	// these are the default profiles for the test runner
 	DefaultUnhealthyGPUTestName                  = "gst_single"
@@ -90,6 +94,7 @@ const (
 
 var (
 	// reference: https://admin.pci-ids.ucw.cz/read/PC/1002
+	// https://github.com/amd/MxGPU-Virtualization/blob/staging/libgv/core/amdgv_marketing_name.c
 	GPUDeviceIDToModelName = map[string]string{
 		"0x740f": "MI210",
 		"0x7410": "MI210", // MI210 VF
@@ -97,10 +102,13 @@ var (
 		"0x74a1": "MI300X",
 		"0x74b5": "MI300X", // MI300X VF
 		"0x74a2": "MI308X",
+		"0x74b6": "MI308X",    // MI308X VF
+		"0x74a8": "MI308X-HF", // MI308X HF
+		"0x74bc": "MI308X-HF", // MI308X HF VF
 		"0x74a5": "MI325X",
 		"0x74b9": "MI325X", // MI325X VF
 		"0x74a9": "MI300X-HF",
-		"0x74bd": "MI300X-HF",
+		"0x74bd": "MI300X-HF", // VF
 		"0x75a0": "MI350X",
 		"0x75b0": "MI350X", // MI350X VF
 		"0x75a3": "MI355X",
