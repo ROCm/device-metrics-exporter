@@ -31,6 +31,10 @@ import (
 	types "github.com/ROCm/device-metrics-exporter/pkg/testrunner/interface"
 )
 
+const (
+	maxRVSParseRetries = 10
+)
+
 // RvsTestResult is used to convert test json output to struct
 type RvsTestResult struct {
 	Version    string `json:"version,omitempty"`
@@ -169,9 +173,31 @@ func (rts *RVSTestRunner) parseRvsTestResult(stdout string) (map[string]types.Te
 	}
 
 	var data RvsTestResult
-	err = data.unmarshalJSON(bytes)
-	if err != nil {
-		return nil, err
+
+	// Retry up to 10 times, removing trailing } on each attempt
+	currentBytes := bytes
+	for i := 0; i <= maxRVSParseRetries; i++ {
+		err = data.unmarshalJSON(currentBytes)
+		if err == nil {
+			break
+		}
+
+		// RVS with ROCm 7.1.1 has an issue where it appends multiple extra } at the end of the JSON output
+		// Attempt to fix by removing trailing } characters
+		// Check if error is about "invalid character '}' after top-level value"
+		if i < maxRVSParseRetries && strings.Contains(err.Error(), "invalid character") && strings.Contains(err.Error(), "}") {
+			// Remove trailing }
+			trimmed := strings.TrimSpace(string(currentBytes))
+			if strings.HasSuffix(trimmed, "}") {
+				trimmed = strings.TrimSuffix(trimmed, "}")
+				currentBytes = []byte(trimmed)
+				//rts.logger.Printf("Retry %d: Removed trailing '}' from JSON, err: %v", i+1, err)
+				continue
+			}
+		}
+
+		// If we can't fix it or it's a different error, return
+		return nil, fmt.Errorf("failed to unmarshal JSON after %d retries: %v", i, err)
 	}
 
 	testResult := make(map[string]types.TestResults)
