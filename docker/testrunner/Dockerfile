@@ -28,6 +28,18 @@ RUN dnf update -y libarchive libxml2 pam python3-requests glibc && \
     rm -rf /var/cache/yum /var/cache/dnf && \
     dnf clean all
 
+# Required by RVS level based test recipes
+# 1. Install dkms package
+# 2. Modify the level 1 test recipes since not all packages are required in the container environment
+RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y && \
+    dnf config-manager --add-repo=https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/ && \
+    dnf config-manager --add-repo=https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/ && \
+    rpm --import https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official && \
+    dnf install dkms -y && \
+    rm -rf /var/cache/yum /var/cache/dnf && \
+    dnf clean all && \
+    find /opt/rocm/share/rocm-validation-suite/conf -name '*level_1*' -type f -exec sed -i '/^[[:space:]]*package:/d; /^[[:space:]]*debpackagelist:/d; s/^[[:space:]]*rpmpackagelist:.*/  rpmpackagelist: rocm-core rocminfo comgr rocblas rocrand hsa-rocr hip-runtime-amd/' {} \;
+
 ADD amd-test-runner /amd-test-runner
 ADD LICENSE /licenses/LICENSE
 RUN chmod +x /amd-test-runner
