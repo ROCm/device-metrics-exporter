@@ -25,8 +25,7 @@ ExecStart=/usr/local/bin/amd-nic-metrics-exporter --monitor-nic=true --monitor-g
 ExecStop=/bin/kill -15 $MAINPID
 
 # Match Docker-like behavior (no throttling)
-MemoryMax=0
-CPUQuota=0
+CPUQuota=400%
 TasksMax=infinity
 
 [Install]
