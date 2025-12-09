@@ -27,6 +27,7 @@ import (
 
 type fieldLogger struct {
 	unsupportedFieldMap map[string]bool
+	filterDone          bool // filtering should be done only once on startup of new config
 	sync.RWMutex
 }
 
@@ -54,6 +55,9 @@ func (fl *fieldLogger) checkUnsupportedFields(gpuid, fieldName string) bool {
 func (fl *fieldLogger) logUnsupportedField(gpuid, fieldName string) {
 	fl.Lock()
 	defer fl.Unlock()
+	if fl.filterDone {
+		return
+	}
 	if fl.unsupportedFieldMap == nil {
 		fl.unsupportedFieldMap = make(map[string]bool)
 	}
@@ -83,5 +87,13 @@ func (fl *fieldLogger) logWithValidateAndExport(gpuid string, metrics prometheus
 func (fl *fieldLogger) Reset() {
 	fl.Lock()
 	defer fl.Unlock()
+	fl.filterDone = false
 	fl.unsupportedFieldMap = make(map[string]bool)
+}
+
+func (fl *fieldLogger) SetFilterDone() {
+	fl.Lock()
+	defer fl.Unlock()
+	fl.filterDone = true
+	logger.Log.Println("Unsupported fields filtering completed.")
 }
