@@ -453,6 +453,9 @@ func (ga *GPUAgentGPUClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.E
 }
 
 func (ga *GPUAgentGPUClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResponse, error) {
+	if utils.IsSimEnabled() {
+		return utils.GetCperRecords()
+	}
 	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)
 	defer cancel()
 

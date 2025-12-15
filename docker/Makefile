@@ -8,11 +8,20 @@ HOURLY_TAG_LABEL ?= latest
 .PHONY: docker
 docker:
 	@echo "building amd exporter container"
-	@TOP_DIR=$(TOP_DIR) MOCK=$(MOCK) OS=RHEL9 ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
 		-t $(EXPORTER_IMAGE) \
 		. -f Dockerfile.exporter-release
+	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
+
+.PHONY: docker-mock
+docker-mock:
+	@echo "building amd exporter mock container"
+	@TOP_DIR=$(TOP_DIR) MOCK=1 OS=RHEL9 ./build_prep_docker.sh
+	@docker build --build-arg BASE_IMAGE=$(BUILD_BASE_IMAGE) \
+		-t $(EXPORTER_IMAGE) \
+		. -f Dockerfile.exporter-mock-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
 
 .PHONY: docker-cicd

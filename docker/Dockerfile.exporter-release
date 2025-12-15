@@ -34,9 +34,7 @@ RUN microdnf clean all && \
 
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/:/opt/nic/bin:/opt/nic/sbin
 ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
-RUN mkdir -p /home/amd/bin/
-RUN mkdir -p /home/amd/lib/
-RUN mkdir -p /home/amd/tools/
+RUN mkdir -p /home/amd/bin/ /home/amd/lib/ /home/amd/tools/
 
 # Clean up existing AMD SMI libraries and add custom ones
 RUN rm -f /opt/rocm/lib/libamd_smi.so*

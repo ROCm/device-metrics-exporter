@@ -22,6 +22,7 @@
 # copy all artificates and set proper file permissions
 if [ "$MOCK" == "1" ]; then
     tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
+    ln -f $TOP_DIR/bin/rocpctl-mock $TOP_DIR/docker/rocpctl-mock
 elif [ "$SRIOV" == "1" ]; then
     echo "Copying sriov gim driver gpuagent to docker"
     tar -xf $TOP_DIR/assets/gpuagent_sriov_static.bin.gz -C $TOP_DIR/docker/
