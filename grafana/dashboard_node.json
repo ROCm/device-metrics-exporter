@@ -2,7 +2,7 @@
   "__inputs": [
     {
       "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
+      "label": "prometheus",
       "description": "",
       "type": "datasource",
       "pluginId": "prometheus",
@@ -45,12 +45,6 @@
       "type": "panel",
       "id": "table",
       "name": "Table",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "text",
-      "name": "Text",
       "version": ""
     },
     {
@@ -1276,11 +1270,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -1555,11 +1550,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -1676,11 +1672,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -1808,11 +1805,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -1926,7 +1924,7 @@
                 "id": "custom.hideFrom",
                 "value": {
                   "legend": false,
-                  "tooltip": false,
+                  "tooltip": true,
                   "viz": true
                 }
               }
@@ -1950,11 +1948,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -2072,11 +2071,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -2175,11 +2175,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -2251,6 +2252,9 @@
               "type": "auto"
             },
             "filterable": true,
+            "footer": {
+              "reducers": []
+            },
             "inspect": false
           },
           "links": [],
@@ -2259,7 +2263,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               }
             ]
           }
@@ -2274,28 +2279,6 @@
               {
                 "id": "custom.width",
                 "value": 100
-              },
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "targetBlank": true,
-                    "title": "Go to GPU Dashboard",
-                    "url": "/d/ae0aj8euc43r4b/gpu?var-g_gpu_uuid=${__data.fields[\"gpu_uuid\"]}&var-g_hostname=${__data.fields.HOSTNAME}&var-g_gpu_id=${__data.fields[\"GPU ID\"]}"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "GPU UUID"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 320
               },
               {
                 "id": "links",
@@ -2358,15 +2341,7 @@
       "id": 20,
       "options": {
         "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "enablePagination": true,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
+        "enablePagination": true,
         "showHeader": true,
         "sortBy": [
           {
@@ -2383,7 +2358,7 @@
           }
         ]
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -2427,7 +2402,7 @@
                 "aggregations": [
                   "last"
                 ],
-                "operation": "aggregate"
+                "operation": "groupby"
               },
               "gpu_uuid": {
                 "aggregations": [],
@@ -2437,7 +2412,7 @@
                 "aggregations": [
                   "last"
                 ],
-                "operation": "aggregate"
+                "operation": "groupby"
               }
             }
           }
@@ -2453,50 +2428,33 @@
             "excludeByName": {},
             "includeByName": {},
             "indexByName": {
-              "gpu_id (last)": 1,
-              "gpu_uuid": 2,
-              "hostname (last)": 0
+              "Last (last)": 2,
+              "gpu_id": 1,
+              "hostname": 0
             },
             "renameByName": {
               "Last (last)": "HEALTH",
+              "gpu_id": "GPU ID",
               "gpu_id (last)": "GPU ID",
               "gpu_uuid": "GPU UUID",
+              "hostname": "HOSTNAME",
               "hostname (last)": "HOSTNAME"
             }
           }
         }
       ],
       "type": "table"
-    },
-    {
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 22,
-        "y": 24
-      },
-      "id": 21,
-      "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        },
-        "content": "v1.3.1",
-        "mode": "markdown"
-      },
-      "pluginVersion": "11.2.2",
-      "title": "Version",
-      "type": "text"
     }
   ],
+  "refresh": "",
   "schemaVersion": 39,
-  "tags": [],
+  "tags": [
+    "version: main"
+  ],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
           "text": "",
           "value": ""
         },
