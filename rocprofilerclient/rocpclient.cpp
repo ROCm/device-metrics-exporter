@@ -281,7 +281,7 @@ int CounterSampler::runSample(std::vector<std::string> &metric_fields)
 			thread_local std::vector<rocprofiler_record_counter_t> records;
 			records.clear(); // Clear any previous data to prevent memory leak
 			try {
-				cs.sample_counter_values({metrics[mindex]} , records, 10);
+				cs.sample_counter_values({metrics[mindex]} , records, 1000);
 			} catch (const std::exception& e) {
 				ROCP_LOG(ROCP_ERROR, "Error while sampling counter values: " << e.what());
 				return -1;

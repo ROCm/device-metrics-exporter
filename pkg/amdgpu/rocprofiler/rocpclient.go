@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	rocprofilerTimeout = 15
+	rocprofilerTimeout = 30 // to handle long running rocpctl commands
 	cachedTimer        = 10 * time.Second
 	failThreshold      = 3
 )
