@@ -96,7 +96,7 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 	rc.Lock()
 	defer rc.Unlock()
 	cmd := "rdma statistic -j"
-	res, err := ExecWithContextTimeout(cmd, longCmdTimeout)
+	res, err := ExecWithContextTimeout(cmd, longCmdTimeout, rc.na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("RDMA cmd failure err :%v", err)
 		return err
@@ -116,7 +116,7 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 
 	for i := range rdmaStats {
 		rdmaDevName := rdmaStats[i].IFNAME
-		vendorID, err := getVendor(rdmaDevName)
+		vendorID, err := getVendor(rdmaDevName, rc.na.cmdExec)
 		if err != nil {
 			logger.Log.Printf("failed to get vendor ID for %s: %v", rdmaDevName, err)
 			continue

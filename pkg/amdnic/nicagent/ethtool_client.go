@@ -129,7 +129,7 @@ func (ec *EthtoolClient) populateEthStatsForNetDevice(podInfo *scheduler.PodReso
 		cmd = fmt.Sprintf(PodNetnsExecCmd+EthToolCmd, netDevPid, netDev.IntfName)
 	}
 
-	res, err := ExecWithContext(cmd)
+	res, err := ExecWithContext(cmd, ec.na.cmdExec)
 	if err != nil {
 		logger.Log.Printf(
 			"failed to get intf stats for device %s, alias %s in pod %s: %v",

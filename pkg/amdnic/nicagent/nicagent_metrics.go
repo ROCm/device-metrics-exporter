@@ -2027,7 +2027,7 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 
 	nics := map[string]*NIC{}
 
-	nicResp, err := ExecWithContext("nicctl show card -j")
+	nicResp, err := ExecWithContext("nicctl show card -j", na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("failed to get nic data, err: %+v", err)
 		return nics, err
@@ -2050,7 +2050,7 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 		}
 
 		cmd := fmt.Sprintf("nicctl show port --card %s -j", nic.ID)
-		portResp, err := ExecWithContext(cmd)
+		portResp, err := ExecWithContext(cmd, na.cmdExec)
 		if err != nil {
 			logger.Log.Printf("NIC: %s, failed to get port data, err: %+v", nic.ID, err)
 			continue
@@ -2078,7 +2078,7 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 	// fetch lif details for each NIC
 	for _, nic := range resp.NIC {
 		cmd := fmt.Sprintf("nicctl show lif --card %s -j", nic.ID)
-		lifResp, err := ExecWithContext(cmd)
+		lifResp, err := ExecWithContext(cmd, na.cmdExec)
 		if err != nil {
 			logger.Log.Printf("NIC: %s, failed to get lif data, err: %+v", nic.ID, err)
 			continue
@@ -2156,7 +2156,7 @@ func (na *NICAgentClient) getPCIeAddress(ethBDF string) (string, error) {
 	// 84:00.1
 	// root@genoa4:~#
 	cmd := fmt.Sprintf("lspci | grep %s | awk '{print $1}'", pfPartialBDF)
-	out, err := ExecWithContext(cmd)
+	out, err := ExecWithContext(cmd, na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("failed to list PCI devices, err: %+v", err)
 		return "", err

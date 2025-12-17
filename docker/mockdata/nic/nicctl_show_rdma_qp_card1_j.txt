@@ -1,0 +1,252 @@
+
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3530-3330-303439000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-0490812c4f90"
+                    },
+                    "queue_pair": [
+                        {
+                            "spec": {
+                                "id": "1"
+                            },
+                            "statistics": {
+                                "send_queue": {
+                                    "requester_tx_statistics": {
+                                        "num_packet": "124800",
+                                        "num_send_msgs_with_invalid_remote_key_error": "0",
+                                        "num_local_ack_timeouts": "1",
+                                        "receiver_not_ready_timeout": "0",
+                                        "times_send_queue_is_drained": "0",
+                                        "num_cnp_sent": "2"
+                                    },
+                                    "requester_rx_statistcs": {
+                                        "num_packet": "8",
+                                        "num_packets_with_ecn_marking": "1"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "512",
+                                        "num_byte_counter_expired": "1",
+                                        "num_timer_expired": "0",
+                                        "num_alpha_timer_expired": "0",
+                                        "num_cnp_rcvd": "1",
+                                        "num_cnp_processed": "1"
+                                    }
+                                },
+                                "receive_queue": {
+                                    "responder_tx_statistics": {
+                                        "num_packet": "98304",
+                                        "receiver_not_ready_rnrerror": "0",
+                                        "num_sequence_error": "1",
+                                        "num_dcqcn_rp_byte_threshold_hit": "2",
+                                        "num_rp_max_rate_hit": "0"
+                                    },
+                                    "responder_rx_statistics": {
+                                        "num_packet": "124800",
+                                        "num_send_msgs_with_invalid_remote_key_error": "0",
+                                        "num_packets_with_ecn_marking": "4",
+                                        "num_cnps_received": "2",
+                                        "max_recirculation_exceeded_packet_drop": "0",
+                                        "num_mem_window_invalidate_msg": "0",
+                                        "num_duplicate_pkts_with_write_send_opcode": "0",
+                                        "num_duplicate_read_atomic_backtrack_pkt": "0",
+                                        "num_duplicate_read_atomic_drop_pkt": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "1536",
+                                        "num_byte_counter_expired": "3",
+                                        "num_timer_expired": "1",
+                                        "num_alpha_timer_expired": "1",
+                                        "num_cnp_rcvd": "2",
+                                        "num_cnp_processed": "2"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "spec": {
+                                "id": "3"
+                            },
+                            "statistics": {
+                                "send_queue": {
+                                    "requester_tx_statistics": {
+                                        "num_packet": "327680",
+                                        "num_send_msgs_with_invalid_remote_key_error": "2",
+                                        "num_local_ack_timeouts": "8",
+                                        "receiver_not_ready_timeout": "4",
+                                        "times_send_queue_is_drained": "1",
+                                        "num_cnp_sent": "18"
+                                    },
+                                    "requester_rx_statistcs": {
+                                        "num_packet": "65",
+                                        "num_packets_with_ecn_marking": "12"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "6144",
+                                        "num_byte_counter_expired": "14",
+                                        "num_timer_expired": "6",
+                                        "num_alpha_timer_expired": "5",
+                                        "num_cnp_rcvd": "18",
+                                        "num_cnp_processed": "17"
+                                    }
+                                },
+                                "receive_queue": {
+                                    "responder_tx_statistics": {
+                                        "num_packet": "286720",
+                                        "receiver_not_ready_rnrerror": "4",
+                                        "num_sequence_error": "7",
+                                        "num_dcqcn_rp_byte_threshold_hit": "15",
+                                        "num_rp_max_rate_hit": "3"
+                                    },
+                                    "responder_rx_statistics": {
+                                        "num_packet": "327680",
+                                        "num_send_msgs_with_invalid_remote_key_error": "2",
+                                        "num_packets_with_ecn_marking": "22",
+                                        "num_cnps_received": "18",
+                                        "max_recirculation_exceeded_packet_drop": "3",
+                                        "num_mem_window_invalidate_msg": "2",
+                                        "num_duplicate_pkts_with_write_send_opcode": "5",
+                                        "num_duplicate_read_atomic_backtrack_pkt": "2",
+                                        "num_duplicate_read_atomic_drop_pkt": "1"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "12288",
+                                        "num_byte_counter_expired": "18",
+                                        "num_timer_expired": "10",
+                                        "num_alpha_timer_expired": "8",
+                                        "num_cnp_rcvd": "22",
+                                        "num_cnp_processed": "21"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "spec": {
+                        "id": "44000070-0100-0000-4242-0490812c4f90"
+                    },
+                    "queue_pair": [
+                        {
+                            "spec": {
+                                "id": "2"
+                            },
+                            "statistics": {
+                                "send_queue": {
+                                    "requester_tx_statistics": {
+                                        "num_packet": "204800",
+                                        "num_send_msgs_with_invalid_remote_key_error": "1",
+                                        "num_local_ack_timeouts": "3",
+                                        "receiver_not_ready_timeout": "2",
+                                        "times_send_queue_is_drained": "1",
+                                        "num_cnp_sent": "7"
+                                    },
+                                    "requester_rx_statistcs": {
+                                        "num_packet": "28",
+                                        "num_packets_with_ecn_marking": "5"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "2048",
+                                        "num_byte_counter_expired": "4",
+                                        "num_timer_expired": "2",
+                                        "num_alpha_timer_expired": "2",
+                                        "num_cnp_rcvd": "7",
+                                        "num_cnp_processed": "7"
+                                    }
+                                },
+                                "receive_queue": {
+                                    "responder_tx_statistics": {
+                                        "num_packet": "163840",
+                                        "receiver_not_ready_rnrerror": "2",
+                                        "num_sequence_error": "3",
+                                        "num_dcqcn_rp_byte_threshold_hit": "6",
+                                        "num_rp_max_rate_hit": "1"
+                                    },
+                                    "responder_rx_statistics": {
+                                        "num_packet": "204800",
+                                        "num_send_msgs_with_invalid_remote_key_error": "1",
+                                        "num_packets_with_ecn_marking": "11",
+                                        "num_cnps_received": "7",
+                                        "max_recirculation_exceeded_packet_drop": "1",
+                                        "num_mem_window_invalidate_msg": "0",
+                                        "num_duplicate_pkts_with_write_send_opcode": "2",
+                                        "num_duplicate_read_atomic_backtrack_pkt": "0",
+                                        "num_duplicate_read_atomic_drop_pkt": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "3072",
+                                        "num_byte_counter_expired": "7",
+                                        "num_timer_expired": "4",
+                                        "num_alpha_timer_expired": "3",
+                                        "num_cnp_rcvd": "9",
+                                        "num_cnp_processed": "8"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "spec": {
+                                "id": "5"
+                            },
+                            "statistics": {
+                                "send_queue": {
+                                    "requester_tx_statistics": {
+                                        "num_packet": "61440",
+                                        "num_send_msgs_with_invalid_remote_key_error": "0",
+                                        "num_local_ack_timeouts": "0",
+                                        "receiver_not_ready_timeout": "0",
+                                        "times_send_queue_is_drained": "0",
+                                        "num_cnp_sent": "1"
+                                    },
+                                    "requester_rx_statistcs": {
+                                        "num_packet": "3",
+                                        "num_packets_with_ecn_marking": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "256",
+                                        "num_byte_counter_expired": "0",
+                                        "num_timer_expired": "0",
+                                        "num_alpha_timer_expired": "0",
+                                        "num_cnp_rcvd": "0",
+                                        "num_cnp_processed": "0"
+                                    }
+                                },
+                                "receive_queue": {
+                                    "responder_tx_statistics": {
+                                        "num_packet": "49152",
+                                        "receiver_not_ready_rnrerror": "0",
+                                        "num_sequence_error": "0",
+                                        "num_dcqcn_rp_byte_threshold_hit": "1",
+                                        "num_rp_max_rate_hit": "0"
+                                    },
+                                    "responder_rx_statistics": {
+                                        "num_packet": "61440",
+                                        "num_send_msgs_with_invalid_remote_key_error": "0",
+                                        "num_packets_with_ecn_marking": "2",
+                                        "num_cnps_received": "1",
+                                        "max_recirculation_exceeded_packet_drop": "0",
+                                        "num_mem_window_invalidate_msg": "0",
+                                        "num_duplicate_pkts_with_write_send_opcode": "0",
+                                        "num_duplicate_read_atomic_backtrack_pkt": "0",
+                                        "num_duplicate_read_atomic_drop_pkt": "0"
+                                    },
+                                    "dcqcn_stats": {
+                                        "curr_byte_counter": "768",
+                                        "num_byte_counter_expired": "1",
+                                        "num_timer_expired": "0",
+                                        "num_alpha_timer_expired": "0",
+                                        "num_cnp_rcvd": "1",
+                                        "num_cnp_processed": "1"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

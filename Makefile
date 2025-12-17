@@ -87,6 +87,7 @@ HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
 CONFIG_DIR := $(TOP_DIR)/example/
 GOINSECURE='github.com, google.golang.org, golang.org'
 GOFLAGS ='-buildvcs=false'
+GO_BUILD_TAGS ?=
 BUILD_DATE ?= $(shell date   +%Y-%m-%dT%H:%M:%S%z)
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
@@ -326,7 +327,13 @@ gopkglist:
 
 amdexporter: metricsclient amdgpuhealth
 	@echo "building amd metrics exporter"
-	CGO_ENABLED=0 go build  -C cmd/exporter -ldflags "-X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildDate=${BUILD_DATE} -X main.Publish=${DISABLE_DEBUG}" -o $(CURDIR)/bin/amd-metrics-exporter
+	CGO_ENABLED=0 go build -C cmd/exporter \
+		$(if $(GO_BUILD_TAGS),-tags $(GO_BUILD_TAGS)) \
+		-ldflags "-X main.Version=${VERSION} \
+		          -X main.GitCommit=${GIT_COMMIT} \
+		          -X main.BuildDate=${BUILD_DATE} \
+		          -X main.Publish=${DISABLE_DEBUG}" \
+		-o $(CURDIR)/bin/amd-metrics-exporter
 
 amdtestrunner:
 	@echo "building amd test runner"
@@ -369,7 +376,9 @@ docker-sriov-ub22: gen amdexporter
 	${MAKE} -C docker docker-sriov-save TOP_DIR=$(CURDIR)
 
 .PHONY: docker-mock
-docker-mock: gen amdexporter mock-rocpctl
+docker-mock: gen
+	GO_BUILD_TAGS=mock ${MAKE} amdexporter
+	${MAKE} mock-rocpctl
 	${MAKE} -C docker TOP_DIR=$(CURDIR) EXPORTER_IMAGE_NAME=$(EXPORTER_IMAGE_NAME)-mock docker-mock
 	${MAKE} -C docker docker-save TOP_DIR=$(CURDIR) EXPORTER_IMAGE_NAME=$(EXPORTER_IMAGE_NAME)-mock
 

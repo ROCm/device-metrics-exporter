@@ -1,0 +1,49 @@
+
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3530-3330-303439000000",
+            "port": [
+                {
+                    "spec": {
+                        "id": "0490812c-4f90-4242-4242-000011010000",
+                        "name": "eth1\/1",
+                        "ifindex": "0x11010000",
+                        "port_type": "ETH",
+                        "port_speed": "100G",
+                        "admin_state": "UP",
+                        "fec_type": "RS",
+                        "pause_type": "PFC",
+                        "loopback_mode": "NONE",
+                        "number_of_lanes": "4",
+                        "debounce_time": "0",
+                        "mtu": "1500",
+                        "tx_pause": "enabled",
+                        "rx_pause": "enabled",
+                        "auto_negotiation": "disabled"
+                    },
+                    "status": {
+                        "physical_port": "1",
+                        "operational_status": "UP",
+                        "link_fsm_state": "UP",
+                        "fec_type": "RS",
+                        "cable_type": "Copper",
+                        "number_of_lanes": "4",
+                        "port_speed": "100G",
+                        "auto_negotiation": "disabled",
+                        "number_of_link_down_events": "11",
+                        "mac_id": "0",
+                        "mac_channel": "0",
+                        "mac_address": "04:90:81:2c:4f:90",
+                        "transceiver_type": "QSFP28",
+                        "transceiver_state": "SPROM-READ",
+                        "transceiver_pid": "QSFP-100G-CR4",
+                        "transceiver_temperature": "0",
+                        "transceiver_warning_temperature": "0",
+                        "transceiver_alarm_temperature": "0"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,49 @@
+
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3530-3330-303439000000",
+            "pcie_bdf": "0000:41:00.0",
+            "rsc_bdf": "0000:43:00.1",
+            "ipc_bdf": "0000:43:00.0",
+            "eth_bdf": "0000:44:00.0",
+            "fru_mac_address": "04:90:81:2c:4f:90",
+            "product_name": "POLLARA 1x400G QSFP112",
+            "sku": "POLLARA-1Q400P",
+            "serial_number": "FPL25030049",
+            "hardware_revision": "0P",
+            "manufacturing_date": "2025-Mar-21",
+            "vendor_name": "AMD",
+            "asic": "salina",
+            "p4_pipeline": "rudra",
+            "p4_program": "pulsar",
+            "firmware_version": "1.117.1-a-7",
+            "current_firmware_partition": "B",
+            "next_boot_firmware_partition": "B",
+            "generation_id": "c1f11ef4-e1c0-2ba0-c4de-e74830fd4cc6",
+            "reset_reason": "Software warm reboot"
+        },
+        {
+            "id": "42424650-4c32-3434-3530-304430000000",
+            "pcie_bdf": "0000:81:00.0",
+            "rsc_bdf": "0000:83:00.1",
+            "ipc_bdf": "0000:83:00.0",
+            "eth_bdf": "0000:84:00.0",
+            "fru_mac_address": "04:90:81:2a:2c:28",
+            "product_name": "POLLARA 1x400G QSFP112",
+            "sku": "POLLARA-1Q400P",
+            "serial_number": "FPL244500D0",
+            "hardware_revision": "0P",
+            "manufacturing_date": "2024-Dec-17",
+            "vendor_name": "AMD",
+            "asic": "salina",
+            "p4_pipeline": "rudra",
+            "p4_program": "pulsar",
+            "firmware_version": "1.117.1-a-7",
+            "current_firmware_partition": "B",
+            "next_boot_firmware_partition": "B",
+            "generation_id": "e358a2aa-ce9f-1dd7-0b86-0700b51fb9bb",
+            "reset_reason": "Software warm reboot"
+        }
+    ]
+}

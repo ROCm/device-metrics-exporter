@@ -19,17 +19,15 @@ package nicagent
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/nicagent/cmdexec"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
 // ExecWithContext executes a command with a context timeout
-func ExecWithContext(cmd string) ([]byte, error) {
+func ExecWithContext(cmd string, cmdExec cmdexec.CommandExecuter) ([]byte, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -41,13 +39,12 @@ func ExecWithContext(cmd string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	command := exec.CommandContext(ctx, "/bin/bash", "-c", cmd)
-	return command.Output()
+	return cmdExec.RunWithContext(ctx, cmd)
 }
 
 // ExecWithContextTimeout executes a command with a specified context timeout.
 // It specifically checks if the command timed out.
-func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
+func ExecWithContextTimeout(cmd string, timeout time.Duration, cmdExec cmdexec.CommandExecuter) ([]byte, error) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -58,8 +55,7 @@ func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	command := exec.CommandContext(ctx, "/bin/bash", "-c", cmd)
-	output, err := command.Output()
+	output, err := cmdExec.RunWithContext(ctx, cmd)
 	if err != nil {
 		// if the context was cancelled due to the timeout, the error will contain
 		// the DeadlineExceeded message.
@@ -76,9 +72,9 @@ func ExecWithContextTimeout(cmd string, timeout time.Duration) ([]byte, error) {
 }
 
 // getVendor retrieves the vendor ID of the RDMA device.
-func getVendor(rdmaDev string) (string, error) {
-	devicePath := filepath.Join("/sys/class/infiniband", rdmaDev, "device")
-	data, err := os.ReadFile(filepath.Join(devicePath, "vendor"))
+func getVendor(rdmaDev string, cmdExec cmdexec.CommandExecuter) (string, error) {
+	cmd := fmt.Sprintf("cat /sys/class/infiniband/%s/device/vendor", rdmaDev)
+	data, err := cmdExec.Run(cmd)
 	if err != nil {
 		return "", err
 	}

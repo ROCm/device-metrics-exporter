@@ -1,0 +1,3 @@
+link rocep68s0/1 state ACTIVE physical_state LINK_UP netdev enp68s0
+link rocep132s0/1 state ACTIVE physical_state LINK_UP netdev enp132s0
+link ionic_1/1 state ACTIVE physical_state LINK_UP netdev enp132s0v0

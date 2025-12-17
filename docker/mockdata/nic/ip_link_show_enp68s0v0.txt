@@ -1,0 +1,2 @@
+4771: enp132s0v0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 04:90:81:2a:2c:29 brd ff:ff:ff:ff:ff:ff

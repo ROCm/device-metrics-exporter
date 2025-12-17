@@ -1,0 +1,39 @@
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3434-3530-304430000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-0490812a2c28",
+                        "mac_address": "04:90:81:2a:2c:28",
+                        "type": "host",
+                        "pf_id": "0",
+                        "admin_state": "up",
+                        "rdma_mtu": "4096"
+                    },
+                    "status": {
+                        "hw_id": "67",
+                        "name": "enp132s0",
+                        "oper_state": "up"
+                    }
+                },
+                {
+                    "spec": {
+                        "id": "44000070-0100-0000-4242-0490812a2c28",
+                        "mac_address": "04:90:81:2a:2c:29",
+                        "type": "host",
+                        "pf_id": "0",
+                        "admin_state": "up",
+                        "rdma_mtu": "4096"
+                    },
+                    "status": {
+                        "hw_id": "68",
+                        "name": "enp132s0v0",
+                        "oper_state": "up"
+                    }
+                }
+            ]
+        }
+    ]
+}

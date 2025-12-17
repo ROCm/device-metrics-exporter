@@ -1,0 +1,147 @@
+
+{
+    "nic": [
+        {
+            "id": "42424650-4c32-3530-3330-303439000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-0490812c4f90"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "0",
+                        "rx_unicast_packets": "0",
+                        "rx_multicast_bytes": "239457565",
+                        "rx_multicast_packets": "2884903",
+                        "rx_broadcast_bytes": "76619250",
+                        "rx_broadcast_packets": "232965",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                        "rx_multicast_drop_packets": "0",
+                        "rx_broadcast_drop_bytes": "0",
+                        "rx_broadcast_drop_packets": "0",
+                        "rx_dma_errors": "0",
+                        "tx_unicast_bytes": "0",
+                        "tx_unicast_packets": "0",
+                        "tx_multicast_bytes": "0",
+                        "tx_multicast_packets": "0",
+                        "tx_broadcast_bytes": "0",
+                        "tx_broadcast_packets": "0",
+                        "tx_unicast_drop_bytes": "0",
+                        "tx_unicast_drop_packets": "0",
+                        "tx_multicast_drop_bytes": "0",
+                        "tx_multicast_drop_packets": "0",
+                        "tx_broadcast_drop_bytes": "0",
+                        "tx_broadcast_drop_packets": "0",
+                        "tx_dma_errors": "0"
+                    }
+                },
+                {
+                    "spec": {
+                        "id": "44000070-0100-0000-4242-0490812c4f90"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "964422",
+                        "rx_unicast_packets": "11276",
+                        "rx_multicast_bytes": "217620649",
+                        "rx_multicast_packets": "2632328",
+                        "rx_broadcast_bytes": "65785680",
+                        "rx_broadcast_packets": "200136",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                        "rx_multicast_drop_packets": "0",
+                        "rx_broadcast_drop_bytes": "0",
+                        "rx_broadcast_drop_packets": "0",
+                        "rx_dma_errors": "0",
+                        "tx_unicast_bytes": "0",
+                        "tx_unicast_packets": "0",
+                        "tx_multicast_bytes": "0",
+                        "tx_multicast_packets": "0",
+                        "tx_broadcast_bytes": "0",
+                        "tx_broadcast_packets": "0",
+                        "tx_unicast_drop_bytes": "0",
+                        "tx_unicast_drop_packets": "0",
+                        "tx_multicast_drop_bytes": "0",
+                        "tx_multicast_drop_packets": "0",
+                        "tx_broadcast_drop_bytes": "0",
+                        "tx_broadcast_drop_packets": "0",
+                        "tx_dma_errors": "0"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "42424650-4c32-3434-3530-304430000000",
+            "lif": [
+                {
+                    "spec": {
+                        "id": "43000070-0100-0000-4242-0490812a2c28"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "0",
+                        "rx_unicast_packets": "0",
+                        "rx_multicast_bytes": "239428861",
+                        "rx_multicast_packets": "2884631",
+                        "rx_broadcast_bytes": "76659360",
+                        "rx_broadcast_packets": "233764",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                        "rx_multicast_drop_packets": "0",
+                        "rx_broadcast_drop_bytes": "0",
+                        "rx_broadcast_drop_packets": "0",
+                        "rx_dma_errors": "0",
+                        "tx_unicast_bytes": "0",
+                        "tx_unicast_packets": "0",
+                        "tx_multicast_bytes": "0",
+                        "tx_multicast_packets": "0",
+                        "tx_broadcast_bytes": "0",
+                        "tx_broadcast_packets": "0",
+                        "tx_unicast_drop_bytes": "0",
+                        "tx_unicast_drop_packets": "0",
+                        "tx_multicast_drop_bytes": "0",
+                        "tx_multicast_drop_packets": "0",
+                        "tx_broadcast_drop_bytes": "0",
+                        "tx_broadcast_drop_packets": "0",
+                        "tx_dma_errors": "0"
+                    }
+                },
+                {
+                    "spec": {
+                        "id": "44000070-0100-0000-4242-0490812a2c28"
+                    },
+                    "statistics": {
+                        "rx_unicast_bytes": "36892",
+                        "rx_unicast_packets": "462",
+                        "rx_multicast_bytes": "235236086",
+                        "rx_multicast_packets": "2836413",
+                        "rx_broadcast_bytes": "75285780",
+                        "rx_broadcast_packets": "229591",
+                        "rx_unicast_drop_bytes": "0",
+                        "rx_unicast_drop_packets": "0",
+                        "rx_multicast_drop_bytes": "0",
+                        "rx_multicast_drop_packets": "0",
+                        "rx_broadcast_drop_bytes": "0",
+                        "rx_broadcast_drop_packets": "0",
+                        "rx_dma_errors": "0",
+                        "tx_unicast_bytes": "0",
+                        "tx_unicast_packets": "0",
+                        "tx_multicast_bytes": "0",
+                        "tx_multicast_packets": "0",
+                        "tx_broadcast_bytes": "0",
+                        "tx_broadcast_packets": "0",
+                        "tx_unicast_drop_bytes": "0",
+                        "tx_unicast_drop_packets": "0",
+                        "tx_multicast_drop_bytes": "0",
+                        "tx_multicast_drop_packets": "0",
+                        "tx_broadcast_drop_bytes": "0",
+                        "tx_broadcast_drop_packets": "0",
+                        "tx_dma_errors": "0"
+                    }
+                }
+            ]
+        }
+    ]
+}

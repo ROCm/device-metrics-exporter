@@ -87,7 +87,7 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 		return nil
 	}
 
-	portStatsOut, err := ExecWithContext("nicctl show port statistics -j")
+	portStatsOut, err := ExecWithContext("nicctl show port statistics -j", nc.na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("failed to get port statistics, err: %+v", err)
 		return err
@@ -174,7 +174,7 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 		return nil
 	}
 
-	lifStatsOut, err := ExecWithContext("nicctl show lif statistics -j")
+	lifStatsOut, err := ExecWithContext("nicctl show lif statistics -j", nc.na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("failed to get lif statistics, err: %+v", err)
 		return err
@@ -231,7 +231,7 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 			defer wg.Done()
 
 			cmd := fmt.Sprintf("nicctl show rdma queue-pair statistics --card %s -j", nic.UUID)
-			qpLifStatsOut, err := ExecWithContextTimeout(cmd, longCmdTimeout)
+			qpLifStatsOut, err := ExecWithContextTimeout(cmd, longCmdTimeout, nc.na.cmdExec)
 			if err != nil {
 				logger.Log.Printf("error getting QP stats for %s, err: %+v", nic.UUID, err)
 				return
