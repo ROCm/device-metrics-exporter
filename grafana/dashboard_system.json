@@ -2636,6 +2636,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Mean wavefront occupancy per compute unit across all CUs. Average number of wavefronts resident on each CU including idle CUs. \n\nUnit: wavefronts \n\nHigher values indicate better GPU utilization and latency hiding capability.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2967,6 +2968,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Mean wavefront occupancy per active compute unit. Average number of wavefronts resident on CUs that have at least one active wavefront. \n\nUnit: wavefronts \n\nCDNA2 CUs support up to 32 wavefronts (4 SIMDs x 8 wavefronts each). Higher occupancy helps hide memory latency.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -3013,14 +3015,9 @@
                   {
                     "color": "green",
                     "value": 0
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
-              },
-              "unit": "percent"
+              }
             },
             "overrides": []
           },
