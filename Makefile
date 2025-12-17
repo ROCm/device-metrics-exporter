@@ -466,7 +466,7 @@ ifeq ($(NIC_BUILD),1)
 else
 	jq 'del(.ServerPort, .GPUConfig.ExtraPodLabels)' $(CONFIG_DIR)/config-gpu.json > $(HELM_CHARTS_DIR)/config.json
 endif
-	cd $(HELM_CHARTS_DIR); helm lint
+	cd $(HELM_CHARTS_DIR); helm lint .
 
 # cicd target to build helm chart - requires PROJECT_VERSION, EXPORTER_IMAGE_TAG to be set
 .PHONY: helm
