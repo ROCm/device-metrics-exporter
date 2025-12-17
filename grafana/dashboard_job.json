@@ -2730,7 +2730,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "${g_metrics_prefix}gpu_health{job_id!=\"\", job_id=\"$g_job_id\"}",
+          "expr": "${g_metrics_prefix}gpu_health{job_id!=\"\", job_id=\"$g_job_id\"} or vector(0)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -2742,7 +2742,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "${g_metrics_prefix}gpu_health{pod!=\"\", pod=\"$g_pod\"}",
+          "expr": "${g_metrics_prefix}gpu_health{pod!=\"\", pod=\"$g_pod\"} or vector(0)",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -2839,7 +2839,7 @@
                   "id": "isNull",
                   "options": {}
                 },
-                "fieldName": "GPU UUID"
+                "fieldName": "HOSTNAME"
               }
             ],
             "match": "any",
@@ -2977,6 +2977,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Mean wavefront occupancy per compute unit across all CUs. Average number of wavefronts resident on each CU including idle CUs. \n\nUnit: wavefronts \n\nHigher values indicate better GPU utilization and latency hiding capability.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -3311,6 +3312,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Mean wavefront occupancy per active compute unit. Average number of wavefronts resident on CUs that have at least one active wavefront. \n\nUnit: wavefronts \n\nCDNA2 CUs support up to 32 wavefronts (4 SIMDs x 8 wavefronts each). Higher occupancy helps hide memory latency.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -3359,8 +3361,7 @@
                     "value": 0
                   }
                 ]
-              },
-              "unit": "percent"
+              }
             },
             "overrides": []
           },
