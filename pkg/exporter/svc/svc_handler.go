@@ -83,6 +83,9 @@ func InitSvcs(mh *metricsutil.MetricsHandler, opts ...SvcHandlerOption) *SvcHand
 	for _, o := range opts {
 		o(svcHandler)
 	}
+
+	svcHandler.gpuHealthSvc = gpumetricsserver.NewMetricsServer(svcHandler.enableDebugAPI)
+	svcHandler.nicHealthSvc = nicmetricsserver.NewMetricsServer(svcHandler.enableDebugAPI)
 	return svcHandler
 }
 
