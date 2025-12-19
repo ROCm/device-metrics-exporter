@@ -53,7 +53,20 @@ ADD ./amdgpuhealth /home/amd/bin/amdgpuhealth
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
 RUN chmod +x /home/amd/tools/entrypoint.sh
 
-LABEL name="amd-device-metrics-exporter" \ 
+RUN cd /tmp \
+  && git clone git@github.com:ROCm/rocm-systems.git \
+  && git checkout users/mkuriche/device-lock-context \
+  && cd projects/rocprofiler-sdk \
+  && cmake -B build \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_PREFIX_PATH=/opt/rocm \
+    -DCMAKE_INSTALL_PREFIX=/opt/rocm \
+    -DROCPROFILER_BUILD_TESTS=ON \
+    $PWD \
+  && cmake --build build --parallel \
+  && cmake --install build
+
+LABEL name="amd-device-metrics-exporter" \
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
     version="v1.4.1" \
