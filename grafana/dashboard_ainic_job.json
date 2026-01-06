@@ -102,6 +102,10 @@
       "panels": [
         {
           "description": "Name of the job ID or pod",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
           "gridPos": {
             "h": 4,
             "w": 5,
@@ -118,7 +122,7 @@
             "content": "${g_job_id}\n${g_pod}",
             "mode": "markdown"
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "title": "Name",
           "type": "text"
         },
@@ -138,7 +142,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -175,7 +180,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -281,7 +286,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   }
                 ]
               },
@@ -313,7 +319,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -370,7 +376,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -405,7 +412,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -572,7 +579,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -609,7 +617,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -711,7 +719,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -747,7 +756,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -804,7 +813,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -820,7 +830,7 @@
             "h": 3,
             "w": 4,
             "x": 8,
-            "y": 4
+            "y": 28
           },
           "id": 13,
           "maxDataPoints": 60,
@@ -841,7 +851,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -905,7 +915,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -920,7 +931,7 @@
             "h": 4,
             "w": 3,
             "x": 0,
-            "y": 5
+            "y": 29
           },
           "id": 11,
           "options": {
@@ -940,7 +951,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1013,7 +1024,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   }
                 ]
               },
@@ -1025,7 +1037,7 @@
             "h": 4,
             "w": 5,
             "x": 3,
-            "y": 5
+            "y": 29
           },
           "id": 9,
           "maxDataPoints": 60,
@@ -1046,7 +1058,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1054,8 +1066,8 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}gpu_average_package_power{job_id!=\"\", job_id=\"$g_job_id\"})",
+              "editorMode": "code",
+              "expr": "sum(${g_metrics_prefix}gpu_average_package_power{job_id!=\"\", job_id=\"$g_job_id\"}) or vector(0)",
               "fullMetaSearch": false,
               "hide": true,
               "includeNullMetadata": true,
@@ -1071,8 +1083,8 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}gpu_package_power{job_id!=\"\", job_id=\"$g_job_id\"})",
+              "editorMode": "code",
+              "expr": "sum(${g_metrics_prefix}gpu_package_power{job_id!=\"\", job_id=\"$g_job_id\"}) or vector(0)",
               "fullMetaSearch": false,
               "hide": true,
               "includeNullMetadata": true,
@@ -1088,8 +1100,8 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}gpu_average_package_power{pod!=\"\", pod=\"$g_pod\"})",
+              "editorMode": "code",
+              "expr": "sum(${g_metrics_prefix}gpu_average_package_power{pod!=\"\", pod=\"$g_pod\"}) or vector(0)",
               "fullMetaSearch": false,
               "hide": true,
               "includeNullMetadata": true,
@@ -1105,8 +1117,8 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(${g_metrics_prefix}gpu_package_power{pod!=\"\", pod=\"$g_pod\"})",
+              "editorMode": "code",
+              "expr": "sum(${g_metrics_prefix}gpu_package_power{pod!=\"\", pod=\"$g_pod\"}) or vector(0)",
               "fullMetaSearch": false,
               "hide": true,
               "includeNullMetadata": true,
@@ -1121,19 +1133,9 @@
                 "type": "__expr__",
                 "uid": "${DS_EXPRESSION}"
               },
-              "expression": "$A+$B",
+              "expression": "$A+$B+$C+$D",
               "hide": false,
-              "refId": "Total Job Package Power Usage",
-              "type": "math"
-            },
-            {
-              "datasource": {
-                "type": "__expr__",
-                "uid": "${DS_EXPRESSION}"
-              },
-              "expression": "$C+$D",
-              "hide": false,
-              "refId": "Total Pod Package Power Usage",
+              "refId": "Total Package Power Usage",
               "type": "math"
             }
           ],
@@ -1175,6 +1177,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -1190,7 +1193,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -1206,7 +1210,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 7
+            "y": 31
           },
           "id": 14,
           "maxDataPoints": 60,
@@ -1218,10 +1222,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1284,7 +1290,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   }
                 ]
               }
@@ -1326,7 +1333,7 @@
             "h": 4,
             "w": 3,
             "x": 0,
-            "y": 9
+            "y": 33
           },
           "id": 3,
           "options": {
@@ -1349,7 +1356,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1528,7 +1535,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -1543,7 +1551,7 @@
             "h": 4,
             "w": 5,
             "x": 3,
-            "y": 9
+            "y": 33
           },
           "id": 18,
           "options": {
@@ -1563,7 +1571,7 @@
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1675,6 +1683,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -1690,7 +1699,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -1705,7 +1715,7 @@
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 13
+            "y": 37
           },
           "id": 1,
           "maxDataPoints": 60,
@@ -1717,10 +1727,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -1827,6 +1839,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -1842,7 +1855,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -1858,7 +1872,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 13
+            "y": 37
           },
           "id": 5,
           "maxDataPoints": 60,
@@ -1870,11 +1884,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
-          "pluginVersion": "11.2.0",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2003,6 +2018,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -2018,7 +2034,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -2034,7 +2051,7 @@
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 13
+            "y": 37
           },
           "id": 7,
           "maxDataPoints": 60,
@@ -2046,10 +2063,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2058,7 +2077,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_package_power{job_id!=\"\", job_id=\"$g_job_id\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_package_power{job_id!=\"\", job_id=\"$g_job_id\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -2074,7 +2093,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_package_power{pod!=\"\", pod=\"$g_pod\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_package_power{pod!=\"\", pod=\"$g_pod\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -2090,7 +2109,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_average_package_power{job_id!=\"\", job_id=\"$g_job_id\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_average_package_power{job_id!=\"\", job_id=\"$g_job_id\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "hide": false,
               "instant": false,
               "legendFormat": "__auto",
@@ -2103,7 +2122,7 @@
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_average_package_power{pod!=\"\", pod=\"$g_pod\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_average_package_power{pod!=\"\", pod=\"$g_pod\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "hide": false,
               "instant": false,
               "legendFormat": "__auto",
@@ -2149,6 +2168,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -2164,7 +2184,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -2180,7 +2201,7 @@
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 19
+            "y": 43
           },
           "id": 4,
           "maxDataPoints": 60,
@@ -2192,10 +2213,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2204,7 +2227,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_edge_temperature{job_id!=\"\", job_id=\"$g_job_id\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_edge_temperature{job_id!=\"\", job_id=\"$g_job_id\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -2220,7 +2243,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_edge_temperature{pod!=\"\", pod=\"$g_pod\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_edge_temperature{pod!=\"\", pod=\"$g_pod\", card_model!~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -2237,7 +2260,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_junction_temperature{job_id!=\"\", job_id=\"$g_job_id\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_junction_temperature{job_id!=\"\", job_id=\"$g_job_id\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -2254,7 +2277,7 @@
               },
               "disableTextWrap": false,
               "editorMode": "builder",
-              "expr": "avg(${g_metrics_prefix}gpu_junction_temperature{pod!=\"\", pod=\"$g_pod\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C\"})",
+              "expr": "avg(${g_metrics_prefix}gpu_junction_temperature{pod!=\"\", pod=\"$g_pod\", card_model=~\"102-G30211-00|102-G30211-0C|102-G30211-4C|102-G30212-0C|102-G30213-00|102-G30213-0C|102-G39205-00|102-G36220-0C|102-G36221-0C|102-G39206-00\"})",
               "fullMetaSearch": false,
               "hide": false,
               "includeNullMetadata": true,
@@ -2303,6 +2326,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -2318,7 +2342,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -2334,7 +2359,7 @@
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 19
+            "y": 43
           },
           "id": 6,
           "maxDataPoints": 60,
@@ -2346,10 +2371,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2423,6 +2450,7 @@
                   "type": "linear"
                 },
                 "showPoints": "auto",
+                "showValues": false,
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -2437,7 +2465,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   },
                   {
                     "color": "red",
@@ -2452,7 +2481,7 @@
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 19
+            "y": 43
           },
           "id": 8,
           "maxDataPoints": 60,
@@ -2464,10 +2493,12 @@
               "showLegend": true
             },
             "tooltip": {
+              "hideZeros": false,
               "mode": "single",
               "sort": "none"
             }
           },
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2591,6 +2622,9 @@
                   "type": "auto"
                 },
                 "filterable": true,
+                "footer": {
+                  "reducers": []
+                },
                 "inspect": false
               },
               "links": [],
@@ -2599,7 +2633,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": 0
                   }
                 ]
               }
@@ -2632,28 +2667,6 @@
                   {
                     "id": "custom.width",
                     "value": 100
-                  },
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "targetBlank": true,
-                        "title": "Go to GPU Dashboard",
-                        "url": "/d/ae0aj8euc43r4b/gpu?var-g_gpu_uuid=${__data.fields[\"gpu_uuid\"]}&var-g_hostname=${__data.fields.HOSTNAME}&var-g_gpu_id=${__data.fields[\"GPU ID\"]}"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "GPU UUID"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 320
                   },
                   {
                     "id": "links",
@@ -2711,20 +2724,12 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 25
+            "y": 49
           },
           "id": 19,
           "options": {
             "cellHeight": "sm",
-            "footer": {
-              "countRows": false,
-              "enablePagination": true,
-              "fields": "",
-              "reducer": [
-                "sum"
-              ],
-              "show": false
-            },
+            "enablePagination": true,
             "showHeader": true,
             "sortBy": [
               {
@@ -2741,7 +2746,7 @@
               }
             ]
           },
-          "pluginVersion": "11.2.2",
+          "pluginVersion": "12.3.0",
           "targets": [
             {
               "datasource": {
@@ -2794,7 +2799,7 @@
                     "aggregations": [
                       "last"
                     ],
-                    "operation": "aggregate"
+                    "operation": "groupby"
                   },
                   "gpu_uuid": {
                     "aggregations": [],
@@ -2804,7 +2809,7 @@
                     "aggregations": [
                       "last"
                     ],
-                    "operation": "aggregate"
+                    "operation": "groupby"
                   }
                 }
               }
@@ -2820,14 +2825,16 @@
                 "excludeByName": {},
                 "includeByName": {},
                 "indexByName": {
-                  "gpu_id (last)": 1,
-                  "gpu_uuid": 2,
-                  "hostname (last)": 0
+                  "Last (last)": 2,
+                  "gpu_id": 1,
+                  "hostname": 0
                 },
                 "renameByName": {
                   "Last (last)": "HEALTH",
+                  "gpu_id": "GPU ID",
                   "gpu_id (last)": "GPU ID",
                   "gpu_uuid": "GPU UUID",
+                  "hostname": "HOSTNAME",
                   "hostname (last)": "HOSTNAME"
                 }
               }
@@ -2841,7 +2848,7 @@
                       "id": "isNull",
                       "options": {}
                     },
-                    "fieldName": "GPU UUID"
+                    "fieldName": "HOSTNAME"
                   }
                 ],
                 "match": "any",
@@ -2850,30 +2857,687 @@
             }
           ],
           "type": "table"
-        },
-        {
-          "gridPos": {
-            "h": 2,
-            "w": 2,
-            "x": 22,
-            "y": 25
-          },
-          "id": 20,
-          "options": {
-            "code": {
-              "language": "plaintext",
-              "showLineNumbers": false,
-              "showMiniMap": false
-            },
-            "content": "main",
-            "mode": "markdown"
-          },
-          "pluginVersion": "11.2.2",
-          "title": "Version",
-          "type": "text"
         }
       ],
       "title": "GPU Metrics",
+      "type": "row"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 47,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 2
+          },
+          "id": 48,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_sm_active{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_sm_active{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "SM Active",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "Mean wavefront occupancy per compute unit across all CUs. Average number of wavefronts resident on each CU including idle CUs. \n\nUnit: wavefronts \n\nHigher values indicate better GPU utilization and latency hiding capability.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 2
+          },
+          "id": 50,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_occupancy_per_cu{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_occupancy_per_cu{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Occupancy / Compute",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 2
+          },
+          "id": 51,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_simd_utilization{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_simd_utilization{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "SIMD Utilization",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 32
+          },
+          "id": 49,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_tensor_active_percent{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_tensor_active_percent{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Tensor Active",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "Mean wavefront occupancy per active compute unit. Average number of wavefronts resident on CUs that have at least one active wavefront. \n\nUnit: wavefronts \n\nCDNA2 CUs support up to 32 wavefronts (4 SIMDs x 8 wavefronts each). Higher occupancy helps hide memory latency.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 32
+          },
+          "id": 52,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_occupancy_per_active_cu{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_occupancy_per_active_cu{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Occupancy / Active Compute",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 32
+          },
+          "id": 53,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "12.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_gui_util_percent{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "builder",
+              "expr": "${g_metrics_prefix}gpu_prof_gui_util_percent{pod!=\"\", pod=\"$g_pod\", hostname=~\"$g_hostname\", gpu_id=~\"$g_gpu_id\"}",
+              "hide": false,
+              "legendFormat": "GPU: {{gpu_id}} - Job: {{pod}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "GUI Utilization",
+          "type": "timeseries"
+        }
+      ],
+      "title": "GPU Performance",
       "type": "row"
     },
     {
@@ -2882,7 +3546,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 1
+        "y": 2
       },
       "id": 29,
       "panels": [],
@@ -2916,7 +3580,7 @@
         "h": 6,
         "w": 3,
         "x": 0,
-        "y": 2
+        "y": 3
       },
       "id": 27,
       "options": {
@@ -3073,7 +3737,7 @@
         "h": 6,
         "w": 7,
         "x": 3,
-        "y": 2
+        "y": 3
       },
       "id": 30,
       "maxDataPoints": 60,
@@ -3085,10 +3749,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -3208,7 +3874,7 @@
         "h": 6,
         "w": 7,
         "x": 10,
-        "y": 2
+        "y": 3
       },
       "id": 31,
       "maxDataPoints": 60,
@@ -3220,10 +3886,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -3343,7 +4011,7 @@
         "h": 6,
         "w": 7,
         "x": 17,
-        "y": 2
+        "y": 3
       },
       "id": 32,
       "options": {
@@ -3354,10 +4022,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -3402,7 +4072,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 9
       },
       "id": 34,
       "panels": [],
@@ -3438,7 +4108,7 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 10
       },
       "id": 35,
       "maxDataPoints": 60,
@@ -3603,7 +4273,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 10
       },
       "id": 36,
       "maxDataPoints": 60,
@@ -3774,7 +4444,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 14
       },
       "id": 37,
       "options": {
@@ -3854,8 +4524,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -3949,7 +4619,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 14
       },
       "id": 38,
       "options": {
@@ -4029,8 +4699,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -4124,7 +4794,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 21
       },
       "id": 39,
       "options": {
@@ -4204,8 +4874,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -4299,7 +4969,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 21
       },
       "id": 40,
       "options": {
@@ -4379,8 +5049,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -4409,7 +5079,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 28
       },
       "id": 41,
       "panels": [],
@@ -4434,7 +5104,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -4445,7 +5115,7 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 29
       },
       "id": 45,
       "maxDataPoints": 60,
@@ -4466,7 +5136,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -4599,7 +5269,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -4610,7 +5280,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 29
       },
       "id": 46,
       "maxDataPoints": 60,
@@ -4631,7 +5301,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -4761,6 +5431,9 @@
             "cellOptions": {
               "type": "auto"
             },
+            "footer": {
+              "reducers": []
+            },
             "inspect": false
           },
           "mappings": [],
@@ -4769,7 +5442,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -4817,19 +5490,11 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 33
       },
       "id": 42,
       "options": {
         "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
         "showHeader": true,
         "sortBy": [
           {
@@ -4838,7 +5503,7 @@
           }
         ]
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -4897,8 +5562,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -4936,6 +5601,9 @@
             "cellOptions": {
               "type": "auto"
             },
+            "footer": {
+              "reducers": []
+            },
             "inspect": false
           },
           "mappings": [],
@@ -4944,7 +5612,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -4992,19 +5660,11 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 33
       },
       "id": 43,
       "options": {
         "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
         "showHeader": true,
         "sortBy": [
           {
@@ -5013,7 +5673,7 @@
           }
         ]
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -5072,8 +5732,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -5111,6 +5771,9 @@
             "cellOptions": {
               "type": "auto"
             },
+            "footer": {
+              "reducers": []
+            },
             "inspect": false
           },
           "mappings": [],
@@ -5119,7 +5782,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           }
@@ -5167,19 +5830,11 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 39
+        "y": 40
       },
       "id": 44,
       "options": {
         "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
         "showHeader": true,
         "sortBy": [
           {
@@ -5188,7 +5843,7 @@
           }
         ]
       },
-      "pluginVersion": "11.2.2",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "datasource": {
@@ -5247,8 +5902,8 @@
               "container": 8,
               "eth_intf_alias": 4,
               "eth_intf_name": 5,
-              "instance": 6,
               "hostname": 2,
+              "instance": 6,
               "job": 7,
               "namespace": 9,
               "nic_id": 3,
@@ -5277,7 +5932,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 47
       },
       "id": 22,
       "panels": [
@@ -5311,7 +5966,7 @@
             "h": 6,
             "w": 3,
             "x": 0,
-            "y": 47
+            "y": 135
           },
           "id": 26,
           "options": {
@@ -5467,7 +6122,7 @@
             "h": 6,
             "w": 7,
             "x": 3,
-            "y": 47
+            "y": 135
           },
           "id": 23,
           "maxDataPoints": 60,
@@ -5601,7 +6256,7 @@
             "h": 6,
             "w": 7,
             "x": 10,
-            "y": 47
+            "y": 135
           },
           "id": 24,
           "maxDataPoints": 60,
@@ -5735,7 +6390,7 @@
             "h": 6,
             "w": 7,
             "x": 17,
-            "y": 47
+            "y": 135
           },
           "id": 25,
           "options": {
@@ -5790,18 +6445,19 @@
         }
       ],
       "repeat": "g_eth_intf_name",
-      "repeatDirection": "h",
       "title": "LIF: $g_eth_intf_name",
       "type": "row"
     }
   ],
+  "refresh": "",
   "schemaVersion": 39,
-  "tags": [],
+  "tags": [
+    "version: main"
+  ],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
           "text": "",
           "value": ""
         },
@@ -5934,6 +6590,56 @@
         "query": {
           "qryType": 1,
           "query": "label_values({pod=~\"$g_nic_pod\"},eth_intf_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 7,
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values({cluster_name=\"$g_cluster_name\"},hostname)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Hostname",
+        "multi": true,
+        "name": "g_hostname",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({cluster_name=\"$g_cluster_name\"},hostname)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 7,
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values({hostname=~\"$g_hostname\"},gpu_id)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "GPU ID",
+        "multi": true,
+        "name": "g_gpu_id",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({hostname=~\"$g_hostname\"},gpu_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
