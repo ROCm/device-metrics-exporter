@@ -1,0 +1,56 @@
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.6
+
+FROM ${BASE_IMAGE} AS builder
+
+ARG AINIC_VER=1.117.5-a-56
+RUN echo "${AINIC_VER}" > /etc/dnf/vars/amdainicver
+ENV DIST=el9
+RUN curl -o /etc/yum.repos.d/amdainic.repo \
+    https://repo.radeon.com/amdainic/pensando/${DIST}/amdainic-${DIST}.repo
+RUN curl -L -o /tmp/dtc.rpm https://download.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/d/dtc-1.6.0-7.el9.x86_64.rpm && \
+    rpm -ivh --nodeps /tmp/dtc.rpm && \
+    rm -f /tmp/dtc.rpm
+RUN microdnf update -y && \
+    microdnf install -y nicctl && \
+    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
+
+# Export binaries and needed libs
+RUN mkdir -p /export/bin /export/lib64
+RUN cp -v /usr/sbin/nicctl /export/bin/
+RUN cp -v /lib64/libpci* /export/lib64/
+
+###########
+
+FROM ${BASE_IMAGE}
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
+RUN mkdir -p /home/amd/bin/
+RUN mkdir -p /home/amd/tools/
+
+ADD ./LICENSE /licenses/LICENSE
+ADD ./amd-metrics-exporter /home/amd/bin/server
+ADD ./metricsclient /home/amd/bin/metricsclient
+ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
+RUN chmod +x /home/amd/tools/entrypoint.sh
+RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
+
+COPY --from=builder /export/bin/nicctl /usr/sbin/nicctl
+COPY --from=builder /export/lib64/libpci* /lib64/
+
+# Minimal runtime deps
+RUN microdnf update -y && \
+    microdnf install -y pciutils kmod iproute ethtool && \
+    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
+
+LABEL name="amd-device-metrics-exporter" \
+    maintainer="sundaramurthy.gurunathan@amd.com,yuvarani.shankar@amd.com,praveenkumar.shanmugam@amd.com,shrey.ajmera@amd.com" \
+    vendor="Advanced Micro Devices, Inc." \
+    version="v1.1.0" \
+    release="v1.1.0" \
+    OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6" \
+    summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD AINICs." \
+    description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD AINICs in HPC and AI environments. It provides detailed telemetry including port, lif, rdma, ethtool and QP metrics"
+
+ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]

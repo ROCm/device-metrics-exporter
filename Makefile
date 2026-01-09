@@ -16,6 +16,7 @@ EXPORTER_SRIOV_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.6
 EXPORTER_SRIOV_IMAGE_NAME ?= device-metrics-exporter-sriov
 RHEL_BASE_MIN_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.6
 AZURE_BASE_IMAGE ?= mcr.microsoft.com/azurelinux/base/core:3.0
+EXPORTER_AINIC_IMAGE_NAME ?= device-metrics-exporter-ainic
 
 # Test runner container environment
 TESTRUNNER_IMAGE_TAG ?= latest
@@ -47,6 +48,7 @@ export EXPORTER_IMAGE_NAME
 export EXPORTER_SRIOV_BASE_IMAGE
 export EXPORTER_SRIOV_IMAGE_NAME
 export EXPORTER_IMAGE_TAG
+export EXPORTER_AINIC_IMAGE_NAME
 
 # testrunner base images
 export TESTRUNNER_IMAGE_NAME
@@ -367,6 +369,12 @@ docker-sriov: gen amdexporter
 	echo "Building docker for sriov driver rhel9"
 	${MAKE} -C docker docker-sriov TOP_DIR=$(CURDIR)
 	${MAKE} -C docker docker-sriov-save TOP_DIR=$(CURDIR)
+
+.PHONY: docker-ainic
+docker-ainic: gen amdexporter
+	echo "Building docker for ainic driver rhel9"
+	${MAKE} -C docker docker-ainic TOP_DIR=$(CURDIR)
+	${MAKE} -C docker docker-save  TOP_DIR=$(CURDIR) AINIC=1
 
 # for development we use ubuntu based
 .PHONY: docker-sriov-ub22
