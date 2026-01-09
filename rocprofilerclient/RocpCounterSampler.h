@@ -27,6 +27,7 @@
 #include <rocprofiler-sdk/registration.h>
 #include <rocprofiler-sdk/rocprofiler.h>
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <unordered_map>
@@ -35,6 +36,8 @@
 #define ROCP_ERROR 0
 #define ROCP_INFO 1
 #define ROCP_DEBUG 2
+
+#define MAX_COUNTER_PER_PROFILE 10
 
 #define ROCP_LOG(debug_level, msg)                                                             \
   do {                                                                                        \
@@ -73,6 +76,21 @@ class CounterSampler {
 
   rocprofiler_agent_id_t get_agent() const { return agent_; }
 
+  // Profile set for greedy packing
+  struct ProfileSet {
+    struct Profile {
+      rocprofiler_counter_config_id_t config;
+      std::vector<std::string> counter_names;
+      size_t expected_size;
+    };
+    std::vector<Profile> profiles;
+  };
+
+  // Sample multiple counters using greedy packing to minimize profiles
+  void sample_counters_with_packing(const std::vector<std::string>& counters,
+                                    std::map<std::string, double>& out_values,
+                                    uint64_t duration);
+                                    
   // Get the supported counters for an agent
   static std::unordered_map<std::string, rocprofiler_counter_id_t> get_supported_counters(
       rocprofiler_agent_id_t agent);
@@ -81,15 +99,20 @@ class CounterSampler {
   static std::vector<rocprofiler_agent_v0_t> get_available_agents();
 
   static std::vector<std::shared_ptr<CounterSampler>>& get_samplers();
-  static int runSample(std::vector<std::string> &metric_fields);
+  static int runSample(std::vector<std::string> &metric_fields, uint64_t duration);
 
  private:
   rocprofiler_agent_id_t agent_ = {};
   rocprofiler_context_id_t ctx_ = {};
   rocprofiler_profile_config_id_t profile_ = {.handle = 0};
+  rocprofiler_counter_config_id_t counter_ = {.handle = 0};
 
   std::map<std::vector<std::string>, rocprofiler_profile_config_id_t> cached_profiles_;
   std::map<uint64_t, uint64_t> profile_sizes_;
+  std::map<std::vector<std::string>, rocprofiler_counter_config_id_t> cached_counter_;
+  std::map<uint64_t, uint64_t> counter_sizes_;
+  std::map<std::vector<std::string>, ProfileSet> cached_profile_sets_;
+  mutable std::map<uint64_t, std::string> id_to_name_; 
 
   // Internal function used to set the profile for the agent when start_context is called
   void set_profile(rocprofiler_context_id_t ctx, rocprofiler_agent_set_profile_callback_t cb) const;
@@ -100,6 +123,9 @@ class CounterSampler {
   // Get the dimensions of a counter
   std::vector<rocprofiler_record_dimension_info_t> get_counter_dimensions(
       rocprofiler_counter_id_t counter);
+
+  // Create profiles using greedy packing algorithm
+  ProfileSet create_profiles_for_counters(const std::vector<std::string>& counters);
 
   static std::vector<std::shared_ptr<CounterSampler>> samplers_;
 };
