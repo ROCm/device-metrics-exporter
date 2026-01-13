@@ -25,7 +25,7 @@ Kubernetes: `>= 1.29.0-0`
 | image.initContainerImage | string | `"busybox:1.36"` | metrics exporter initContainer image |
 | image.pullPolicy | string | `"Always"` | metrics exporter image pullPolicy |
 | image.pullSecrets | string | `""` | metrics exporter image pullSecret name |
-| image.repository | string | `"registry.test.pensando.io:5000/device-metrics-exporter"` | repository URL for the metrics exporter image |
+| image.repository | string | `"docker.io/rocm/device-metrics-exporter"` | repository URL for the metrics exporter image |
 | image.tag | string | `"v1.4.2"` | metrics exporter image tag |
 | kubelet | object | `{"podResourceAPISocketPath":"/var/lib/kubelet/pod-resources"}` | kubelet configuration |
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
