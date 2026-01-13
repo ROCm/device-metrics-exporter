@@ -1,6 +1,6 @@
 # device-metrics-exporter-charts
 
-![Version: v1.5.0](https://img.shields.io/badge/Version-v1.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.5.0](https://img.shields.io/badge/AppVersion-v1.5.0-informational?style=flat-square)
+![Version: v1.4.2](https://img.shields.io/badge/Version-v1.4.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.4.2](https://img.shields.io/badge/AppVersion-v1.4.2-informational?style=flat-square)
 
 A Helm chart for AMD Device Metric Exporter
 
@@ -25,8 +25,8 @@ Kubernetes: `>= 1.29.0-0`
 | image.initContainerImage | string | `"busybox:1.36"` | metrics exporter initContainer image |
 | image.pullPolicy | string | `"Always"` | metrics exporter image pullPolicy |
 | image.pullSecrets | string | `""` | metrics exporter image pullSecret name |
-| image.repository | string | `"docker.io/rocm/device-metrics-exporter"` | repository URL for the metrics exporter image |
-| image.tag | string | `"v1.5.0"` | metrics exporter image tag |
+| image.repository | string | `"registry.test.pensando.io:5000/device-metrics-exporter"` | repository URL for the metrics exporter image |
+| image.tag | string | `"v1.4.2"` | metrics exporter image tag |
 | kubelet | object | `{"podResourceAPISocketPath":"/var/lib/kubelet/pod-resources"}` | kubelet configuration |
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
 | monitor | object | `{"resources":{"gpu":true,"nic":false}}` | monitoring configuration |
