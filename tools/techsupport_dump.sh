@@ -56,6 +56,12 @@ pod_logs() {
 	mkdir -p ${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}
 	for lpod in ${PODS}; do
 		pod=$(basename ${lpod})
+		# Check if pod is in Running status
+		POD_STATUS=$(${KNS} get pod "${pod}" -o jsonpath='{.status.phase}' 2>/dev/null)
+		if [ "${POD_STATUS}" != "Running" ]; then
+			log "   ${NS}/${pod} is not running (status: ${POD_STATUS}), skipping log collection"
+			continue
+		fi
 		log "   ${NS}/${pod}"
 		${KNS} logs "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}.txt
 		${KNS} describe pod "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/describe_${NS}_${pod}.txt
@@ -130,33 +136,47 @@ for node in ${NODES}; do
 	KNS="${KUBECTL} -n ${EXPORTER_NS}"
 	EXPORTER_PODS=$(${KNS} get pods -o name --field-selector spec.nodeName=${node} -l "app=${RELNAME}-amdgpu-metrics-exporter")
 	pod_logs $EXPORTER_NS "metrics-exporter" $node $EXPORTER_PODS
-	# gpuagent logs
-	GPUAGENT_LOGS="gpu-agent.log gpu-agent-api.log gpu-agent-err.log"
-	mkdir -p ${TECH_SUPPORT_FILE}/${node}/gpu-agent
-	for l in ${GPUAGENT_LOGS}; do
-		for expod in ${EXPORTER_PODS}; do
-			pod=$(basename ${expod})
-			${KNS} exec -it ${EXPORTER_PODS} -- sh -c "cat /var/log/$l" > ${TECH_SUPPORT_FILE}/${node}/gpu-agent/$l || true
-		done
+	
+	# Check if there are any running pods before attempting exec commands
+	RUNNING_POD=""
+	for expod in ${EXPORTER_PODS}; do
+		pod=$(basename ${expod})
+		POD_STATUS=$(${KNS} get pod "${pod}" -o jsonpath='{.status.phase}' 2>/dev/null)
+		if [ "${POD_STATUS}" == "Running" ]; then
+			RUNNING_POD="${pod}"
+			break
+		fi
 	done
-	#exporter version 
-	log "   exporter version"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt || true
-	log "   exporter health"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "metricsclient" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
-	log "   exporter config"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "cat /etc/metrics/config.json" >${TECH_SUPPORT_FILE}/${node}/exporterconfig.json || true
-	log "   exporter pod details"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "metricsclient -pod -json" >${TECH_SUPPORT_FILE}/${node}/exporterpod.json || true
-	log "   exporter node details"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "metricsclient -npod" >${TECH_SUPPORT_FILE}/${node}/exporternode.txt || true
-	log "   amd-smi output"
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi list" >${TECH_SUPPORT_FILE}/${node}/amd-smi-list.txt || true
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi static " >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi firmware" >${TECH_SUPPORT_FILE}/${node}/amd-smi-firmware.txt || true
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
-	${KNS} exec -it ${EXPORTER_PODS} -- sh -c "amd-smi xgmi" >${TECH_SUPPORT_FILE}/${node}/amd-smi-xgmi.txt || true
+	
+	# Skip exec commands if no running pod found
+	if [ -z "${RUNNING_POD}" ]; then
+		log "   No running pods found for node ${node}, skipping exec commands"
+	else
+		# gpuagent logs
+		GPUAGENT_LOGS="gpu-agent.log gpu-agent-api.log gpu-agent-err.log"
+		mkdir -p ${TECH_SUPPORT_FILE}/${node}/gpu-agent
+		for l in ${GPUAGENT_LOGS}; do
+			${KNS} exec -it ${RUNNING_POD} -- sh -c "cat /var/log/$l" > ${TECH_SUPPORT_FILE}/${node}/gpu-agent/$l || true
+		done
+		#exporter version 
+		log "   exporter version"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt || true
+		log "   exporter health"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
+		log "   exporter config"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "cat /etc/metrics/config.json" >${TECH_SUPPORT_FILE}/${node}/exporterconfig.json || true
+		log "   exporter pod details"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient -pod -json" >${TECH_SUPPORT_FILE}/${node}/exporterpod.json || true
+		log "   exporter node details"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient -npod" >${TECH_SUPPORT_FILE}/${node}/exporternode.txt || true
+		log "   amd-smi output"
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi list" >${TECH_SUPPORT_FILE}/${node}/amd-smi-list.txt || true
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi static " >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi firmware" >${TECH_SUPPORT_FILE}/${node}/amd-smi-firmware.txt || true
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
+		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi xgmi" >${TECH_SUPPORT_FILE}/${node}/amd-smi-xgmi.txt || true
+	fi
 
 	${KUBECTL} get nodes -l "node-role.kubernetes.io/control-plane=NoSchedule" 2>/dev/null | grep ${node} && continue # skip master nodes
 done
