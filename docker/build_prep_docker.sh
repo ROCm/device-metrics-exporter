@@ -27,7 +27,7 @@ if [ "$AINIC" = "1" ]; then
     exit 0
 fi
 
-# copy all artificats and set proper file permissions
+# copy all artifacts and set proper file permissions
 if [ "$MOCK" == "1" ]; then
     tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
     ln -f $TOP_DIR/bin/rocpctl-mock $TOP_DIR/docker/rocpctl-mock
