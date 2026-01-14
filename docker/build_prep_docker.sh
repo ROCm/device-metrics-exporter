@@ -19,7 +19,15 @@
 # REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
-# copy all artificates and set proper file permissions
+if [ "$AINIC" = "1" ]; then
+    ln -f "$TOP_DIR/bin/amd-metrics-exporter" "$TOP_DIR/docker/amd-metrics-exporter"
+    ln -f "$TOP_DIR/bin/metricsclient" "$TOP_DIR/docker/metricsclient"
+    ln -f "$TOP_DIR/tools/techsupport/metrics-exporter-ts.sh" "$TOP_DIR/docker/metrics-exporter-ts.sh"
+    cp "$TOP_DIR/LICENSE" "$TOP_DIR/docker/LICENSE"
+    exit 0
+fi
+
+# copy all artificats and set proper file permissions
 if [ "$MOCK" == "1" ]; then
     tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
     ln -f $TOP_DIR/bin/rocpctl-mock $TOP_DIR/docker/rocpctl-mock
