@@ -19,7 +19,6 @@
 # usage:
 #    techsupport_dump.sh node-name/all
 #
-set -e
 
 TECH_SUPPORT_FILE=techsupport-$(date "+%F_%T" | sed -e 's/:/-/g')
 DEFAULT_RESOURCES="nodes events"
@@ -56,18 +55,35 @@ pod_logs() {
 	mkdir -p ${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}
 	for lpod in ${PODS}; do
 		pod=$(basename ${lpod})
-		# Check if pod is in Running status
+		# Get pod status
 		POD_STATUS=$(${KNS} get pod "${pod}" -o jsonpath='{.status.phase}' 2>/dev/null)
-		if [ "${POD_STATUS}" != "Running" ]; then
-			log "   ${NS}/${pod} is not running (status: ${POD_STATUS}), skipping log collection"
+		log "   ${NS}/${pod} (status: ${POD_STATUS})"
+
+		# Always collect describe output for all pods (running, failed, crashloop, etc.)
+		${KNS} describe pod "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/describe_${NS}_${pod}.txt 2>&1 || \
+			echo "Failed to describe pod ${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/describe_${NS}_${pod}.txt
+
+		# pod pending should be skipped for logs
+		if [ "${POD_STATUS}" == "Pending" ]; then
+			echo "Pod ${pod} is in Pending state, skipping logs collection." >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}_logs_skipped.txt
 			continue
+		else
+			# Collect current logs if available (works for Running, CrashLoopBackOff, Failed pods)
+			${KNS} logs "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}.txt 2>&1 || \
+				echo "Failed to collect current logs for ${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}.txt
 		fi
-		log "   ${NS}/${pod}"
-		${KNS} logs "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}.txt
-		${KNS} describe pod "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/describe_${NS}_${pod}.txt
-		${KNS} logs -p "${pod}" --tail 1 >/dev/null 2>&1 && ${KNS} logs -p "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}_previous.txt
+
+		# Collect previous logs if available (critical for crashloop/failed pods)
+		${KNS} logs -p "${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}_previous.txt 2>&1 || \
+			echo "No previous logs available for ${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/${NS}_${pod}_previous.txt
+
+		# For failed/crashloop pods, also collect events
+		if [ "${POD_STATUS}" != "Running" ]; then
+			${KNS} get events --field-selector involvedObject.name=${pod} >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/events_${NS}_${pod}.txt 2>&1 || \
+				echo "Failed to collect events for ${pod}" >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/events_${NS}_${pod}.txt
+		fi
 	done
-	echo ${PODS} >${TECH_SUPPORT_FILE}/${node}/${FEATURE}/pods.txt
+	echo ${PODS} >${TECH_SUPPORT_FILE}/${NODE}/${FEATURE}/pods.txt || true
 }
 
 while getopts who:k:r: opt; do
@@ -126,14 +142,18 @@ else
 	NODES=$(echo "${NODES} ${CONTROL_PLANE}" | tr ' ' '\n' | sort -u)
 fi
 
+KNS="${KUBECTL}"
+if [ "${EXPORTER_NS}" != "" ]; then
+	KNS="${KUBECTL} -n ${EXPORTER_NS}"
+fi
+
 log "logs:"
 for node in ${NODES}; do
 	log " ${node}:"
 	${KUBECTL} get nodes ${node} | grep -w Ready >/dev/null || continue
 	mkdir -p ${TECH_SUPPORT_FILE}/${node}
 	${KUBECTL} describe nodes ${node} >${TECH_SUPPORT_FILE}/${node}/${node}.txt
-
-	KNS="${KUBECTL} -n ${EXPORTER_NS}"
+	
 	EXPORTER_PODS=$(${KNS} get pods -o name --field-selector spec.nodeName=${node} -l "app=${RELNAME}-amdgpu-metrics-exporter")
 	pod_logs $EXPORTER_NS "metrics-exporter" $node $EXPORTER_PODS
 	
