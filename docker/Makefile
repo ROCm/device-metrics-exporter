@@ -78,10 +78,11 @@ docker-sriov-save: ## save the container
 
 .PHONY: docker-ainic
 docker-ainic:
-	@echo "building AMD AINIC exporter container"
+	@echo "building AMD AINIC exporter container with ainic-version: $(AINIC_VERSION)"
 	@TOP_DIR=$(TOP_DIR) MOCK=$(MOCK) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		--build-arg AINIC_VERSION=$(AINIC_VERSION) \
 		-t $(EXPORTER_AINIC_IMAGE) \
 		. -f Dockerfile.ainic.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
