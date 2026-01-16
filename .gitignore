@@ -16,3 +16,12 @@ dev.env
 rocprofilerclient/build/
 build/
 amdgpu-exporter-*/
+RPMS/*
+SRPMS/*
+BUILD/*
+SOURCES/*
+SPECS/*
+BUILDROOT/*
+.vscode
+.cline_storage
+.vscode

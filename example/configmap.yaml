@@ -10,7 +10,8 @@ data:
       "CommonConfig": {
           "MetricsFieldPrefix": "amd_",
           "HealthService": {
-             "Enable" : true
+             "Enable" : true,
+             "PollingRate": "30s"
           },
           "LoggerConfig": {
             "Level": "info",
@@ -248,6 +249,10 @@ data:
         "ProfilerMetrics" : {
             "all"       : false, 
             "hostname1" : false
+        },
+        "ProfilerConfig": {
+            "SamplingInterval": 1000,
+            "PtlDelay"        : 0
         }
       },
       "NICConfig": {

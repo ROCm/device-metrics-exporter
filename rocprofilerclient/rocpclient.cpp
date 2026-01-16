@@ -266,7 +266,7 @@ std::vector<rocprofiler_agent_v0_t> CounterSampler::get_available_agents() {
   return agents;
 }
 
-int CounterSampler::runSample(std::vector<std::string> &metric_fields, uint64_t duration) 
+int CounterSampler::runSample(std::vector<std::string> &metric_fields, uint64_t duration, uint32_t delay_ms) 
 {
 	std::vector<std::shared_ptr<CounterSampler>> samplers = {};
 	std::vector<rocprofiler_agent_v0_t> agents;
@@ -289,7 +289,7 @@ int CounterSampler::runSample(std::vector<std::string> &metric_fields, uint64_t 
     
     try {
       std::map<std::string, double> gpu_values;
-      cs.sample_counters_with_packing(metrics, gpu_values, duration);
+      cs.sample_counters_with_packing(metrics, gpu_values, duration, delay_ms);
       sampled_values[gpu_index] = gpu_values;
     } catch (const std::exception &e) {
       ROCP_LOG(ROCP_ERROR, "Error while sampling counter values for GPU " << gpu_index << ": " << e.what());
@@ -559,7 +559,8 @@ CounterSampler::ProfileSet CounterSampler::create_profiles_for_counters(
 
 void CounterSampler::sample_counters_with_packing(const std::vector<std::string>& counters,
                                                   std::map<std::string, double>& out_values,
-                                                  uint64_t duration) {
+                                                  uint64_t duration,
+                                                  uint32_t delay_ms) {
   // Sort counters for cache key
   std::vector<std::string> sorted_counters = counters;
   std::sort(sorted_counters.begin(), sorted_counters.end());
@@ -605,6 +606,11 @@ void CounterSampler::sample_counters_with_packing(const std::vector<std::string>
 
     rocprofiler_stop_context(ctx_);
     records.resize(out_size);
+    
+    // Add delay_ms to sleep if configured, if 0 no sleep
+    if (delay_ms > 0) {
+      usleep(delay_ms * 1000); // convert ms to microseconds
+    }
 
 #ifdef DEBUG
     ROCP_LOG(ROCP_DEBUG, "data for all counters collected from profile with "

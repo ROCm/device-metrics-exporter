@@ -333,10 +333,25 @@ message GPUMetricConfig {
     // if disabled all profiler related fields will not be exported to avoid reporting
     // wrong values as 0
     map<string, bool>  ProfilerMetrics = 7;
+
+    ProfilerConfig ProfilerConfig = 8;
+}
+
+message ProfilerConfig {
+    // Sampling interval in microseconds - default is 1000 us (1 millisecond)
+    uint64 SamplingInterval = 1;
+    // PTL (Peak Tops Limiter) state restoration delay in milliseconds
+    // set it to 0 to disable
+    // only applicable for PTL supported devices
+    uint32 PtlDelay = 2;
 }
 
 message HealthServiceConfig {
     bool Enable = 1;
+    // Health polling rate in duration format (e.g., 30s, 5m, 1h, 1d)
+    // Minimum: 30s, Maximum: 24h (1 day), Default: 30s (30 seconds)
+    // Supports formats like: 30s, 1h, 1d, 23h10m15s
+    string PollingRate = 2;
 }
 
 enum LogLevel {

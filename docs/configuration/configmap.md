@@ -15,12 +15,16 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `MetricsFieldPrefix`: Add prefix string for all the fields exporter. [Premetheus Metric Label formatted](https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels) string prefix will be accepted, on any invalid prefix will default to empty prefix to allow exporting of the fields.
   - `HealthService` : Health Service configurations for the exproter.
     - `Enable` : false to disable, otherwise enabled by default
+    - `PollingRate`: Health polling rate in duration format. Default is `30s` (30 seconds). Minimum allowed value is `30s` (30 seconds), maximum is `24h` (1 day). Supports duration formats like `30s`, `1h`, `1d`, or `23h10m15s`. Values below minimum default to 30s, values above maximum default to 24h.
   - `LoggerConfig`: Logger configurations for the exporter.
     - `Level`: Log level for the exporter. Supported levels are `DEBUG`, `INFO`, `WARN`, `ERROR`. Default is `INFO`.
     - `MaxSizeMB`: Maximum size in megabytes of the log file before it gets rotated. Default is `10` MB.
     - `MaxBackups`: Maximum number of old log files to retain. Default is `3`.
     - `MaxAgeDays`: Maximum number of days to retain old log files. Default is `7` days.
     - `LogRotationDisable`: Boolean flag to disable log rotation. If set to `true`, log rotation is disabled and logs will be written to a single file without rotation. Default is `false`.
+  - `ProfilerConfig`: Configuration for Profiler metrics.
+    - `SamplingInterval`: Specifies the duration, in microseconds, of the sampling window used by the profiler to collect metrics for each query request. The default value is 1000 µs (1 millisecond), which is also the minimum allowed value. Excessively high values may result in delayed or timeout errors during metric collection.
+    - `PtlDelay` : Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` ms no delay. This setting is useful for platform supporting Peaks Top Limitter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
 - `NICConfig`:
   - `Fields`: An array of strings specifying what metrics field to be exported. Detailed list of fields can be found [here](metricslist.md)
   - `Labels`: `NIC_SERIAL_NUMBER`, `NIC_UUID`, `NIC_HOSTNAME` are always set and cannot be removed. Workload related labels such as `NIC_POD`, `NIC_NAMESPACE`, and `NIC_CONTAINER` are dynamically added to the LIF when there is an associated workload.  Labels supported are available in the provided example `configmap.yml`.

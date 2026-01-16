@@ -470,6 +470,19 @@ func (ga *GPUAgentGPUClient) initFieldConfig(config *exportermetrics.GPUMetricCo
 	}
 }
 
+// getAllSupportedProfilerFields returns a list of all profiler metric field aliases
+func (ga *GPUAgentGPUClient) getAllSupportedProfilerFields() []string {
+	profilerFields := []string{}
+	for f := range ga.fieldMetricsMap {
+		if meta, ok := ga.fieldMetricsMap[f]; ok {
+			if meta.Alias != "" {
+				profilerFields = append(profilerFields, meta.Alias)
+			}
+		}
+	}
+	return profilerFields
+}
+
 func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 	//nolint
 	ga.fieldMetricsMap = map[string]FieldMeta{
@@ -654,8 +667,18 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 
 func (ga *GPUAgentGPUClient) initProfilerMetricsField() {
 	if ga.isProfilerEnabled() {
+		// Get profiler config and set sampling interval
+		profilerConfig := ga.gpuHandler.mh.GetProfilerConfig()
+		if profilerConfig != nil {
+			ga.rocpclient.SetSamplingInterval(profilerConfig.GetSamplingInterval())
+			ga.rocpclient.SetPtlDelay(profilerConfig.GetPtlDelay())
+		}
+
+		/* TBD: greedy packing fails if we pick and choose fields here
+		/* Need to revisit later
 		// only query enabled fields
 		profilerFields := []string{}
+
 		for f, enabled := range ga.exportFieldMap {
 			if !enabled {
 				continue
@@ -666,6 +689,10 @@ func (ga *GPUAgentGPUClient) initProfilerMetricsField() {
 				}
 			}
 		}
+		*/
+
+		// for PTL mode, enable all profiler fields and mask out in exporter
+		profilerFields := ga.getAllSupportedProfilerFields()
 		ga.rocpclient.SetFields(profilerFields)
 		return
 	}

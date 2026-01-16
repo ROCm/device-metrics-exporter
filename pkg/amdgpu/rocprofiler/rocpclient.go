@@ -17,9 +17,11 @@
 package rocprofiler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -36,10 +38,12 @@ const (
 )
 
 type ROCProfilerClient struct {
-	Name         string
-	MetricFields []string
-	cmd          string
-	pCache       *profilerCache
+	Name             string
+	MetricFields     []string
+	SamplingInterval uint64
+	PtlDelayMs       uint32
+	cmd              string
+	pCache           *profilerCache
 }
 
 type profilerCache struct {
@@ -65,12 +69,26 @@ func (rpc *ROCProfilerClient) ResetFailureCount() {
 	rpc.pCache.Lock()
 	defer rpc.pCache.Unlock()
 	rpc.pCache.consecutiveFailures = 0
+	rpc.pCache.fatalFailure = false
+}
+
+func (rpc *ROCProfilerClient) SetSamplingInterval(intervalUs uint64) {
+	logger.Log.Printf("rocprofiler sampling interval set to %v us", intervalUs)
+	rpc.SamplingInterval = intervalUs
+}
+
+func (rpc *ROCProfilerClient) SetPtlDelay(delayMs uint32) {
+	logger.Log.Printf("rocprofiler PTL delay set to %v ms", delayMs)
+	rpc.PtlDelayMs = delayMs
 }
 
 func (rpc *ROCProfilerClient) SetFields(fields []string) {
 	logger.Log.Printf("rocprofiler fields pulled for %v", strings.Join(fields, ","))
 	rpc.MetricFields = fields
-	rpc.cmd = fmt.Sprintf("rocpctl %v", strings.Join(fields, " "))
+	durationUs := rpc.SamplingInterval
+	ptlDelayMs := rpc.PtlDelayMs
+	rpc.cmd = fmt.Sprintf("rocpctl -d %d -p %d %v", durationUs, ptlDelayMs, strings.Join(fields, " "))
+	logger.Log.Printf("rocpctl command: %v", rpc.cmd)
 }
 
 // cacheMetrics returns the cached metrics if they are fresh, otherwise it fetches new metrics
@@ -156,8 +174,15 @@ func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", rpc.cmd)
-	gpuMetrics, err := cmd.Output()
 
+	// Capture stderr separately for error logging
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	// set env variables for the command ROCPROFILER_DEVICE_LOCK_AT_START=1 to avoid PTL state conflicts
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "ROCPROFILER_DEVICE_LOCK_AT_START=1")
+
+	gpuMetrics, err := cmd.Output()
 	// Kill the process if it's still running (timeout or error case)
 	if cmd.Process != nil {
 		defer func() {
@@ -170,17 +195,24 @@ func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
 
 	if ctx.Err() == context.DeadlineExceeded {
 		logger.Log.Printf("command timed out after 15s: %v", rpc.cmd)
+		if stderr.Len() > 0 {
+			logger.Log.Printf("stderr: %s", stderr.String())
+		}
 		rpc.IncFailureCount()
 		return nil, ctx.Err()
 	} else if err != nil {
-		logger.Log.Printf("error occured : %v", err)
-
-		// Check if error contains "core dumped" or "signal aborted" message
+		logger.Log.Printf("error occurred: %v", err)
+		logger.Log.Printf("command: %v", rpc.cmd)
+		if stderr.Len() > 0 {
+			logger.Log.Printf("stderr: %s", stderr.String())
+		}
+		if len(gpuMetrics) > 0 {
+			logger.Log.Printf("stdout: %s", string(gpuMetrics))
+		}
 		if strings.Contains(err.Error(), "dumped") || strings.Contains(err.Error(), "aborted") {
 			rpc.SetFatalFailureState()
-			return nil, fmt.Errorf("%v core dumped, profiler disabled", rpc.Name)
+			return nil, fmt.Errorf("%v core dumped/aborted, profiler disabled", rpc.Name)
 		}
-
 		rpc.IncFailureCount()
 		return nil, err
 	}
