@@ -209,7 +209,7 @@ typedef enum {
 #define AMDSMI_LIB_VERSION_MINOR 2
 
 //! Release version should be set to 0 as default and can be updated by the PMs for each CSP point release
-#define AMDSMI_LIB_VERSION_RELEASE 0
+#define AMDSMI_LIB_VERSION_RELEASE 1
 
 #define AMDSMI_LIB_VERSION_CREATE_STRING(MAJOR, MINOR, RELEASE) (#MAJOR "." #MINOR "." #RELEASE)
 #define AMDSMI_LIB_VERSION_EXPAND_PARTS(MAJOR_STR, MINOR_STR, RELEASE_STR) AMDSMI_LIB_VERSION_CREATE_STRING(MAJOR_STR, MINOR_STR, RELEASE_STR)
@@ -244,6 +244,13 @@ typedef enum {
  */
 typedef void *amdsmi_processor_handle;
 typedef void *amdsmi_socket_handle;
+
+/**
+ * @brief opaque handler point to underlying implementation
+ *
+ * @cond @tag{gpu_bm_linux} @tag{host} @endcond
+ */
+typedef void *amdsmi_node_handle;
 
 #ifdef ENABLE_ESMI_LIB
 
@@ -466,7 +473,7 @@ typedef enum {
 
     // GPU Board Node temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_FIRST = 100,
-    AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_RETIMER_X 
+    AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_RETIMER_X
       = AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_FIRST,         //!< Retimer X temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_OAM_X_IBC,         //!< OAM X IBC temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_OAM_X_IBC_2,       //!< OAM X IBC 2 temperature
@@ -475,7 +482,7 @@ typedef enum {
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_OAM_X_04_HBM_D_VR, //!< OAM X 0.4V HBM D voltage regulator temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_NODE_LAST = 149,
 
-    // GPU Board VR (Voltage Regulator) temperature 
+    // GPU Board VR (Voltage Regulator) temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_VR_FIRST = 150,
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_VDDCR_VDD0
          = AMDSMI_TEMPERATURE_TYPE_GPUBOARD_VR_FIRST,   //!< VDDCR VDD0 voltage regulator temperature
@@ -493,7 +500,7 @@ typedef enum {
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_VDDIO_11_E32,      //!< VDDIO 1.1V E32 voltage regulator temperature
     AMDSMI_TEMPERATURE_TYPE_GPUBOARD_VR_LAST = 199,
 
-    // Baseboard System temperature 
+    // Baseboard System temperature
     AMDSMI_TEMPERATURE_TYPE_BASEBOARD_FIRST = 200,
     AMDSMI_TEMPERATURE_TYPE_BASEBOARD_UBB_FPGA = AMDSMI_TEMPERATURE_TYPE_BASEBOARD_FIRST,  //!< UBB FPGA temperature
     AMDSMI_TEMPERATURE_TYPE_BASEBOARD_UBB_FRONT,          //!< UBB front temperature
@@ -834,6 +841,16 @@ typedef struct {
 } amdsmi_power_cap_info_t;
 
 /**
+ * @brief Power Cap Package Power Tracking (PPT) type
+ *
+ * @cond @tag{gpu_bm_linux} @tag{host} @endcond
+ */
+typedef enum {
+    AMDSMI_POWER_CAP_TYPE_PPT0,       //!< PPT0 power cap; lower limit, filtered input
+    AMDSMI_POWER_CAP_TYPE_PPT1,       //!< PPT1 power cap; higher limit, raw input
+} amdsmi_power_cap_type_t;
+
+/**
  * @brief VBios Information
  *
  * @cond @tag{gpu_bm_linux} @tag{guest_windows} @tag{host} @endcond
@@ -1163,7 +1180,8 @@ typedef struct {
     } memory_usage;  //!< In Bytes
     char container_name[AMDSMI_MAX_STRING_LENGTH];
     uint32_t cu_occupancy;  //!< Num CUs utilized
-    uint32_t reserved[11];
+    uint32_t evicted_time;    //!< Time that queues are evicted on a GPU in milliseconds
+    uint32_t reserved[10];
 } amdsmi_proc_info_t;
 
 /**
@@ -2089,6 +2107,7 @@ typedef struct {
     uint64_t vram_usage;    //!< VRAM usage in MB
     uint64_t sdma_usage;    //!< SDMA usage in microseconds
     uint32_t cu_occupancy;  //!< Compute Unit usage in percent
+    uint32_t evicted_time;    //!< Time that queues are evicted on a GPU in milliseconds
 } amdsmi_process_info_t;
 
 /**
@@ -2128,6 +2147,43 @@ typedef enum {
     AMDSMI_AFFINITY_SCOPE_NODE,    //!< Memory affinity as numa node
     AMDSMI_AFFINITY_SCOPE_SOCKET   //!< socket affinity
 } amdsmi_affinity_scope_t;
+
+/**
+ * @brief NPM status
+ *
+ * @cond @tag{gpu_bm_linux} @tag{host} @endcond
+ */
+typedef enum  {
+    AMDSMI_NPM_STATUS_DISABLED,
+    AMDSMI_NPM_STATUS_ENABLED
+} amdsmi_npm_status_t;
+
+/**
+ * @brief NPM info
+ *
+ * @cond @tag{gpu_bm_linux} @tag{host} @endcond
+ */
+typedef struct {
+    amdsmi_npm_status_t status; //!< NPM status (enabled/disabled).
+    uint64_t            limit;  //!< Node-level power limit in Watts.
+    uint64_t            reserved[6];
+} amdsmi_npm_info_t;
+
+/**
+ * @brief PTL (Peak Tops Limiter) data format types
+ * These correspond to the hardware data types used in matrix operations.
+ * Only F8 and XF32 are always supported at full performance. From the remaining
+ * five types, only two can be supported at peak performance simultaneously.
+ *
+ */
+typedef enum {
+    AMDSMI_PTL_DATA_FORMAT_I8 = 0x0,        //!< Integer 8-bit format
+    AMDSMI_PTL_DATA_FORMAT_F16 = 0x1,       //!< Float 16-bit format
+    AMDSMI_PTL_DATA_FORMAT_BF16 = 0x2,      //!< Brain Float 16-bit format
+    AMDSMI_PTL_DATA_FORMAT_F32 = 0x3,       //!< Float 32-bit format
+    AMDSMI_PTL_DATA_FORMAT_F64 = 0x4,       //!< Float 64-bit format
+    AMDSMI_PTL_DATA_FORMAT_INVALID = 0xFFFFFFFF  //!< Invalid format
+} amdsmi_ptl_data_format_t;
 
 #ifdef ENABLE_ESMI_LIB
 
@@ -2366,7 +2422,7 @@ typedef struct {
  *  @platform{guest_mvf} @platform{guest_windows}
  *
  *  @details This function initializes the library and the internal data structures,
- *  including those corresponding to sources of information that SMI provides. 
+ *  including those corresponding to sources of information that SMI provides.
  *  Singleton Design, requires the same number of inits as shutdowns.
  *
  *  The @p init_flags decides which type of processor
@@ -2612,6 +2668,28 @@ amdsmi_status_t amdsmi_get_processor_handles_by_type(amdsmi_socket_handle socket
 amdsmi_status_t amdsmi_get_processor_handles(amdsmi_socket_handle socket_handle,
                                     uint32_t *processor_count,
                                     amdsmi_processor_handle* processor_handles);
+
+/**
+ *  @brief Get the node handle associated with processor handle.
+ *
+ *  @ingroup tagProcDiscovery
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function retrieves the node handle of a processor handler. The
+ *  @p processor_handle must be provided for the processor.
+ *  Currently, only AMD GPUs are supported.
+ *
+ *  @param[in] processor_handle A pointer to a ::amdsmi_processor_handle, this
+ *  is required to be OAM ID 0 otherwise the API will fail. OAM ID is sourced
+ *  from amdsmi_get_gpu_asic_info API.
+ *
+ *  @param[out] amdsmi_node_handle* A pointer to a block of memory where amdsmi_node_handle
+ *  will be written.
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t amdsmi_get_node_handle(amdsmi_processor_handle processor_handle, amdsmi_node_handle *node_handle);
 
 
 #ifdef ENABLE_ESMI_LIB
@@ -3274,6 +3352,29 @@ amdsmi_status_t amdsmi_set_power_cap(amdsmi_processor_handle processor_handle,
 amdsmi_status_t
 amdsmi_set_gpu_power_profile(amdsmi_processor_handle processor_handle, uint32_t reserved,
                              amdsmi_power_profile_preset_masks_t profile);
+
+/**
+ *  @brief Query the supported power cap sensors and their types for a device.
+ *
+ *  @ingroup tagPowerControl
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function returns the list of supported power cap sensors for the given device,
+ *  including their sensor indices and types (e.g., PPT0, PPT1).
+ *
+ *  @param[in]  processor_handle A processor handle.
+ *  @param[out] sensor_count Pointer to a uint32_t that will be set to the number of supported sensors.
+ *  @param[out] sensor_inds Pointer to an array of uint32_t to be filled with sensor indices.
+ *                          The array must be allocated by the caller with enough space.
+ *  @param[out] sensor_types Pointer to an array of amdsmi_power_cap_type_t to be filled with sensor types.
+ *                          The array must be allocated by the caller with enough space.
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail.
+ */
+amdsmi_status_t
+amdsmi_get_supported_power_cap(amdsmi_processor_handle processor_handle, uint32_t *sensor_count,
+                                 uint32_t *sensor_inds, amdsmi_power_cap_type_t *sensor_types);
 
 /**
  *  @brief Get the socket power.
@@ -6185,6 +6286,25 @@ amdsmi_status_t amdsmi_get_pcie_info(amdsmi_processor_handle processor_handle, a
 amdsmi_status_t amdsmi_get_gpu_xcd_counter(amdsmi_processor_handle processor_handle,
                                            uint16_t *xcd_count);
 
+/**
+ * @brief Retrieves node power management (NPM) status and power limit for the specified node.
+ *
+ * @ingroup tagNodeInfo
+ *
+ * @platform{gpu_bm_linux} @platform{host}
+ *
+ * @details This function queries the NPM controller for the given node and returns whether NPM is enabled,
+ * along with the current node-level power limit in Watts. The NPM status and limit are set out-of-band
+ * and reported via this API.
+ *
+ * @param[in]  node_handle Handle to the Node to query.
+ * @param[out] info Pointer to amdsmi_npm_info_t structure to receive NPM status and limit.
+ *             Must be allocated by the user.
+ *
+ * @return ::AMDSMI_STATUS_SUCCESS on success, non-zero on failure.
+ */
+amdsmi_status_t amdsmi_get_npm_info(amdsmi_node_handle node_handle, amdsmi_npm_info_t *info);
+
 /** @} End tagAsicBoardInfo */
 
 /*****************************************************************************/
@@ -6447,6 +6567,7 @@ amdsmi_get_gpu_process_list(amdsmi_processor_handle processor_handle, uint32_t *
 
 /** @} End tagProcessInfo */
 
+
 /*****************************************************************************/
 /** @defgroup tagDriverControl Driver control mechanisms
  *  These functions provide control over the driver. Users should use with
@@ -6466,23 +6587,23 @@ amdsmi_get_gpu_process_list(amdsmi_processor_handle processor_handle, uint32_t *
  *  https://docs.kernel.org/admin-guide/sysctl/kernel.html#modprobe
  *  with no extra parameters as specified in
  *  https://docs.kernel.org/gpu/amdgpu/module-parameters.html.
- * 
+ *
  *  Use this function with caution, as it will unload and reload the AMD GPU
- *  driver: `modprobe -r amdgpu && modprobe amdgpu`. 
- *  
+ *  driver: `modprobe -r amdgpu && modprobe amdgpu`.
+ *
  *  Any process or workload using the AMD GPU driver is REQUIRED to be
  *  stopped before calling this function. Otherwise, function will return
  *  ::AMDSMI_STATUS_AMDGPU_RESTART_ERR could not successfully restart
  *  the amdgpu driver.
- * 
+ *
  *  User is REQUIRED to have root/admin privileges to call this function.
  *  Otherwise, this function will return ::AMDSMI_STATUS_NO_PERM.
- * 
+ *
  *  This API will take time to complete, as we are checking the driver's
  *  loading status to confirm it reloaded properly. If
  *  ::AMDSMI_STATUS_AMDGPU_RESTART_ERR is returned, it means the driver
  *  did not reload properly and the user should check dmesg logs.
- * 
+ *
  *  This function has been created in order to conviently reload the
  *  AMD GPU driver once `amdsmi_set_gpu_memory_partition()` or
  *  `amdsmi_set_gpu_memory_partition_mode()` successfully has been changed
@@ -6502,6 +6623,111 @@ amdsmi_get_gpu_process_list(amdsmi_processor_handle processor_handle, uint32_t *
 amdsmi_status_t amdsmi_gpu_driver_reload(void);
 
 /** @} End tagDriverControl */
+
+/*****************************************************************************/
+/** @defgroup tagPTL Peak Tops Limiter
+ *  @{
+ */
+
+/**
+ *  @brief Get PTL enable/disable state
+ *
+ *  @ingroup tagPTL
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function retrieves whether PTL (Peak Tops Limiter) is currently
+ *  enabled or disabled for the specified processor. This is a simple state query
+ *  that returns the current PTL operational state without detailed configuration.
+ *
+ *  @param[in] processor_handle Device which to query
+ *
+ *  @param[out] enabled Pointer to boolean that will be set to true if PTL is
+ *  enabled, false if PTL is disabled
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success,
+ *          ::AMDSMI_STATUS_NOT_SUPPORTED if PTL is not supported on this device,
+ *          non-zero on other failures
+ */
+amdsmi_status_t
+amdsmi_get_gpu_ptl_state(amdsmi_processor_handle processor_handle, bool *enabled);
+
+/**
+ *  @brief Set PTL enable/disable state
+ *
+ *  @ingroup tagPTL
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function enables or disables PTL (Peak Tops Limiter) operation.
+ *  Use amdsmi_set_gpu_ptl_enable_with_formats()
+ *  for more control over the preferred data formats when enabling.
+ *
+ *  @param[in] processor_handle Device to configure
+ *
+ *  @param[in] enable Boolean flag: true to enable PTL with default formats,
+ *  false to disable PTL
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success, non-zero on fail
+ */
+amdsmi_status_t amdsmi_set_gpu_ptl_state(amdsmi_processor_handle processor_handle, bool enable);
+
+/**
+ *  @brief Get PTL (Peak Tops Limiter) formats for the processor
+ *
+ *  @ingroup tagPTL
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function retrieves the current PTL fromats
+ *  for the specified processor. PTL constrains the product to never deliver more
+ *  than a specified TOPS/second.
+ *
+ *  @param[in] processor_handle Device which to query
+*
+ *  @param[out] data_format1 Pointer to first preferred data format that receives peak performance
+ *
+ *  @param[out] data_format2 Pointer to second preferred data format that receives peak performance
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success,
+ *          ::AMDSMI_STATUS_NOT_SUPPORTED if PTL is not supported on this device,
+ *          non-zero on other failures
+ */
+amdsmi_status_t
+amdsmi_get_gpu_ptl_formats(amdsmi_processor_handle processor_handle,
+                        amdsmi_ptl_data_format_t *data_format1,
+                        amdsmi_ptl_data_format_t *data_format2);
+
+/**
+ *  @brief Set PTL with specified preferred data formats
+ *
+ *  @ingroup tagPTL
+ *
+ *  @platform{gpu_bm_linux} @platform{host}
+ *
+ *  @details This function sets PTL with the specified preferred data format pair.
+ *  PTL must be enabled first before calling this function using amdsmi_set_gpu_ptl_state.
+ *  The two specified formats will receive accurate performance monitoring and peak
+ *  performance. F8 and XF32 formats always receive peak performance regardless of this setting.
+ *
+ *  @param[in] processor_handle Device to configure
+ *
+ *  @param[in] data_format1 First preferred data format (must be from the limited set:
+ *  I8, F16, BF16, F32, F64)
+ *
+ *  @param[in] data_format2 Second preferred data format (must be from the limited set:
+ *  I8, F16, BF16, F32, F64, and different from data_format1)
+ *
+ *  @return ::amdsmi_status_t | ::AMDSMI_STATUS_SUCCESS on success,
+ *          ::AMDSMI_STATUS_NOT_SUPPORTED if PTL is not supported on this device,
+ *          non-zero on other failures
+ **/
+amdsmi_status_t
+amdsmi_set_gpu_ptl_formats(amdsmi_processor_handle processor_handle,
+                          amdsmi_ptl_data_format_t data_format1,
+                          amdsmi_ptl_data_format_t data_format2);
+
+/** @} End tagPTL */
 
 #ifdef ENABLE_ESMI_LIB
 

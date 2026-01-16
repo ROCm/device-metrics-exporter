@@ -1,27 +1,27 @@
 assets:
   - name    : gpuagent_mock.bin.gz
-    version : 8506ea7
+    version : 7c4a068
     repo    : ROCm/gpu-agent
     branch  : main
 
   - name    : gpuagent_static.bin.gz
-    version : 8506ea7
+    version : 7c4a068
     repo    : ROCm/gpu-agent
     branch  : main
 
   - name    : gpuctl.gobin
-    version : 8506ea7
+    version : 7c4a068
     repo    : ROCm/gpu-agent
     branch  : main
 
   - name    : gpuagent_sriov_static.bin.gz
-    version : 8506ea7
+    version : 7c4a068
     repo    : ROCm/gpu-agent
     branch  : main
 
   - name    : amd_smi_lib
-    version : 021c61f
-    branch  : rocm-7.1.1
+    version : 91c1f54
+    branch  : release/rocm-rel-7.2
 
   - name    : rocprofiler
     version : 7.1.1
