@@ -113,6 +113,11 @@ message PortStats {
     string OCTETS_RX_ALL            = 47 [(go.field).tags = 'json:"octets_rx_all,omitempty"'];
     string OCTETS_TX_OK             = 48 [(go.field).tags = 'json:"octets_tx_ok,omitempty"'];
     string OCTETS_TX_ALL            = 49 [(go.field).tags = 'json:"octets_tx_all,omitempty"'];
+    // Port rate statistics (pps/bps)
+    string TX_PPS                   = 50 [(go.field).tags = 'json:"tx_pps,omitempty"'];
+    string TX_BPS                   = 51 [(go.field).tags = 'json:"tx_bps,omitempty"'];
+    string RX_PPS                   = 52 [(go.field).tags = 'json:"rx_pps,omitempty"'];
+    string RX_BPS                   = 53 [(go.field).tags = 'json:"rx_bps,omitempty"'];
 }
 
 message PortSpec {
@@ -121,6 +126,7 @@ message PortSpec {
 
 message Port {
     PortStats Statistics = 1 [(go.field).tags = 'json:"statistics,omitempty"'];
+    PortSpec Spec        = 2 [(go.field).tags = 'json:"spec,omitempty"'];
 }
 
 // NICPortStats represents a collection of port statistics grouped by NIC ID.
