@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"sync"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetrics"
@@ -87,10 +88,21 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 		return nil
 	}
 
+	// Fetch regular port statistics
 	portStatsOut, err := ExecWithContext("nicctl show port statistics -j", nc.na.cmdExec)
 	if err != nil {
 		logger.Log.Printf("failed to get port statistics, err: %+v", err)
 		return err
+	}
+
+	// Fetch port rate statistics only if rate metrics are enabled
+	var portRateStatsOut []byte
+	if fetchPortRateMetrics {
+		portRateStatsOut, err = ExecWithContext("nicctl show port statistics --rate -j", nc.na.cmdExec)
+		if err != nil {
+			logger.Log.Printf("failed to get port rate statistics, err: %+v", err)
+			// Don't return error - continue with regular stats even if rate stats fail
+		}
 	}
 
 	// Unmarshal the JSON data into the port statistics
@@ -99,6 +111,31 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 	if err != nil {
 		logger.Log.Printf("error unmarshaling port statistics data: %v", err)
 		return err
+	}
+
+	// Unmarshal port rate statistics if available
+	var portRateStats nicmetrics.PortStatsList
+	rateStatsAvailable := false
+	if portRateStatsOut != nil {
+		err = json.Unmarshal(portRateStatsOut, &portRateStats)
+		if err != nil {
+			logger.Log.Printf("error unmarshaling port rate statistics data: %v", err)
+		} else {
+			rateStatsAvailable = true
+		}
+	}
+
+	// Create a map for quick rate stats lookup by NIC ID and Port ID
+	rateStatsMap := make(map[string]map[string]*nicmetrics.Port)
+	if rateStatsAvailable {
+		for _, nic := range portRateStats.NIC {
+			rateStatsMap[nic.ID] = make(map[string]*nicmetrics.Port)
+			for i := range nic.Port {
+				if nic.Port[i].Spec != nil {
+					rateStatsMap[nic.ID][nic.Port[i].Spec.ID] = nic.Port[i]
+				}
+			}
+		}
 	}
 
 	// for each reported port stats, find out the port name and report metrics to prometheus
@@ -163,10 +200,63 @@ func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload)
 			nc.na.m.nicPortStatsOctetsTxAll.With(labels).Set(float64(utils.StringToUint64(port.Statistics.OCTETS_TX_ALL)))
 			nc.na.m.nicPortStatsRsfecCorrectableWord.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CORRECTABLE_WORD)))
 			nc.na.m.nicPortStatsRsfecChSymbolErrCnt.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CH_SYMBOL_ERR_CNT)))
+
+			// Add rate statistics if available
+			if rateStatsAvailable && port.Spec != nil {
+				if ratePort, ok := rateStatsMap[nic.ID][port.Spec.ID]; ok && ratePort.Statistics != nil {
+					nc.na.m.nicPortStatsTxPps.With(labels).Set(parseRateValue(ratePort.Statistics.TX_PPS))
+					nc.na.m.nicPortStatsTxBps.With(labels).Set(parseRateValue(ratePort.Statistics.TX_BPS))
+					nc.na.m.nicPortStatsRxPps.With(labels).Set(parseRateValue(ratePort.Statistics.RX_PPS))
+					nc.na.m.nicPortStatsRxBps.With(labels).Set(parseRateValue(ratePort.Statistics.RX_BPS))
+				}
+			}
 		}
 	}
 
 	return nil
+}
+
+// parseRateValue parses rate strings like "1234 pps", "5678 bps", "3.83 Mpps", "33.16 Gbps"
+func parseRateValue(rateStr string) float64 {
+	if rateStr == "" {
+		// Empty string is abnormal - nicctl should return "0 pps" for zero traffic
+		logger.Log.Printf("error: unexpected empty rate string, expected format like '0 pps'")
+		return 0.0
+	}
+
+	// Split by space to extract the numeric part and unit
+	parts := bytes.Fields([]byte(rateStr))
+	if len(parts) == 0 {
+		logger.Log.Printf("error: rate value has no fields after splitting: %q", rateStr)
+		return 0.0
+	}
+
+	// Parse the numeric part (may include decimal point)
+	numericPart := string(parts[0])
+	value, err := strconv.ParseFloat(numericPart, 64)
+	if err != nil {
+		logger.Log.Printf("error: failed to parse numeric part %q: %v", numericPart, err)
+		return 0.0
+	}
+
+	// Check for unit multiplier (K, M, G) if there's a second part
+	if len(parts) > 1 {
+		unit := string(parts[1])
+		// Extract multiplier prefix (first character: K, M, G)
+		if len(unit) > 0 {
+			switch unit[0] {
+			case 'K', 'k':
+				value *= 1000 // Kilo
+			case 'M', 'm':
+				value *= 1000000 // Mega
+			case 'G', 'g':
+				value *= 1000000000 // Giga
+				// No multiplier for base units (pps, bps)
+			}
+		}
+	}
+
+	return value
 }
 
 func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) error {

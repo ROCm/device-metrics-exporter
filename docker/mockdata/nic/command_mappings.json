@@ -16,6 +16,7 @@
   "nicctl show lif --card 42424650-4c32-3530-3330-303439000000 -j": "nicctl_show_lif_card1_j.txt",
   "nicctl show lif --card 42424650-4c32-3434-3530-304430000000 -j": "nicctl_show_lif_card2_j.txt",
   "nicctl show port statistics -j": "nicctl_show_port_statistics_j.txt",
+  "nicctl show port statistics --rate -j": "nicctl_show_port_statistics_rate_j.txt",
   "nicctl show lif statistics -j": "nicctl_show_lif_statistics_j.txt",
   "nicctl show lif -l 43000070-0100-0000-4242-0490812c4f90 -j": "nicctl_show_lif_card1_lif1_j.txt",
   "nicctl show lif -l 44000070-0100-0000-4242-0490812c4f90 -j": "nicctl_show_lif_card1_lif2_j.txt",

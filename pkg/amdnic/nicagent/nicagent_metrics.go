@@ -36,17 +36,18 @@ var (
 		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
 		exportermetrics.MetricLabel_HOSTNAME.String(),
 	}
-	exportLabels        map[string]bool
-	exportFieldMap      map[string]bool
-	fieldMetricsMap     map[string]FieldMeta
-	customLabelMap      map[string]string
-	extraPodLabelsMap   map[string]string
-	k8PodLabelsMap      map[string]map[string]string
-	fetchRdmaMetrics    bool
-	fetchEthtoolMetrics bool
-	fetchPortMetrics    bool
-	fetchLifMetrics     bool
-	fetchQPMetrics      bool
+	exportLabels         map[string]bool
+	exportFieldMap       map[string]bool
+	fieldMetricsMap      map[string]FieldMeta
+	customLabelMap       map[string]string
+	extraPodLabelsMap    map[string]string
+	k8PodLabelsMap       map[string]map[string]string
+	fetchRdmaMetrics     bool
+	fetchEthtoolMetrics  bool
+	fetchPortMetrics     bool
+	fetchPortRateMetrics bool
+	fetchLifMetrics      bool
+	fetchQPMetrics       bool
 )
 
 type FieldMeta struct {
@@ -108,6 +109,10 @@ type metrics struct {
 	nicPortStatsOctetsRxAll          prometheus.GaugeVec
 	nicPortStatsOctetsTxOk           prometheus.GaugeVec
 	nicPortStatsOctetsTxAll          prometheus.GaugeVec
+	nicPortStatsTxPps                prometheus.GaugeVec
+	nicPortStatsTxBps                prometheus.GaugeVec
+	nicPortStatsRxPps                prometheus.GaugeVec
+	nicPortStatsRxBps                prometheus.GaugeVec
 
 	//RDMA Stats
 	rdmaTxUcastPkts prometheus.GaugeVec
@@ -533,6 +538,7 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	fetchRdmaMetrics = false
 	fetchEthtoolMetrics = false
 	fetchPortMetrics = false
+	fetchPortRateMetrics = false
 	fetchLifMetrics = false
 	fetchQPMetrics = false
 
@@ -540,10 +546,11 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 		fetchRdmaMetrics = true
 		fetchEthtoolMetrics = true
 		fetchPortMetrics = true
+		fetchPortRateMetrics = true
 		fetchLifMetrics = true
 		fetchQPMetrics = true
-		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, Lif: %v, QP: %v}",
-			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchLifMetrics, fetchQPMetrics)
+		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v}",
+			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics)
 		return
 	}
 
@@ -558,6 +565,12 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			fetchRdmaMetrics = true
 		case strings.HasPrefix(fieldName, "ETH_"):
 			fetchEthtoolMetrics = true
+		case strings.HasPrefix(fieldName, "NIC_PORT_STATS_TX_PPS"),
+			strings.HasPrefix(fieldName, "NIC_PORT_STATS_TX_BPS"),
+			strings.HasPrefix(fieldName, "NIC_PORT_STATS_RX_PPS"),
+			strings.HasPrefix(fieldName, "NIC_PORT_STATS_RX_BPS"):
+			fetchPortRateMetrics = true
+			fetchPortMetrics = true // Rate metrics also need Port to be enabled
 		case strings.HasPrefix(fieldName, "NIC_PORT_"):
 			fetchPortMetrics = true
 		case strings.HasPrefix(fieldName, "NIC_LIF_"):
@@ -575,8 +588,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			logger.Log.Printf("%v field is disabled", k)
 		}
 	}
-	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, Lif: %v, QP: %v}",
-		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchLifMetrics, fetchQPMetrics)
+	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v}",
+		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics)
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {
@@ -633,6 +646,10 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_RX_ALL.String():            {Metric: na.m.nicPortStatsOctetsRxAll},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_OK.String():             {Metric: na.m.nicPortStatsOctetsTxOk},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_ALL.String():            {Metric: na.m.nicPortStatsOctetsTxAll},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_TX_PPS.String():                   {Metric: na.m.nicPortStatsTxPps},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_TX_BPS.String():                   {Metric: na.m.nicPortStatsTxBps},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_RX_PPS.String():                   {Metric: na.m.nicPortStatsRxPps},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_RX_BPS.String():                   {Metric: na.m.nicPortStatsRxBps},
 		exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String():                      {Metric: na.m.rdmaTxUcastPkts},
 		exportermetrics.NICMetricField_RDMA_TX_CNP_PKTS.String():                        {Metric: na.m.rdmaTxCnpPkts},
 		exportermetrics.NICMetricField_RDMA_RX_UCAST_PKTS.String():                      {Metric: na.m.rdmaRxUcastPkts},
@@ -1054,6 +1071,26 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsOctetsTxAll: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_OCTETS_TX_ALL.String()),
 			Help: "Total number of all octets (bytes) transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsTxPps: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_TX_PPS.String()),
+			Help: "Port transmit rate in packets per second",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsTxBps: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_TX_BPS.String()),
+			Help: "Port transmit rate in bits per second",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsRxPps: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RX_PPS.String()),
+			Help: "Port receive rate in packets per second",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsRxBps: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RX_BPS.String()),
+			Help: "Port receive rate in bits per second",
 		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		/* RDMA stats */
