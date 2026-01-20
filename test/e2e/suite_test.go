@@ -290,4 +290,7 @@ func (s *E2ESuite) TearDownSuite(c *C) {
 		s.tu.LocalCommandOutput(fmt.Sprintf("docker stop %v", s.name))
 		time.Sleep(2 * time.Second)
 	}
+
+	// Print test summary table
+	printTestSummary()
 }

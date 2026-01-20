@@ -12,7 +12,7 @@ data:
           "HealthService": {
              "Enable" : true
           },
-          "LoggerConfig": {
+          "Logging": {
             "Level": "info",
             "MaxFileSizeMB": 10,
             "MaxBackups": 3,

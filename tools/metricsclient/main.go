@@ -34,6 +34,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"github.com/gofrs/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -367,21 +368,92 @@ func getNodeLabel(kubeconfig string) {
 	}
 }
 
+// MockCPEREntry represents a CPER entry for mock inband RAS
+type MockCPEREntry struct {
+	GPU  string   `json:"gpu"`
+	AFId []uint64 `json:"afid"`
+}
+
+// MockInbandError represents the mock inband error structure
+type MockInbandError struct {
+	CPER []MockCPEREntry `json:"cper"`
+}
+
+// setupMockInbandRAS creates the mock inband RAS error_list file
+func setupMockInbandRAS(port string) error {
+	// Connect to gpuctl to get GPU UUIDs
+	conn, err := grpc.NewClient(
+		fmt.Sprintf("localhost:%s", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to GPU agent: %v", err)
+	}
+	defer conn.Close()
+
+	client := amdgpu.NewGPUSvcClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.GPUGet(ctx, &amdgpu.GPUGetRequest{})
+	if err != nil {
+		return fmt.Errorf("GPUGet call failed: %v", err)
+	}
+
+	// Create MockInbandError structure with GPU UUIDs and empty afid arrays
+	mockError := MockInbandError{
+		CPER: make([]MockCPEREntry, 0, len(resp.Response)),
+	}
+
+	for _, gpu := range resp.Response {
+		// Convert GPU Spec.Id ([]byte) to UUID string
+		gpuUUID := uuid.UUID(gpu.Spec.Id).String()
+		entry := MockCPEREntry{
+			GPU:  gpuUUID,
+			AFId: []uint64{}, // Empty array as specified
+		}
+		mockError.CPER = append(mockError.CPER, entry)
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.MarshalIndent(mockError, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal mock error data: %v", err)
+	}
+
+	// Create directory if it doesn't exist
+	dirPath := "/mockdata/inband-ras"
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %v", dirPath, err)
+	}
+
+	// Write to file (override if exists)
+	filePath := "/mockdata/inband-ras/error_list"
+	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %v", filePath, err)
+	}
+
+	fmt.Printf("Successfully created mock inband RAS error_list at %s\n", filePath)
+	fmt.Printf("Added %d GPU(s) to the mock error list\n", len(mockError.CPER))
+	return nil
+}
+
 var jout = flag.Bool("json", false, "output in json format")
 
 func main() {
 	var (
-		socketPath = flag.String("socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "metrics grpc socket path")
-		getOpt     = flag.Bool("get", false, "get health status of gpu")
-		setId      = flag.String("id", "1", "gpu id")
-		nodeLabel  = flag.Bool("label", false, "get k8s node label")
-		podRes     = flag.Bool("pod", false, "get node resource info")
-		nodePod    = flag.Bool("npod", false, "get pod labels from node")
-		devMap     = flag.Bool("gpu", false, "show logical gpu device map")
-		eccFile    = flag.String("ecc-file-path", "", "json ecc err file")
-		kubeConfig = flag.String("kube-config", "", "kubernetes config file")
-		gpuctl     = flag.Bool("gpuctl", false, "enable gpu control operations")
-		gpuctlPort = flag.String("gpuctl-port", "50061", "port for gpuctl operations")
+		socketPath      = flag.String("socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "metrics grpc socket path")
+		getOpt          = flag.Bool("get", false, "get health status of gpu")
+		setId           = flag.String("id", "1", "gpu id")
+		nodeLabel       = flag.Bool("label", false, "get k8s node label")
+		podRes          = flag.Bool("pod", false, "get node resource info")
+		nodePod         = flag.Bool("npod", false, "get pod labels from node")
+		devMap          = flag.Bool("gpu", false, "show logical gpu device map")
+		eccFile         = flag.String("ecc-file-path", "", "json ecc err file")
+		kubeConfig      = flag.String("kube-config", "", "kubernetes config file")
+		gpuctl          = flag.Bool("gpuctl", false, "enable gpu control operations")
+		gpuctlPort      = flag.String("gpuctl-port", "50061", "port for gpuctl operations")
+		setupMockInband = flag.Bool("setup-mock-inbandras", false, "setup mock inband RAS error_list file")
 	)
 	flag.Parse()
 
@@ -402,6 +474,14 @@ func main() {
 
 	if *nodeLabel {
 		getNodeLabel(*kubeConfig)
+		return
+	}
+
+	if *setupMockInband {
+		if err := setupMockInbandRAS(*gpuctlPort); err != nil {
+			fmt.Printf("Error setting up mock inband RAS: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 

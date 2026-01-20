@@ -310,14 +310,14 @@ func (ga *GPUAgentClient) StartMonitor() {
 					logger.Log.Printf("gpuagent connection failed %v", err)
 					continue
 				}
+			}
 
-				if ga.enableGPUMonitoring {
-					if err := ga.processHealthValidation(); err != nil {
-						logger.Log.Printf("gpuagent health validation failed %v", err)
-					}
-					if err := ga.sendNodeLabelUpdate(); err != nil {
-						logger.Log.Printf("gpuagent failed to send node label update %v", err)
-					}
+			if ga.enableGPUMonitoring {
+				if err := ga.processHealthValidation(); err != nil {
+					logger.Log.Printf("gpuagent health validation failed %v", err)
+				}
+				if err := ga.sendNodeLabelUpdate(); err != nil {
+					logger.Log.Printf("gpuagent failed to send node label update %v", err)
 				}
 			}
 		}
@@ -332,6 +332,7 @@ func (ga *GPUAgentClient) processHealthValidation() error {
 		}
 		err := client.processHealthValidation()
 		if err != nil {
+			logger.Debugf("gpuagent client %v health validation failed %v", client.GetDeviceType(), err)
 			return err
 		}
 	}
