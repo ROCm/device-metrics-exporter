@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
@@ -127,7 +128,7 @@ func (c *ConfigHandler) GetMetricsConfigPath() string {
 }
 
 func (c *ConfigHandler) GetAgentAddr() string {
-	return fmt.Sprintf("0.0.0.0:%v", c.grpcAgentPort)
+	return fmt.Sprintf("%v:%v", globals.GPUAgentIP, c.grpcAgentPort)
 }
 
 func (c *ConfigHandler) GetConfig() *exportermetrics.MetricConfig {
