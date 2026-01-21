@@ -28,7 +28,6 @@ subtrees:
       - file: configuration/troubleshooting 
       - file: configuration/metricslist
       - file: configuration/network-metricslist
-      - file: configuration/ifoe-metricslist       
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana

@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
@@ -197,6 +198,11 @@ func (mh *MetricsHandler) GetHealthServiceState() bool {
 	return mh.runConf.GetHealthServiceState()
 }
 
+// GetHealthPollingInterval returns the health polling interval
+func (mh *MetricsHandler) GetHealthPollingInterval() time.Duration {
+	return mh.runConf.GetHealthPollingInterval()
+}
+
 func (mh *MetricsHandler) GetAgentAddr() string {
 	return mh.runConf.GetAgentAddr()
 }
@@ -227,4 +233,8 @@ func (mh *MetricsHandler) GetPrefix() string {
 
 func (mh *MetricsHandler) GetNICHealthCheckConfig() *exportermetrics.NICHealthCheckConfig {
 	return mh.runConf.GetNICHealthCheckConfig()
+}
+
+func (mh *MetricsHandler) GetProfilerConfig() *exportermetrics.ProfilerConfig {
+	return mh.runConf.GetProfilerConfig()
 }

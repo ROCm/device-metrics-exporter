@@ -298,7 +298,12 @@ func (ga *GPUAgentClient) isActive() bool {
 func (ga *GPUAgentClient) StartMonitor() {
 	logger.Log.Printf("GPUAgent monitor started")
 	ga.initializeContext()
-	pollTimer := time.NewTicker(refreshInterval)
+
+	// Get health polling interval from configuration
+	pollInterval := ga.mh.GetHealthPollingInterval()
+	logger.Log.Printf("Health polling interval set to %v", pollInterval)
+
+	pollTimer := time.NewTicker(pollInterval)
 	defer pollTimer.Stop()
 
 	// nolint

@@ -1,13 +1,16 @@
 # Release Notes
 
-## nic-v1.0.0
-- **NIC Metrics Exporter for Prometheus**
-  - Real-time metrics exporter for AMD NICs.
-  - Supports both Docker and Debian installations.
-  - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
-  - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
-
 ## v1.5.0
+
+- **Profiler Configuration Enhancement**
+  - `SamplingInterval` to set sampling window for the profiler metrics
+  - Default value is 1000 microseconds (1 millisecond)
+
+- **Configurable Health Polling Rate**
+  - Added `PollingRate` field to `HealthService` configuration in `CommonConfig`
+  - Supports duration formats: 30s, 5m, 1h, 1d, 23h10m15s
+  - Default: 30 seconds, Min: 30 seconds, Max: 24 hours
+
 - **Kubevirt**
   - Exporter now supports Kubevirt deployments
     - New exporter with SR-IOV support for hypervisor environments is now available
@@ -17,6 +20,12 @@
 
 - **Slinky**
   - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
+
+
+### Platform Support
+ROCm 7.0 MI2xx, MI3xx
+
+## v1.4.2
 
 - **New Label**
   - `KFD_PROCESS_ID` label will  now report the process ID using the
@@ -52,6 +61,13 @@
 
 ### Platform Support
 ROCm X.X.X MI2xx, MI3xx
+
+## nic-v1.0.0
+- **NIC Metrics Exporter for Prometheus**
+  - Real-time metrics exporter for AMD NICs.
+  - Supports both Docker and Debian installations.
+  - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
+  - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
 
 ## v1.4.1
 

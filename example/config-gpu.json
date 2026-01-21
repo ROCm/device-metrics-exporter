@@ -3,7 +3,8 @@
   "CommonConfig": {
       "MetricsFieldPrefix": "amd_",
       "HealthService": {
-          "Enable" : true
+          "Enable" : true,
+          "PollingRate": "30s"
       }
   },
   "GPUConfig": {
@@ -220,6 +221,10 @@
     "ProfilerMetrics" : {
         "all"       : false,
         "hostname1" : false
+    },
+    "ProfilerConfig": {
+        "SamplingInterval": 1000,
+        "PtlDelay"        : 0
     }
   }
 }

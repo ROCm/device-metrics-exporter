@@ -39,8 +39,8 @@ RUN mkdir -p /home/amd/bin/ /home/amd/lib/ /home/amd/tools/
 
 # override built libraries
 ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
-ADD ./libamd_smi.so.26.2.0 /home/amd/lib/libamd_smi.so.26.2.0
-RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.26.2.0 libamd_smi.so.26
+ADD ./libamd_smi.so.26.2.1 /home/amd/lib/libamd_smi.so.26.2.1
+RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.26.2.1 libamd_smi.so.26
 
 ADD ./rocpctl /home/amd/bin/rocpctl
 ADD ./gpuctl /home/amd/bin/gpuctl

@@ -23,6 +23,8 @@
 #include <hip/hip_runtime.h>
 
 #include <unistd.h>
+#include <chrono>
+#include <thread>
 #include <cstdint>
 #include <vector>
 #include <iostream>
@@ -30,10 +32,12 @@
 #include <fstream>
 #include <map>
 #include <string>
+#include <cstdlib>
 
 #include "RocpCounterSampler.h"
 
 namespace {
+
 using PtlStateMap = std::map<int, bool>;
 
 PtlStateMap ReadPtlStates() {
@@ -82,7 +86,7 @@ PtlStateMap ReadPtlStates() {
     return result;
 }
 
-void RestorePtlStates(const PtlStateMap& states) {
+void RestorePtlStates(const PtlStateMap& states, uint32_t delay_ms) {
     namespace fs = std::filesystem;
     std::error_code ec;
 
@@ -101,6 +105,25 @@ void RestorePtlStates(const PtlStateMap& states) {
         }
 
         out << (enabled ? "enabled" : "disabled") << std::endl;
+        out.close();
+
+        // Wait for configured delay for state to be set
+        if (delay_ms > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+        }
+
+        // Verify the state was set correctly
+        std::ifstream in(ptl_enable);
+        if(in) {
+            std::string value;
+            in >> value;
+            bool actual_enabled = (value == "enabled");
+            if(actual_enabled != enabled) {
+                std::cerr << "Warning: PTL state verification failed for card" << card_id 
+                          << ". Expected: " << (enabled ? "enabled" : "disabled")
+                          << ", Actual: " << value << std::endl;
+            }
+        }
 
         // std::cout << "Restored PTL state for card" << card_id << ": "
         //           << (enabled ? "enabled" : "disabled") << std::endl;
@@ -108,10 +131,15 @@ void RestorePtlStates(const PtlStateMap& states) {
 }
 
 struct PtlStateGuard {
-    explicit PtlStateGuard(PtlStateMap states) : states_(std::move(states)) {}
+    explicit PtlStateGuard(PtlStateMap states, uint32_t delay_ms = 10) 
+        : states_(std::move(states)), delay_ms_(delay_ms) {}
     ~PtlStateGuard() noexcept {
         try {
-            RestorePtlStates(states_);
+            // Wait for configured delay for state to be set
+            if (delay_ms_ > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms_));
+            }            
+            RestorePtlStates(states_, delay_ms_);       
         } catch(...) {
             // best-effort restore; swallow all exceptions
         }
@@ -124,6 +152,7 @@ struct PtlStateGuard {
 
 private:
     PtlStateMap states_;
+    uint32_t delay_ms_;
 };
 }  // anonymous namespace
 
@@ -146,6 +175,7 @@ main(int argc, char** argv)
     int ntotdevice = 0;
     HIP_CALL(hipGetDeviceCount(&ntotdevice));
 
+    // 
     // Check if any GPU devices are available
     if(ntotdevice == 0) {
         std::cerr << "No GPU devices found. Exiting." << std::endl;
@@ -153,38 +183,61 @@ main(int argc, char** argv)
     }
 
     std::vector<std::string> metric_fields;
-    uint64_t duration = 1000;   // Default sampling duration (in microseconds)
-    long ndevice = ntotdevice;  // Use actual device count
+    uint64_t duration = 1000;    // Default sampling duration (in microseconds)
+    uint32_t ptl_delay = 10;     // Default PTL delay (in milliseconds)
+    long ndevice = ntotdevice;   // Use actual device count
 
     if(ndevice > ntotdevice) ndevice = ntotdevice;
     if(ndevice < 1) ndevice = ntotdevice;
 
-    try {
+    // Parse arguments first to get ptl_delay before creating guard
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i] == nullptr) continue;
+        std::string arg = argv[i];
+        if (arg == "-h" || arg == "--help") {
+            std::cout << "Usage: " << argv[0] << " [OPTIONS] [METRICS...]\n\n"
+                      << "Options:\n"
+                      << "  -h, --help          Show this help message and exit\n"
+                      << "  -d <duration>       Sampling duration in microseconds (default: 1000)\n"
+                      << "  -p <delay>          PTL delay in milliseconds (default: 10)\n\n"
+                      << "Arguments:\n"
+                      << "  METRICS             List of metric fields to collect\n\n"
+                      << "Example:\n"
+                      << "  " << argv[0] << " -d 2000 -p 20 metric1 metric2\n";
+            return 0;
+        } else if (arg == "-d") {
+            if (i + 1 >= argc || argv[i + 1] == nullptr) {
+                std::cerr << "Option -d requires a numeric argument" << std::endl;
+                return -1;
+            }
+            try {
+                duration = std::stoull(argv[++i]);
+            } catch (const std::exception&) {
+                std::cerr << "Invalid value for -d: " << argv[i] << std::endl;
+                return -1;
+            }
+        } else if (arg == "-p") {
+            if (i + 1 >= argc || argv[i + 1] == nullptr) {
+                std::cerr << "Option -p requires a numeric argument" << std::endl;
+                return -1;
+            }
+            try {
+                ptl_delay = std::stoul(argv[++i]);
+            } catch (const std::exception&) {
+                std::cerr << "Invalid value for -p: " << argv[i] << std::endl;
+                return -1;
+            }
+        } else {                
+            metric_fields.push_back(arg);            
+        }
+    }
+
+    try {        
         // Capture current PTL state for all available DRM cards and ensure it is restored
         // on all exit paths (success and error).
-        PtlStateGuard ptl_guard(ReadPtlStates());
-
-        // Parse arguments: -d <duration> (uint64), metric names
-        for (int i = 1; i < argc; ++i) {
-            if (argv[i] == nullptr) continue;
-            std::string arg = argv[i];
-            if (arg == "-d") {
-                if (i + 1 >= argc || argv[i + 1] == nullptr) {
-                    std::cerr << "Option -d requires a numeric argument" << std::endl;
-                    return -1;
-                }
-                try {
-                    duration = std::stoull(argv[++i]);
-                } catch (const std::exception&) {
-                    std::cerr << "Invalid value for -d: " << argv[i] << std::endl;
-                    return -1;
-                }
-            } else {                
-                metric_fields.push_back(arg);            
-            }
-        }
+        PtlStateGuard ptl_guard(ReadPtlStates(), ptl_delay);
         
-        int rc = amd::rocp::CounterSampler::runSample(metric_fields, duration);
+        int rc = amd::rocp::CounterSampler::runSample(metric_fields, duration, ptl_delay);
         if (rc != 0) {
             std::cerr << "run sample err: " << rc << "\n"; 
             return -1;

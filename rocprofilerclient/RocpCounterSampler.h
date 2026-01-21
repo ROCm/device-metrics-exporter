@@ -89,7 +89,8 @@ class CounterSampler {
   // Sample multiple counters using greedy packing to minimize profiles
   void sample_counters_with_packing(const std::vector<std::string>& counters,
                                     std::map<std::string, double>& out_values,
-                                    uint64_t duration);
+                                    uint64_t duration,
+                                    uint32_t delay_ms = 0);
                                     
   // Get the supported counters for an agent
   static std::unordered_map<std::string, rocprofiler_counter_id_t> get_supported_counters(
@@ -99,7 +100,7 @@ class CounterSampler {
   static std::vector<rocprofiler_agent_v0_t> get_available_agents();
 
   static std::vector<std::shared_ptr<CounterSampler>>& get_samplers();
-  static int runSample(std::vector<std::string> &metric_fields, uint64_t duration);
+  static int runSample(std::vector<std::string> &metric_fields, uint64_t duration, uint32_t delay_ms = 0);
 
  private:
   rocprofiler_agent_id_t agent_ = {};
