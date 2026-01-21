@@ -1,5 +1,7 @@
 # -- Specify the platform to deploy the metrics exporter, k8s or openshift
 platform: k8s
+# -- Add node affinity for the daemonset of metrics exporter
+affinity: {}
 # -- Add node selector for the daemonset of metrics exporter
 nodeSelector: {}
 # -- Add tolerations for deploying metrics exporter on tainted nodes

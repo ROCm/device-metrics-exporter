@@ -31,6 +31,7 @@ Kubernetes: `>= 1.29.0-0`
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
 | monitor | object | `{"resources":{"gpu":true,"nic":false}}` | monitoring configuration |
 | monitor.resources | object | `{"gpu":true,"nic":false}` | Enable or disable specific resource monitoring components. |
+| affinity | object | `{}` | Add node affinity for the daemonset of metrics exporter |
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |
 | platform | string | `"k8s"` | Specify the platform to deploy the metrics exporter, k8s or openshift |
 | podAnnotations | object | `{}` | Add annotations to the pods |
