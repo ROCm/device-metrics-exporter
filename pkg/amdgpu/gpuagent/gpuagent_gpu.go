@@ -338,10 +338,7 @@ func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error)
 	}
 
 	// Perform query and update cache
-	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)
-	defer cancel()
-
-	res, err := ga.gpuclient.GPUCPERGet(ctx, &amdgpu.GPUCPERGetRequest{})
+	res, err := ga.getGPUCPER("")
 	ga.gCache.lastCperTimestamp = time.Now()
 	if err == nil {
 		ga.gCache.lastCperResponse = res
@@ -453,7 +450,7 @@ func (ga *GPUAgentGPUClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.E
 }
 
 func (ga *GPUAgentGPUClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResponse, error) {
-	if utils.IsSimEnabled() {
+	if utils.IsMockCperEnabled() {
 		return utils.GetCperRecords()
 	}
 	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)

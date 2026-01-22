@@ -16,7 +16,7 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `HealthService` : Health Service configurations for the exproter.
     - `Enable` : false to disable, otherwise enabled by default
     - `PollingRate`: Health polling rate in duration format. Default is `30s` (30 seconds). Minimum allowed value is `30s` (30 seconds), maximum is `24h` (1 day). Supports duration formats like `30s`, `1h`, `1d`, or `23h10m15s`. Values below minimum default to 30s, values above maximum default to 24h.
-  - `LoggerConfig`: Logger configurations for the exporter.
+  - `Logging`: Logger configurations for the exporter.
     - `Level`: Log level for the exporter. Supported levels are `DEBUG`, `INFO`, `WARN`, `ERROR`. Default is `INFO`.
     - `MaxSizeMB`: Maximum size in megabytes of the log file before it gets rotated. Default is `10` MB.
     - `MaxBackups`: Maximum number of old log files to retain. Default is `3`.

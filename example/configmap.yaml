@@ -13,7 +13,7 @@ data:
              "Enable" : true,
              "PollingRate": "30s"
           },
-          "LoggerConfig": {
+          "Logging": {
             "Level": "info",
             "MaxFileSizeMB": 10,
             "MaxBackups": 3,
