@@ -4,11 +4,11 @@ FROM ${BASE_IMAGE}
 
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
-LABEL ROCM_VERSION="7.1.1"
+LABEL ROCM_VERSION="7.2"
 
 
-ARG ROCM_VERSION=7.1.1
-ARG AMDGPU_VERSION=7.1.1
+ARG ROCM_VERSION=7.2
+ARG AMDGPU_VERSION=7.2
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 RUN microdnf clean all && \
@@ -28,8 +28,8 @@ RUN microdnf clean all && \
    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
    microdnf update -y && \
    microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
-   libcap-devel amd-smi-lib libdrm-amdgpu vim net-tools numactl numactl-libs \
-   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq iproute ethtool libatomic && \
+   libcap-devel amd-smi-lib libdrm-amdgpu vim numactl numactl-libs \
+   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq libatomic && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 

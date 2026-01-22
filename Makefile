@@ -111,7 +111,7 @@ GIMSMI_COMMIT ?= mainline/8.3.0.K
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 3ba56ec
 
-ROCM_VERSION ?= 7.1.1
+ROCM_VERSION ?= 7.2
 AINIC_VERSION ?= 1.117.5-a-56
 
 export ${GOROOT}
@@ -299,7 +299,7 @@ GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 endef
 
 EXCLUDE_PATTERN := "libamdsmi|gpuagent.sw|gpuagent.sw.nic|gpuagent.sw.nic.gpuagent"
-GO_PKG := $(shell go list ./pkg/...  2>/dev/null | grep github.com/ROCm/device-metrics-exporter | egrep -v ${EXCLUDE_PATTERN})
+GO_PKG := $(shell go list ./pkg/... ./tools/... ./test/...  2>/dev/null | grep github.com/ROCm/device-metrics-exporter | egrep -v ${EXCLUDE_PATTERN})
 
 GOFILES_NO_VENDOR = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 .PHONY: lint

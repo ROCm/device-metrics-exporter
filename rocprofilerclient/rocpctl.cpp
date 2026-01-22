@@ -86,6 +86,45 @@ PtlStateMap ReadPtlStates() {
     return result;
 }
 
+void DisablePtl(const PtlStateMap& states, uint32_t delay_ms) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+
+    for(const auto& [card_id, enabled] : states) {
+        fs::path ptl_enable =
+            fs::path("/sys/class/drm") / ("card" + std::to_string(card_id)) / "device" / "ptl" /
+            "ptl_enable";
+
+        if(!fs::exists(ptl_enable, ec) || !fs::is_regular_file(ptl_enable, ec)) {
+            continue;  // PTL directory/file not present, ignore
+        }
+
+        std::ofstream out(ptl_enable);
+        if(!out) {
+            continue;
+        }
+
+        out << "disabled" << std::endl;
+        out.close();
+
+        // Wait for configured delay for state to be set
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+
+        // Verify the state was set correctly
+        std::ifstream in(ptl_enable);
+        if(in) {
+            std::string value;
+            in >> value;
+            if(value != "disabled") {
+                std::cerr << "Warning: PTL disable verification failed for card" << card_id 
+                          << ". Expected: disabled, Actual: " << value << std::endl;
+            }
+        }
+
+        // std::cout << "Disabled PTL for card" << card_id << std::endl;
+    }
+}
+
 void RestorePtlStates(const PtlStateMap& states, uint32_t delay_ms) {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -108,9 +147,7 @@ void RestorePtlStates(const PtlStateMap& states, uint32_t delay_ms) {
         out.close();
 
         // Wait for configured delay for state to be set
-        if (delay_ms > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
 
         // Verify the state was set correctly
         std::ifstream in(ptl_enable);
@@ -132,14 +169,15 @@ void RestorePtlStates(const PtlStateMap& states, uint32_t delay_ms) {
 
 struct PtlStateGuard {
     explicit PtlStateGuard(PtlStateMap states, uint32_t delay_ms = 10) 
-        : states_(std::move(states)), delay_ms_(delay_ms) {}
+        : states_(std::move(states)), delay_ms_(delay_ms) {
+        // Disable PTL on all cards before profiling
+        DisablePtl(states_, delay_ms_);
+    }
     ~PtlStateGuard() noexcept {
         try {
             // Wait for configured delay for state to be set
-            if (delay_ms_ > 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms_));
-            }            
-            RestorePtlStates(states_, delay_ms_);       
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms_));
+            RestorePtlStates(states_, delay_ms_);            
         } catch(...) {
             // best-effort restore; swallow all exceptions
         }

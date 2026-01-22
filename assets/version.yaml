@@ -24,9 +24,8 @@ assets:
     branch  : release/rocm-rel-7.2
 
   - name    : rocprofiler
-    version : 7.1.1
-    branch  : rocm-7.1.1
+    version : 7.2
+    branch  : release/rocm-rel-7.2
 
   - name    : profiler_lib
-    version : 7.1.1
-    
+    version : 7.2

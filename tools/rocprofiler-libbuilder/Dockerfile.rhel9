@@ -4,11 +4,11 @@ FROM ${BASE_IMAGE}
 
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
-LABEL ROCM_VERSION="7.0"
+LABEL ROCM_VERSION="7.2"
 
 
-ARG ROCM_VERSION=7.0
-ARG AMDGPU_VERSION=7.0
+ARG ROCM_VERSION=7.2
+ARG AMDGPU_VERSION=7.2
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 RUN microdnf clean all && \
