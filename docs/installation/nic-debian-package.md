@@ -26,7 +26,9 @@ sudo apt upgrade -y
 ### 1. Install via APT
 
 #### Install Prerequisites
+
 1. Update the package list and install necessary tools, keyrings and keys:
+
     ```bash
     # Install necessary tools
     sudo apt update
@@ -42,11 +44,13 @@ sudo apt upgrade -y
 2. Edit or create the sources list `/etc/apt/sources.list.d/amdnic-exporter.list` to add the Device Metrics Exporter repository:
 
     On Ubuntu 22.04:
+
     ```bash
     deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 jammy main
     ```
 
     On Ubuntu 24.04:
+
     ```bash
     deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 noble main
     ```
@@ -121,13 +125,13 @@ The exporter watches this file and automatically reloads the new settings when i
 
 ### Change the log file path
 
-1. Open the systemd unit:
+Open the systemd unit:
 
 ```bash
 sudo vi /usr/lib/systemd/system/amd-nic-metrics-exporter.service
 ```
 
-2. Update the `--log-file-path` flag on the `ExecStart` line.
+Update the `--log-file-path` flag on the `ExecStart` line.
 
 ```bash
 ExecStart=/usr/local/bin/amd-nic-metrics-exporter --monitor-nic=true --monitor-gpu=false \
@@ -135,7 +139,7 @@ ExecStart=/usr/local/bin/amd-nic-metrics-exporter --monitor-nic=true --monitor-g
     --log-file-path=/var/log/amd-nic-metrics-exporter.log
 ```
 
-3. Reload systemd and restart the service:
+Reload systemd and restart the service:
 
 ```bash
 sudo systemctl daemon-reload

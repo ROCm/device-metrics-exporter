@@ -1,39 +1,39 @@
 # Critical Metrics
+
 - The below list of metrics are critical to evaluate the workload is running as expected on the GPU, these metric values change as per the workload exercised on the GPU
 
 > **Note:** few metrics are applicable for unpartitioned GPU, some fields are platform specific, please refer [link](../docs/configuration/metricslist.md) for more details
 
-  - Temperature Metrics
-    1. GPU_EDGE_TEMPERATURE
-    2. GPU_JUNCTION_TEMPERATURE
-    3. GPU_MEMORY_TEMPERATURE
-    4. GPU_HBM_TEMPERATURE
+- Temperature Metrics
+  1. GPU_EDGE_TEMPERATURE
+  2. GPU_JUNCTION_TEMPERATURE
+  3. GPU_MEMORY_TEMPERATURE
+  4. GPU_HBM_TEMPERATURE
 
-  - Power Metrics
-    1. GPU_PACKAGE_POWER
-    2. GPU_AVERAGE_PACKAGE_POWER
+- Power Metrics
+  1. GPU_PACKAGE_POWER
+  2. GPU_AVERAGE_PACKAGE_POWER
 
-  - Activity Metrics
-    1. GPU_GFX_ACTIVITY
-    2. GPU_UMC_ACTIVITY
-    3. GPU_GFX_BUSY_INSTANTANEOUS
-    4. GPU_VCN_BUSY_INSTANTANEOUS
+- Activity Metrics
+  1. GPU_GFX_ACTIVITY
+  2. GPU_UMC_ACTIVITY
+  3. GPU_GFX_BUSY_INSTANTANEOUS
+  4. GPU_VCN_BUSY_INSTANTANEOUS
 
-  - VRAM Metrics
-    1. GPU_TOTAL_VRAM
-    2. GPU_USED_VRAM
-    3. GPU_FREE_VRAM
+- VRAM Metrics
+  1. GPU_TOTAL_VRAM
+  2. GPU_USED_VRAM
+  3. GPU_FREE_VRAM
 
-  - Profiler Metrics
-    1. GPU_PROF_SM_ACTIVE
-    2. GPU_PROF_TENSOR_ACTIVE_PERCENT
-    3. GPU_PROF_OCCUPANCY_PER_CU
-    4. GPU_PROF_OCCUPANCY_PER_ACTIVE_CU
-    5. GPU_PROF_SIMD_UTILIZATION
-    6. GPU_PROF_GUI_UTIL_PERCENT
+- Profiler Metrics
+  1. GPU_PROF_SM_ACTIVE
+  2. GPU_PROF_TENSOR_ACTIVE_PERCENT
+  3. GPU_PROF_OCCUPANCY_PER_CU
+  4. GPU_PROF_OCCUPANCY_PER_ACTIVE_CU
+  5. GPU_PROF_SIMD_UTILIZATION
+  6. GPU_PROF_GUI_UTIL_PERCENT
 
-
-# Internal Mapping of Field on each service
+## Internal Mapping of Field on each service
 
 Platform if specified only applies to that specific model, else applies to all
 
@@ -233,7 +233,6 @@ GPU: 1
 
 ```
 
-
 ### GPU Static information
 
 ```bash
@@ -351,4 +350,3 @@ timestamp            gpu_id  severity
 2025/10/07 09:58:04  0       FATAL
 2025/10/09 05:09:13  0       FATAL
 ```
-

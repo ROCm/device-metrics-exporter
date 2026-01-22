@@ -1,16 +1,22 @@
 # Overview
+
 `metricutil` can work in two modes:
+
 - pull once mode: pull metric data or parse local file one time
 - watch mode: continousely pull metric data from given endpoint, and show the changed metrics or all metrics
 
-# Pull once mode
+## Pull once mode
+
 The tool can parse local file or remote http endpoint, and convert data in json format
+
 - parse local file: `metricutil -o output.json ./metrics.txt`
 - parse remote url: `metricutil -o output.json http://<ip:port>/metrics
 
-## Output json format
+### Output json format
+
 Below is one sample json. It is an list of metric item.
-```
+
+```json
 [
     {
         "name": "gpu_nodes_total",
@@ -92,6 +98,7 @@ Below is one sample json. It is an list of metric item.
     }
 ]
 ```
+
 `Type` is enumerated value as below
 
 | Type | Name      |
@@ -103,11 +110,13 @@ Below is one sample json. It is an list of metric item.
 | 4    | Histogram |
 | 5    | Gauge Histogram|
 
-## Watch mode
+### Watch mode
+
 ./metricutil -w <endpoint url>
 
-# Arg usage
-```
+## Arg usage
+
+```text
 $ ./metricutil -h
 Usage of ./metricutil:
   -a    show all metrics

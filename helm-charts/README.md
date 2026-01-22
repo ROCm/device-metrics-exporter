@@ -56,4 +56,3 @@ Kubernetes: `>= 1.29.0-0`
 | serviceMonitor.metricRelabelings | list | `[]` | Relabeling rules applied to individual scraped metrics |
 | serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
 | tolerations | list | `[]` | Add tolerations for deploying metrics exporter on tainted nodes |
-

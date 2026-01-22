@@ -64,6 +64,7 @@ Here, `mynamespace` refers to the metrics namespace where the service and daemon
 ## Prometheus Configuration for ServiceMonitor Discovery
 
 After deploying the ServiceMonitor, Prometheus must be configured to discover and scrape it. The Prometheus Operator uses selectors in the Prometheus Custom Resource (CR) to determine which ServiceMonitor objects to monitor. Two key selectors control this behavior:
+
 1. **serviceMonitorNamespaceSelector**: Allows selecting namespaces to search for ServiceMonitor objects. An empty value selects all namespaces.
 2. **serviceMonitorSelector**: Specifies which ServiceMonitor objects to select in the chosen namespaces based on labels.
 
@@ -152,16 +153,19 @@ After configuring Prometheus, verify the integration by:
 If Prometheus is not scraping metrics from the Device Metrics Exporter:
 
 1. Verify the ServiceMonitor exists and is correctly configured:
+
    ```bash
    kubectl describe servicemonitor <release-name>-amd-metrics-exporter -n mynamespace
    ```
 
 2. Check if the labels on the ServiceMonitor match the Prometheus Operator's serviceMonitorSelector:
+
    ```bash
    kubectl get prometheus -n monitoring -o yaml
    ```
 
 3. Ensure that the service endpoints are available and ready:
+
    ```bash
    kubectl get endpoints -l app=<release-name>-amdgpu-metrics-exporter -n mynamespace
    ```

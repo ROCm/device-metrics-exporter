@@ -5,10 +5,12 @@ The following document contains a full list of GPU Metrics that are available us
 ## Platform Support Summary
 
 ### MI2xx-Only Metrics
+
 - GPU_AVERAGE_PACKAGE_POWER
 - GPU_EDGE_TEMPERATURE
 
 ### MI3xx-Only Metrics
+
 - GPU_PACKAGE_POWER
 - GPU_JUNCTION_TEMPERATURE
 - PCIE_BANDWIDTH
@@ -42,6 +44,7 @@ The following document contains a full list of GPU Metrics that are available us
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE
 
 ### Deprecated Metrics (Not Supported on Any Platform)
+
 - GPU_MMA_ACTIVITY
 - GPU_VCN_ACTIVITY
 - GPU_JPEG_ACTIVITY
@@ -238,7 +241,7 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric                           | Description                                                                                                                                    |
 |------------|-----------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occured RAS Event associated AMD Field Identifier list, More Info in https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List |
+| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occurred RAS Event associated AMD Field Identifier list, More Info in https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List |
 
 ---
 
@@ -402,12 +405,13 @@ gpu_xgmi_link_tx{card_model="xxxx",gpu_compute_partition_type="spx",gpu_id="0",g
 The Device Metrics Exporter `gpu_afid_errors` metric consists of an array field used for exporting the AFID list each indexed with label `afid_index`. This metric has a `severity` label added to the metric to differentiate the different severity levels:
 
 `severity` label can have one of the following values:
+
 - fatal
 - non_fatal_uncorrected
 - non_fatal_corrected
 
 ```json
-# HELP gpu_afid_errors Last Occured RAS Event associated AMD Field Identifier list
+# HELP gpu_afid_errors Last Occurred RAS Event associated AMD Field Identifier list
 # TYPE gpu_afid_errors gauge
 gpu_afid_errors{afid_index="0", severity="fatal", gpu_id="0", ...} 30
 gpu_afid_errors{afid_index="1", severity="fatal", gpu_id="0", ...} 25
