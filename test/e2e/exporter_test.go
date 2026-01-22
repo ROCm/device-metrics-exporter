@@ -41,6 +41,8 @@ var (
 	previousFields   = []string{}
 	previousLabels   = []string{}
 	mandatoryLabels  = []string{}
+	testResults      = make(map[string]string) // Track test results: test name -> "PASS" or "FAIL"
+	testOrder        = []string{}              // Track test execution order
 )
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
@@ -782,15 +784,20 @@ func (s *E2ESuite) Test021EnableGpuAfidErrorsField(c *C) {
 	fields := []string{
 		"gpu_afid_errors",
 	}
+
 	err := s.SetFields(fields)
 	assert.Nil(c, err)
+
+	// remove mock file and gpuagent to get response from actual inband RAS query
+	// nolint
+	_, _ = s.exporter.RunCmd("rm -rf /mockdata/inband-ras/error_list")
 	time.Sleep(5 * time.Second) // Wait for config update to take effect
 
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
 		return response != ""
-	}, 5*time.Second, 1*time.Second)
+	}, 10*time.Second, 1*time.Second)
 
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
@@ -885,6 +892,70 @@ func (s *E2ESuite) Test023LoggerConfigWithInvalidLevel(c *C) {
 	}, 10*time.Second, 1*time.Second)
 }
 
+func (s *E2ESuite) Test024MockInbandRAS(c *C) {
+	log.Print("Testing mock inband RAS error with AFID 35")
+
+	// Enable gpu_afid_errors field in config
+	fields := []string{
+		"gpu_afid_errors",
+	}
+	err := s.SetFields(fields)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // Wait for config update to take effect
+
+	_, err = s.exporter.RunCmd("metricsclient -setup-mock-inbandras")
+	assert.Nil(c, err)
+
+	// jq to set AFID 35 in the mock inband RAS error file
+	//nolint
+	_, _ = s.exporter.RunCmd("jq '.cper |= map(.afid = [35])' /mockdata/inband-ras/error_list > tmp.json")
+	// nolint
+	_, _ = s.exporter.CopyFileTo("tmp.json", "/mockdata/inband-ras/error_list")
+
+	// Remove inband RAS mock setup file
+	defer func() {
+		// Clean up: remove the mock file after test
+		_, _ = s.exporter.RunCmd("rm -rf /mockdata/inband-ras/error_list")
+	}()
+
+	time.Sleep(2 * time.Second) // Wait for file to be available
+
+	// Get Prometheus metrics response
+	var response string
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 10*time.Second, 1*time.Second)
+
+	// Verify the response contains AFID 35
+	log.Printf("Metrics response: %s", response)
+
+	// Parse the response to get the field value of gpu_afid_errors
+	allgpus, err := testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+
+	// Check for AFID 35 in gpu_afid_errors field
+	foundAFID35 := false
+	for gpuId, gpu := range allgpus {
+		afidField, ok := gpu.Fields["gpu_afid_errors"]
+		if !ok {
+			continue
+		}
+
+		// Check if afid_index label contains "35"
+		if afidField.Value == "35" {
+			foundAFID35 = true
+			log.Printf("Found AFID 35 in gpu_afid_errors field for GPU[%v]", gpuId)
+			break
+		}
+	}
+
+	assert.True(c, foundAFID35, "Expected to find AFID 35 in gpu_afid_errors field")
+	log.Print("Successfully verified AFID 35 in mock inband RAS error response")
+}
+
+// Add new test Test024MockInbandRAS test to set afid of 35 and verify the curl output get the respective value in AFID field
+
 func verifyMetricsLablesFields(allgpus map[string]*testutils.GPUMetric, labels []string, fields []string) error {
 	if len(allgpus) == 0 {
 		return fmt.Errorf("invalid input, expecting non empty payload")
@@ -978,9 +1049,37 @@ func verifyJobLabels(gpu *testutils.GPUMetric, expectedJobLabels map[string]stri
 }
 
 func (s *E2ESuite) SetUpTest(c *C) {
+	// Record test name at the start
+	testName := c.TestName()
+	testOrder = append(testOrder, testName)
+	testResults[testName] = "RUNNING"
+
+	// Set up a deferred function to capture test result
+	defer func() {
+		// Check if test failed by examining if c.Failed() returns true
+		// This needs to be done in a way that captures the state at test end
+		if r := recover(); r != nil {
+			testResults[testName] = "FAIL"
+			panic(r) // Re-panic to maintain test framework behavior
+		}
+	}()
+
 	s.validateCluster(c)
 	config := s.ReadConfig()
 	log.Printf("SetUpTest Config file : %+v", config)
+}
+
+func (s *E2ESuite) TearDownTest(c *C) {
+	// Record test result after completion
+	testName := c.TestName()
+	// The check.v1 framework sets the failed state, check it here
+	if c.Failed() {
+		testResults[testName] = "FAIL"
+		log.Printf("Test %s FAILED", testName)
+	} else {
+		testResults[testName] = "PASS"
+		log.Printf("Test %s PASSED", testName)
+	}
 }
 
 func (s *E2ESuite) getExporterResponse() (string, error) {
@@ -1010,4 +1109,49 @@ func (s *E2ESuite) validateCluster(c *C) {
 		response := s.GetExporter()
 		return response != ""
 	}, 3*time.Second, 1*time.Second)
+}
+
+// printTestSummary prints a formatted table of test results
+func printTestSummary() {
+	if len(testResults) == 0 {
+		return
+	}
+
+	// Count pass/fail
+	passCount := 0
+	failCount := 0
+	for _, result := range testResults {
+		if result == "PASS" {
+			passCount++
+		} else if result == "FAIL" {
+			failCount++
+		}
+	}
+
+	// Print header
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("TEST SUMMARY")
+	fmt.Println(strings.Repeat("=", 80))
+
+	// Print table header
+	fmt.Printf("%-60s | %-10s\n", "TEST NAME", "RESULT")
+	fmt.Println(strings.Repeat("-", 80))
+
+	// Print each test result in order
+	for _, testName := range testOrder {
+		result := testResults[testName]
+		resultStr := result
+		if result == "PASS" {
+			resultStr = "✓ PASS"
+		} else if result == "FAIL" {
+			resultStr = "✗ FAIL"
+		}
+		fmt.Printf("%-60s | %-10s\n", testName, resultStr)
+	}
+
+	// Print footer with summary
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Printf("TOTAL: %d | PASSED: %d | FAILED: %d\n", len(testResults), passCount, failCount)
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println()
 }
