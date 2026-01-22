@@ -1570,7 +1570,7 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 			labels),
 		gpuAfidErrors: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gpu_afid_errors",
-			Help: "Last Occured RAS Event associated AMD Field Identifier list",
+			Help: "Last Occurred RAS Event associated AMD Field Identifier list",
 		},
 			append([]string{"severity", "afid_index"}, labels...)),
 	}

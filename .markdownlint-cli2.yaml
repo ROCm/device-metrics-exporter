@@ -1,0 +1,17 @@
+# markdownlint-cli2 configuration
+# See https://github.com/DavidAnson/markdownlint-cli2
+
+# Ignore patterns
+ignores:
+  - "vendor/**"
+
+# Custom configuration for specific files
+customRules:
+
+config:
+  # Disable MD013 (line length) for internal/metricsmap.md
+  internal/metricsmap.md:
+    MD013: false
+  # Disable MD013 (line length) for helm-charts/README.md
+  helm-charts/README.md:
+    MD013: false

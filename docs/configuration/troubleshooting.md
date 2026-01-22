@@ -35,9 +35,11 @@ sudo metrics-exporter-ts.sh
 Please file an issue with collected techsupport bundle on our [GitHub Issues](https://github.com/ROCm/device-metrics-exporter/issues) page
 
 ## Logs
+
 You can view the container logs by executing the following command:
 
 ### K8s deployment
+
 ```bash
 kubectl logs -n <namespace> <exporter-container-on-node>
 ```

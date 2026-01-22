@@ -3,26 +3,32 @@
 This section provides an overview of the AINIC statistics available, based on the environment where the device metrics exporter is running: BareMetal, Hypervisor, or Virtual Machine (VM).
 
 In a typical deployment where:
+
 * AINIC Physical Function (PF) interfaces reside on the baremetal or hypervisor.
 * AINIC Virtual Function (VF) interfaces are assigned to guest VMs.
 
-### Exporter Running on BareMetal / Hypervisor
+## Exporter Running on BareMetal / Hypervisor
+
 When the metrics exporter runs on the host system, it can collect the following metrics:
+
 * AINIC Port statistics
 * PF interfaces: LIF, Queue Pair, RDMA & Ethtool statistics
 * VF interfaces: LIF & Queue Pair statistics
 
-### Exporter Running Inside a VM
+## Exporter Running Inside a VM
+
 When the metrics exporter runs inside a guest VM, the following metrics are available:
+
 * VF interfaces: RDMA & Ethtool stats
 
 ## Supported AINIC metrics list
-The following table contains a full list of AINIC Metrics that are available using the Device Metrics Exporter. 
+
+The following table contains a full list of AINIC Metrics that are available using the Device Metrics Exporter.
 
 | Baremetal  | Hypervisor| Guest VM   | Metric                                   | Description                                                                 |
 |------------|-----------|------------|------------------------------------------|-----------------------------------------------------------------------------|
 | &check;    | &check;   | &cross;    | NIC_NODES_TOTAL                          | Number of NIC nodes on the host                                             |
-|            |           |            | --- Port stats ---                       |                                                                             | 
+|            |           |            | --- Port stats ---                       |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_OK              | Total number of valid network frames that were successfully received        |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_ALL             | Total number of all frames received by the device                           |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_BAD_FCS         | Total number of frames rcvd with FCS error on a port                        |
@@ -132,7 +138,7 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &cross;    | QP_SQ_REQ_TX_TIMES_SQ_DRAINED            | SQ Requester Number of times SQ moved to drained state after Tx complete    |
 | &check;    | &check;   | &cross;    | QP_SQ_REQ_TX_NUM_CNP_SENT                | SQ Requester Number of Congestion Notification Packets  sent for the SQ     |
 | &check;    | &check;   | &cross;    | QP_SQ_REQ_RX_NUM_PACKET                  | Number of Packets received on SQ                                            |
-| &check;    | &check;   | &cross;    | QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING   | Num Pkts received on SQ with Explicity congestion Notification bit set      |
+| &check;    | &check;   | &cross;    | QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING   | Num Pkts received on SQ with Explicit congestion Notification bit set       |
 | &check;    | &check;   | &cross;    | QP_SQ_QCN_CURR_BYTE_COUNTER              | Current Byte counter used by Quantized congestion notification algo on SQ   |
 | &check;    | &check;   | &cross;    | QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED       | QCN byte counter threshold hit count for the SQ                             |
 | &check;    | &check;   | &cross;    | QP_SQ_QCN_NUM_TIMER_EXPIRED              | QCN dedicated timer expiry count for the SQ                                 |
@@ -142,11 +148,11 @@ The following table contains a full list of AINIC Metrics that are available usi
 |            |           |            |    -- Receive Queue Responder stats --   |                                                                             |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_NUM_PACKET                  | RQ Responder Tx number of Packets                                           |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_RNR_ERROR                   | Count of Receiver Not Ready errors sent by RQ                               |
-| &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR          | Count of Negative ACK sent by RQ due to Out of Sequence incoming msg        | 
+| &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR          | Count of Negative ACK sent by RQ due to Out of Sequence incoming msg        |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT       | Number of times RP Byte threshold hit on RQ                                 |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT         | Number of times Response Pkt max rate was hit affect Tx responses           |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_NUM_PACKET                  | RQ Responder Rx number of Packets                                           |
-| &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE      | RQ Responder count of send mgs with RDMA key                                |
+| &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE      | RQ Responder count of send msgs with RDMA key                               |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING   | Number of packets received on RQ with Explicit Congestion Notification set  |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_NUM_CNPS_RECEIVED           | Number of Congestion Notification Packets received on RQ                    |
 | &check;    | &check;   | &cross;    | QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP    | Number of incoming pkts on RQ dropped due to max internal recirculations hit|
@@ -240,8 +246,6 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &check;    | ETH_FRAMES_TX_2048B_4095B                | Count of frames transmitted with size 2048-4095 bytes                       |
 | &check;    | &check;   | &check;    | ETH_FRAMES_TX_4096B_8191B                | Count of frames transmitted with size 4096-8191 bytes                       |
 
-
-
 ## Port Stats example
 
 ```json
@@ -251,8 +255,6 @@ nic_port_stats_frames_rx_bad_all{nic_hostname="ubuntu",nic_id="1",nic_serial_num
 nic_port_stats_frames_rx_bad_fcs{nic_hostname="ubuntu",nic_id="0",nic_serial_number="FPL25180020",port_name="eth1/1"} 0
 nic_port_stats_frames_rx_bad_fcs{nic_hostname="ubuntu",nic_id="1",nic_serial_number="FPL244500E4",port_name="eth1/1"} 0
 ```
-
-
 
 ## LIF Stats example
 
@@ -267,8 +269,6 @@ nic_lif_stats_rx_unicast_packets{lif_name="enp132s0v0",nic_hostname="ubuntu",nic
 nic_lif_stats_rx_unicast_packets{lif_name="enp68s0",nic_hostname="ubuntu",nic_id="0",nic_serial_number="FPL25180020"} 22
 nic_lif_stats_rx_unicast_packets{lif_name="eth0_vf1",nic_hostname="ubuntu",nic_id="0",nic_serial_number="FPL25180020"} 0
 ```
-
-
 
 ## RDMA Stats example
 
@@ -285,8 +285,6 @@ rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep132s0"} 0
 rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep33s0f0"} 0
 rdma_rx_ucast_pkts{nic_hostname="ubuntu",rdma_if_name="rocep33s0f1"} 0
 ```
-
-
 
 ## Ethernet Stats example
 

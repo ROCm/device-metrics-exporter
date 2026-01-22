@@ -1,7 +1,8 @@
 # supported ROCM version
+
 6.4.0
 
-# build instruction from roprofiler-builder shell
+## build instruction from roprofiler-builder shell
 
 ```bash
 cd ..
@@ -9,8 +10,9 @@ make rocprofiler-compile
 ls build
 ```
 
-# sample build output
-```
+## sample build output
+
+```text
 14:35 [device-metrics-exporter]$ make rocprofiler-compile
 -- The CXX compiler identification is GNU 11.4.0
 -- The HIP compiler identification is Clang 19.0.0

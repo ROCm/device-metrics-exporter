@@ -47,7 +47,7 @@ make
 
 A successful build should show output similar to:
 
-```
+```bash
 make gpuctl
 make[1]: Entering directory '/usr/src/github.com/ROCm/gpu-agent/sw/nic/gpuagent'
 building gpuctl
@@ -56,6 +56,7 @@ make[1]: Leaving directory '/usr/src/github.com/ROCm/gpu-agent/sw/nic/gpuagent'
 ```
 
 Artifacts location:
+
 - `gpuagent` binary: `${TOP_DIR}/sw/nic/build/x86_64/sim/bin/gpuagent`
 - `gpuctl` binary: `${TOP_DIR}/sw/nic/build/x86_64/sim/bin/gpuctl`
 
@@ -101,7 +102,7 @@ make docker
 
 A successful build should show output similar to:
 
-```
+```bash
 make -C docker docker-save TOP_DIR=/usr/src/github.com/ROCm/device-metrics-exporter
 make[1]: Entering directory '/usr/src/github.com/ROCm/device-metrics-exporter/docker'
 saving docker image to device-metrics-exporter-latest.tar.gz
@@ -112,7 +113,7 @@ The build produces a Docker image containing the device-metrics-exporter with yo
 
 Exit the container shell and find the built image at:
 
-```
+```bash
 ./docker/device-metrics-exporter-latest.tar.gz
 ```
 

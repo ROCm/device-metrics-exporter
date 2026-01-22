@@ -39,6 +39,7 @@ sudo systemctl daemon-reload
 sudo systemctl start grafana-server
 sudo systemctl status grafana-server
 ```
+
 #### Configure Prometheus
 
 Add the AMD Device Metrics Exporter endpoint to your Prometheus configuration:
@@ -55,26 +56,29 @@ scrape_configs:
 If you're using Kubernetes, you can install Prometheus and Grafana using the Prometheus Operator:
 
 1. Add the Prometheus Community Helm repository:
-```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-```
+
+   ```bash
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+   helm repo update
+   ```
 
 2. Install the kube-prometheus-stack (includes Prometheus, Alertmanager, and Grafana):
-```bash
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --create-namespace \
-  --set grafana.enabled=true
-```
+
+   ```bash
+   helm install prometheus prometheus-community/kube-prometheus-stack \
+     --namespace monitoring \
+     --create-namespace \
+     --set grafana.enabled=true
+   ```
 
 3. Deploy Device Metrics Exporter with ServiceMonitor enabled:
-```bash
-helm install metrics-exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.5.0/device-metrics-exporter-charts-v1.5.0.tgz \
-  --set serviceMonitor.enabled=true \
-  --set serviceMonitor.interval=15s \
-  -n mynamespace --create-namespace
-```
+
+   ```bash
+   helm install metrics-exporter \
+     https://github.com/ROCm/device-metrics-exporter/releases/download/v1.5.0/device-metrics-exporter-charts-v1.5.0.tgz \
+     --set serviceMonitor.enabled=true \
+     --set serviceMonitor.interval=15s \
+     -n mynamespace --create-namespace
+   ```
 
 For detailed ServiceMonitor configuration options and troubleshooting, please refer to the [Prometheus ServiceMonitor Integration](./prometheus-servicemonitor.md) documentation.

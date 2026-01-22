@@ -21,23 +21,23 @@
 - **Slinky**
   - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
 
-
 ### Platform Support
+
 ROCm 7.0 MI2xx, MI3xx
 
 ## v1.4.2
 
 - **New Label**
   - `KFD_PROCESS_ID` label will  now report the process ID using the
-  	respective GPU. This enables baremetal debian deployments to have job
-  	information where no scheduler is used.
+    respective GPU. This enables baremetal debian deployments to have job
+    information where no scheduler is used.
   - `DEPLOYMENT_MODE` label to specify the GPU operating environment
   
 - **New Field**
   - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
   - Violation Metrics 1.8 version fields
-    - Current percentag and Per Compute Core violation metrics available for
+    - Current percentage and Per Compute Core violation metrics available for
       - `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE`
       - `GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE`
       - `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE`
@@ -54,15 +54,17 @@ ROCm 7.0 MI2xx, MI3xx
 
   - Clock Metrics Added `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK`
 
- - **Label Value Change**
-   - Clock type was not normalized in previous releases, now clock type label values
-     are normalized without prefixes of `GPU_CLOCK_TYPE_`. More details can be found
-     [here](./configuration/metricslist.md#clock-metrics)
+- **Label Value Change**
+  - Clock type was not normalized in previous releases, now clock type label values
+      are normalized without prefixes of `GPU_CLOCK_TYPE_`. More details can be found
+      [here](./configuration/metricslist.md#clock-metrics)
 
 ### Platform Support
+
 ROCm X.X.X MI2xx, MI3xx
 
 ## nic-v1.0.0
+
 - **NIC Metrics Exporter for Prometheus**
   - Real-time metrics exporter for AMD NICs.
   - Supports both Docker and Debian installations.
@@ -87,18 +89,12 @@ ROCm X.X.X MI2xx, MI3xx
 - **_Note_** Profiler metrics are prefixed by `gpu_prof_` in [metrics list](./configuration/metricslist.md)
 
 ### Platform Support
-ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
-## nic-v1.0.0
-- **NIC Metrics Exporter for Prometheus**
-  - Real-time metrics exporter for AMD NICs.
-  - Supports both Docker and Debian installations.
-  - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
-  - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
+ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 ## v1.4.0
 
-- **MI35x Platfform Support**
+- **MI35x Platform Support**
   - Exporter now supports MI35x platform with parity with latest supported
     fields.
 
@@ -109,8 +105,8 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 - **New Profiler Fields**
   - New fields are added for better understanding of the application
 
-- **Depricated Fields Notice**
-  - Following fields are depricated from 6.14.14 driver onwards
+- **Deprecated Fields Notice**
+  - Following fields are deprecated from 6.14.14 driver onwards
     - GPU_MMA_ACTIVITY
     - GPU_JPEG_ACTIVITY
     - GPU_VCN_ACTIVITY
@@ -118,12 +114,13 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
   - These fields are replaced by following fields
     - GPU_VCN_BUSY_INSTANTANEOUS
     - GPU_JPEG_BUSY_INSTANTANEOUS
- 
+
 ### Platform Support
+
 ROCm 7.0 MI2xx, MI3xx
 
-
 ### Issues Fixed
+
 - fixed metric naming discrepancies between config field and exported field. The
   following prometheus fields name are being changed.
 - one config field is being renamed which would require updating the
@@ -157,7 +154,7 @@ ROCm 7.0 MI2xx, MI3xx
 - **New Metric Fields**
   - GPU_GFX_BUSY_INSTANTANEOUS, GPU_VC_BUSY_INSTANTANEOUS,
     GPU_JPEG_BUSY_INSTANTANEOUS are added to represent partition activities at
-    more granuler level.
+    more granular level.
   - GPU_GFX_ACTIVITY is only applicable for unpartitioned systems, user must
     rely on the new BUSY_INSTANTANEOUS fields on partitioned systems.
 
@@ -174,7 +171,7 @@ ROCm 7.0 MI2xx, MI3xx
 
 - **Notice: Exporter Handling of Unsupported Platform Fields (Upcoming Major Release)**
   - Current Behavior: The exporter sets unsupported platform-specific field metrics to 0.
-  - Upcoming Change: In the next major release, the exporter will omit unsupported fields 
+  - Upcoming Change: In the next major release, the exporter will omit unsupported fields
     (e.g., those marked as N/A in amd-smi) instead of exporting them as 0.
   - Logging: Detailed logs will indicate which fields are unsupported, allowing users to verify platform compatibility.
 
@@ -191,10 +188,11 @@ ROCm 7.0 MI2xx, MI3xx
   - Adds more profiler related metrics on supported platforms, with toggle
     functionality through configmap `ProfilerMetrics`
 - **Custom Prefix for Exporter**
-  - Adds more flexibility to add custome prefix to better identify AMD GPU on
+  - Adds more flexibility to add custom prefix to better identify AMD GPU on
     multi cluster deployment, through configmap `CommonConfig`
 
 ### Platform Support
+
 ROCm 6.4.x MI3xx
 
 ## v1.2.1
@@ -207,6 +205,7 @@ ROCm 6.4.x MI3xx
   - Added capability to add tolerations and nodeSelector during helm install
 
 ### Platform Support
+
 ROCm 6.3.x
 
 ## v1.2.0
@@ -219,11 +218,13 @@ ROCm 6.3.x
   - Customizable health thresholds via K8s ConfigMaps
 
 ### Platform Support
+
 ROCm 6.3.x
 
 ## v1.1.0
 
 ### Platform Support
+
 ROCm 6.3.x
 
 ## v1.0.0
@@ -234,4 +235,5 @@ ROCm 6.3.x
   - Real-time metrics exporter for GPU MI platforms.
 
 ### Platform Support
+
 ROCm 6.2.x

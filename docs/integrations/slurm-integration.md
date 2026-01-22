@@ -44,7 +44,7 @@ sudo systemctl restart slurmd     # On compute nodes if slurm.conf is updated
 
 It's recommended to use the following directory structure to store persistent exporter data on the host:
 
-```
+```bash
 $ tree -d exporter/
      exporter/
        - config/
@@ -149,7 +149,7 @@ The integration script can be modified to include additional job-specific inform
 
 Slurm labels are disabled by default. To enable Slurm labels, add the following to your `config.json`:
 
-```
+```json
 {
   "GPUConfig": {
     "Labels": [

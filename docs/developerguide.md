@@ -5,6 +5,7 @@ This document provides build instructions and guidance for developers working on
 ## Git submodule setup
 
 Make sure to update the submodules on every pull from the repository.
+
 ```bash
 git submodule update --init --recursive
 ```
@@ -28,6 +29,7 @@ Before starting, ensure you have Docker installed and running with the user perm
 ## Quick Start
 
 To quickly build everything using Docker:
+
 ```bash
 make default
 ```
@@ -35,17 +37,16 @@ make default
 The default target creates a docker build container that packages the developer tools required to build all other targets in the Makefile and builds the `all` target in this build container.
 
 ## Building Components
+
 Each components have prebuilt in assets-build directory. If any changes or
 done to respective components, then the component needs to be rebuilt
 accordingly. Exporter container built after any component built will pack the newly built components.
 
-
 |Component        |  Directory              |    Compilation Target            |
 |-----------------|-------------------------|----------------------------------|
-|amd-smi          | $(TOP_DIR)/libamdsmi    | `make amdsmi-compile-all`     | 
+|amd-smi          | $(TOP_DIR)/libamdsmi    | `make amdsmi-compile-all`     |
 |gpuagent         | $(TOP_DIR)/gpuagent     | `make gpuagent-compile-full`  |
 |rocprofilerclient| $(TOP_DIR)/rocprofilerclient `make rocprofiler-compile`    |
-
 
 ### Build and Launch Docker Build Container Shell
 
@@ -66,6 +67,7 @@ make all
 ```
 
 This command builds:
+
 - AMD Metrics Exporter
 - Proto-generated code
 - Metrics utility
@@ -78,11 +80,13 @@ This command builds:
 To build a Debian ubuntu 22.04, 24.04 and Rhel 9 rpm
 
 #### Build dependent libraries for packaging (once)
+
 ```bash
 make profiler-libdependent-assets
 ```
 
 #### Build package with all dependent libraries
+
 ```bash
 make pkg
 ```
@@ -130,11 +134,13 @@ The AMD Device Metrics Exporter relies on [GPU Agent](https://github.com/ROCm/gp
 Developers can make changes directly in the GPU Agent repository, build the GPU Agent binary, and then integrate the built binaries into the Device Metrics Exporter project. Copy over the static binary into the `assets` folder in the AMD Device Metrics Exporter and follow these steps:
 
 #### Build Container (one time)
+
 ```bash
 make gpuagent-build
 ```
 
 #### Compile GPU Agent
+
 ```bash
 make gpuagent-compile
 ```
@@ -142,7 +148,7 @@ make gpuagent-compile
 ## Build ROC Profiler Module
 
 set the correct rocm version and run the target to create new libraries
-assocaited with specific rocm version
+associated with specific rocm version
 
 ```bash
 ROCM_VERSION=6.4.1 make profiler-libdependent-assets
@@ -151,36 +157,43 @@ ROCM_VERSION=6.4.1 make rocprofiler-compile
 ```
 
 ## Build AMD SMI
+
 This is a built out of [AMD SMI Lib](git@github.com:ROCm/amdsmi.git), to
 access AMD GPU hardware driver
 
-#### Build Container (one time)
+### Build Container (one time)
+
 ```bash
 make amdsmi-build
 ```
 
-#### Compile AMDSMI
+### Compile AMDSMI
+
 ```bash
 make amdsmi-compile
 ```
 
 ## Build Rocprofiler Library
+
 This is exporter library built out of ROCm rocprofiler-sdk to access profiler
 metrics.
 
-#### Build Container(one time)
+### Build Container(one time)
+
 ```bash
 make rocprofiler-build
 ```
 
-#### Compile application rocprofiler library
+### Compile application rocprofiler library
+
 ```bash
 make rocprofiler-compile
 ```
 
 ## Architecture
- 
+
 ### Metrics HTTP Server Request Handling
+
 ```mermaid
 sequenceDiagram
     actor user/client
@@ -197,6 +210,7 @@ sequenceDiagram
 ```
 
 ### Health Monitoring And gRPC Service
+
 ```mermaid
 sequenceDiagram
     exporter ->> metricsvc : start  gRPC service over unix socket
@@ -208,6 +222,7 @@ sequenceDiagram
 ```
 
 ### Health gRPC Request Handling
+
 ```mermaid
 sequenceDiagram
     actor user/client
