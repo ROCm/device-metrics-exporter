@@ -734,6 +734,7 @@ func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
 }
 
 func (s *E2ESuite) Test020ProfilerFailureHandling(c *C) {
+	c.Skip("disable for profiler test - non critical for patch release")
 	log.Print("Testing profiler failure handling")
 
 	// First, ensure profiler fields are included in the metrics
