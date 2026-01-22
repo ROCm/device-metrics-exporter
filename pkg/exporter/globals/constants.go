@@ -26,6 +26,8 @@ const (
 	// GPUAgent internal clien port
 	GPUAgentPort = 50061
 
+	GPUAgentIP = "127.0.0.1"
+
 	ZmqPort = "6601"
 
 	SlurmDir = "/var/run/exporter/"
