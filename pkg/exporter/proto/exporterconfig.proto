@@ -637,6 +637,7 @@ enum NICMetricLabel {
     NIC_UUID                        = 0;
     // mandatory field NIC_ID cannot be disabled
     NIC_ID                          = 1;
+    FIRMWARE_VERSION                = 2;
 }
 
 message NICMetricConfig {

@@ -37,6 +37,7 @@ type NIC struct {
 	ProductName           string           `json:"product_name"`
 	SerialNumber          string           `json:"serial_number"`
 	EthBDF                string           `json:"eth_bdf"`
+	FirmwareVersion       string           `json:"firmware_version"`
 	Ports                 map[string]*Port // NIC ports by Port ID
 	Lifs                  map[string]*Lif  // NIC lifs by Lif ID
 	sriovConfiguredOnHost bool

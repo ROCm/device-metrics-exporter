@@ -361,6 +361,12 @@ func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *
 			} else {
 				labelMap[key] = ""
 			}
+		case strings.ToLower(exportermetrics.NICMetricLabel_FIRMWARE_VERSION.String()):
+			if nic != nil {
+				labelMap[key] = nic.FirmwareVersion
+			} else {
+				labelMap[key] = ""
+			}
 		case strings.ToLower(exportermetrics.MetricLabel_POD.String()):
 			if podInfo != nil {
 				labelMap[key] = podInfo.Pod
@@ -1957,13 +1963,16 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 			if nic != nil {
 				labels[key] = nic.Index
 			}
+		case exportermetrics.NICMetricLabel_FIRMWARE_VERSION.String():
+			if nic != nil {
+				labels[key] = nic.FirmwareVersion
+			}
 		case exportermetrics.MetricLabel_SERIAL_NUMBER.String():
 			if nic != nil {
 				labels[key] = nic.SerialNumber
 			}
 		case exportermetrics.MetricLabel_HOSTNAME.String():
 			labels[key] = na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
-
 		default:
 			logger.Log.Printf("Invalid label is ignored %v", key)
 		}
@@ -2037,11 +2046,12 @@ func (na *NICAgentClient) getAssociatedWorkloadLabels(nicID string, lifID string
 func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 	type Response struct {
 		NIC []struct {
-			ID           string `json:"id"`
-			ProductName  string `json:"product_name"`
-			SerialNumber string `json:"serial_number"`
-			EthBDF       string `json:"eth_bdf"`
-			Port         []struct {
+			ID              string `json:"id"`
+			ProductName     string `json:"product_name"`
+			SerialNumber    string `json:"serial_number"`
+			EthBDF          string `json:"eth_bdf"`
+			FirmwareVersion string `json:"firmware_version"`
+			Port            []struct {
 				Spec struct {
 					ID   string `json:"id"`
 					Name string `json:"name"`
@@ -2079,11 +2089,12 @@ func (na *NICAgentClient) getNICs() (map[string]*NIC, error) {
 	// fetch port details for each NIC
 	for index, nic := range resp.NIC {
 		nics[nic.ID] = &NIC{
-			Index:        fmt.Sprintf("%v", index),
-			UUID:         nic.ID,
-			ProductName:  nic.ProductName,
-			SerialNumber: nic.SerialNumber,
-			EthBDF:       nic.EthBDF,
+			Index:           fmt.Sprintf("%v", index),
+			UUID:            nic.ID,
+			ProductName:     nic.ProductName,
+			SerialNumber:    nic.SerialNumber,
+			EthBDF:          nic.EthBDF,
+			FirmwareVersion: nic.FirmwareVersion,
 		}
 
 		cmd := fmt.Sprintf("nicctl show port --card %s -j", nic.ID)

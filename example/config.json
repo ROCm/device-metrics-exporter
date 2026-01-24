@@ -464,7 +464,8 @@
       "SERIAL_NUMBER",
       "POD",
       "NAMESPACE",
-      "CONTAINER"
+      "CONTAINER",
+      "FIRMWARE_VERSION"
     ],
     "CustomLabels": {
       "CLUSTER_NAME" : "amdnetwork-k8s-metrics-exporter"
