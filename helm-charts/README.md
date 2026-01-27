@@ -25,7 +25,7 @@ Kubernetes: `>= 1.29.0-0`
 | image.pullPolicy | string | `"Always"` | metrics exporter image pullPolicy |
 | image.pullSecrets | string | `""` | metrics exporter image pullSecret name |
 | image.repository | string | `"docker.io/rocm/device-metrics-exporter"` | repository URL for the metrics exporter image |
-| image.tag | string | `"v1.4.0"` | metrics exporter image tag |
+| image.tag | string | `"v1.4.1"` | metrics exporter image tag |
 | kubelet | object | `{"podResourceAPISocketPath":"/var/lib/kubelet/pod-resources"}` | kubelet configuration |
 | kubelet.podResourceAPISocketPath | string | `"/var/lib/kubelet/pod-resources"` | host path for kubelet pod-resources directory (optional)    - vanilla k8s kubelet path: /var/lib/kubelet/pod-resources    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/    - default to /var/lib/kubelet/pod-resources |
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |

@@ -135,7 +135,7 @@ else ifneq (,$(findstring v,$(RELEASE)))
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
 else
 #apt is only released until this version
-DEBIAN_VERSION := "1.4.1"
+DEBIAN_VERSION := "1.4.1.1"
 endif
 REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
 

@@ -7,7 +7,7 @@ external_projects_current_project = "device-metrics-exporter"
 
 project = "AMD Instinct Hub"
 version = "1.4.1"
-debian_version = "1.4.1"
+debian_version = "1.4.1.1"
 release = version
 html_title = f"AMD Device Metrics Exporter {version}"
 author = "Advanced Micro Devices, Inc."
