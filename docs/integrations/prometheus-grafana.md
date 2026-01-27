@@ -74,6 +74,7 @@ helm install metrics-exporter \
   https://github.com/ROCm/device-metrics-exporter/releases/download/v1.4.1/device-metrics-exporter-charts-v1.4.1.tgz \
   --set serviceMonitor.enabled=true \
   --set serviceMonitor.interval=15s \
+  --set image.tag=v1.4.1.1 \
   -n mynamespace --create-namespace
 ```
 
