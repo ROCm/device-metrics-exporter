@@ -188,7 +188,6 @@ func getNewAgent(t *testing.T) *GPUAgentClient {
 	ga := NewAgent(
 		mh,
 		WithK8sClient(nil),
-		WithZmq(true),
 		WithK8sSchedulerClient(nil),
 	)
 	ga.initializeContext()
