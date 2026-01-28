@@ -135,7 +135,7 @@ else ifneq (,$(findstring v,$(RELEASE)))
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
 else
 #apt is only released until this version
-DEBIAN_VERSION := "1.4.0"
+DEBIAN_VERSION := "1.4.0.1"
 endif
 REL_IMAGE_TAG := $(subst $\",,v$(PACKAGE_VERSION))
 HELM_VERSION := $(REL_IMAGE_TAG)
@@ -281,10 +281,10 @@ vet: ## Run go vet against code.
 gopkglist:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-	go install go.uber.org/mock/mockgen@v0.5.0
+	go install go.uber.org/mock/mockgen@v0.6.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-	go install golang.org/x/tools/cmd/goimports@latest
-	go install github.com/alta/protopatch/cmd/protoc-gen-go-patch@latest
+	go install golang.org/x/tools/cmd/goimports@v0.40.0
+	go install github.com/alta/protopatch/cmd/protoc-gen-go-patch@v0.5.3
 
 amdexporter: metricsclient amdgpuhealth
 	@echo "building amd metrics exporter"
@@ -370,13 +370,13 @@ mod:
 	@touch ${TOP_DIR}/libamdsmi/go.mod
 	@echo "setting up go mod packages"
 	@go mod tidy
-	@go mod edit -go=1.24.6
+	@go mod edit -go=1.25.5
 	#CVE-2024-24790 - amd-metrics-exporter
 	@go mod edit -replace golang.org/x/net@v0.29.0=golang.org/x/net@v0.36.0
 	#CVE-2025-30204 - amd-test-runner
 	@go mod edit -replace github.com/golang-jwt/jwt/v5@v5.2.1=github.com/golang-jwt/jwt/v5@v5.2.2
 	#CVE GHSA-fv92-fjc5-jj9h - amdgpuhealth
-	@go mod edit -replace github.com/go-viper/mapstructure/v2@v2.2.1=github.com/go-viper/mapstructure/v2@v2.3.0
+	@go mod edit -replace github.com/go-viper/mapstructure/v2@v2.2.1=github.com/go-viper/mapstructure/v2@v2.4.0
 	@go mod vendor
 	@rm ${TOP_DIR}/gpuagent/go.mod
 	@rm ${TOP_DIR}/libamdsmi/go.mod

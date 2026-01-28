@@ -82,6 +82,31 @@ gpuagent-compile-full:
 		echo "file copied successfully to $(TOP_DIR)/build/assets/gpuagent"; \
 	fi
 
+.PHONY: gpuagent-asset-copy
+gpuagent-asset-copy:
+	@echo "prereq gpuagent-compile is finished with all binaries created"
+	@for file in gpuagent gpuagent_gim gpuagent_mock gpuctl; do \
+		if [ -f "$(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/$$file" ]; then \
+			echo "Found: $$file"; \
+		else \
+			echo "Missing: $$file"; \
+			exit 1; \
+		fi \
+	done
+	@for file in gpuagent gpuagent_gim gpuagent_mock; do \
+		cp -vf $(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/$$file ${ASSETS_PATH}/gpuagent && \
+		strip ${ASSETS_PATH}/gpuagent && \
+		echo "source file $$file" && \
+		tar_file=$$(echo $$file | sed 's/gpuagent_gim/gpuagent_sriov_static/' | sed 's/gpuagent$$/gpuagent_static/').bin.gz && \
+		cd ${ASSETS_PATH} && tar czf $$tar_file gpuagent && chmod +x $$tar_file gpuagent && \
+		echo "Created tar file: ${ASSETS_PATH}/$$tar_file"; \
+	done
+	@rm -f ${ASSETS_PATH}/gpuagent || true
+	@cp -vf $(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/gpuctl ${ASSETS_PATH}/gpuctl.gobin
+	@strip ${ASSETS_PATH}/gpuctl.gobin
+	@echo "gpuagent assets copied successfully"
+	@cd ${TOP_DIR}
+
 .PHONY: rocprofiler-compile
 rocprofiler-compile:
 	${MAKE} rocprofiler-build

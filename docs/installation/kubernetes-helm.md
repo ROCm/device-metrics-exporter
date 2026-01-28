@@ -24,7 +24,7 @@ kubelet:
   podResourceAPISocketPath: /var/lib/kubelet/pod-resources
 image:
   repository: docker.io/rocm/device-metrics-exporter
-  tag: v1.4.0
+  tag: v1.4.0.1
   pullPolicy: Always
 configMap: "" # Optional: Add custom configuration
 service:
