@@ -263,11 +263,9 @@ func newK8sSchedulerMock() scheduler.SchedulerClient {
 }
 
 func getNewAgent(t *testing.T) *GPUAgentClient {
-	// setup zmq mock port
 	ga := NewAgent(
 		mh,
 		WithK8sClient(nil),
-		WithZmq(true),
 		WithK8sSchedulerClient(nil),
 		WithGPUMonitoring(true),
 	)
@@ -290,11 +288,9 @@ func getNewAgent(t *testing.T) *GPUAgentClient {
 }
 
 func getNewAgentWithoutScheduler(t *testing.T) *GPUAgentClient {
-	// setup zmq mock port
 	ga := NewAgent(
 		mh,
 		WithK8sClient(nil),
-		WithZmq(false),
 		WithK8sSchedulerClient(nil),
 		WithSlurmClient(false),
 		WithGPUMonitoring(true),
@@ -317,11 +313,9 @@ func getNewAgentWithoutScheduler(t *testing.T) *GPUAgentClient {
 }
 
 func getNewAgentWithOnlyIFOE(t *testing.T) *GPUAgentClient {
-	// setup zmq mock port
 	ga := NewAgent(
 		mh,
 		WithK8sClient(nil),
-		WithZmq(false),
 		WithK8sSchedulerClient(nil),
 		WithSlurmClient(false),
 		WithGPUMonitoring(false),
