@@ -68,7 +68,6 @@ type testConfig struct {
 	enableGPU           bool
 	enableNIC           bool
 	enableIFOE          bool
-	zmqDisable          bool
 	enableSriov         bool
 	disableK8sApi       bool
 	enableSlurmScl      bool
@@ -125,7 +124,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			enableGPU:          true,
 			enableNIC:          false,
 			enableIFOE:         false,
-			zmqDisable:         true,
 			disableK8sApi:      true,
 			port:               9091,
 			expectedEndpoints:  []string{"/metrics", "/debug/vars"}, // Removed /amdgpu-metrics since it returns 404 without real GPU
@@ -136,7 +134,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			enableGPU:          false,
 			enableNIC:          true,
 			enableIFOE:         false,
-			zmqDisable:         true,
 			disableK8sApi:      true,
 			port:               9092,
 			expectedEndpoints:  []string{"/metrics", "/debug/vars"},
@@ -147,7 +144,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			enableGPU:          false,
 			enableNIC:          false,
 			enableIFOE:         true,
-			zmqDisable:         true,
 			disableK8sApi:      true,
 			port:               9093,
 			expectedEndpoints:  []string{"/metrics", "/debug/vars"},
@@ -158,7 +154,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			enableGPU:          true,
 			enableNIC:          true,
 			enableIFOE:         true,
-			zmqDisable:         true,
 			disableK8sApi:      true,
 			port:               9094,
 			expectedEndpoints:  []string{"/metrics", "/debug/vars"}, // Removed /amdgpu-metrics since it returns 404 without real GPU
@@ -169,7 +164,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			enableGPU:          true,
 			enableNIC:          false,
 			enableIFOE:         false,
-			zmqDisable:         true,
 			enableSriov:        true,
 			disableK8sApi:      true,
 			port:               9095,
@@ -189,7 +183,6 @@ func TestExporterBasicConfiguration(t *testing.T) {
 			opts = append(opts, WithGPUMonitoring(tc.enableGPU))
 			opts = append(opts, WithNICMonitoring(tc.enableNIC))
 			opts = append(opts, WithenableIFOEMonitoring(tc.enableIFOE))
-			opts = append(opts, ExporterWithZmqDisable(tc.zmqDisable))
 			opts = append(opts, WithSRIOV(tc.enableSriov))
 			opts = append(opts, WithBindAddr("127.0.0.1"))
 			opts = append(opts, WithSlurmClient(tc.enableSlurmScl))
@@ -394,15 +387,6 @@ func TestExporterOptions(t *testing.T) {
 		options []ExporterOption
 		verify  func(*Exporter)
 	}{
-		{
-			name: "ZMQ disabled",
-			options: []ExporterOption{
-				ExporterWithZmqDisable(true),
-			},
-			verify: func(e *Exporter) {
-				assert.Assert(t, e.zmqDisable, "ZMQ should be disabled")
-			},
-		},
 		{
 			name: "Custom bind address",
 			options: []ExporterOption{
