@@ -47,7 +47,6 @@ type GPUAgentClient struct {
 	isKubernetes         bool // pod resource client enabled or not
 	enabledK8sApi        bool
 	enableSlurmScl       bool
-	enableZmq            bool
 	enableSriov          bool
 
 	ctx    context.Context
@@ -63,13 +62,6 @@ type GPUAgentClient struct {
 
 // GPUAgentClientOptions set desired options
 type GPUAgentClientOptions func(ga *GPUAgentClient)
-
-func WithZmq(enableZmq bool) GPUAgentClientOptions {
-	return func(ga *GPUAgentClient) {
-		logger.Log.Printf("Zmq enable %v", enableZmq)
-		ga.enableZmq = enableZmq
-	}
-}
 
 func WithK8sClient(k8sclient *k8sclient.K8sClient) GPUAgentClientOptions {
 	return func(ga *GPUAgentClient) {
@@ -197,7 +189,7 @@ func (ga *GPUAgentClient) InitConfigs() error {
 
 func (ga *GPUAgentClient) initalizeScheduler() error {
 	if ga.enableSlurmScl {
-		slurmScl, err := scheduler.NewSlurmClient(ga.ctx, ga.enableZmq)
+		slurmScl, err := scheduler.NewSlurmClient(ga.ctx)
 		if err != nil {
 			logger.Log.Printf("gpu client init failure err :%v", err)
 			return err
