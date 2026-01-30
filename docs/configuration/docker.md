@@ -15,7 +15,7 @@ docker run -d \
   -p 5000:5000 \
   -v ./config:/etc/metrics \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.4.1.1
+  rocm/device-metrics-exporter:v1.4.1.2
 ```
 
 The exporter polls for configuration changes every minute, so updates take effect without container restarts.

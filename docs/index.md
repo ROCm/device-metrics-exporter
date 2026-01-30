@@ -30,7 +30,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 | 6.4.x        | 6.12.12        | v1.3.0                 | MI3xx        |
 | 6.4.x        | 6.12.12        | v1.3.0.1, v1.3.1       | MI2xx, MI3xx |
 | 7.0.x        | 6.14.14        | v1.4.0                 | MI2xx, MI3xx |
-| 7.1.x        | 6.16.6         | v1.4.1.1               | MI2xx, MI3xx |
+| 7.1.x        | 6.16.6         | v1.4.1.2               | MI2xx, MI3xx |
 
 ## Available Metrics
 
