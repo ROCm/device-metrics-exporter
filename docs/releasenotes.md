@@ -1,6 +1,6 @@
 # Release Notes
 
-## v1.4.1.1
+## v1.4.1.2
 
 ### Issues Fixed
 
