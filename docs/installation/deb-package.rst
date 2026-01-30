@@ -196,7 +196,7 @@ Custom Port Configuration - Change GPU Agent Port
    .. code-block:: bash
 
       sudo systemctl restart gpuagent.service
-      sudo systemctl restart daemon-reload
+      sudo systemctl daemon-reload
 
 Change Metrics Exporter Port
 ----------------------------
@@ -228,7 +228,7 @@ Change Metrics Exporter Port Connecting to GPU Agent
    .. code-block:: bash
 
       sudo systemctl restart amd-metrics-exporter.service
-      sudo systemctl restart daemon-reload
+      sudo systemctl daemon-reload
 
 Stop Metrics Exporter
 ---------------------
@@ -238,7 +238,7 @@ To stop the Metrics Exporter service, run:
 
       sudo systemctl stop amd-metrics-exporter.service
       sudo systemctl stop gpuagent.service 
-      sudo systemctl restart daemon-reload
+      sudo systemctl daemon-reload
 
 Confirm Metrics Exporter is Running
 ------------------------------------
