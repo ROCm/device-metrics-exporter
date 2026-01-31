@@ -30,7 +30,6 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/fsnotify/fsnotify"
-	zmq "github.com/go-zeromq/zmq4"
 )
 
 var SlurmLabels = map[string]bool{
@@ -41,27 +40,16 @@ var SlurmLabels = map[string]bool{
 
 type client struct {
 	sync.Mutex
-	zmqSock zmq.Socket
 	GpuJobs map[string]JobInfo
 	ctx     context.Context
 	cancel  context.CancelFunc
 }
 
 // NewSlurmClient - creates a slurm schedler client
-func NewSlurmClient(ctx context.Context, enableZmq bool) (SchedulerClient, error) {
+func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	sock := zmq.NewPull(ctx)
-
-	if enableZmq {
-		logger.Log.Printf("Starting Listen on port %v", globals.ZmqPort)
-		if err := sock.Listen(fmt.Sprintf("tcp://*:%v", globals.ZmqPort)); err != nil {
-			cancel()
-			return nil, fmt.Errorf("failed to listen on port %v, %v ", globals.ZmqPort, err)
-		}
-	}
 
 	cl := &client{
-		zmqSock: sock,
 		GpuJobs: make(map[string]JobInfo),
 		ctx:     ctx,
 		cancel:  cancel,
@@ -194,7 +182,6 @@ func (cl *client) CheckExportLabels(labels map[string]bool) bool {
 	return false
 }
 func (cl *client) Close() error {
-	cl.zmqSock.Close()
 	if cl.ctx != nil {
 		cl.cancel()
 	}
