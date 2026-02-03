@@ -61,7 +61,6 @@ type ExporterOption func(e *Exporter)
 type Exporter struct {
 	agentGrpcPort       int
 	configFile          string
-	zmqDisable          bool
 	enableNICMonitoring bool
 	enableGPUMonitoring bool
 	enableSriov         bool
@@ -262,13 +261,6 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 	return exporter
 }
 
-func ExporterWithZmqDisable(zmqDisable bool) ExporterOption {
-	return func(e *Exporter) {
-		logger.Log.Printf("zmq server disabled")
-		e.zmqDisable = zmqDisable
-	}
-}
-
 func WithBindAddr(bindAddr string) ExporterOption {
 	return func(e *Exporter) {
 		logger.Log.Printf("bind address set to %s", bindAddr)
@@ -350,7 +342,6 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 
 	if e.enableGPUMonitoring {
 		gpuclient = gpuagent.NewAgent(mh,
-			gpuagent.WithZmq(!e.zmqDisable),
 			gpuagent.WithK8sClient(e.GetK8sApiClient()),
 			gpuagent.WithSRIOV(e.enableSriov),
 			gpuagent.WithK8sSchedulerClient(e.k8sScl),

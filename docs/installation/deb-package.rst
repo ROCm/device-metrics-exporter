@@ -23,7 +23,7 @@ Each Debian package release of the Standalone Metrics Exporter is dependent on a
    * - amdgpu-exporter-1.3.1
      - ROCm 6.4.x
      - 6.12.12
-   * - amdgpu-exporter-1.4.0
+   * - amdgpu-exporter-1.4.0.1
      - ROCm 7.0.x
      - 6.14.x
 
@@ -100,13 +100,13 @@ Step 3: Install the APT Prerequisites for Metrics Exporter
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.4.0 jammy main
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.4.0.1 jammy main
 
       .. tab-item:: ubuntu 24.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.4.0 noble main
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.4.0.1 noble main
 
 
 3. Update the package list again:
@@ -188,6 +188,14 @@ Custom Port Configuration - Change GPU Agent Port
 
       ExecStart=/usr/local/bin/gpuagent -p <port_number>
 
+
+3. Restart GPU Agent service:
+
+   .. code-block:: bash
+
+      sudo systemctl restart gpuagent.service
+      sudo systemctl daemon-reload
+
 Change Metrics Exporter Port
 ----------------------------
 
@@ -199,13 +207,36 @@ Change Metrics Exporter Port
 
 2. Update `ServerPort` to your desired port.
 
+Change Metrics Exporter Port Connecting to GPU Agent
+---------------------------------------------------
+
+1. Edit the Metrics Exporter service file:
+   .. code-block:: bash
+
+      sudo vi /lib/systemd/system/amd-metrics-exporter.service
+
+2. Update `ExecStart` with desired port:
+
+   .. code-block:: bash
+
+      ExecStart=/usr/local/bin/amd-metrics-exporter -agent-grpc-port <port_number>
+
+3. Restart Metrics Exporter service:
+
+   .. code-block:: bash
+
+      sudo systemctl restart amd-metrics-exporter.service
+      sudo systemctl daemon-reload
+
 Stop Metrics Exporter
 ---------------------
+
 To stop the Metrics Exporter service, run:
    .. code-block:: bash
 
       sudo systemctl stop amd-metrics-exporter.service
       sudo systemctl stop gpuagent.service 
+      sudo systemctl daemon-reload
 
 Confirm Metrics Exporter is Running
 ------------------------------------

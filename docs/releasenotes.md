@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.4.0.1
+
+### Issues Fixed
+
+- **Security Vulnerability Fix**
+  - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
+
+- **Workaround for prior version**
+  - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
+
 ## v1.4.0
 
 - **MI35x Platfform Support**

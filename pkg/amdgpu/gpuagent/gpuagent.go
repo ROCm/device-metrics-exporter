@@ -57,7 +57,6 @@ type GPUAgentClient struct {
 	k8sScheduler           scheduler.SchedulerClient
 	slurmScheduler         scheduler.SchedulerClient
 	isKubernetes           bool
-	enableZmq              bool
 	enableProfileMetrics   bool
 	enableSriov            bool
 	staticHostLabels       map[string]string
@@ -80,13 +79,6 @@ type gpuCache struct {
 
 // GPUAgentClientOptions set desired options
 type GPUAgentClientOptions func(ga *GPUAgentClient)
-
-func WithZmq(enableZmq bool) GPUAgentClientOptions {
-	return func(ga *GPUAgentClient) {
-		logger.Log.Printf("Zmq enable %v", enableZmq)
-		ga.enableZmq = enableZmq
-	}
-}
 
 func WithK8sClient(k8sclient *k8sclient.K8sClient) GPUAgentClientOptions {
 	return func(ga *GPUAgentClient) {
@@ -164,7 +156,7 @@ func (ga *GPUAgentClient) Init() error {
 	ga.gpuclient = gpuclient
 	ga.evtclient = evtclient
 
-	slurmScl, err := scheduler.NewSlurmClient(ga.ctx, ga.enableZmq)
+	slurmScl, err := scheduler.NewSlurmClient(ga.ctx)
 	if err != nil {
 		logger.Log.Printf("gpu client init failure err :%v", err)
 		return err
