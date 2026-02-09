@@ -220,4 +220,6 @@ thrput
 vr
 amdgpuhealth
 recirculations
+localhost
+rst
 
