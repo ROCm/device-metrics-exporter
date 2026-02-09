@@ -662,10 +662,6 @@ message NICHealthCheckConfig {
     bool InterfaceAdminDownAsUnhealthy  = 1;
 }
 
-enum IFOEMetricLabel {
-    // mandatory field 
-    IFOE_UUID                   = 0;
-}
 
 enum IFOEMetricField {
     IFOE_TOTAL_DEVICES               = 0;
