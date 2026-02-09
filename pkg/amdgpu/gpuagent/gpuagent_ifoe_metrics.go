@@ -34,7 +34,7 @@ import (
 var (
 	ifoeMandatoryLables = []string{
 		exportermetrics.MetricLabel_HOSTNAME.String(),
-		exportermetrics.IFOEMetricLabel_IFOE_UUID.String(),
+		exportermetrics.GPUMetricLabel_GPU_UUID.String(),
 	}
 )
 
@@ -123,15 +123,13 @@ func (ga *GPUAgentIFOEClient) initCustomLabels(config *exportermetrics.IFOEMetri
 }
 
 func (ga *GPUAgentIFOEClient) initLabelConfigs(config *exportermetrics.IFOEMetricConfig) {
-	// list of mandatory labels
+	// list of supported labels
 	ga.exportLabels = make(map[string]bool)
 
-	// common labels
 	for _, name := range exportermetrics.MetricLabel_name {
 		ga.exportLabels[name] = false
 	}
-
-	for _, name := range exportermetrics.IFOEMetricLabel_name {
+	for _, name := range exportermetrics.GPUMetricLabel_name {
 		ga.exportLabels[name] = false
 	}
 	// only mandatory labels are set for default
@@ -417,7 +415,7 @@ func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
 		}
 		key := strings.ToLower(ckey)
 		switch ckey {
-		case exportermetrics.IFOEMetricLabel_IFOE_UUID.String():
+		case exportermetrics.GPUMetricLabel_GPU_UUID.String():
 			if ualPort != nil {
 				ifoeUUID := utils.UUIDToString(ualPort.Spec.Id)
 				labels[key] = ifoeUUID

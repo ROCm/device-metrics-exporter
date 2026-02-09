@@ -39,10 +39,10 @@ type GPUAgentIFOEClient struct {
 	exportFieldMap         map[string]bool
 	customLabelMap         map[string]string
 	computeNodeHealthState bool
+	allowedCustomLabels    []string
 	fl                     *fieldLogger
 	extraPodLabelsMap      map[string]string
 	k8PodLabelsMap         map[string]map[string]string
-	allowedCustomLabels    []string
 	fieldMetricsMap        map[string]FieldMeta
 	staticHostLabels       map[string]string
 }

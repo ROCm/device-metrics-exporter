@@ -486,7 +486,7 @@ data:
       },
       "IFOEConfig" : {
         "Labels": [
-          "IFOE_UUID",
+          "GPU_UUID",
           "HOSTNAME"
         ],
         "Fields": [
