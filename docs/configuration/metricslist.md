@@ -36,8 +36,8 @@ The following document contains a full list of GPU Metrics that are available us
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE
-- GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED
-- GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE
+- GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED
+- GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED
 - GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE
 
@@ -229,8 +229,8 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE `[MI3xx]`    | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core  |
 | &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core |
 | &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE `[MI3xx]`  | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core  |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED `[MI3xx]`          | GFX Clock Low Utilization Accumulated Violation Counter Per Compute Core        |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE `[MI3xx]`           | GFX Clock Low Utilization Percentage Violation Counter Per Compute Core         |
+| &cross;    | &check;   | GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED `[MI3xx]`          | GPU Low Utilization Accumulated Violation Counter Per Compute Core        |
+| &cross;    | &check;   | GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE `[MI3xx]`           | GPU Low Utilization Percentage Violation Counter Per Compute Core         |
 | &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED `[MI3xx]`   | GFX Clock Below Host Limit Total Accumulated Violation Counter Per Compute Core |
 | &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE `[MI3xx]`    | GFX Clock Below Host Limit Total Percentage Violation Counter Per Compute Core  |
 
