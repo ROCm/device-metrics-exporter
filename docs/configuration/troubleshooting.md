@@ -54,6 +54,11 @@ docker logs device-metrics-exporter
 sudo journalctl -xu amd-metrics-exporter
 ```
 
+#### Log location
+
+ - default log location is `/var/log/amd-metrics-exporter.log`
+
+
 ## Common Issues
 
 This section describes common issues with AMD Device Metrics Exporter
