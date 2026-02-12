@@ -273,7 +273,8 @@ main(int argc, char** argv)
     try {        
         // Capture current PTL state for all available DRM cards and ensure it is restored
         // on all exit paths (success and error).
-        PtlStateGuard ptl_guard(ReadPtlStates(), ptl_delay);
+        // Disable PTL state transition for new BKC SWDEV-579674
+        // PtlStateGuard ptl_guard(ReadPtlStates(), ptl_delay);
         
         int rc = amd::rocp::CounterSampler::runSample(metric_fields, duration, ptl_delay);
         if (rc != 0) {
