@@ -45,11 +45,11 @@ ROCm 7.0 MI2xx, MI3xx
       - `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED`
-      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED`
+      - `GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE`
-      - `GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE`
+      - `GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE`
       - `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE`
 
   - Clock Metrics Added `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK`
@@ -62,6 +62,17 @@ ROCm 7.0 MI2xx, MI3xx
 ### Platform Support
 
 ROCm X.X.X MI2xx, MI3xx
+
+## v1.4.1.2
+
+### Issues Fixed
+
+- **Security Vulnerability Fix**
+  - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
+
+- **Workaround for prior version**
+  - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
 
 ## nic-v1.0.0
 
@@ -113,6 +124,14 @@ ROCm X.X.X MI2xx, MI3xx
 ### Platform Support
 
 ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
+
+## v1.4.0.1
+
+### Issues Fixed
+
+- **Security Vulnerability Fix**
+  - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
 
 ## v1.4.0
 
