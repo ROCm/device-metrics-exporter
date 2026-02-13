@@ -2,8 +2,34 @@ apiVersion: v1
 entries:
   device-metrics-exporter-charts:
   - apiVersion: v2
+    appVersion: v1.4.2
+    created: "2026-02-13T00:17:02.838806636Z"
+    description: A Helm chart for AMD Device Metric Exporter
+    digest: 6a5518ab254adac9ba4beffd583700ee4a3e42211aba807eee5cb09eb811596e
+    keywords:
+    - kubernetes
+    - cluster
+    - hardware
+    - amd
+    - gpu
+    - monitoring
+    - prometheus
+    kubeVersion: '>= 1.29.0-0'
+    maintainers:
+    - email: prshanmug@amd.com
+      name: Praveen Kumar Shanmugam
+    - email: yan.sun3@amd.com
+      name: Yan Sun
+    - email: shrey.ajmera@amd.com
+      name: Shrey Ajmera
+    name: device-metrics-exporter-charts
+    type: application
+    urls:
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.4.2.tgz
+    version: v1.4.2
+  - apiVersion: v2
     appVersion: v1.4.1
-    created: "2025-12-20T03:32:58.157471198Z"
+    created: "2026-02-13T00:17:02.83778046Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: e579e139bdfe56202eda40db050aa4fe23506c4aa04c1b1cd5d952eb1156fa1c
     keywords:
@@ -29,7 +55,7 @@ entries:
     version: v1.4.1
   - apiVersion: v2
     appVersion: v1.4.0
-    created: "2025-12-20T03:32:58.156767474Z"
+    created: "2026-02-13T00:17:02.837089611Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 9e376fcde5315df9da66ddcb74ae6e143b2eee0aee639003a80c599146ba6c6b
     keywords:
@@ -55,7 +81,7 @@ entries:
     version: v1.4.0
   - apiVersion: v2
     appVersion: v1.4.0-beta.0
-    created: "2025-12-20T03:32:58.156100079Z"
+    created: "2026-02-13T00:17:02.83648667Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 870ec5ba625f28bd25bbf2ef471fab0288edc2fa08c5d6f056ff1339fd6245f8
     keywords:
@@ -81,7 +107,7 @@ entries:
     version: v1.4.0-beta.0
   - apiVersion: v2
     appVersion: v1.3.1
-    created: "2025-12-20T03:32:58.153803759Z"
+    created: "2026-02-13T00:17:02.83591691Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 01dd68873be0f95a6f65e817091d54d0be9cf545935e0f5019860c8556d644ea
     keywords:
@@ -107,7 +133,7 @@ entries:
     version: v1.3.1
   - apiVersion: v2
     appVersion: v1.3.0
-    created: "2025-12-20T03:32:58.153201891Z"
+    created: "2026-02-13T00:17:02.83534237Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 26727b5b512f7039442dcd5f7315b285ad457b1231bd67b13c66c6ab174a7a4a
     keywords:
@@ -133,7 +159,7 @@ entries:
     version: v1.3.0
   - apiVersion: v2
     appVersion: v1.2.1
-    created: "2025-12-20T03:32:58.152589685Z"
+    created: "2026-02-13T00:17:02.834776211Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 98c8344d17476de09ffa74f798e5a2ea307888b161c6cb44b6d7a761504dc941
     keywords:
@@ -159,7 +185,7 @@ entries:
     version: v1.2.1
   - apiVersion: v2
     appVersion: v1.2.0
-    created: "2025-12-20T03:32:58.152021898Z"
+    created: "2026-02-13T00:17:02.834248396Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: deababca2e37d7a6be219a3a77f614e35628945e2c478e3b35cd84b81026e895
     keywords:
@@ -185,7 +211,7 @@ entries:
     version: v1.2.0
   - apiVersion: v2
     appVersion: v1.1.0
-    created: "2025-12-20T03:32:58.151546881Z"
+    created: "2026-02-13T00:17:02.833747465Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: aba669201efadb314755d51533ba67b8c97252cb16470203064dbf82b20d2627
     keywords:
@@ -211,7 +237,7 @@ entries:
     version: v1.1.0
   - apiVersion: v2
     appVersion: v1.0.0
-    created: "2025-12-20T03:32:58.151076401Z"
+    created: "2026-02-13T00:17:02.833288725Z"
     description: A Helm chart for AMD Device Metric Exporter
     digest: 92248d77d603969493fc00b836ea2f008cc2a38c12188630b1ee5d80a5622fee
     keywords:
@@ -235,4 +261,4 @@ entries:
     urls:
     - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.0.0.tgz
     version: v1.0.0
-generated: "2025-12-20T03:32:58.150437135Z"
+generated: "2026-02-13T00:17:02.832613099Z"
