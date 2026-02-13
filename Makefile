@@ -156,7 +156,10 @@ endif
 # Derive DEBIAN_VERSION from RELEASE tag
 ifneq (,$(findstring exporter,$(RELEASE)))
 #remove prefix from main tag
-DEBIAN_VERSION := $(shell echo "$(RELEASE)" | cut -c 10-)
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^exporter-//')
+else ifneq (,$(findstring nic,$(RELEASE)))
+#parse nic release tag to extract version after "nic-"
+DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^nic-v//')
 else ifneq (,$(findstring v,$(RELEASE)))
 #remove prefix for release tag
 DEBIAN_VERSION := $(shell echo "$(RELEASE)" | sed 's/^.//')
