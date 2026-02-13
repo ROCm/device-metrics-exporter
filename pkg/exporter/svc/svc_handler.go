@@ -83,16 +83,31 @@ func InitSvcs(mh *metricsutil.MetricsHandler, opts ...SvcHandlerOption) *SvcHand
 	for _, o := range opts {
 		o(svcHandler)
 	}
+
+	// Initialize GPU and NIC health services if monitoring is enabled
+	if svcHandler.enableGPUMonitoring {
+		svcHandler.gpuHealthSvc = gpumetricsserver.NewMetricsServer(svcHandler.enableDebugAPI)
+	}
+	if svcHandler.enableNICMonitoring {
+		svcHandler.nicHealthSvc = nicmetricsserver.NewMetricsServer(svcHandler.enableDebugAPI)
+	}
+
 	return svcHandler
 }
 
 // RegisterGPUHealthClient registers a GPU health client with the GPU metrics service.
 func (s *SvcHandler) RegisterGPUHealthClient(client gpumetricsserver.HealthInterface) error {
+	if s.gpuHealthSvc == nil {
+		return fmt.Errorf("GPU health service is not initialized")
+	}
 	return s.gpuHealthSvc.RegisterHealthClient(client)
 }
 
 // RegisterNICHealthClient registers a NIC health client with the NIC metrics service.
 func (s *SvcHandler) RegisterNICHealthClient(client nicmetricsserver.HealthInterface) error {
+	if s.nicHealthSvc == nil {
+		return fmt.Errorf("NIC health service is not initialized")
+	}
 	return s.nicHealthSvc.RegisterHealthClient(client)
 }
 

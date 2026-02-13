@@ -278,13 +278,12 @@ func (e *Exporter) GetK8sApiClient() *k8sclient.K8sClient {
 func (e *Exporter) startWatchers() {
 	if e.k8sApiClient == nil {
 		logger.Log.Printf("k8s client is not initialized, skipping watchers")
-		return
-	}
-
-	if err := e.k8sApiClient.Watch(); err != nil {
-		logger.Log.Printf("failed to start k8s watchers: %v", err)
 	} else {
-		logger.Log.Printf("k8s watchers started successfully")
+		if err := e.k8sApiClient.Watch(); err != nil {
+			logger.Log.Printf("failed to start k8s watchers: %v", err)
+		} else {
+			logger.Log.Printf("k8s watchers started successfully")
+		}
 	}
 	if gpuclient == nil {
 		logger.Log.Fatalf("gpuclient is not initialized, skipping gpu watchers")
