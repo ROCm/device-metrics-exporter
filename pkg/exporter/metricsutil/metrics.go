@@ -95,9 +95,16 @@ func (mh *MetricsHandler) UpdateMetrics() error {
 		wg.Add(1)
 		go func(client MetricsInterface) {
 			defer wg.Done()
-			if err := client.ResetMetrics(); err != nil {
-				logger.Log.Printf("failed to resetb metrics: %v", err)
-			}
+
+			// Looks like we are calling UpdateMetrics() on every poll from client.
+			// If there are simultaneous polls from clients,
+			//	there is a race between reset()/Update() and read by another client.
+			//  i.e some clients will not get all metrics.
+			// Since prometheus has transactional gather, removed resetMetrics()
+
+			// if err := client.ResetMetrics(); err != nil {
+			// 	logger.Log.Printf("failed to resetb metrics: %v", err)
+			// }
 			if err := client.UpdateMetricsStats(); err != nil {
 				logger.Log.Printf("failed to update metrics: %v", err)
 			}
