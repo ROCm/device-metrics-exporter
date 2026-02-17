@@ -65,6 +65,7 @@ type Exporter struct {
 	enableGPUMonitoring  bool
 	enableIFOEMonitoring bool
 	disableK8sApi        bool
+	disableK8sScl        bool
 	enableSlurmScl       bool
 	enableSriov          bool
 	bindAddr             string
@@ -249,6 +250,7 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 		cancel:        cancel,
 		k8sApiClient:  nil,
 		disableK8sApi: false, // by default k8s api is enabled
+		disableK8sScl: false, // by default k8s scheduler client is enabled
 	}
 
 	for _, o := range opts {
@@ -289,7 +291,7 @@ func (e *Exporter) GetK8sApiClient() *k8sclient.K8sClient {
 
 func (e *Exporter) startWatchers() {
 	if e.k8sApiClient == nil {
-		logger.Log.Printf("k8s client is not initialized, skipping watchers")
+		logger.Log.Printf("k8sApi client is not initialized, skipping watchers")
 		return
 	}
 
@@ -335,6 +337,32 @@ func WithNoK8sApiclient() ExporterOption {
 	}
 }
 
+func WithK8sApiClient(enable bool) ExporterOption {
+	return func(e *Exporter) {
+		if !enable {
+			logger.Log.Printf("Kubernetes API client disabled")
+			e.disableK8sApi = true
+			e.k8sApiClient = nil
+		} else {
+			logger.Log.Printf("Kubernetes API client enabled")
+			e.disableK8sApi = false
+		}
+	}
+}
+
+func WithK8sSchedulerClient(enable bool) ExporterOption {
+	return func(e *Exporter) {
+		if enable {
+			logger.Log.Printf("Kubernetes Scheduler client enabled")
+			e.disableK8sScl = false
+		} else {
+			logger.Log.Printf("Kubernetes Scheduler client disabled")
+			e.disableK8sScl = true
+			e.k8sScl = nil
+		}
+	}
+}
+
 func WithSlurmClient(enable bool) ExporterOption {
 	return func(e *Exporter) {
 		logger.Log.Printf("slurm scheduler mode set to %v", enable)
@@ -360,7 +388,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	)
 
 	// create scheduler client
-	if utils.IsKubernetes() && !e.disableK8sApi {
+	if utils.IsKubernetes() && !e.disableK8sScl {
 		k8sScl, err := scheduler.NewKubernetesClient(e.ctx)
 		if err != nil {
 			logger.Log.Printf("failed to create k8s scheduler client: %v", err)
