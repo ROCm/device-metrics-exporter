@@ -12,7 +12,7 @@
   - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
   - Violation Metrics 1.8 version fields
-    - Current percentag and Per Compute Core violation metrics available for
+    - Current percentage and Per Compute Core violation metrics available for
       - `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE`
       - `GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE`
       - `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE`
@@ -35,7 +35,7 @@
      [here](./configuration/metricslist.md#clock-metrics)
 
 ### Platform Support
-ROCm X.X.X MI2xx, MI3xx
+ROCm 7.1.1 MI2xx, MI3xx
 
 ## v1.4.1.2
 
@@ -43,7 +43,7 @@ ROCm X.X.X MI2xx, MI3xx
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details [here](installation/deb-package.rst)
 
 - **Workaround for prior version**
   - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
