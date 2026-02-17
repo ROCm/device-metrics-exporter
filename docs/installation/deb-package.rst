@@ -24,6 +24,15 @@ Each Debian package release of the Standalone Metrics Exporter is dependent on a
    * - amdgpu-exporter-1.3.1
      - ROCm 6.4.x
      - 6.12.12
+   * - amdgpu-exporter-1.4.0.1
+     - ROCm 7.0.x
+     - 6.14.x
+   * - amdgpu-exporter-1.4.2
+     - ROCm 7.1.x
+     - 6.16.6
+   * - amdgpu-exporter-1.5.0
+     - ROCm 7.2.x
+     - 6.16.13
 
 Installation
 ===================

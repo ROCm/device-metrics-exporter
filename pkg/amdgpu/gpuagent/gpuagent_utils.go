@@ -68,6 +68,22 @@ func (fl *fieldLogger) logUnsupportedField(gpuid, fieldName string) {
 	}
 }
 
+func (fl *fieldLogger) markUnsupportedFields(gpuid string, fieldName string) {
+	fl.Lock()
+	defer fl.Unlock()
+	if fl.filterDone {
+		return
+	}
+	if fl.unsupportedFieldMap == nil {
+		fl.unsupportedFieldMap = make(map[string]bool)
+	}
+
+	key := gpuid + "-" + fieldName
+	fl.unsupportedFieldMap[key] = true
+	logger.Log.Printf("GPU %v Platform doesn't support field name: %s", gpuid, fieldName)
+
+}
+
 func (fl *fieldLogger) logWithValidateAndExport(gpuid string, metrics prometheus.GaugeVec, fieldName string,
 	labels map[string]string, value interface{}) {
 

@@ -112,7 +112,7 @@ func (s *E2ESuite) Test004FieldUpdate(c *C) {
 	log.Print("test non mandatory field update")
 	// indexed metrics are not parsed yet on testing, revisit
 	fields := []string{
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_total_vram",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
@@ -129,7 +129,7 @@ func (s *E2ESuite) Test004FieldUpdate(c *C) {
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
 	previousFields = []string{
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_total_vram",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
@@ -144,7 +144,7 @@ func (s *E2ESuite) Test005InvalidFieldUpdate(c *C) {
 	// indexed metrics are not parsed yet on testing, revisit
 	fields := []string{
 		"invalid_config",
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
 		"gpu_mma_activity",
@@ -160,7 +160,7 @@ func (s *E2ESuite) Test005InvalidFieldUpdate(c *C) {
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
 	previousFields = []string{
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
 		"gpu_mma_activity",
@@ -382,7 +382,7 @@ func (s *E2ESuite) Test015FieldPrefixUpdate(c *C) {
 	log.Print("test prefix update")
 	// indexed metrics are not parsed yet on testing, revisit
 	fields := []string{
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_total_vram",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
@@ -402,14 +402,14 @@ func (s *E2ESuite) Test015FieldPrefixUpdate(c *C) {
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
 	previousFields = []string{
-		"gpu_power_usage",
+		"gpu_health",
 		"gpu_total_vram",
 		"gpu_ecc_uncorrect_gfx",
 		"gpu_umc_activity",
 		"gpu_mma_activity",
 	}
 	newFields := []string{
-		"amd_gpu_power_usage",
+		"amd_gpu_health",
 		"amd_gpu_total_vram",
 		"amd_gpu_ecc_uncorrect_gfx",
 		"amd_gpu_umc_activity",

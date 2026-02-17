@@ -1996,32 +1996,45 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	}
 	gpuuuid := getGPUUUID(gpu)
 
+	if !utils.IsNonZeroValue(stats.PackagePower) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String())
+	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPackagePower, exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String(),
 		labels, stats.PackagePower)
+	if !utils.IsNonZeroValue(stats.AvgPackagePower) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String())
+	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuAvgPkgPower, exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String(),
 		labels, stats.AvgPackagePower)
 
 	// gpu temp stats
 	tempStats := stats.Temperature
 	if tempStats != nil {
+		if !utils.IsNonZeroValue(tempStats.EdgeTemperature) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String())
+		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEdgeTemp, exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String(),
 			labels, tempStats.EdgeTemperature)
+		if !utils.IsNonZeroValue(tempStats.JunctionTemperature) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JUNCTION_TEMPERATURE.String())
+		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJunctionTemp, exportermetrics.GPUMetricField_GPU_JUNCTION_TEMPERATURE.String(),
 			labels, tempStats.JunctionTemperature)
+		if !utils.IsNonZeroValue(tempStats.MemoryTemperature) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_MEMORY_TEMPERATURE.String())
+		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuMemoryTemp, exportermetrics.GPUMetricField_GPU_MEMORY_TEMPERATURE.String(),
 			labels, tempStats.MemoryTemperature)
 
 		if len(tempStats.HBMTemperature) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuHBMTemp, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String())
 		}
 		for j, temp := range tempStats.HBMTemperature {
 			labelsWithIndex["hbm_index"] = fmt.Sprintf("%v", j)
-			if j == 0 && !utils.IsValueApplicable(temp) {
-				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuHBMTemp, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+			if j == 0 && (!utils.IsValueApplicable(temp) || !utils.IsNonZeroValue(temp)) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String())
 				break
-			} else if utils.IsValueApplicable(temp) {
+			} else if utils.IsValueApplicable(temp) && utils.IsNonZeroValue(temp) {
 				ga.metrics.gpuHBMTemp.With(labelsWithIndex).Set(float64(temp))
 			}
 		}
@@ -2044,8 +2057,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		for j, act := range gpuUsage.VCNActivity {
 			labelsWithIndex["vcn_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
-				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVCNActivity, exportermetrics.GPUMetricField_GPU_VCN_ACTIVITY.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VCN_ACTIVITY.String())
 				break
 			} else if utils.IsValueApplicable(act) {
 				ga.metrics.gpuVCNActivity.With(labelsWithIndex).Set(float64(act))
@@ -2054,8 +2066,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		delete(labelsWithIndex, "vcn_index")
 
 		if len(gpuUsage.JPEGActivity) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJPEGActivity, exportermetrics.GPUMetricField_GPU_JPEG_ACTIVITY.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JPEG_ACTIVITY.String())
 		}
 		for j, act := range gpuUsage.JPEGActivity {
 			labelsWithIndex["jpeg_index"] = fmt.Sprintf("%v", j)
@@ -2070,8 +2081,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		delete(labelsWithIndex, "jpeg_index")
 
 		if len(gpuUsage.GFXBusyInst) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuGfxBusyInst, exportermetrics.GPUMetricField_GPU_GFX_BUSY_INSTANTANEOUS.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_GFX_BUSY_INSTANTANEOUS.String())
 		}
 		for j, act := range gpuUsage.GFXBusyInst {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
@@ -2085,8 +2095,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		}
 
 		if len(gpuUsage.VCNBusyInst) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVcnBusyInst, exportermetrics.GPUMetricField_GPU_VCN_BUSY_INSTANTANEOUS.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VCN_BUSY_INSTANTANEOUS.String())
 		}
 		for j, act := range gpuUsage.VCNBusyInst {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
@@ -2100,8 +2109,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		}
 
 		if len(gpuUsage.JPEGBusyInst) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJpegBusyInst, exportermetrics.GPUMetricField_GPU_JPEG_BUSY_INSTANTANEOUS.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JPEG_BUSY_INSTANTANEOUS.String())
 		}
 		for j, act := range gpuUsage.JPEGBusyInst {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
@@ -2118,6 +2126,16 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 
 	volt := stats.Voltage
 	if volt != nil {
+		// voltage field must be non zero to be considered supported
+		if !utils.IsNonZeroValue(volt.Voltage) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VOLTAGE.String())
+		}
+		if !utils.IsNonZeroValue(volt.GFXVoltage) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_GFX_VOLTAGE.String())
+		}
+		if !utils.IsNonZeroValue(volt.MemoryVoltage) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_MEMORY_VOLTAGE.String())
+		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVoltage, exportermetrics.GPUMetricField_GPU_VOLTAGE.String(),
 			labels, volt.Voltage)
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuGFXVoltage, exportermetrics.GPUMetricField_GPU_GFX_VOLTAGE.String(),
@@ -2129,6 +2147,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	// pcie status
 	pcieStatus := status.PCIeStatus
 	if pcieStatus != nil {
+		// partitioned gpu may not have pcie info, in that case all the pcie related metrics will be marked as unsupported and skipped
+		if !utils.IsNonZeroValue(pcieStatus.Speed) {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_PCIE_SPEED.String())
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_PCIE_MAX_SPEED.String())
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_PCIE_BANDWIDTH.String())
+		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPCIeSpeed, exportermetrics.GPUMetricField_PCIE_SPEED.String(),
 			labels, pcieStatus.Speed)
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPCIeMaxSpeed, exportermetrics.GPUMetricField_PCIE_MAX_SPEED.String(),
@@ -2158,6 +2182,9 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 			labels, pcieStats.BiDirBandwidth)
 	}
 
+	if !utils.IsNonZeroValue(stats.EnergyConsumed) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_ENERGY_CONSUMED.String())
+	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEnergyConsumed, exportermetrics.GPUMetricField_GPU_ENERGY_CONSUMED.String(),
 		labels, stats.EnergyConsumed)
 
@@ -2166,8 +2193,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	if clockStatus != nil {
 		// no clock info available for partitioned gpu, no further filter is needed
 		if len(clockStatus) == 0 {
-			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuClock, exportermetrics.GPUMetricField_GPU_CLOCK.String(),
-				labels, float64(math.MaxUint32))
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_CLOCK.String())
 		}
 		for j, clock := range clockStatus {
 			labelsWithIndex["clock_index"] = fmt.Sprintf("%v", j)
@@ -2191,6 +2217,9 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 
 	}
 
+	if !utils.IsNonZeroValue(stats.PowerUsage) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String())
+	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPowerUsage, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String(), labels, stats.PowerUsage)
 
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEccCorrectTotal, exportermetrics.GPUMetricField_GPU_ECC_CORRECT_TOTAL.String(),
@@ -2382,49 +2411,73 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 
 		for xcc_index, powerAcc := range violationStats.GFXBelowHostLimitPowerAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(powerAcc) {
+			if xcc_index == 0 && !utils.IsValueApplicable(powerAcc) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED.String())
+				break
+			} else if utils.IsValueApplicable(powerAcc) {
 				ga.metrics.gpuGfxBelowHostLimitPowerAcc.With(labelsWithIndex).Set(float64(powerAcc))
 			}
 		}
 		for xcc_index, thmAcc := range violationStats.GFXBelowHostLimitTHMAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(thmAcc) {
+			if xcc_index == 0 && !utils.IsValueApplicable(thmAcc) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED.String())
+				break
+			} else if utils.IsValueApplicable(thmAcc) {
 				ga.metrics.gpuGfxBelowHostLimitTHMAcc.With(labelsWithIndex).Set(float64(thmAcc))
 			}
 		}
 		for xcc_index, lowUtilAcc := range violationStats.GFXLowUtilizationAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(lowUtilAcc) {
+			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilAcc) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED.String())
+				break
+			} else if utils.IsValueApplicable(lowUtilAcc) {
 				ga.metrics.gpuGfxLowUtilizationAcc.With(labelsWithIndex).Set(float64(lowUtilAcc))
 			}
 		}
 		for xcc_index, totAcc := range violationStats.GFXBelowHostLimitTotalAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(totAcc) {
+			if xcc_index == 0 && !utils.IsValueApplicable(totAcc) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED.String())
+				break
+			} else if utils.IsValueApplicable(totAcc) {
 				ga.metrics.gpuGfxBelowHostLimitTotalAcc.With(labelsWithIndex).Set(float64(totAcc))
 			}
 		}
 		for xcc_index, powerPer := range violationStats.GFXBelowHostLimitPowerPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(powerPer) {
+			if xcc_index == 0 && !utils.IsValueApplicable(powerPer) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE.String())
+				break
+			} else if utils.IsValueApplicable(powerPer) {
 				ga.metrics.gpuGfxBelowHostLimitPowerPercent.With(labelsWithIndex).Set(float64(powerPer))
 			}
 		}
 		for xcc_index, thmPer := range violationStats.GFXBelowHostLimitTHMPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(thmPer) {
+			if xcc_index == 0 && !utils.IsValueApplicable(thmPer) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE.String())
+				break
+			} else if utils.IsValueApplicable(thmPer) {
 				ga.metrics.gpuGfxBelowHostLimitTHMPercent.With(labelsWithIndex).Set(float64(thmPer))
 			}
 		}
 		for xcc_index, lowUtilPer := range violationStats.GFXLowUtilizationPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(lowUtilPer) {
+			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilPer) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE.String())
+				break
+			} else if utils.IsValueApplicable(lowUtilPer) {
 				ga.metrics.gpuGfxLowUtilizationPercent.With(labelsWithIndex).Set(float64(lowUtilPer))
 			}
 		}
 		for xcc_index, totPer := range violationStats.GFXBelowHostLimitTotalPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
-			if utils.IsValueApplicable(totPer) {
+			if xcc_index == 0 && !utils.IsValueApplicable(totPer) {
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE.String())
+				break
+			} else if utils.IsValueApplicable(totPer) {
 				ga.metrics.gpuGfxBelowHostLimitTotalPercent.With(labelsWithIndex).Set(float64(totPer))
 			}
 		}
@@ -2459,9 +2512,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		if meta, ok := ga.fieldMetricsMap[profileFieldName]; ok {
 			if meta.Alias != "" {
 				if _, exists := profMetrics[meta.Alias]; !exists {
-					// mark missing field with max value
-					ga.fl.logWithValidateAndExport(gpuid, meta.Metric, profileFieldName,
-						map[string]string{}, float64(math.MaxUint32))
+					ga.fl.markUnsupportedFields(gpuid, profileFieldName)
 				}
 			}
 		}
