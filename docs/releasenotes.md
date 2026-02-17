@@ -11,19 +11,12 @@
   - Supports duration formats: 30s, 5m, 1h, 1d, 23h10m15s
   - Default: 30 seconds, Min: 30 seconds, Max: 24 hours
 
-- **Kubevirt**
-  - Exporter now supports Kubevirt deployments
-    - New exporter with SR-IOV support for hypervisor environments is now available
-      - Legacy exporter remains applicable for existing deployments:
-        1. Baremetal passthrough
-        2. Guest VM
-
 - **Slinky**
   - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
 
 ### Platform Support
 
-ROCm 7.0 MI2xx, MI3xx
+ROCm 7.2.X MI2xx, MI3xx
 
 ## v1.4.2
 
@@ -69,7 +62,7 @@ ROCm X.X.X MI2xx, MI3xx
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details [here](installation/deb-package.rst)
 
 - **Workaround for prior version**
   - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
@@ -131,7 +124,7 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localcalhost and can be configurable through service files, more details (here)[installation/deb-package.rst]
+  - internal service is now only hosted on localcalhost and can be configurable through service files, more details [here](installation/deb-package.rst)
 
 ## v1.4.0
 
