@@ -171,7 +171,25 @@ func VirtualizationModeToDeploymentMode(virtualizationMode string) string {
 	case "passthrough":
 		return "vm_pf"
 	}
-	return "unknown"
+	// default is baremetal
+	return "baremetal"
+}
+
+// IsNonZeroValue checks if the provided value is a non-zero value for supported types (uint64, uint32, uint16, uint8, float64, float32).
+func IsNonZeroValue(val interface{}) bool {
+	if val == nil {
+		return false
+	}
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	case reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+		return v.Uint() != 0
+	case reflect.Float64, reflect.Float32:
+		return v.Float() != 0
+	default:
+		logger.Log.Printf("unsupported type for IsNonZeroValue: %v", v.Kind())
+		return false
+	}
 }
 
 // IsValueApplicable checks if the value is applicable for metrics export.
