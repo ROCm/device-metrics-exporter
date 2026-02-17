@@ -57,11 +57,14 @@ func main() {
 	agentGrpcPort := fs.Int("agent-grpc-port", globals.GPUAgentPort, "Agent GRPC port")
 	versionOpt := fs.Bool("version", false, "show version")
 	enableNICMonitoring := fs.Bool("monitor-nic", false, "Enable NIC Monitoring")
-	enableGPUMonitoring := fs.Bool("monitor-gpu", true, "Enable GPU Monitoring (default: true, enabled by default)")
+	enableGPUMonitoring := fs.Bool("monitor-gpu", true, "Enable GPU Monitoring")
 	enableIFOEMonitoring := fs.Bool("monitor-ifoe", false, "Enable IFOE Monitoring")
-	sriov := fs.Bool("sriov-enable", false, "sriov host mode (default: false, disabled by default)")
-	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server (default: 0.0.0.0)")
-	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path (default: /var/log/exporter.log)")
+	enableK8s := fs.Bool("enable-k8s", true, "Enable Kubernetes API server integration")
+	enableK8sScl := fs.Bool("enable-k8s-scl", true, "Enable Kubernetes Scheduler client integration")
+	enableSlumrScl := fs.Bool("enable-slurm-scl", true, "Enable Slurm Scheduler client integration")
+	sriov := fs.Bool("sriov-enable", false, "sriov host mode")
+	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server")
+	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path")
 
 	// Parse with error handling
 	err := fs.Parse(os.Args[1:])
@@ -117,8 +120,10 @@ func main() {
 		exporter.WithGPUMonitoring(*enableGPUMonitoring),
 		exporter.WithSRIOV(*sriov),
 		exporter.WithBindAddr(*bindAddr),
-		exporter.WithSlurmClient(true),
+		exporter.WithSlurmClient(*enableSlumrScl),
 		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),
+		exporter.WithK8sApiClient(*enableK8s),
+		exporter.WithK8sSchedulerClient(*enableK8sScl),
 	)
 
 	enableDebugAPI := true // default
