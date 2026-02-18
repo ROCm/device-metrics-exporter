@@ -32,6 +32,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
 
 const (
@@ -77,9 +78,10 @@ type GPUAgentGPUClient struct {
 	customLabelMap        map[string]string
 	extraPodLabelsMap     map[string]string
 	allowedCustomLabels   []string
-	k8PodLabelsMap        map[string]map[string]string
+	k8PodInfoMap          map[string]types.K8sPodInfo
 	nodeHealthLabellerCfg *utils.NodeHealthLabellerConfig
 	fl                    *fieldLogger
+	podInfoEnabled        bool
 
 	computeNodeHealthState bool // Tracks the health state of the compute node
 }
@@ -124,9 +126,12 @@ func (ga *GPUAgentGPUClient) Close() {
 
 func (ga *GPUAgentGPUClient) InitPodExtraLabels(config *exportermetrics.GPUMetricConfig) {
 	// initialize pod labels maps
-	ga.k8PodLabelsMap = make(map[string]map[string]string)
+	ga.k8PodInfoMap = make(map[string]types.K8sPodInfo)
 	if config != nil {
 		ga.extraPodLabelsMap = utils.NormalizeExtraPodLabels(config.GetExtraPodLabels())
+		if len(ga.extraPodLabelsMap) > 0 {
+			ga.podInfoEnabled = true
+		}
 	}
 	logger.Log.Printf("export-labels updated to %v", ga.extraPodLabelsMap)
 }
@@ -223,10 +228,11 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	profResult := <-profilerChan
 	pmetrics := profResult.metrics
 
-	ga.k8PodLabelsMap, err = ga.FetchPodLabelsForNode()
+	ga.k8PodInfoMap, err = ga.FetchPodInfoForNode()
 	if err != nil {
-		logger.Errorf("FetchPodLabelsForNode failed with err : %v", err)
+		logger.Errorf("FetchPodInfoForNode failed with err : %v", err)
 	}
+
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	for _, gpu := range resp.Response {
@@ -248,8 +254,8 @@ func (ga *GPUAgentGPUClient) isActive() bool {
 	return ga.gpuclient != nil && ga.evtclient != nil
 }
 
-// FetchPodLabelsForNode fetches pod labels for all pods running on this node
-func (ga *GPUAgentGPUClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
+// FetchPodInfoForNode fetches pod labels for all pods running on this node
+func (ga *GPUAgentGPUClient) FetchPodInfoForNode() (map[string]types.K8sPodInfo, error) {
 	if !ga.gpuHandler.enabledK8sApi {
 		return nil, nil
 	}
@@ -257,8 +263,8 @@ func (ga *GPUAgentGPUClient) FetchPodLabelsForNode() (map[string]map[string]stri
 	if k8sSchedClient == nil {
 		return nil, fmt.Errorf("k8s scheduler client is nil")
 	}
-	listMap := make(map[string]map[string]string)
-	if ga.gpuHandler.enabledK8sApi && len(ga.extraPodLabelsMap) > 0 {
+	listMap := make(map[string]types.K8sPodInfo)
+	if ga.gpuHandler.enabledK8sApi && ga.podInfoEnabled {
 		return k8sSchedClient.GetAllPods()
 	}
 	return listMap, nil

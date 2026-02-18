@@ -35,6 +35,8 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
+	_ "github.com/alta/protopatch/patch" // nolint: gosec
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
@@ -426,7 +428,7 @@ func (na *NICAgentClient) getMetricsAll() error {
 					podInfo.Pod, podInfo.Namespace, err)
 			}
 		}
-		k8PodLabelsMap, _ = na.fetchPodLabelsForNode()
+		k8PodInfoMap, _ = na.fetchPodInfoForNode()
 	}
 
 	labels := na.populateLabelsFromNIC("")
@@ -478,9 +480,9 @@ func (na *NICAgentClient) sendNodeLabelUpdate(healthState map[string]interface{}
 	return nil
 }
 
-func (na *NICAgentClient) fetchPodLabelsForNode() (map[string]map[string]string, error) {
-	listMap := make(map[string]map[string]string)
-	if utils.IsKubernetes() && len(extraPodLabelsMap) > 0 {
+func (na *NICAgentClient) fetchPodInfoForNode() (map[string]types.K8sPodInfo, error) {
+	listMap := make(map[string]types.K8sPodInfo)
+	if utils.IsKubernetes() && podInfoEnabled {
 		return na.k8sApiClient.GetAllPods()
 	}
 	return listMap, nil

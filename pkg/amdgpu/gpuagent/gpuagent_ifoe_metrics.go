@@ -28,6 +28,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
 
 // local variables
@@ -382,9 +383,12 @@ func (ga *GPUAgentIFOEClient) InitConfigs() error {
 
 func (ga *GPUAgentIFOEClient) InitPodExtraLabels(config *exportermetrics.IFOEMetricConfig) {
 	// initialize pod labels maps
-	ga.k8PodLabelsMap = make(map[string]map[string]string)
+	ga.k8PodInfoMap = make(map[string]types.K8sPodInfo)
 	if config != nil {
 		ga.extraPodLabelsMap = utils.NormalizeExtraPodLabels(config.GetExtraPodLabels())
+		if len(ga.extraPodLabelsMap) > 0 {
+			ga.podInfoEnabled = true
+		}
 	}
 	logger.Log.Printf("export-labels updated to %v", ga.extraPodLabelsMap)
 }
@@ -481,7 +485,7 @@ func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
 
 	// Add extra pod labels only if config has mapped any
 	if ualPort != nil && len(ga.extraPodLabelsMap) > 0 {
-		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodLabelsMap)
+		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodInfoMap)
 		for prometheusPodlabel, k8Podlabel := range ga.extraPodLabelsMap {
 			label := strings.ToLower(prometheusPodlabel)
 			labels[label] = podLabels[k8Podlabel]
@@ -535,8 +539,8 @@ func (ga *GPUAgentIFOEClient) SetComputeNodeHealthState(state bool) {
 	// for now no metrics to update or health states to send
 }
 
-// FetchPodLabelsForNode fetches pod labels for all pods running on this node
-func (ga *GPUAgentIFOEClient) FetchPodLabelsForNode() (map[string]map[string]string, error) {
+// FetchPodInfoForNode fetches pod labels for all pods running on this node
+func (ga *GPUAgentIFOEClient) FetchPodInfoForNode() (map[string]types.K8sPodInfo, error) {
 	if !ga.gpuHandler.enabledK8sApi {
 		return nil, nil
 	}
@@ -544,8 +548,8 @@ func (ga *GPUAgentIFOEClient) FetchPodLabelsForNode() (map[string]map[string]str
 	if k8sSchedClient == nil {
 		return nil, fmt.Errorf("k8s scheduler client is nil")
 	}
-	listMap := make(map[string]map[string]string)
-	if ga.gpuHandler.enabledK8sApi && len(ga.extraPodLabelsMap) > 0 {
+	listMap := make(map[string]types.K8sPodInfo)
+	if ga.gpuHandler.enabledK8sApi && ga.podInfoEnabled {
 		return k8sSchedClient.GetAllPods()
 	}
 	return listMap, nil
