@@ -341,9 +341,9 @@ func (k *K8sClient) GetContainerIDforPod(podName, ns string) (string, error) {
 	return pod.Status.ContainerStatuses[0].ContainerID, nil
 }
 
-func (k *K8sClient) GetAllPods() (map[string]map[string]string, error) {
+func (k *K8sClient) GetAllPods() (map[string]exporterTypes.K8sPodInfo, error) {
 	// Initialize the resulting map
-	k8PodLabelsMap := make(map[string]map[string]string)
+	k8PodLabelsMap := make(map[string]exporterTypes.K8sPodInfo)
 
 	pods, err := k.ListPods()
 	if err != nil {
@@ -357,7 +357,12 @@ func (k *K8sClient) GetAllPods() (map[string]map[string]string, error) {
 			PodName:   pod.Name,
 			Namespace: pod.Namespace,
 		}
-		k8PodLabelsMap[podKey.String()] = pod.Labels
+		k8PodLabelsMap[podKey.String()] = exporterTypes.K8sPodInfo{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			UID:       string(pod.ObjectMeta.GetUID()),
+			Labels:    pod.Labels,
+		}
 	}
 	return k8PodLabelsMap, nil
 }
@@ -389,6 +394,25 @@ func (k *K8sClient) ListPods() ([]*v1.Pod, error) {
 		}
 	}
 	return pods, nil
+}
+
+func (k *K8sClient) GetPodUIDList() (map[string]string, error) {
+	podUIDMap := make(map[string]string)
+
+	pods, err := k.ListPods()
+	if err != nil {
+		logger.Debugf("Error fetching pods for node %v: %v", k.nodeName, err)
+		return nil, err
+	}
+
+	for _, pod := range pods {
+		podKey := exporterTypes.PodUniqueKey{
+			PodName:   pod.Name,
+			Namespace: pod.Namespace,
+		}
+		podUIDMap[podKey.String()] = string(pod.ObjectMeta.GetUID())
+	}
+	return podUIDMap, nil
 }
 
 func (k *K8sClient) GetMetricsExporterPodOnNode(nodeName string) (*v1.Pod, error) {

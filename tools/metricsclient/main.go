@@ -337,6 +337,7 @@ func getNodePods(kubeconfig string) {
 		fmt.Printf("- %s/%s (Phase: %s)\n", pod.Namespace, pod.Name, pod.Status.Phase)
 		fmt.Println("  Labels:")
 		printLabels(pod.Labels)
+		fmt.Println("  UID:", pod.ObjectMeta.UID)
 		fmt.Println()
 	}
 }

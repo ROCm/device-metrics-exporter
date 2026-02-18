@@ -55,6 +55,8 @@ enum MetricLabel {
     CARD_VENDOR                = 11;
     DRIVER_VERSION             = 12;
     VBIOS_VERSION              = 13;
+    // only valid for k8s deployments
+    POD_UUID                   = 14;
 }
 
 

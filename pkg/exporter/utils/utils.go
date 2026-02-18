@@ -294,7 +294,7 @@ func NormalizeStringWithoutPrefix(str, prefix string) string {
 	return normalizedStr
 }
 
-func GetPodLabels(podInfo *scheduler.PodResourceInfo, k8sPodLabelsMap map[string]map[string]string) map[string]string {
+func GetPodLabels(podInfo *scheduler.PodResourceInfo, k8sPodInfoMap map[string]types.K8sPodInfo) map[string]string {
 	if podInfo != nil {
 		podName, podNs := podInfo.Pod, podInfo.Namespace
 		if podName != "" && podNs != "" {
@@ -302,12 +302,30 @@ func GetPodLabels(podInfo *scheduler.PodResourceInfo, k8sPodLabelsMap map[string
 				PodName:   podName,
 				Namespace: podNs,
 			}
-			if labels, exists := k8sPodLabelsMap[pKey.String()]; exists {
-				return labels
+			if pod, exists := k8sPodInfoMap[pKey.String()]; exists {
+				return pod.Labels
 			}
 		}
 	}
 	return map[string]string{}
+}
+
+func GetPodUID(podInfo *scheduler.PodResourceInfo, k8sPodInfoMap map[string]types.K8sPodInfo) string {
+	if podInfo != nil {
+		podName, podNs := podInfo.Pod, podInfo.Namespace
+		if podName != "" && podNs != "" {
+			pKey := types.PodUniqueKey{
+				PodName:   podName,
+				Namespace: podNs,
+			}
+			if pod, exists := k8sPodInfoMap[pKey.String()]; exists {
+				logger.Debugf("Found Pod UID %s for pod %s in namespace %s",
+					pod.UID, podInfo.Pod, podInfo.Namespace)
+				return pod.UID
+			}
+		}
+	}
+	return ""
 }
 
 func UUIDToString(uuidBytes []byte) string {

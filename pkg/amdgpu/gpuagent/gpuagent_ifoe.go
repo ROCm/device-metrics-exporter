@@ -28,6 +28,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
 
 type GPUAgentIFOEClient struct {
@@ -42,9 +43,10 @@ type GPUAgentIFOEClient struct {
 	allowedCustomLabels    []string
 	fl                     *fieldLogger
 	extraPodLabelsMap      map[string]string
-	k8PodLabelsMap         map[string]map[string]string
+	k8PodInfoMap           map[string]types.K8sPodInfo
 	fieldMetricsMap        map[string]FieldMeta
 	staticHostLabels       map[string]string
+	podInfoEnabled         bool
 }
 
 func NewGPUAgentIFOEClient(gpuHandler *GPUAgentClient) (*GPUAgentIFOEClient, error) {
@@ -160,6 +162,9 @@ func (ga *GPUAgentIFOEClient) GetExportLabels() []string {
 		}
 	}
 
+	if ga.exportLabels[exportermetrics.MetricLabel_POD_UUID.String()] {
+		ga.podInfoEnabled = true
+	}
 	logger.Log.Printf("IFOE Export labels: %v", labelList)
 	return labelList
 }

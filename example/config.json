@@ -193,6 +193,7 @@
       "SERIAL_NUMBER",
       "GPU_ID",
       "POD",
+      "POD_UUID",
       "NAMESPACE",
       "CONTAINER",
       "JOB_ID",
@@ -463,6 +464,7 @@
       "HOSTNAME",
       "SERIAL_NUMBER",
       "POD",
+      "POD_UUID",
       "NAMESPACE",
       "CONTAINER",
       "FIRMWARE_VERSION"

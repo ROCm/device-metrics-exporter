@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
+	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
 
 type FieldMeta struct {
@@ -39,7 +40,7 @@ type GPUAgentClientInterface interface {
 
 	SetComputeNodeHealthState(bool)
 
-	FetchPodLabelsForNode() (map[string]map[string]string, error)
+	FetchPodInfoForNode() (map[string]types.K8sPodInfo, error)
 
 	Close()
 

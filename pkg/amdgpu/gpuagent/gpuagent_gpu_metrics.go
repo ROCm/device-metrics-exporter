@@ -339,6 +339,10 @@ func (ga *GPUAgentGPUClient) initLabelConfigs(config *exportermetrics.GPUMetricC
 			}
 		}
 	}
+
+	if ga.exportLabels[exportermetrics.MetricLabel_POD_UUID.String()] {
+		ga.podInfoEnabled = true
+	}
 	logger.Log.Printf("export-labels updated to %v", ga.exportLabels)
 }
 
@@ -1665,7 +1669,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics() error {
 		pmetrics = nil
 	}
 
-	ga.k8PodLabelsMap, _ = ga.FetchPodLabelsForNode()
+	ga.k8PodInfoMap, _ = ga.FetchPodInfoForNode()
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
@@ -1866,6 +1870,10 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			if gpu != nil {
 				labels[key] = podInfo.Container
 			}
+		case exportermetrics.MetricLabel_POD_UUID.String():
+			if gpu != nil {
+				labels[key] = utils.GetPodUID(&podInfo, ga.k8PodInfoMap)
+			}
 		case exportermetrics.MetricLabel_JOB_ID.String():
 			if gpu != nil {
 				labels[key] = jobInfo.Id
@@ -1946,7 +1954,7 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 
 	// Add extra pod labels only if config has mapped any
 	if gpu != nil && len(ga.extraPodLabelsMap) > 0 {
-		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodLabelsMap)
+		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodInfoMap)
 		for prometheusPodlabel, k8Podlabel := range ga.extraPodLabelsMap {
 			label := strings.ToLower(prometheusPodlabel)
 			labels[label] = podLabels[k8Podlabel]

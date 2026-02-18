@@ -222,6 +222,7 @@
       "HOSTNAME",
       "SERIAL_NUMBER",
       "POD",
+      "POD_UUID",
       "NAMESPACE",
       "CONTAINER",
       "FIRMWARE_VERSION"

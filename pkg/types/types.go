@@ -27,3 +27,11 @@ type PodUniqueKey struct {
 func (p *PodUniqueKey) String() string {
 	return fmt.Sprintf("%v-%v", p.Namespace, p.PodName)
 }
+
+// K8sPodInfo - struct to hold k8s pod info
+type K8sPodInfo struct {
+	Name      string
+	Namespace string
+	Labels    map[string]string
+	UID       string
+}
