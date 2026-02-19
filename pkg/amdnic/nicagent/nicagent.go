@@ -17,10 +17,9 @@
 package nicagent
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +35,9 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	pb "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 var (
@@ -207,50 +209,86 @@ func (na *NICAgentClient) addPodPidIfAbsent(podName string, podNamespace string)
 			return err
 		}
 		na.podnameToPidCache.Add(podName, processId)
-		logger.Log.Printf("pid cache add for pod %s: pid %d, cache len %d",
+		logger.Log.Printf("PID cache add for pod %s: pid %d, cache length %d",
 			podName, processId, na.podnameToPidCache.Len())
 	}
 	return nil
 }
 
+// getPidOfPod returns the PID of a pod container using its containerID
 func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
-
+	// Step 1: Get container ID for pod
 	logStr := fmt.Sprintf("podname %s, ns %s", podName, ns)
 	cid, err := na.k8sApiClient.GetContainerIDforPod(podName, ns)
 	if err != nil {
 		return -1, fmt.Errorf("failed to find containerID for %s: %v", logStr, err)
 	}
 
+	// Step 2: Determine runtime type from containerID prefix
 	parts := strings.Split(cid, "://")
 	if len(parts) != 2 {
 		return -1, fmt.Errorf("found invalid containerID: %s for %s", cid, logStr)
 	}
-
-	var cmd string
-	ctrRuntime := parts[0]
+	runtimeType := parts[0] // "containerd" or "cri-o"
 	containerID := parts[1]
-	switch ctrRuntime {
-	case "cri-o":
-		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, CrioRuntimeSocket, containerID)
+	var socket string
+	switch runtimeType {
 	case "containerd":
-		cmd = fmt.Sprintf(GetPIDFromContainerRuntimeCmd, ContainerdRuntimeSocket, containerID)
+		socket = ContainerdRuntimeSocket
+	case "cri-o":
+		socket = CrioRuntimeSocket
 	default:
-		return -1, fmt.Errorf("found unsupported runtime %s for %s", ctrRuntime, logStr)
+		return -1, fmt.Errorf("unsupported runtime: %s", runtimeType)
 	}
 
-	processID, err := ExecWithContext(cmd, na.cmdExec)
+	// Step 3: Connect to CRI using grpc.NewClient
+	conn, err := grpc.NewClient(
+		"unix://"+socket,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
-		logStr = fmt.Sprintf("runtime %s, containerID %s, %s", ctrRuntime, containerID, logStr)
-		return -1, fmt.Errorf("failed to find pid for %s: %v", logStr, err)
+		return -1, fmt.Errorf("failed to connect to CRI socket: %v", err)
 	}
-	processID = bytes.TrimSpace(processID)
+	defer conn.Close()
+	runtimeClient := pb.NewRuntimeServiceClient(conn)
 
-	pidVal, err := strconv.Atoi(string(processID))
+	// Step 4: Inspect container
+	resp, err := runtimeClient.ContainerStatus(na.ctx, &pb.ContainerStatusRequest{
+		ContainerId: containerID,
+		Verbose:     true,
+	})
 	if err != nil {
-		return -1, fmt.Errorf("failed in integer conversion for pid %s, %s: %v", string(processID), logStr, err)
+		return -1, fmt.Errorf("failed to get status for container %s: %v", containerID, err)
+	}
+	if len(resp.Info) == 0 {
+		return -1, fmt.Errorf("container status response missing Info field for container %s", containerID)
 	}
 
-	return pidVal, nil
+	// Step 5: Parse Info map to extract PID
+	for _, v := range resp.Info {
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &data); err != nil {
+			continue
+		}
+
+		// Nested info.pid (containerd)
+		if nested, ok := data["info"].(map[string]interface{}); ok {
+			if p, ok := nested["pid"]; ok {
+				if val, ok := p.(float64); ok {
+					return int(val), nil
+				}
+			}
+		}
+
+		// Direct pid field (CRI-O)
+		if p, ok := data["pid"]; ok {
+			if val, ok := p.(float64); ok {
+				return int(val), nil
+			}
+		}
+	}
+
+	return -1, fmt.Errorf("pid not found in CRI info")
 }
 
 func (na *NICAgentClient) podnameToPidCacheGet(podInfo *scheduler.PodResourceInfo) (pid int, ok bool) {
