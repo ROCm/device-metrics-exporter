@@ -33,6 +33,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
+	"github.com/gofrs/uuid"
 )
 
 const (
@@ -55,6 +56,18 @@ type gpuCache struct {
 type cperCacheEntry struct {
 	entry     *amdgpu.CPEREntry
 	timestamp time.Time
+}
+
+// gpuMeta holds ID metadata for gpu fields for workload association and labeling without having to fetch from hardware repeatedly
+type GPUIDMeta struct {
+	GPUID      string // key
+	NodeID     string
+	CardID     string
+	RenderID   string
+	PCIeBusId  string
+	DeviceName string
+	DRAKey     string
+	UUID       string
 }
 
 type GPUAgentGPUClient struct {
@@ -80,6 +93,7 @@ type GPUAgentGPUClient struct {
 	allowedCustomLabels   []string
 	k8PodInfoMap          map[string]types.K8sPodInfo
 	nodeHealthLabellerCfg *utils.NodeHealthLabellerConfig
+	gpuIDMap              map[string]GPUIDMeta // populate once at boot time
 	fl                    *fieldLogger
 	podInfoEnabled        bool
 
@@ -101,6 +115,7 @@ func NewGPUAgentGPUClient(gpuHandler *GPUAgentClient) (*GPUAgentGPUClient, error
 		gCache:          &gpuCache{},
 		gpuHandler:      gpuHandler,
 		fl:              gpuHandler.fl,
+		gpuIDMap:        make(map[string]GPUIDMeta),
 	}
 	gpuClient.rocpclient = rocprofiler.NewRocProfilerClient("rocpclient")
 	gpuClient.fsysDeviceHandler = fsysdevice.GetFsysDeviceHandler()
@@ -144,6 +159,39 @@ func (ga *GPUAgentGPUClient) InitClients() error {
 	ga.gpuclient = amdgpu.NewGPUSvcClient(conn)
 	ga.evtclient = amdgpu.NewEventSvcClient(conn)
 	return nil
+}
+
+func (ga *GPUAgentGPUClient) initGPUMetadata(gpus []*amdgpu.GPU) {
+	logger.Debugf("Initializing GPU metadata for %d GPUs", len(gpus))
+	for _, gpu := range gpus {
+		gpuID := fmt.Sprintf("%v", getGPUInstanceID(gpu))
+		renderID := getGPURenderId(gpu)
+		deviceName, _ := ga.fsysDeviceHandler.GetDeviceNameFromRenderID(renderID)
+		cardID := getGPUCardId(gpu)
+		pciBusID := getPCIeBusID(gpu)
+		guid, _ := uuid.FromBytes(gpu.Spec.Id)
+		guuidStr := guid.String()
+		gpuIDMeta := GPUIDMeta{
+			GPUID:      gpuID,
+			NodeID:     getGPUNodeId(gpu),
+			CardID:     cardID,
+			RenderID:   renderID,
+			PCIeBusId:  pciBusID,
+			DeviceName: deviceName,
+			DRAKey:     utils.GetDRAKey(cardID, renderID),
+			UUID:       guuidStr,
+		}
+		ga.gpuIDMap[gpuID] = gpuIDMeta
+	}
+}
+
+func (ga *GPUAgentGPUClient) GetGPUMeta(gpuID string) (*GPUIDMeta, error) {
+	gpuMeta, exists := ga.gpuIDMap[gpuID]
+	if !exists {
+		logger.Debugf("GPU metadata not found for GPU ID: %s", gpuID)
+		return nil, fmt.Errorf("GPU metadata not found for GPU ID: %s", gpuID)
+	}
+	return &gpuMeta, nil
 }
 
 func (ga *GPUAgentGPUClient) PopulateStaticHostLabels() error {
@@ -192,6 +240,10 @@ func (ga *GPUAgentGPUClient) isProfilerEnabled() bool {
 }
 
 func (ga *GPUAgentGPUClient) getMetricsAll() error {
+	if !ga.isActive() {
+		// nolint
+		_ = ga.InitClients()
+	}
 	// Start fetching profiler metrics in a goroutine to run in parallel with GPU metrics
 	type profilerResult struct {
 		metrics map[string]map[string]float64

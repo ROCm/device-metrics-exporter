@@ -67,14 +67,14 @@ func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[
 
 	for _, gpu := range gpus {
 		uuid, _ := uuid.FromBytes(gpu.Spec.Id)
-		gpuid := fmt.Sprintf("%v", gpu.Status.Index)
+		gpuid := getGPUInstanceIDString(gpu)
 		gpuuid := uuid.String()
 		stats := gpu.Stats
 		deviceid := ""
 		if gpu.Status.PCIeStatus != nil {
 			deviceid = strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
 		}
-		workloadInfo := ga.getWorkloadsListString(wls, gpu)
+		workloadInfo := ga.getWorkloadsListString(wls, gpuid)
 		// default is healthy
 		gpuHealthMap[gpuid] = &metricssvc.GPUState{
 			ID:                 gpuid,
@@ -119,13 +119,10 @@ func (ga *GPUAgentGPUClient) setUnhealthyGPU(wls map[string]scheduler.Workload) 
 	ga.Lock()
 	defer ga.Unlock()
 
-	var workloadInfo []string
 	// lookup based on device id is limited to k8s case we'll have only k8s job info
 	// this is good enough for reporting the GPU as unhealthy for slinky case as well
 	for _, gpustate := range ga.healthState {
-		if wl, ok := wls[gpustate.Device]; ok {
-			workloadInfo = append(workloadInfo, wl.String())
-		}
+		workloadInfo := ga.getWorkloadsListString(wls, gpustate.ID)
 		gpustate.Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
 		gpustate.AssociatedWorkload = workloadInfo
 	}
@@ -334,28 +331,13 @@ func (ga *GPUAgentGPUClient) updateAllGPUsHealthState(healthStr string) {
 	logger.Log.Printf("fetch GPUs and set health state")
 	// If health state is not set, fetch GPUs and mark them as unhealthy
 	wls, _ := ga.gpuHandler.ListWorkloads()
-	gpus, _, err := ga.getGPUs()
-	if err != nil || (gpus != nil && gpus.ApiStatus != 0) {
-		logger.Log.Printf("gpuagent get GPUs failed %v", err)
-		return
-	}
-
-	for _, gpu := range gpus.Response {
-		uuid, _ := uuid.FromBytes(gpu.Spec.Id)
-		gpuid := fmt.Sprintf("%v", gpu.Status.Index)
-		gpuuid := uuid.String()
-		deviceid := ""
-		if gpu.Status.PCIeStatus != nil {
-			deviceid = strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
-		}
-
-		workloadInfo := ga.getWorkloadsListString(wls, gpu)
-
+	for gpuid, gpuIdMeta := range ga.gpuIDMap {
+		workloadInfo := ga.getWorkloadsListString(wls, gpuid)
 		ga.healthState[gpuid] = &metricssvc.GPUState{
-			ID:                 gpuid,
-			UUID:               gpuuid,
+			ID:                 gpuIdMeta.GPUID,
+			UUID:               gpuIdMeta.UUID,
 			Health:             healthStr,
-			Device:             deviceid,
+			Device:             gpuIdMeta.PCIeBusId,
 			AssociatedWorkload: workloadInfo,
 		}
 	}

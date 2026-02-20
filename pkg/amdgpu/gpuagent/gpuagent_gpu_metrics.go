@@ -1631,8 +1631,29 @@ func getGPUCardId(gpu *amdgpu.GPU) string {
 	return ""
 }
 
+func getGPUNodeId(gpu *amdgpu.GPU) string {
+	if gpu != nil && gpu.Status != nil {
+		return fmt.Sprintf("%v", gpu.Status.NodeId)
+	}
+	return ""
+}
+
+func getPCIeBusID(gpu *amdgpu.GPU) string {
+	if gpu != nil && gpu.Status != nil && gpu.Status.PCIeStatus != nil {
+		return strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
+	}
+	return ""
+}
+
 func getGPUInstanceID(gpu *amdgpu.GPU) int {
 	return int(gpu.Status.Index)
+}
+
+func getGPUInstanceIDString(gpu *amdgpu.GPU) string {
+	if gpu != nil && gpu.Status != nil {
+		return fmt.Sprintf("%v", gpu.Status.Index)
+	}
+	return ""
 }
 
 func getGPUUUID(gpu *amdgpu.GPU) string {
@@ -1659,6 +1680,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics() error {
 		logger.Log.Printf("resp status :%v", resp.ApiStatus)
 		return fmt.Errorf("%v", resp.ApiStatus)
 	}
+	ga.initGPUMetadata(resp.Response)
 	wls, err := ga.gpuHandler.ListWorkloads()
 	if err != nil {
 		logger.Log.Printf("Error listing workloads: %v", err)
@@ -1726,13 +1748,10 @@ func (ga *GPUAgentGPUClient) QueryInbandRASErrors(severity string) (interface{},
 // kubernetes job  - "pod:pod_name, namespace: pod_namespace,container: container_name"
 // slurm job       - "id: job_id, user: job_user, partition: job_partition", cluster: job_cluster
 
-func (ga *GPUAgentGPUClient) getWorkloadsListString(wls map[string]scheduler.Workload, gpu *amdgpu.GPU) []string {
+func (ga *GPUAgentGPUClient) getWorkloadsListString(wls map[string]scheduler.Workload, gpuID string) []string {
 	associatedWorkloads := []string{}
-	if gpu == nil || gpu.Status == nil {
-		return nil
-	}
 
-	schedulerJobs := ga.getWorkloadInfo(wls, gpu)
+	schedulerJobs := ga.getWorkloadInfo(wls, gpuID)
 	for _, wl := range schedulerJobs {
 		if wl == nil {
 			continue
@@ -1742,39 +1761,35 @@ func (ga *GPUAgentGPUClient) getWorkloadsListString(wls map[string]scheduler.Wor
 	return associatedWorkloads
 }
 
-func (ga *GPUAgentGPUClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpu *amdgpu.GPU) []*scheduler.Workload {
+func (ga *GPUAgentGPUClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpuID string) []*scheduler.Workload {
 	associatedWorkloads := []*scheduler.Workload{}
-	if gpu == nil || gpu.Status == nil {
-		return nil
+	gpuMeta, err := ga.GetGPUMeta(gpuID)
+	if err != nil {
+		return associatedWorkloads
 	}
-	gpuId := fmt.Sprintf("%v", getGPUInstanceID(gpu))
-	gpuRenderId := getGPURenderId(gpu)
-	gpuCardId := getGPUCardId(gpu)
-	deviceName, _ := ga.fsysDeviceHandler.GetDeviceNameFromRenderID(gpuRenderId)
 
 	// DRA device name support
-	if draKey := utils.GetDRAKey(gpuCardId, gpuRenderId); draKey != "" {
+	if draKey := gpuMeta.DRAKey; draKey != "" {
 		if workload, ok := wls[draKey]; ok {
 			associatedWorkloads = append(associatedWorkloads, &workload)
 		}
 	}
 
-	// populate with workload info
-	if gpu.Status.PCIeStatus != nil {
-		if workload, ok := wls[strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)]; ok {
-			associatedWorkloads = append(associatedWorkloads, &workload)
-		}
-	}
-	if workload, ok := wls[deviceName]; ok {
+	// populate with workload info from different keys to make sure we cover
+	// all the possible scenarios based on the environment setup and scheduler configurations
+	if workload, ok := wls[gpuMeta.PCIeBusId]; ok {
 		associatedWorkloads = append(associatedWorkloads, &workload)
 	}
 
-	// ignore errors as we always expect slurm deployment as default
-	if workload, ok := wls[gpuRenderId]; ok {
+	if workload, ok := wls[gpuMeta.DeviceName]; ok {
 		associatedWorkloads = append(associatedWorkloads, &workload)
 	}
 
-	if workload, ok := wls[gpuId]; ok {
+	if workload, ok := wls[gpuMeta.RenderID]; ok {
+		associatedWorkloads = append(associatedWorkloads, &workload)
+	}
+
+	if workload, ok := wls[gpuMeta.GPUID]; ok {
 		associatedWorkloads = append(associatedWorkloads, &workload)
 	}
 	return associatedWorkloads
@@ -1787,7 +1802,7 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 	var podInfo scheduler.PodResourceInfo
 	var jobInfo scheduler.JobInfo
 
-	if jobInfos := ga.getWorkloadInfo(wls, gpu); jobInfos != nil {
+	if jobInfos := ga.getWorkloadInfo(wls, getGPUInstanceIDString(gpu)); jobInfos != nil {
 		for _, wl := range jobInfos {
 			if wl == nil {
 				continue
@@ -1824,7 +1839,7 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			}
 		case exportermetrics.GPUMetricLabel_GPU_ID.String():
 			if gpu != nil {
-				labels[key] = fmt.Sprintf("%v", getGPUInstanceID(gpu))
+				labels[key] = getGPUInstanceIDString(gpu)
 			}
 		case exportermetrics.MetricLabel_CARD_SERIES.String():
 			if gpu != nil {
