@@ -99,6 +99,7 @@
                         "rx_pause_1us_count": "0",
                         "frames_tx_truncated": "0",
                         "rsfec_correctable_word": "0",
+                        "rsfec_uncorrectable_word": "0",
                         "rsfec_ch_symbol_err_cnt": "7"
                     }
                 }
@@ -202,6 +203,7 @@
                         "rx_pause_1us_count": "0",
                         "frames_tx_truncated": "0",
                         "rsfec_correctable_word": "0",
+                        "rsfec_uncorrectable_word": "0",
                         "rsfec_ch_symbol_err_cnt": "0"
                     }
                 }
