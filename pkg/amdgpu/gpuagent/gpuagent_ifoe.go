@@ -215,6 +215,10 @@ func (ga *GPUAgentIFOEClient) listDevice() (*amdgpu.UALDeviceGetResponse, error)
 }
 
 func (ga *GPUAgentIFOEClient) updateMetrics() error {
+	if !ga.isActive() {
+		// nolint
+		_ = ga.InitClients()
+	}
 	labels := ga.populateLabelsFromObject(nil, nil, nil)
 
 	resp, err := ga.listNetworkPort()
