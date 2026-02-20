@@ -241,7 +241,7 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric                           | Description                                                                                                                                    |
 |------------|-----------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occurred RAS Event associated AMD Field Identifier list, More Info in https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List |
+| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occured RAS Event associated AMD Field Identifier list, More Info in [here](https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List) |
 
 ---
 
