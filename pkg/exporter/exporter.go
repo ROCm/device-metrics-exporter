@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -46,12 +47,13 @@ import (
 )
 
 var (
-	mh                 *metricsutil.MetricsHandler
-	gpuclient          *gpuagent.GPUAgentClient
-	nicAgent           *nicagent.NICAgentClient
-	runConf            *config.ConfigHandler
-	debounceDuration   = 3 * time.Second // debounce duration for file watcher
-	defaultBindAddress = "0.0.0.0"
+	mh                     *metricsutil.MetricsHandler
+	gpuclient              *gpuagent.GPUAgentClient
+	nicAgent               *nicagent.NICAgentClient
+	runConf                *config.ConfigHandler
+	debounceDuration       = 3 * time.Second // debounce duration for file watcher
+	defaultBindAddress     = "0.0.0.0"
+	prometheusMiddlewareMu sync.Mutex
 )
 
 // ExporterOption set desired option
@@ -75,12 +77,20 @@ type Exporter struct {
 // get the info from gpu agent and update the current metrics registery
 func prometheusMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		url := r.URL.String()
 		if strings.Contains(strings.ToLower(url), globals.MetricsHandlerPrefix) {
 			// pull metrics only for metrics handler
+
+			// Since UpdateMetrics() is clearing metrics, we hold the lock such that no
+			// other goroutine will update/read the metrics
+			prometheusMiddlewareMu.Lock()
 			_ = mh.UpdateMetrics()
+			next.ServeHTTP(w, r)
+			prometheusMiddlewareMu.Unlock()
+		} else {
+			next.ServeHTTP(w, r)
 		}
-		next.ServeHTTP(w, r)
 	})
 }
 
