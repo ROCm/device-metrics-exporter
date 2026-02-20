@@ -11,7 +11,7 @@ RUN curl -L -o /tmp/dtc.rpm https://download.rockylinux.org/pub/rocky/9/AppStrea
     rpm -ivh --nodeps /tmp/dtc.rpm && \
     rm -f /tmp/dtc.rpm
 RUN microdnf update -y && \
-    microdnf install -y nicctl && \
+    microdnf install -y nicctl util-linux && \
     rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 # Export binaries and needed libs
@@ -39,6 +39,7 @@ RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 
 COPY --from=builder /export/bin/nicctl /usr/sbin/nicctl
 COPY --from=builder /export/lib64/libpci* /lib64/
+COPY --from=builder /usr/bin/nsenter /usr/bin/nsenter
 
 # Minimal runtime deps
 RUN microdnf update -y && \
