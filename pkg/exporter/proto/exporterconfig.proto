@@ -459,6 +459,7 @@ enum NICMetricField {
     NIC_PORT_STATS_TX_BPS                    = 52;
     NIC_PORT_STATS_RX_PPS                    = 53;
     NIC_PORT_STATS_RX_BPS                    = 54;
+    NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD  = 55;
 
     // Lif stats 
     NIC_LIF_STATS_RX_UNICAST_PACKETS         = 100;

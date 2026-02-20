@@ -77,6 +77,7 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_OCTETS_TX_OK              | Total number of octets (bytes) successfully transmitted                     |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_OCTETS_TX_ALL             | Total number of all octets (bytes) transmitted                              |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD    | Total number of RS-FEC correctable words received or transmitted            |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD  | Total number of RS-FEC uncorrectable words received or transmitted          |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT   | Total count of channel symbol errors detected by the RS-FEC mechanism       |
 |            |           |            |                                          |                                                                             |
 |            |           |            | --- LIF (PF/VF) stats ---                |                                                                             |

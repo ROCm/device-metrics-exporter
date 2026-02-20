@@ -62,59 +62,60 @@ type metrics struct {
 	nicMaxSpeed   prometheus.GaugeVec
 
 	// Port stats
-	nicPortStatsFramesRxOk           prometheus.GaugeVec
-	nicPortStatsFramesRxAll          prometheus.GaugeVec
-	nicPortStatsFramesRxBadFcs       prometheus.GaugeVec
-	nicPortStatsFramesRxBadAll       prometheus.GaugeVec
-	nicPortStatsFramesRxPause        prometheus.GaugeVec
-	nicPortStatsFramesRxBadLength    prometheus.GaugeVec
-	nicPortStatsFramesRxUndersized   prometheus.GaugeVec
-	nicPortStatsFramesRxOversized    prometheus.GaugeVec
-	nicPortStatsFramesRxFragments    prometheus.GaugeVec
-	nicPortStatsFramesRxJabber       prometheus.GaugeVec
-	nicPortStatsFramesRxPripause     prometheus.GaugeVec
-	nicPortStatsFramesRxStompedCrc   prometheus.GaugeVec
-	nicPortStatsFramesRxTooLong      prometheus.GaugeVec
-	nicPortStatsFramesRxDropped      prometheus.GaugeVec
-	nicPortStatsFramesTxOk           prometheus.GaugeVec
-	nicPortStatsFramesTxAll          prometheus.GaugeVec
-	nicPortStatsFramesTxBad          prometheus.GaugeVec
-	nicPortStatsFramesTxPause        prometheus.GaugeVec
-	nicPortStatsFramesTxPripause     prometheus.GaugeVec
-	nicPortStatsFramesTxLessThan64b  prometheus.GaugeVec
-	nicPortStatsFramesTxTruncated    prometheus.GaugeVec
-	nicPortStatsRsfecCorrectableWord prometheus.GaugeVec
-	nicPortStatsRsfecChSymbolErrCnt  prometheus.GaugeVec
-	nicPortStatsFramesRxUnicast      prometheus.GaugeVec
-	nicPortStatsFramesRxMulticast    prometheus.GaugeVec
-	nicPortStatsFramesRxBroadcast    prometheus.GaugeVec
-	nicPortStatsFramesRxPri0         prometheus.GaugeVec
-	nicPortStatsFramesRxPri1         prometheus.GaugeVec
-	nicPortStatsFramesRxPri2         prometheus.GaugeVec
-	nicPortStatsFramesRxPri3         prometheus.GaugeVec
-	nicPortStatsFramesRxPri4         prometheus.GaugeVec
-	nicPortStatsFramesRxPri5         prometheus.GaugeVec
-	nicPortStatsFramesRxPri6         prometheus.GaugeVec
-	nicPortStatsFramesRxPri7         prometheus.GaugeVec
-	nicPortStatsFramesTxUnicast      prometheus.GaugeVec
-	nicPortStatsFramesTxMulticast    prometheus.GaugeVec
-	nicPortStatsFramesTxBroadcast    prometheus.GaugeVec
-	nicPortStatsFramesTxPri0         prometheus.GaugeVec
-	nicPortStatsFramesTxPri1         prometheus.GaugeVec
-	nicPortStatsFramesTxPri2         prometheus.GaugeVec
-	nicPortStatsFramesTxPri3         prometheus.GaugeVec
-	nicPortStatsFramesTxPri4         prometheus.GaugeVec
-	nicPortStatsFramesTxPri5         prometheus.GaugeVec
-	nicPortStatsFramesTxPri6         prometheus.GaugeVec
-	nicPortStatsFramesTxPri7         prometheus.GaugeVec
-	nicPortStatsOctetsRxOk           prometheus.GaugeVec
-	nicPortStatsOctetsRxAll          prometheus.GaugeVec
-	nicPortStatsOctetsTxOk           prometheus.GaugeVec
-	nicPortStatsOctetsTxAll          prometheus.GaugeVec
-	nicPortStatsTxPps                prometheus.GaugeVec
-	nicPortStatsTxBps                prometheus.GaugeVec
-	nicPortStatsRxPps                prometheus.GaugeVec
-	nicPortStatsRxBps                prometheus.GaugeVec
+	nicPortStatsFramesRxOk             prometheus.GaugeVec
+	nicPortStatsFramesRxAll            prometheus.GaugeVec
+	nicPortStatsFramesRxBadFcs         prometheus.GaugeVec
+	nicPortStatsFramesRxBadAll         prometheus.GaugeVec
+	nicPortStatsFramesRxPause          prometheus.GaugeVec
+	nicPortStatsFramesRxBadLength      prometheus.GaugeVec
+	nicPortStatsFramesRxUndersized     prometheus.GaugeVec
+	nicPortStatsFramesRxOversized      prometheus.GaugeVec
+	nicPortStatsFramesRxFragments      prometheus.GaugeVec
+	nicPortStatsFramesRxJabber         prometheus.GaugeVec
+	nicPortStatsFramesRxPripause       prometheus.GaugeVec
+	nicPortStatsFramesRxStompedCrc     prometheus.GaugeVec
+	nicPortStatsFramesRxTooLong        prometheus.GaugeVec
+	nicPortStatsFramesRxDropped        prometheus.GaugeVec
+	nicPortStatsFramesTxOk             prometheus.GaugeVec
+	nicPortStatsFramesTxAll            prometheus.GaugeVec
+	nicPortStatsFramesTxBad            prometheus.GaugeVec
+	nicPortStatsFramesTxPause          prometheus.GaugeVec
+	nicPortStatsFramesTxPripause       prometheus.GaugeVec
+	nicPortStatsFramesTxLessThan64b    prometheus.GaugeVec
+	nicPortStatsFramesTxTruncated      prometheus.GaugeVec
+	nicPortStatsRsfecCorrectableWord   prometheus.GaugeVec
+	nicPortStatsRsfecUncorrectableWord prometheus.GaugeVec
+	nicPortStatsRsfecChSymbolErrCnt    prometheus.GaugeVec
+	nicPortStatsFramesRxUnicast        prometheus.GaugeVec
+	nicPortStatsFramesRxMulticast      prometheus.GaugeVec
+	nicPortStatsFramesRxBroadcast      prometheus.GaugeVec
+	nicPortStatsFramesRxPri0           prometheus.GaugeVec
+	nicPortStatsFramesRxPri1           prometheus.GaugeVec
+	nicPortStatsFramesRxPri2           prometheus.GaugeVec
+	nicPortStatsFramesRxPri3           prometheus.GaugeVec
+	nicPortStatsFramesRxPri4           prometheus.GaugeVec
+	nicPortStatsFramesRxPri5           prometheus.GaugeVec
+	nicPortStatsFramesRxPri6           prometheus.GaugeVec
+	nicPortStatsFramesRxPri7           prometheus.GaugeVec
+	nicPortStatsFramesTxUnicast        prometheus.GaugeVec
+	nicPortStatsFramesTxMulticast      prometheus.GaugeVec
+	nicPortStatsFramesTxBroadcast      prometheus.GaugeVec
+	nicPortStatsFramesTxPri0           prometheus.GaugeVec
+	nicPortStatsFramesTxPri1           prometheus.GaugeVec
+	nicPortStatsFramesTxPri2           prometheus.GaugeVec
+	nicPortStatsFramesTxPri3           prometheus.GaugeVec
+	nicPortStatsFramesTxPri4           prometheus.GaugeVec
+	nicPortStatsFramesTxPri5           prometheus.GaugeVec
+	nicPortStatsFramesTxPri6           prometheus.GaugeVec
+	nicPortStatsFramesTxPri7           prometheus.GaugeVec
+	nicPortStatsOctetsRxOk             prometheus.GaugeVec
+	nicPortStatsOctetsRxAll            prometheus.GaugeVec
+	nicPortStatsOctetsTxOk             prometheus.GaugeVec
+	nicPortStatsOctetsTxAll            prometheus.GaugeVec
+	nicPortStatsTxPps                  prometheus.GaugeVec
+	nicPortStatsTxBps                  prometheus.GaugeVec
+	nicPortStatsRxPps                  prometheus.GaugeVec
+	nicPortStatsRxBps                  prometheus.GaugeVec
 
 	//RDMA Stats
 	rdmaTxUcastPkts prometheus.GaugeVec
@@ -632,6 +633,7 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_LESS_THAN_64B.String():  {Metric: na.m.nicPortStatsFramesTxLessThan64b},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_TX_TRUNCATED.String():      {Metric: na.m.nicPortStatsFramesTxTruncated},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD.String():   {Metric: na.m.nicPortStatsRsfecCorrectableWord},
+		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD.String(): {Metric: na.m.nicPortStatsRsfecUncorrectableWord},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT.String():  {Metric: na.m.nicPortStatsRsfecChSymbolErrCnt},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_UNICAST.String():        {Metric: na.m.nicPortStatsFramesRxUnicast},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_MULTICAST.String():      {Metric: na.m.nicPortStatsFramesRxMulticast},
@@ -949,6 +951,11 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsRsfecCorrectableWord: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD.String()),
 			Help: "Total number of RS-FEC (Reed-Solomon Forward Error Correction) correctable words received or transmitted",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatsRsfecUncorrectableWord: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD.String()),
+			Help: "Total number of RS-FEC (Reed-Solomon Forward Error Correction) uncorrectable words received or transmitted",
 		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		nicPortStatsRsfecChSymbolErrCnt: *prometheus.NewGaugeVec(prometheus.GaugeOpts{

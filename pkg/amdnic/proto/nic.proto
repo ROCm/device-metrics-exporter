@@ -118,6 +118,8 @@ message PortStats {
     string TX_BPS                   = 51 [(go.field).tags = 'json:"tx_bps,omitempty"'];
     string RX_PPS                   = 52 [(go.field).tags = 'json:"rx_pps,omitempty"'];
     string RX_BPS                   = 53 [(go.field).tags = 'json:"rx_bps,omitempty"'];
+    string RSFEC_UNCORRECTABLE_WORD = 54 [(go.field).tags = 'json:"rsfec_uncorrectable_word,omitempty"'];
+
 }
 
 message PortSpec {
