@@ -170,7 +170,8 @@ Platform if specified only applies to that specific model, else applies to all
 | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE  | stats->violation_stats.gfx_clk_below_host_limit_thermal_percentage  | metrics_info.throttle.gfx_clk_below_host_limit_thermal_violation_activity[partition_id] | MI3xx                                                                     |
 | GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE           | stats->violation_stats.gfx_low_utilization_percentage               | metrics_info.throttle.low_utilization_violation_activity[partition_id]                  | MI3xx                                                                     |
 | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE    | stats->violation_stats.gfx_clk_below_host_limit_total_percentage    | metrics_info.throttle.total_gfx_clk_below_host_limit_violation_activity[partition_id]   | MI3xx                                                                     |
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GPU_PROCESS_CU_OCCUPANCY                                     | status->process_status.process_info[j].cu_occupancy                 | metrics_info->process_info[j].cu_occupancy                                              |                                                                           |
+
 
 ## AMD-SMI Command Line Reference
 
@@ -350,3 +351,24 @@ timestamp            gpu_id  severity
 2025/10/07 09:58:04  0       FATAL
 2025/10/09 05:09:13  0       FATAL
 ```
+
+### GPU Process CU Occupancy
+
+```bash
+$ sudo amd-smi process -g 0
+ --- snipped ---
+    PROCESS_INFO:
+        NAME: /usr/bin/python3.12
+        PID: 230139
+        MEMORY_USAGE:
+            GTT_MEM: 15.9 MB
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 503.9 MB
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+  --- snipped ---
+``` 

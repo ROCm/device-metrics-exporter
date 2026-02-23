@@ -197,6 +197,7 @@ type GpuMetrics struct {
 	gpuPcieTx             prometheus.GaugeVec
 	gpuPcieBidirBandwidth prometheus.GaugeVec
 	gpuAfidErrors         prometheus.GaugeVec
+	gpuProcessCuOcc       prometheus.GaugeVec
 
 	// profiler metrics
 	gpuGrbmGuiActivity               prometheus.GaugeVec
@@ -611,6 +612,8 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 		exportermetrics.GPUMetricField_PCIE_TX.String():                      FieldMeta{Metric: ga.metrics.gpuPcieTx},
 		exportermetrics.GPUMetricField_PCIE_BIDIRECTIONAL_BANDWIDTH.String(): FieldMeta{Metric: ga.metrics.gpuPcieBidirBandwidth},
 		exportermetrics.GPUMetricField_GPU_AFID_ERRORS.String():              FieldMeta{Metric: ga.metrics.gpuAfidErrors},
+
+		exportermetrics.GPUMetricField_GPU_PROCESS_CU_OCCUPANCY.String(): FieldMeta{Metric: ga.metrics.gpuProcessCuOcc},
 		// profiler entries
 		exportermetrics.GPUMetricField_GPU_PROF_GRBM_GUI_ACTIVE.String():                    FieldMeta{Metric: ga.metrics.gpuGrbmGuiActivity, Alias: "GRBM_GUI_ACTIVE"},
 		exportermetrics.GPUMetricField_GPU_PROF_SQ_WAVES.String():                           FieldMeta{Metric: ga.metrics.gpuSqWaves, Alias: "SQ_WAVES"},
@@ -1577,6 +1580,11 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 			Help: "Last Occurred RAS Event associated AMD Field Identifier list",
 		},
 			append([]string{"severity", "afid_index"}, labels...)),
+		gpuProcessCuOcc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gpu_process_cu_occupancy",
+			Help: "Compute Unit occupancy for a process in percent",
+		},
+			append([]string{"process_id"}, labels...)),
 	}
 	ga.initFieldMetricsMap()
 
@@ -2520,6 +2528,19 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 			delete(labelsWithIndex, "afid_index")
 			delete(labelsWithIndex, "severity")
 		}
+	}
+
+	processStatus := status.GetProcessStatus()
+	if processStatus != nil && len(processStatus.GetProcessInfo()) != 0 {
+		// populate process info metrics if available
+		for _, procInfo := range processStatus.GetProcessInfo() {
+			if procInfo.GetPId() == 0 {
+				continue
+			}
+			labelsWithIndex["process_id"] = fmt.Sprintf("%v", procInfo.GetPId())
+			ga.metrics.gpuProcessCuOcc.With(labelsWithIndex).Set(float64(procInfo.GetCuOccupancy()))
+		}
+		delete(labelsWithIndex, "process_id")
 	}
 
 	// populate prof metrics if available

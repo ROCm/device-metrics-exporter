@@ -2,6 +2,9 @@
 
 ## v1.5.0
 
+- **New Metrics**
+  - `GPU_PROCESS_CU_OCCUPANCY` to report Compute Unit occupancy for each process using the GPU, with `process_id` label to differentiate between processes
+
 - **Profiler Configuration Enhancement**
   - `SamplingInterval` to set sampling window for the profiler metrics
   - Default value is 1000 microseconds (1 millisecond)

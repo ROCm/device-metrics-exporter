@@ -430,7 +430,8 @@ message GPUStatus {
   uint32                      DRMCardId          = 28;
   // GPU virtualization mode
   GPUVirtualizationMode       VirtualizationMode = 29;
-
+  // GPU process information
+  GPUProcessStatus            ProcessStatus      = 30;
 }
 
 // GPU temperature information
@@ -577,6 +578,17 @@ message GPUViolationStats {
   repeated uint64 GFXLowUtilizationPercentage       = 18;
   // gfx below host limit total percentage
   repeated uint64 GFXBelowHostLimitTotalPercentage  = 19;
+}
+
+message ProcessInfo {
+  // process id
+  uint32 PId   = 1;
+  // compute unit usage in percent
+  uint32 CuOccupancy = 2;
+}
+
+message GPUProcessStatus {
+  repeated ProcessInfo ProcessInfo = 1;
 }
 
 // GPU statistics
