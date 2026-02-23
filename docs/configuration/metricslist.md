@@ -85,16 +85,18 @@ The following document contains a full list of GPU Metrics that are available us
 
 ### Activity Metrics
 
-| Hypervisor | Baremetal | Metric                                | Description                                                                               |
-|------------|-----------|---------------------------------------|-------------------------------------------------------------------------------------------|
-| &check;    | &check;   | GPU_GFX_ACTIVITY `[MI2xx, MI3xx]`     | Graphics engine usage percentage (0 - 100) - Applicable for unpartitioned GPU             |
-| &check;    | &check;   | GPU_UMC_ACTIVITY `[MI2xx, MI3xx]`     | Memory engine usage percentage (0 - 100)                                                  |
-| &cross;    | &cross;   | GPU_MMA_ACTIVITY `[Deprecated]`       | Average multimedia engine usages in percentage (0 - 100) - Deprecated from 6.14.14 driver |
-| &cross;    | &cross;   | GPU_VCN_ACTIVITY `[Deprecated]`       | List of VCN encode/decode engine utilization per AID - Deprecated from 6.14.14 driver     |
-| &cross;    | &cross;   | GPU_JPEG_ACTIVITY `[Deprecated]`      | List of JPEG engine activity in percentage (0 - 100) - Deprecated from 6.14.14 driver     |
-| &cross;    | &check;   | GPU_GFX_BUSY_INSTANTANEOUS `[MI3xx]`  | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
-| &cross;    | &check;   | GPU_VC_BUSY_INSTANTANEOUS `[MI3xx]`   | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
-| &cross;    | &check;   | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]` | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core       |
+| Hypervisor | Baremetal | Metric                                    | Description                                                                               |
+|------------|-----------|-------------------------------------------|-------------------------------------------------------------------------------------------|
+| &check;    | &check;   | GPU_GFX_ACTIVITY `[MI2xx, MI3xx]`         | Graphics engine usage percentage (0 - 100) - Applicable for unpartitioned GPU             |
+| &check;    | &check;   | GPU_UMC_ACTIVITY `[MI2xx, MI3xx]`         | Memory engine usage percentage (0 - 100)                                                  |
+| &cross;    | &cross;   | GPU_MMA_ACTIVITY `[Deprecated]`           | Average multimedia engine usages in percentage (0 - 100) - Deprecated from 6.14.14 driver |
+| &cross;    | &cross;   | GPU_VCN_ACTIVITY `[Deprecated]`           | List of VCN encode/decode engine utilization per AID - Deprecated from 6.14.14 driver     |
+| &cross;    | &cross;   | GPU_JPEG_ACTIVITY `[Deprecated]`          | List of JPEG engine activity in percentage (0 - 100) - Deprecated from 6.14.14 driver     |
+| &cross;    | &check;   | GPU_GFX_BUSY_INSTANTANEOUS `[MI3xx]`      | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
+| &cross;    | &check;   | GPU_VC_BUSY_INSTANTANEOUS `[MI3xx]`       | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
+| &cross;    | &check;   | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]`     | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core       |
+| &check;    | &check;   | GPU_PROCESS_CU_OCCUPANCY `[MI2xx, MI3xx]` | Compute Unit occupancy for a process in percentage (0 - 100)                              |
+
 
 ### Voltage Metrics (Deprecated)
 
@@ -415,3 +417,12 @@ The Device Metrics Exporter `gpu_afid_errors` metric consists of an array field 
 # TYPE gpu_afid_errors gauge
 gpu_afid_errors{afid_index="0", severity="fatal", gpu_id="0", ...} 30
 gpu_afid_errors{afid_index="1", severity="fatal", gpu_id="0", ...} 25
+
+
+### Process Level Metrics
+The Device Metrics Exporter `gpu_process_cu_occupancy` metric consists of an array field used for exporting the occupancy metrics for each process running on the GPU. These metric have a `process_id` label added to the metric to differentiate the different processes:
+
+```json
+gpu_process_cu_occupancy{process_id="1234"} 5
+gpu_process_cu_occupancy{process_id="5678"} 10
+```

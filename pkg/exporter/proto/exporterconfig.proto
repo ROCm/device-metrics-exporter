@@ -201,6 +201,8 @@ enum GPUMetricField {
     GPU_MAX_CLOCK                = 118;
     GPU_MIN_CLOCK                = 119;
 
+    GPU_PROCESS_CU_OCCUPANCY     = 120;
+
     // Profiler Metrics (reserving 801 to 1200)
     GPU_PROF_GRBM_GUI_ACTIVE                                 = 801;
     GPU_PROF_SQ_WAVES                                        = 802;
