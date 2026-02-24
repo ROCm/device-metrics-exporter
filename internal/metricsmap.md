@@ -172,7 +172,6 @@ Platform if specified only applies to that specific model, else applies to all
 | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE    | stats->violation_stats.gfx_clk_below_host_limit_total_percentage    | metrics_info.throttle.total_gfx_clk_below_host_limit_violation_activity[partition_id]   | MI3xx                                                                     |
 | GPU_PROCESS_CU_OCCUPANCY                                     | status->process_status.process_info[j].cu_occupancy                 | metrics_info->process_info[j].cu_occupancy                                              |                                                                           |
 
-
 ## AMD-SMI Command Line Reference
 
 ```bash
@@ -371,4 +370,4 @@ $ sudo amd-smi process -g 0
         CU_OCCUPANCY: 0
         EVICTED_TIME: 0 ms
   --- snipped ---
-``` 
+```
