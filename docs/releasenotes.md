@@ -65,7 +65,7 @@ ROCm 7.1.1 MI2xx, MI3xx
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localcalhost and can be configurable through service files, more details [here](installation/deb-package.rst)
+  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
 
 - **Workaround for prior version**
   - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
@@ -77,28 +77,6 @@ ROCm 7.1.1 MI2xx, MI3xx
   - Supports both Docker and Debian installations.
   - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
   - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
-
-## v1.4.1.2
-
-### Issues Fixed
-
-- **Security Vulnerability Fix**
-  - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
-
-- **Workaround for prior version**
-  - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
-
-## v1.4.0.1
-
-### Issues Fixed
-
-- **Security Vulnerability Fix**
-  - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
-
-- **Workaround for prior version**
-  - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
 
 ## v1.4.1
 
@@ -127,7 +105,7 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localcalhost and can be configurable through service files, more details [here](installation/deb-package.rst)
+  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
 
 ## v1.4.0
 

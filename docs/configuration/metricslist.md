@@ -97,7 +97,6 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross;    | &check;   | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]`     | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core       |
 | &check;    | &check;   | GPU_PROCESS_CU_OCCUPANCY `[MI2xx, MI3xx]` | Compute Unit occupancy for a process in percentage (0 - 100)                              |
 
-
 ### Voltage Metrics (Deprecated)
 
 | Hypervisor | Baremetal | Metric                            | Description                                     |
@@ -243,7 +242,7 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric                           | Description                                                                                                                                    |
 |------------|-----------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occured RAS Event associated AMD Field Identifier list, More Info in [here](https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List) |
+| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occurred RAS Event associated AMD Field Identifier list, More Info in [here](https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List) |
 
 ---
 
