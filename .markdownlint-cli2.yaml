@@ -4,6 +4,7 @@
 # Ignore patterns
 ignores:
   - "vendor/**"
+  - "helm-charts/README.md"
 
 # Custom configuration for specific files
 customRules:
