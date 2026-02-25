@@ -2538,7 +2538,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 				continue
 			}
 			labelsWithIndex["process_id"] = fmt.Sprintf("%v", procInfo.GetPId())
-			ga.metrics.gpuProcessCuOcc.With(labelsWithIndex).Set(float64(procInfo.GetCuOccupancy()))
+			ga.metrics.gpuProcessCuOcc.With(labelsWithIndex).Set(float64(procInfo.GetCUOccupancy()))
 		}
 		delete(labelsWithIndex, "process_id")
 	}
