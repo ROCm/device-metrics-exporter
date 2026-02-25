@@ -582,9 +582,9 @@ message GPUViolationStats {
 
 message ProcessInfo {
   // process id
-  uint32 PId   = 1;
+  uint32 PId         = 1;
   // compute unit usage in percent
-  uint32 CuOccupancy = 2;
+  uint32 CUOccupancy = 2;
 }
 
 message GPUProcessStatus {
