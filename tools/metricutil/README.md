@@ -101,14 +101,14 @@ Below is one sample json. It is an list of metric item.
 
 `Type` is enumerated value as below
 
-| Type | Name      |
-|------|-----------|
-| 0    | Counter   |
-| 1    | Gauge     |
-| 2    | Summary   |
-| 3    | Untyped   |
-| 4    | Histogram |
-| 5    | Gauge Histogram|
+| Type | Name |
+| ---- | ---- |
+| 0 | Counter |
+| 1 | Gauge |
+| 2 | Summary |
+| 3 | Untyped |
+| 4 | Histogram |
+| 5 | Gauge Histogram |
 
 ### Watch mode
 

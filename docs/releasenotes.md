@@ -30,7 +30,7 @@ ROCm 7.2.X MI2xx, MI3xx
   - `DEPLOYMENT_MODE` label to specify the GPU operating environment
   
 - **New Field**
-  - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found [here](configuration/metricslist.md#afid-error-metrics)
+  - `GPU_AFID_ERRORS` field added to report RAS events associated AMD Field Identifier (AFID) list, More details can be found at [Metrics List page](configuration/metricslist.md#afid-error-metrics)
     - More Info on AMD Field ID and next steps are https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List
   - Violation Metrics 1.8 version fields
     - Current percentage and Per Compute Core violation metrics available for
@@ -51,9 +51,7 @@ ROCm 7.2.X MI2xx, MI3xx
   - Clock Metrics Added `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK`
 
 - **Label Value Change**
-  - Clock type was not normalized in previous releases, now clock type label values
-      are normalized without prefixes of `GPU_CLOCK_TYPE_`. More details can be found
-      [here](./configuration/metricslist.md#clock-metrics)
+  - Clock type was not normalized in previous releases; now clock type label values are normalized without the `GPU_CLOCK_TYPE_` prefix. More details can be found at [Metrics list page](./configuration/metricslist.md#clock-metrics)
 
 ### Platform Support
 
@@ -65,10 +63,10 @@ ROCm 7.1.1 MI2xx, MI3xx
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
+  - The internal service is now only hosted on localhost and is configurable through service files. More details can be found at [Installation section](installation/deb-package.rst)
 
 - **Workaround for prior version**
-  - Add firewall rules in front of the service to block inbound  connections, allowing only traffic originating from localhost (127.0.0.1).
+  - Add firewall rules in front of the service to block inbound connections, allowing only traffic originating from localhost (127.0.0.1).
 
 ## nic-v1.0.0
 
@@ -76,7 +74,7 @@ ROCm 7.1.1 MI2xx, MI3xx
   - Real-time metrics exporter for AMD NICs.
   - Supports both Docker and Debian installations.
   - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
-  - Optimized RDMA stats, reducing the previously observed latency by multiple folds compared to the beta release.
+  - Optimized RDMA stats, reducing the previously observed latency severalfold compared to the beta release.
 
 ## v1.4.1
 
@@ -87,11 +85,12 @@ ROCm 7.1.1 MI2xx, MI3xx
   - Beta: DRA (Dynamic Resource Allocation) device support — exporter can detect and report DRA-allocated GPU devices from the device plugin/pod resources.
 
 - **Profiler Failure Handling**
-  - **Profiler Failure Handling**
-    - Profiler is hardware sensitive for failures. To better handle potential system disruption from coredumps or profiler failures, the exporter will automatically disable profiler metrics to maintain critical exporter functionality and server stability:
-      - **Coredump**: Profiler will be disabled immediately upon detection
-      - **Non-crash errors**: If the profiler encounters 3 consecutive non-crash errors, it will be automatically disabled
-    - **Re-enabling**: Profiler can be re-enabled by restarting/deleting the exporter pod on that node/server
+  - Profiler metrics are sensitive to hardware failures. To better handle potential system
+   disruption from coredumps or profiler failures, the exporter will automatically disable
+   profiler metrics to maintain critical exporter functionality and server stability:
+- **Coredump**: Profiler metrics will be disabled immediately upon detection
+- **Non-crash errors**: If the profiler metrics read encounters 3 consecutive non-crash errors, it will be automatically disabled
+- **Re-enabling**: Profiler metrics can be re-enabled by restarting/deleting the exporter pod on that node/server
 
 - **_Note_** Profiler metrics are prefixed by `gpu_prof_` in [metrics list](./configuration/metricslist.md)
 
@@ -105,7 +104,7 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 - **Security Vulnerability Fix**
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
-  - internal service is now only hosted on localhost and can be configurable through service files, more details [here](installation/deb-package.rst)
+  - The internal service is now only hosted on localhost and is configurable through service files. More details can be found at [Installation section](installation/deb-package.rst)
 
 ## v1.4.0
 
@@ -195,16 +194,13 @@ ROCm 7.0 MI2xx, MI3xx
 ### Release Highlights
 
 - **K8s Extra Pod Labels**
-  - Adds more granular Pod level details as labels meta data through configmap
-    `ExtraPodLabels`
+  - Adds more granular Pod level details as labels meta data through configmap `ExtraPodLabels`
 - **Support for Singularity Installation**
   - Exporter can now be deployed on HPC systems through singularity.
 - **Performance Metrics**
-  - Adds more profiler related metrics on supported platforms, with toggle
-    functionality through configmap `ProfilerMetrics`
+  - Adds more profiler related metrics on supported platforms, with toggle functionality through configmap `ProfilerMetrics`
 - **Custom Prefix for Exporter**
-  - Adds more flexibility to add custom prefix to better identify AMD GPU on
-    multi cluster deployment, through configmap `CommonConfig`
+  - Adds more flexibility to add custom prefix to better identify AMD GPU on multi cluster deployment, through configmap `CommonConfig`
 
 ### Platform Support
 

@@ -2,7 +2,7 @@
 
 - The below list of metrics are critical to evaluate the workload is running as expected on the GPU, these metric values change as per the workload exercised on the GPU
 
-> **Note:** few metrics are applicable for unpartitioned GPU, some fields are platform specific, please refer [link](../docs/configuration/metricslist.md) for more details
+> **Note:** few metrics are applicable for unpartitioned GPU, some fields are platform specific, please refer to [metrics list page](../docs/configuration/metricslist.md) for more details
 
 - Temperature Metrics
   1. GPU_EDGE_TEMPERATURE

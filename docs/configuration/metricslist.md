@@ -216,33 +216,33 @@ The following document contains a full list of GPU Metrics that are available us
 
 ### Throttling & Violation Metrics (MI3xx Only)
 
-| Hypervisor | Baremetal | Metric                                                                 | Description                                                                     |
-|------------|-----------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_CURRENT_ACCUMULATED_COUNTER `[MI3xx]`                              | Current Accumulated Violation Counter                                           |
-| &cross;    | &check;   | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED `[MI3xx]`            | Process Hot Residency Accumulated Violation Counter                             |
-| &cross;    | &check;   | GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED `[MI3xx]`                      | Package Power Tracking Accumulated Violation Counter                            |
-| &cross;    | &check;   | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]`           | Socket Thermal accumulated Violation Counter                                    |
-| &cross;    | &check;   | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]`               | Voltage Rail accumulated Violation Counter                                      |
-| &cross;    | &check;   | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]`              | HBM Accumulated Violation Counter                                               |
-| &cross;    | &check;   | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE `[MI3xx]`             | Process Hot Residency Percentage Violation Counter                              |
-| &cross;    | &check;   | GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE `[MI3xx]`                       | Package Power Tracking Percentage Violation Counter                             |
-| &cross;    | &check;   | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]`            | Socket Thermal Percentage Violation Counter                                     |
-| &cross;    | &check;   | GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]`                | Voltage Rail Percentage Violation Counter                                       |
-| &cross;    | &check;   | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]`               | HBM Percentage Violation Counter                                                |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED `[MI3xx]`   | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE `[MI3xx]`    | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core  |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE `[MI3xx]`  | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core  |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED `[MI3xx]`          | GFX Clock Low Utilization Accumulated Violation Counter Per Compute Core        |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE `[MI3xx]`           | GFX Clock Low Utilization Percentage Violation Counter Per Compute Core         |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED `[MI3xx]`   | GFX Clock Below Host Limit Total Accumulated Violation Counter Per Compute Core |
-| &cross;    | &check;   | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE `[MI3xx]`    | GFX Clock Below Host Limit Total Percentage Violation Counter Per Compute Core  |
+| Hypervisor | Baremetal | Metric | Description |
+| ---------- | --------- | ------ | ----------- |
+| &cross; | &check; | GPU_CURRENT_ACCUMULATED_COUNTER `[MI3xx]` | Current Accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED `[MI3xx]` | Process Hot Residency Accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED `[MI3xx]` | Package Power Tracking Accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Socket Thermal accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Voltage Rail accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | HBM Accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE `[MI3xx]` | Process Hot Residency Percentage Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE `[MI3xx]` | Package Power Tracking Percentage Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | Socket Thermal Percentage Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | Voltage Rail Percentage Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | HBM Percentage Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED `[MI3xx]` | GPU Low Utilization Accumulated Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE `[MI3xx]` | GPU Low Utilization Percentage Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Total Accumulated Violation Counter Per Compute Core |
+| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Total Percentage Violation Counter Per Compute Core |
 
 ### RAS & Error Reporting
 
-| Hypervisor | Baremetal | Metric                           | Description                                                                                                                                    |
-|------------|-----------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occurred RAS Event associated AMD Field Identifier list, More Info in [here](https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List) |
+| Hypervisor | Baremetal | Metric | Description |
+| ---------- | --------- | ------ | ----------- |
+| &cross; | &check; | GPU_AFID_ERRORS `[MI2xx, MI3xx]` | Last Occurred RAS Event associated [AMD Field Identifier list](https://docs.amd.com/r/en-US/AMD_Field_ID_70122_v1.0/AFID-Event-List) |
 
 ---
 
@@ -419,6 +419,7 @@ gpu_afid_errors{afid_index="1", severity="fatal", gpu_id="0", ...} 25
 
 
 ### Process Level Metrics
+
 The Device Metrics Exporter `gpu_process_cu_occupancy` metric consists of an array field used for exporting the occupancy metrics for each process running on the GPU. These metric have a `process_id` label added to the metric to differentiate the different processes:
 
 ```json

@@ -1,0 +1,105 @@
+# BSD 3-Clause License
+#
+# Copyright (c) 2017-2022, Pytorch contributors
+# All rights reserved.
+# Modifications Copyright (c) 2023, Advanced Micro Devices, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of the copyright holder nor the names of its
+#   contributors may be used to endorse or promote products derived from
+#   this software without specific prior written permission.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+matrix:
+- name: Markdown
+  sources:
+  - ['docs/**/*.md']
+  expect_match: false
+  aspell:
+    lang: en
+  dictionary:
+    wordlists:
+    - .wordlist.txt
+  pipeline:
+  - pyspelling.filters.context:
+      context_visible_first: true
+      delimiters:
+      # Manual disabling via: #spellcheck-disable
+      - open : '^ *<!-- *spellcheck-disable *-->$'
+        content: '[\s\S]*?'
+        close: '^ *<!-- *spellcheck-enable *-->$'
+      # Ignore URLs in [text](URL)
+      - open : '\[[^]]*?]\('
+        content: '[^)]*?'
+        close: '\)'
+      # Ignore out-of-line URL references in [text][reference-name]
+      - open : '\[[^\]]*?\]\['
+        content: '[^\]]*?'
+        close: '\]'
+      # Ignore out-of-line URL definitions
+      - open : '^ {0,3}\[[^\]]*?\]:\s*\S+'
+        close: '$'
+      # Ignore URLs in <URL>
+      - open : '\<'
+        content: '[^]]*?'
+        close: '\>'
+      # Ignore text in backtick code blocks.
+      - open : '(?s)^(?P<open> *`{3,})[^\n]*$'
+        close: '^(?P=open)$'
+      # Ignore text between inline back ticks
+      - open : '(?P<open>`+)'
+        content: '[^\n]+'
+        close: '(?P=open)'
+      # Ignore block classes and extra in :::{class} extra
+      - open : '^ *:{3,}'
+        content: '[^\n]+'
+        close: ''
+      # Ignore keys in :property: key
+      - open : '^ *:[^\n:]*: +'
+        content: '[^\n]+'
+        close: '$'
+      # Ignore properties in :property:
+      - open : '^ *:'
+        close: ':'
+      # Ignore tag in (tag)=
+      - open : '('
+        content: '[^\n]+'
+        close: ')=$'
+  - pyspelling.filters.url:
+- name: reST
+  sources:
+  - ['docs/**/*.rst']
+  expect_match: false
+  aspell:
+    lang: en
+  dictionary:
+    wordlists:
+    - .wordlist.txt
+  pipeline:
+  - pyspelling.filters.markdown:
+  - pyspelling.filters.html:
+      comments: false
+      ignores:
+      - code
+      - pre
+  - pyspelling.filters.url:
