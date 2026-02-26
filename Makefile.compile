@@ -128,24 +128,26 @@ ifeq ($(OS), UBUNTU22)
 	$(eval BUILDER_IMAGE="proflib-ub22")
 	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU22})
 	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.ubuntu22)
+	$(eval REPOPKGVERSION=${ROCM_APT_VERSION})
 else ifeq ($(OS), UBUNTU24)
 	$(eval BUILDER_IMAGE="proflib-ub24")
 	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU24})
 	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.ubuntu24)
+	$(eval REPOPKGVERSION=${ROCM_APT_VERSION})
 else ifeq ($(OS), RHEL9)
 	$(eval BUILDER_IMAGE="proflib-rhel9")
 	$(eval BASE_IMAGE=${AMDSMI_BUILDER_IMAGE})
 	$(eval DOCKERFILE=$(LIBBUILDER_DIR)/Dockerfile.rhel9)
+	$(eval REPOPKGVERSION=${ROCM_VERSION})
 else
 	$(error unsupported os)
 endif
 	@echo "Building profiler library builder $(OS), $(DOCKERFILE), $(BUILDER_IMAGE), $(BASE_IMAGE)"
-	@echo "Building profiler dependency libraries for $(BUILD_IMAGE_OS)"
+	@echo "Building profiler dependency libraries for $(BUILD_IMAGE_OS), repo ver $(REPOPKGVERSION)"
 
 	@docker image rm $(BUILDER_IMAGE) || true
 	@docker build --build-arg BUILD_BASE_IMAGE=${BASE_IMAGE} \
-		--build-arg ROCM_VERSION=${ROCM_VERSION} \
-		--build-arg AMDGPU_VERSION=${ROCM_VERSION} \
+		--build-arg ROCM_VERSION=${REPOPKGVERSION} \
 		-t $(BUILDER_IMAGE) . -f $(DOCKERFILE)
 	@docker run --rm -it --privileged \
 		-e "USER_NAME=$(shell whoami)" \
