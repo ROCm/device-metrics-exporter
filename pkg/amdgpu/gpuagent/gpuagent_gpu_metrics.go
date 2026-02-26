@@ -2532,13 +2532,15 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 
 	processStatus := status.GetProcessStatus()
 	if processStatus != nil && len(processStatus.GetProcessInfo()) != 0 {
-		// populate process info metrics if available
+		// populate process info metrics if available and valid
 		for _, procInfo := range processStatus.GetProcessInfo() {
-			if procInfo.GetPId() == 0 {
+			pid := procInfo.GetPId()
+			val := procInfo.GetCUOccupancy()
+			if pid == 0 || !utils.IsValueApplicable(val) {
 				continue
 			}
-			labelsWithIndex["process_id"] = fmt.Sprintf("%v", procInfo.GetPId())
-			ga.metrics.gpuProcessCuOcc.With(labelsWithIndex).Set(float64(procInfo.GetCUOccupancy()))
+			labelsWithIndex["process_id"] = fmt.Sprintf("%v", pid)
+			ga.metrics.gpuProcessCuOcc.With(labelsWithIndex).Set(float64(val))
 		}
 		delete(labelsWithIndex, "process_id")
 	}
