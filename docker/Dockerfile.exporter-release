@@ -4,7 +4,6 @@ FROM ${BASE_IMAGE}
 
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
-LABEL ROCM_VERSION="7.2"
 
 
 ARG ROCM_VERSION=7.2
@@ -21,7 +20,7 @@ RUN microdnf clean all && \
    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
    echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
    echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
-   echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${AMDGPU_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
+   echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${ROCM_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
    echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
    echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
    echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
@@ -58,6 +57,7 @@ LABEL name="amd-device-metrics-exporter" \
     vendor="Advanced Micro Devices, Inc." \
     version="v1.5.0" \
     release="v1.5.0" \
+    ROCM_VERSION="${ROCM_VERSION}" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Kubernetes." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."
 

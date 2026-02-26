@@ -111,7 +111,8 @@ GIMSMI_COMMIT ?= mainline/8.3.0.K
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 534af3b
 
-ROCM_VERSION ?= 7.2
+ROCM_VERSION ?= .yum_7.2.1.64
+ROCM_APT_VERSION ?= .apt_7.2.1
 AINIC_VERSION ?= 1.117.5-a-56
 
 export ${GOROOT}
@@ -128,6 +129,8 @@ export ${AMDSMI_COMMIT}
 export ${GIMSMI_BRANCH}
 export ${GIMSMI_COMMIT}
 export AINIC_VERSION
+export ROCM_VERSION
+export ROCM_APT_VERSION
 
 ASSETS_PATH :=${TOP_DIR}/assets
 # 22.04 - jammy
