@@ -249,6 +249,7 @@ Quantized
 REQ
 ROC
 ROCm
+Pollara
 Radeon
 RoCE
 Rocm
@@ -289,6 +290,7 @@ pre
 prebuilt
 profiler
 req
+responder
 rocm
 rocprofiler
 runtime

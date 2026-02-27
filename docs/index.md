@@ -1,6 +1,6 @@
 # AMD Device Metrics Exporter
 
-AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption. This tool includes the following features:
+AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs and NICs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption. This tool includes the following features:
 
 ## Features
 
@@ -18,10 +18,14 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Container-based deployment
 - Beta: Kubernetes Dynamic Resource Allocation (DRA) GPU claim support (Kubernetes 1.34+)
 
-## Requirements
+## GPU Metrics
+
+### Requirements
 
 - Ubuntu 22.04, 24.04
 - Docker (or compatible container runtime)
+
+### Compatibility Matrix
 
 | Rocm Version | Driver Version | Exporter Image Version | Platform     |
 |--------------|----------------|------------------------|--------------|
@@ -32,7 +36,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 | 7.1.x        | 6.16.6         | v1.4.2                 | MI2xx, MI3xx |
 | TBD          | TBD            | v1.5.0 (dev)           | MI2xx, MI3xx |
 
-## Available Metrics
+### Available Metrics
 
 Device Metrics Exporter provides extensive GPU metrics including:
 
@@ -58,8 +62,48 @@ Device Metrics Exporter provides extensive GPU metrics including:
   - Link speed
   - Error counts
 
-For a full list of available metrics:
+See [GPU Metrics List](./configuration/metricslist.md) for the complete list.
 
-- [GPU Metrics](./configuration/metricslist.md)
-- [AINIC Metrics](./configuration/network-metricslist.md)
-- [IFOE Metrics](./configuration/ifoe-metricslist.md)
+## NIC Metrics
+
+### Requirements
+
+- Ubuntu 22.04, 24.04
+- Docker (or compatible container runtime)
+- AMD NICs with supported drivers (AINIC)
+
+### Compatibility Matrix
+
+| AINIC Firmware Version | Exporter Image Version | Supported NICs |
+|------------------------|------------------------|----------------|
+| N/A (host nicctl)      | nic-v1.0.0             | Pollara 400    |
+| N/A (host nicctl)      | nic-v1.0.1             | Pollara 400    |
+| 1.117.5-a-56           | nic-v1.1.0             | Pollara 400    |
+
+### Available Metrics
+
+Device Metrics Exporter provides extensive NIC metrics including:
+
+- Port statistics
+  - Frame counts (RX/TX)
+  - Octet counts (RX/TX)
+  - Pause and priority frames
+  - FCS and other error counts
+- LIF statistics
+  - Unicast/multicast/broadcast packets
+  - DMA errors
+  - Drop counts
+- Queue Pair (QP) statistics
+  - Send Queue requester metrics
+  - Receive Queue responder metrics
+  - QCN congestion metrics
+- RDMA statistics
+  - Tx/Rx unicast packets
+  - CNP/ECN packets
+  - Request/response errors
+- Ethtool statistics
+  - Packet and byte counts
+  - Frame size distribution
+  - Per-queue drop counts
+
+See [AINIC Metrics List](./configuration/network-metricslist.md) for the complete list.

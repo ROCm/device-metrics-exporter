@@ -68,14 +68,6 @@ ROCm 7.1.1 MI2xx, MI3xx
 - **Workaround for prior version**
   - Add firewall rules in front of the service to block inbound connections, allowing only traffic originating from localhost (127.0.0.1).
 
-## nic-v1.0.0
-
-- **NIC Metrics Exporter for Prometheus**
-  - Real-time metrics exporter for AMD NICs.
-  - Supports both Docker and Debian installations.
-  - Collects metrics using nicctl, rdma, and ethtool, and works across hypervisor, VM, and bare-metal environments.
-  - Optimized RDMA stats, reducing the previously observed latency severalfold compared to the beta release.
-
 ## v1.4.1
 
 - **Configurable Resource Limits**
