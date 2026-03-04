@@ -46,13 +46,13 @@ sudo apt upgrade -y
     On Ubuntu 22.04:
 
     ```bash
-    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 jammy main
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 jammy main
     ```
 
     On Ubuntu 24.04:
 
     ```bash
-    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.0.0 noble main
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 noble main
     ```
 
 3. Update Package List and Install NIC Metrics Exporter
