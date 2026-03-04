@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
 	"gotest.tools/assert"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -164,6 +165,55 @@ func TestGPUAgentIFOEOnly(t *testing.T) {
 	assert.Assert(t, err == nil, "expecting success workload list")
 	assert.Assert(t, len(wls) == 0, "expecting success 0 workloads as scheduler is not initialized")
 	ga.Close()
+}
+
+// TestGetGPUsPartitionFilter verifies that getGPUs() passes through all GPU objects
+// regardless of whether GPUPartition is set.
+func TestGetGPUsPartitionFilter(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	partitionedResp := &amdgpu.GPUGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.GPU{
+			{
+				Spec:   &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
+				Status: &amdgpu.GPUStatus{
+					SerialNum:    "gpu-with-partition-field",
+					PCIeStatus:   &amdgpu.GPUPCIeStatus{PCIeBusId: "0000:01:00.0"},
+					GPUPartition: [][]byte{[]byte(uuid.New().String())},
+					PartitionId:  0,
+				},
+				Stats: &amdgpu.GPUStats{PackagePower: 100},
+			},
+			{
+				Spec:   &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
+				Status: &amdgpu.GPUStatus{
+					SerialNum:  "gpu-without-partition-field",
+					PCIeStatus: &amdgpu.GPUPCIeStatus{PCIeBusId: "0000:01:00.1"},
+				},
+				Stats: &amdgpu.GPUStats{PackagePower: 100},
+			},
+		},
+	}
+	gpuMockCl.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(partitionedResp, nil).AnyTimes()
+
+	ga := getNewAgentWithoutScheduler(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuMockCl
+	gpuclient.evtclient = eventMockCl
+
+	resp, _, err := gpuclient.getGPUs()
+	assert.Assert(t, err == nil, "getGPUs should not error: %v", err)
+	assert.Equal(t, len(resp.Response), 2, "both GPUs must be returned regardless of GPUPartition field")
 }
 
 // TestMetricFieldMapping validates that all metric field references match fieldMetricsMap
