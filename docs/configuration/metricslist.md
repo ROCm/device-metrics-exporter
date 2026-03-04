@@ -139,6 +139,7 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross;    | &check;   | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB |
 | &cross;    | &check;   | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]`  | Total used VRAM memory in MB              |
 | &cross;    | &check;   | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]`  | Total free VRAM memory in MB              |
+| &cross;    | &check;   | GPU_VRAM_MAX_BANDWIDTH `[MI2xx, MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s |
 
 ### GTT Memory Metrics
 

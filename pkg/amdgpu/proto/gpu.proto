@@ -320,11 +320,13 @@ enum GPUThrottlingStatus {
 
 message GPUVRAMStatus {
   // VRAM memory type
-  VRAMType   Type   = 1;
+  VRAMType   Type            = 1;
   // VRAM vendor
-  string     Vendor = 2;
+  string     Vendor          = 2;
   // VRAM size (in MB)
-  uint64     Size   = 3;
+  uint64     Size            = 3;
+  // VRAM max bandwidth at max memory clock (GB/s)
+  uint64     MaxBandwidth    = 4;
 }
 
 // GPU page status

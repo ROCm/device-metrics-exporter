@@ -1,11 +1,17 @@
 {
   "ServerPort": 5000,
   "CommonConfig": {
-      "MetricsFieldPrefix": "amd_",
-      "HealthService": {
-          "Enable" : true,
-          "PollingRate": "30s"
-      }
+    "MetricsFieldPrefix": "amd_",
+    "HealthService": {
+      "Enable": true,
+      "PollingRate": "30s"
+    },
+    "Logging": {
+      "Level": "info",
+      "MaxFileSizeMB": 10,
+      "MaxBackups": 3,
+      "MaxAgeDays": 7
+    }
   },
   "GPUConfig": {
     "Fields": [
@@ -35,6 +41,7 @@
       "PCIE_NACK_RECEIVED_COUNT",
       "GPU_CLOCK",
       "GPU_POWER_USAGE",
+      "GPU_VRAM_MAX_BANDWIDTH",
       "GPU_TOTAL_VRAM",
       "GPU_ECC_CORRECT_TOTAL",
       "GPU_ECC_UNCORRECT_TOTAL",
@@ -191,41 +198,41 @@
       "KFD_PROCESS_ID",
       "DEPLOYMENT_MODE"
     ],
-    "HealthThresholds" : {
-      "GPU_ECC_UNCORRECT_SDMA" : 0,
-      "GPU_ECC_UNCORRECT_GFX" : 0,
-      "GPU_ECC_UNCORRECT_MMHUB" : 0,
-      "GPU_ECC_UNCORRECT_ATHUB" : 0,
-      "GPU_ECC_UNCORRECT_BIF" : 0,
-      "GPU_ECC_UNCORRECT_HDP" : 0,
-      "GPU_ECC_UNCORRECT_XGMI_WAFL" : 0,
-      "GPU_ECC_UNCORRECT_DF" : 0,
-      "GPU_ECC_UNCORRECT_SMN" : 0,
-      "GPU_ECC_UNCORRECT_SEM" : 0,
-      "GPU_ECC_UNCORRECT_MP0" : 0,
-      "GPU_ECC_UNCORRECT_MP1" : 0,
-      "GPU_ECC_UNCORRECT_FUSE" : 0,
-      "GPU_ECC_UNCORRECT_UMC" : 0,
-      "GPU_ECC_UNCORRECT_MCA" : 0,
-      "GPU_ECC_UNCORRECT_VCN" : 0,
-      "GPU_ECC_UNCORRECT_JPEG" : 0,
-      "GPU_ECC_UNCORRECT_IH" : 0,
-      "GPU_ECC_UNCORRECT_MPIO" : 0
+    "HealthThresholds": {
+      "GPU_ECC_UNCORRECT_SDMA": 0,
+      "GPU_ECC_UNCORRECT_GFX": 0,
+      "GPU_ECC_UNCORRECT_MMHUB": 0,
+      "GPU_ECC_UNCORRECT_ATHUB": 0,
+      "GPU_ECC_UNCORRECT_BIF": 0,
+      "GPU_ECC_UNCORRECT_HDP": 0,
+      "GPU_ECC_UNCORRECT_XGMI_WAFL": 0,
+      "GPU_ECC_UNCORRECT_DF": 0,
+      "GPU_ECC_UNCORRECT_SMN": 0,
+      "GPU_ECC_UNCORRECT_SEM": 0,
+      "GPU_ECC_UNCORRECT_MP0": 0,
+      "GPU_ECC_UNCORRECT_MP1": 0,
+      "GPU_ECC_UNCORRECT_FUSE": 0,
+      "GPU_ECC_UNCORRECT_UMC": 0,
+      "GPU_ECC_UNCORRECT_MCA": 0,
+      "GPU_ECC_UNCORRECT_VCN": 0,
+      "GPU_ECC_UNCORRECT_JPEG": 0,
+      "GPU_ECC_UNCORRECT_IH": 0,
+      "GPU_ECC_UNCORRECT_MPIO": 0
     },
-    "CustomLabels" : {
-      "CLUSTER_NAME" : "amdgpu-k8s-metrics-exporter"
+    "CustomLabels": {
+      "CLUSTER_NAME": "amdgpu-k8s-metrics-exporter"
     },
-    "ExtraPodLabels" : {
-      "WORKLOAD_ID"   : "amd-workload-id",
-      "USERGROUP_ID"  : "amd-usergroup-id"
+    "ExtraPodLabels": {
+      "WORKLOAD_ID": "amd-workload-id",
+      "USERGROUP_ID": "amd-usergroup-id"
     },
-    "ProfilerMetrics" : {
-        "all"       : false,
-        "hostname1" : false
+    "ProfilerMetrics": {
+      "all": false,
+      "hostname1": false
     },
     "ProfilerConfig": {
-        "SamplingInterval": 1000,
-        "PtlDelay"        : 0
+      "SamplingInterval": 1000,
+      "PtlDelay": 0
     }
   }
 }

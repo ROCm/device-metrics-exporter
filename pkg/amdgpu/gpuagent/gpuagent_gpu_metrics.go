@@ -91,6 +91,7 @@ type GpuMetrics struct {
 	gpuMinClock                prometheus.GaugeVec
 	gpuMaxClock                prometheus.GaugeVec
 	gpuPowerUsage              prometheus.GaugeVec
+	gpuVramMaxBandwidth        prometheus.GaugeVec
 
 	gpuEccCorrectTotal      prometheus.GaugeVec
 	gpuEccUncorrectTotal    prometheus.GaugeVec
@@ -519,6 +520,7 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 		exportermetrics.GPUMetricField_GPU_MIN_CLOCK.String():                                                FieldMeta{Metric: ga.metrics.gpuMinClock},
 		exportermetrics.GPUMetricField_GPU_MAX_CLOCK.String():                                                FieldMeta{Metric: ga.metrics.gpuMaxClock},
 		exportermetrics.GPUMetricField_GPU_POWER_USAGE.String():                                              FieldMeta{Metric: ga.metrics.gpuPowerUsage},
+		exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String():                                       FieldMeta{Metric: ga.metrics.gpuVramMaxBandwidth},
 		exportermetrics.GPUMetricField_GPU_TOTAL_VRAM.String():                                               FieldMeta{Metric: ga.metrics.gpuTotalVram},
 		exportermetrics.GPUMetricField_GPU_ECC_CORRECT_TOTAL.String():                                        FieldMeta{Metric: ga.metrics.gpuEccCorrectTotal},
 		exportermetrics.GPUMetricField_GPU_ECC_UNCORRECT_TOTAL.String():                                      FieldMeta{Metric: ga.metrics.gpuEccUncorrectTotal},
@@ -858,6 +860,11 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 		gpuPowerUsage: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gpu_power_usage",
 			Help: "GPU Power usage in Watts",
+		},
+			labels),
+		gpuVramMaxBandwidth: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "amd_gpu_vram_max_bandwidth",
+			Help: "GPU VRAM maximum bandwidth at max memory clock in GB/s",
 		},
 			labels),
 		gpuTotalVram: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -2252,6 +2259,8 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String())
 	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPowerUsage, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String(), labels, stats.PowerUsage)
+
+	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVramMaxBandwidth, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(), labels, float64(status.GetVRAMStatus().GetMaxBandwidth()))
 
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEccCorrectTotal, exportermetrics.GPUMetricField_GPU_ECC_CORRECT_TOTAL.String(),
 		labels, stats.TotalCorrectableErrors)
