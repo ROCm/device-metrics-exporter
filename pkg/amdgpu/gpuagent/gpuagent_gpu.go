@@ -467,7 +467,6 @@ func (ga *GPUAgentGPUClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdg
 	if err != nil {
 		return nil, nil, err
 	}
-	// filter out logical GPU
 	nres := &amdgpu.GPUGetResponse{
 		ApiStatus: res.ApiStatus,
 		Response:  []*amdgpu.GPU{},
@@ -482,10 +481,6 @@ func (ga *GPUAgentGPUClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdg
 			if (pcieBaseAddr != gpuPcieAddr) && (gpu.Status.GetPartitionId() == 0) {
 				partitionMap[pcieBaseAddr] = gpu
 			}
-		}
-		if len(gpu.Status.GPUPartition) != 0 {
-			// skip logical gpu objects
-			continue
 		}
 		nres.Response = append(nres.Response, gpu)
 	}
