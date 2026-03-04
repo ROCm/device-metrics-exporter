@@ -1,30 +1,5 @@
 # Release Notes
 
-## v1.5.0
-
-- **Profiler Configuration Enhancement**
-  - `SamplingInterval` to set sampling window for the profiler metrics
-  - Default value is 1000 microseconds (1 millisecond)
-
-- **Configurable Health Polling Rate**
-  - Added `PollingRate` field to `HealthService` configuration in `CommonConfig`
-  - Supports duration formats: 30s, 5m, 1h, 1d, 23h10m15s
-  - Default: 30 seconds, Min: 30 seconds, Max: 24 hours
-
-- **Kubevirt**
-  - Exporter now supports Kubevirt deployments
-    - New exporter with SR-IOV support for hypervisor environments is now available
-      - Legacy exporter remains applicable for existing deployments:
-        1. Baremetal passthrough
-        2. Guest VM
-
-- **Slinky**
-  - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
-
-### Platform Support
-
-ROCm 7.0 MI2xx, MI3xx
-
 ## v1.4.2
 
 - **New Label**
