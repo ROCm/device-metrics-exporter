@@ -192,6 +192,52 @@ func TestNormalize(t *testing.T) {
 		})
 	}
 }
+func TestNormalizePercent(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    float64
+		expected float64
+	}{
+		{name: "in range", input: 50.0, expected: 50.0},
+		{name: "exact lower bound", input: 0.0, expected: 0.0},
+		{name: "exact upper bound", input: 100.0, expected: 100.0},
+		{name: "marginally above upper bound", input: 100.001, expected: 100.0},
+		{name: "marginally below lower bound", input: -0.001, expected: 0.0},
+		{name: "fp rounding artifact from rocprofiler", input: 100.009, expected: 100.0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizePercent(tt.input)
+			if got != tt.expected {
+				t.Errorf("NormalizePercent(%v) = %v; want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeFraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    float64
+		expected float64
+	}{
+		{name: "in range", input: 0.5, expected: 0.5},
+		{name: "exact lower bound", input: 0.0, expected: 0.0},
+		{name: "exact upper bound", input: 1.0, expected: 1.0},
+		{name: "marginally above upper bound", input: 1.00008, expected: 1.0},
+		{name: "marginally below lower bound", input: -0.001, expected: 0.0},
+		{name: "fp rounding artifact from rocprofiler", input: 1.00006, expected: 1.0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeFraction(tt.input)
+			if got != tt.expected {
+				t.Errorf("NormalizeFraction(%v) = %v; want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestValidateAndExport(t *testing.T) {
 	type labelSet map[string]string
 
