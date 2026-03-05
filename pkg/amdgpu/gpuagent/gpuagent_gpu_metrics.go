@@ -2587,7 +2587,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		case "GRBM_COUNT":
 			ga.metrics.gpuGrbmCount.With(labels).Set(value)
 		case "GPU_UTIL":
-			ga.metrics.gpuGPUUtil.With(labels).Set(value)
+			ga.metrics.gpuGPUUtil.With(labels).Set(utils.NormalizePercent(value))
 		case "FETCH_SIZE":
 			ga.metrics.gpuFetchSize.With(labels).Set(value)
 		case "WRITE_SIZE":
@@ -2669,19 +2669,19 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		case "CPF_CPF_TCIU_STALL":
 			ga.metrics.gpuCpfStatTciuStall.With(labels).Set(value)
 		case "OccupancyPercent":
-			ga.metrics.gpuOccPercent.With(labels).Set(value)
+			ga.metrics.gpuOccPercent.With(labels).Set(utils.NormalizePercent(value))
 		case "MfmaUtil":
-			ga.metrics.gpuTensorActivePercent.With(labels).Set(value)
+			ga.metrics.gpuTensorActivePercent.With(labels).Set(utils.NormalizePercent(value))
 		case "ValuPipeIssueUtil":
-			ga.metrics.gpuValuPipeIssueUtil.With(labels).Set(value)
+			ga.metrics.gpuValuPipeIssueUtil.With(labels).Set(utils.NormalizePercent(value))
 		case "VALUBusy":
-			ga.metrics.gpuSMActive.With(labels).Set(value)
+			ga.metrics.gpuSMActive.With(labels).Set(utils.NormalizePercent(value))
 		case "MeanOccupancyPerActiveCU":
 			ga.metrics.gpuOccPerActiveCU.With(labels).Set(value)
 		case "MeanOccupancyPerCU":
 			ga.metrics.gpuMeanOccPerCU.With(labels).Set(value)
 		case "SIMD_UTILIZATION":
-			ga.metrics.gpuSimdActive.With(labels).Set(value)
+			ga.metrics.gpuSimdActive.With(labels).Set(utils.NormalizeFraction(value))
 		}
 	}
 }

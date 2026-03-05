@@ -336,6 +336,26 @@ func UUIDToString(uuidBytes []byte) string {
 	return uuid.String()
 }
 
+// NormalizePercent clamps a profiler percentage to [0, 100].
+// Values can marginally exceed range due to FP rounding in rocprofiler-sdk at full GPU saturation.
+func NormalizePercent(v float64) float64 {
+	normalized := math.Min(math.Max(v, 0), 100)
+	if normalized != v {
+		logger.Debugf("profiler percentage out of range: raw=%.6f normalized=%.6f", v, normalized)
+	}
+	return normalized
+}
+
+// NormalizeFraction clamps a profiler fraction to [0, 1].
+// Values can marginally exceed range due to FP rounding in rocprofiler-sdk at full GPU saturation.
+func NormalizeFraction(v float64) float64 {
+	normalized := math.Min(math.Max(v, 0), 1)
+	if normalized != v {
+		logger.Debugf("profiler fraction out of range: raw=%.6f normalized=%.6f", v, normalized)
+	}
+	return normalized
+}
+
 // GetDRAKey returns the DRA key for the given gpuCardId and gpuRenderId.
 func GetDRAKey(gpuCardId, gpuRenderId string) string {
 	if gpuCardId != "" && gpuRenderId != "" {
