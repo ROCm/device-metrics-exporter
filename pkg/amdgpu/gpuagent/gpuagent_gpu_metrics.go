@@ -665,7 +665,7 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 		exportermetrics.GPUMetricField_GPU_PROF_TENSOR_ACTIVE_PERCENT.String():              FieldMeta{Metric: ga.metrics.gpuTensorActivePercent, Alias: "MfmaUtil"},
 		exportermetrics.GPUMetricField_GPU_PROF_VALU_PIPE_ISSUE_UTIL.String():               FieldMeta{Metric: ga.metrics.gpuValuPipeIssueUtil, Alias: "ValuPipeIssueUtil"},
 		exportermetrics.GPUMetricField_GPU_PROF_SM_ACTIVE.String():                          FieldMeta{Metric: ga.metrics.gpuSMActive, Alias: "VALUBusy"},
-		exportermetrics.GPUMetricField_GPU_PROF_OCCUPANCY_ELAPSED.String():                  FieldMeta{Metric: ga.metrics.gpuOccElapsed, Alias: "GRBM_GUI_ACTIVE"},
+		exportermetrics.GPUMetricField_GPU_PROF_OCCUPANCY_ELAPSED.String():                  FieldMeta{Metric: ga.metrics.gpuOccElapsed, Alias: "MeanOccupancyPerActiveCU"},
 		exportermetrics.GPUMetricField_GPU_PROF_OCCUPANCY_PER_ACTIVE_CU.String():            FieldMeta{Metric: ga.metrics.gpuOccPerActiveCU, Alias: "MeanOccupancyPerActiveCU"},
 		exportermetrics.GPUMetricField_GPU_PROF_OCCUPANCY_PER_CU.String():                   FieldMeta{Metric: ga.metrics.gpuMeanOccPerCU, Alias: "MeanOccupancyPerCU"},
 		exportermetrics.GPUMetricField_GPU_PROF_SIMD_UTILIZATION.String():                   FieldMeta{Metric: ga.metrics.gpuSimdActive, Alias: "SIMD_UTILIZATION"},
@@ -1678,13 +1678,6 @@ func getGPUUUID(gpu *amdgpu.GPU) string {
 	return ""
 }
 
-func getGPUNodeID(gpu *amdgpu.GPU) string {
-	if gpu != nil && gpu.Status != nil {
-		return fmt.Sprintf("%v", gpu.Status.NodeId)
-	}
-	return ""
-}
-
 func (ga *GPUAgentGPUClient) UpdateStaticMetrics() error {
 	// send the req to gpuclient
 	resp, partitionMap, err := ga.getGPUs()
@@ -1718,7 +1711,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics() error {
 		var gpuProfMetrics map[string]float64
 		// if available use the data
 		if pmetrics != nil {
-			gpuid := getGPUNodeID(gpu)
+			gpuid := getGPURenderId(gpu)
 			//nolint
 			gpuProfMetrics, _ = pmetrics[gpuid]
 		}
@@ -2581,7 +2574,6 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		switch mkey {
 		case "GRBM_GUI_ACTIVE":
 			ga.metrics.gpuGrbmGuiActivity.With(labels).Set(value)
-			ga.metrics.gpuOccElapsed.With(labels).Set(value)
 		case "SQ_WAVES":
 			ga.metrics.gpuSqWaves.With(labels).Set(value)
 		case "GRBM_COUNT":
@@ -2683,6 +2675,15 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		case "SIMD_UTILIZATION":
 			ga.metrics.gpuSimdActive.With(labels).Set(utils.NormalizeFraction(value))
 		}
+	}
+
+	// GPU_PROF_OCCUPANCY_ELAPSED = MeanOccupancyPerActiveCU / GRBM_GUI_ACTIVE
+	// Mirrors the RDC rdc_rocp calculation: occupancy_val / active_cycles_val.
+	// Only set when GRBM_GUI_ACTIVE is non-zero to avoid division by zero.
+	grbmActive, hasActive := profMetrics["GRBM_GUI_ACTIVE"]
+	occPerActiveCU, hasOcc := profMetrics["MeanOccupancyPerActiveCU"]
+	if hasActive && hasOcc && grbmActive != 0 {
+		ga.metrics.gpuOccElapsed.With(labels).Set(occPerActiveCU / grbmActive)
 	}
 }
 

@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/google/uuid"
 	"go.uber.org/mock/gomock"
 	"gotest.tools/assert"
@@ -488,4 +490,66 @@ func TestMetricFieldMappingMI2xxEmptyBusyInst(t *testing.T) {
 
 	t.Logf("✓ All MI2xx BusyInst empty fields correctly marked as unsupported")
 	t.Logf("✓ Validated correct behavior for platforms without BusyInst support")
+}
+
+// TestOccupancyElapsedCalculation validates that GPU_PROF_OCCUPANCY_ELAPSED is computed
+// as MeanOccupancyPerActiveCU / GRBM_GUI_ACTIVE, matching the RDC rdc_rocp reference.
+func TestOccupancyElapsedCalculation(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	err := ga.InitConfigs()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+
+	gpu := &amdgpu.GPU{
+		Spec: &amdgpu.GPUSpec{
+			Id: []byte(uuid.New().String()),
+		},
+		Status: &amdgpu.GPUStatus{
+			Index:     0,
+			SerialNum: "mock-serial",
+			PCIeStatus: &amdgpu.GPUPCIeStatus{
+				PCIeBusId: "pcie0",
+			},
+		},
+		Stats: &amdgpu.GPUStats{},
+	}
+
+	const grbmActive = 1e7
+	const meanOccPerActiveCU = 500.0
+	profMetrics := map[string]float64{
+		"GRBM_GUI_ACTIVE":          grbmActive,
+		"MeanOccupancyPerActiveCU": meanOccPerActiveCU,
+	}
+
+	wls := make(map[string]scheduler.Workload)
+	gpuclient.updateGPUInfoToMetrics(wls, gpu, nil, profMetrics, nil)
+
+	// Collect the gpuOccElapsed gauge and verify the derived value
+	labels := gpuclient.populateLabelsFromGPU(wls, gpu, nil)
+	gauge, err := gpuclient.metrics.gpuOccElapsed.GetMetricWith(labels)
+	assert.Assert(t, err == nil, "expected gpuOccElapsed metric to exist: %v", err)
+
+	var dtoMetric dto.Metric
+	err = gauge.Write(&dtoMetric)
+	assert.Assert(t, err == nil, "expected gauge write to succeed: %v", err)
+
+	got := dtoMetric.GetGauge().GetValue()
+	want := meanOccPerActiveCU / grbmActive
+	assert.Assert(t, got == want,
+		"gpu_prof_occupancy_elapsed: got %v, want %v (MeanOccupancyPerActiveCU/GRBM_GUI_ACTIVE)", got, want)
+
+	t.Logf("✓ gpu_prof_occupancy_elapsed = %.6e (MeanOccupancyPerActiveCU=%.1f / GRBM_GUI_ACTIVE=%.0f)",
+		got, meanOccPerActiveCU, grbmActive)
 }
