@@ -141,22 +141,14 @@ spec:
           - name: metrics-config-volume
             mountPath: /etc/metrics/
           {{- if .Values.monitor.resources.nic }}
+          - mountPath: /lib/modules
+            name: lib-modules
           - name: host-proc
             mountPath: /host/proc
           - name: run-containerd
             mountPath: /host/run/containerd
           - name: run-crio
             mountPath: /host/run/crio
-          - name: usr-bin
-            mountPath: /opt/nic/bin
-          - name: usr-sbin
-            mountPath: /opt/nic/sbin
-          - name: opt-amd
-            mountPath: /opt/amd
-          - name: libmnl-so
-            mountPath: /lib64/libmnl.so.0
-          - name: libpci-so
-            mountPath: /lib64/libpci.so.3
           {{- end }}
           workingDir: /root
       {{- if .Values.image.pullSecrets }}
@@ -189,6 +181,10 @@ spec:
           type: DirectoryOrCreate
         name: exporter-slurm-job
     {{- if .Values.monitor.resources.nic }}
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: lib-modules
       - name: host-proc
         hostPath:
           path: /proc
@@ -201,26 +197,6 @@ spec:
         hostPath:
           path: /run/crio
           type: DirectoryOrCreate
-      - name: usr-bin
-        hostPath:
-          path: /usr/bin
-          type: Directory
-      - name: usr-sbin
-        hostPath:
-          path: /usr/sbin
-          type: Directory
-      - name: opt-amd
-        hostPath:
-          path: /opt/amd
-          type: Directory
-      - name: libmnl-so
-        hostPath:
-          path: /lib/x86_64-linux-gnu/libmnl.so.0
-          type: File
-      - name: libpci-so
-        hostPath:
-          path: /lib/x86_64-linux-gnu/libpci.so.3
-          type: File
       {{- end }}
       - name: metrics-config-volume
         configMap:

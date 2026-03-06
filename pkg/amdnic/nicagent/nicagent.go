@@ -469,8 +469,8 @@ func (na *NICAgentClient) getMetricsAll() error {
 		k8PodInfoMap, _ = na.fetchPodInfoForNode()
 	}
 
-	labels := na.populateLabelsFromNIC("")
-	na.m.nicNodesTotal.With(labels).Set(float64(len(na.nics)))
+	nonNICLabels := na.populateNonNICLabels()
+	na.m.nicNodesTotal.With(nonNICLabels).Set(float64(len(na.nics)))
 
 	for _, client := range na.nicClients {
 		wg.Add(1)

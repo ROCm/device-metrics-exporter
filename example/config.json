@@ -252,6 +252,7 @@
   },
   "NICConfig": {
     "Fields": [
+    "NIC_TOTAL",
     "NIC_PORT_STATS_FRAMES_RX_OK",
     "NIC_PORT_STATS_FRAMES_RX_ALL",
     "NIC_PORT_STATS_FRAMES_RX_BAD_FCS",
