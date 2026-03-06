@@ -27,7 +27,7 @@ The following table contains a full list of AINIC Metrics that are available usi
 
 | Baremetal  | Hypervisor| Guest VM   | Metric                                   | Description                                                                 |
 |------------|-----------|------------|------------------------------------------|-----------------------------------------------------------------------------|
-| &check;    | &check;   | &cross;    | NIC_NODES_TOTAL                          | Number of NIC nodes on the host                                             |
+| &check;    | &check;   | &cross;    | NIC_TOTAL                                | Number of NIC nodes on the host                                             |
 |            |           |            | --- Port stats ---                       |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_OK              | Total number of valid network frames that were successfully received        |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_ALL             | Total number of all frames received by the device                           |

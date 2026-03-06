@@ -260,8 +260,22 @@ docker-compile:
 all:
 	${MAKE} gen amdexporter metricutil amdtestrunner
 
+##@ Configuration Generation
+# NOTE: example/config.json is the source of truth for all configurations.
+# config-nic.json and config-gpu.json are auto-generated from config.json.
+# To update configs, modify config.json and run 'make gen-configs'
+.PHONY: gen-configs
+gen-configs: ## Generate config-nic.json and config-gpu.json from config.json
+	@echo "Generating config-nic.json from config.json"
+	@jq '{ServerPort: 5001, CommonConfig: .CommonConfig, NICConfig: .NICConfig}' \
+		$(CONFIG_DIR)/config.json > $(CONFIG_DIR)/config-nic.json
+	@echo "Generating config-gpu.json from config.json"
+	@jq '{ServerPort: .ServerPort, CommonConfig: .CommonConfig, GPUConfig: .GPUConfig}' \
+		$(CONFIG_DIR)/config.json > $(CONFIG_DIR)/config-gpu.json
+	@echo "Config generation complete"
+
 .PHONY: gen
-gen: gopkglist gen-test-runner
+gen: gen-configs gopkglist gen-test-runner
 	@for c in ${TO_GEN}; do printf "\n+++++++++++++++++ Generating $${c} +++++++++++++++++\n"; PATH=$$PATH make -C $${c} GEN_DIR=$(GEN_DIR) || exit 1; done
 	@for c in ${TO_MOCK}; do printf "\n+++++++++++++++++ Generating mock $${c} +++++++++++++++++\n"; PATH=$$PATH make -C $${c} MOCK_DIR=$(MOCK_DIR) GEN_DIR=$(GEN_DIR) || exit 1; done
 

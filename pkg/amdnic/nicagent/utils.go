@@ -80,3 +80,19 @@ func getVendor(rdmaDev string, cmdExec cmdexec.CommandExecuter) (string, error) 
 	}
 	return strings.ToLower(strings.TrimSpace(string(data))), nil
 }
+
+// appendLabelsWithoutDuplicates appends newLabels to existingLabels, skipping any that already exist
+func appendLabelsWithoutDuplicates(existingLabels []string, newLabels []string) []string {
+	labelSet := make(map[string]bool)
+	for _, label := range existingLabels {
+		labelSet[label] = true
+	}
+
+	for _, label := range newLabels {
+		if !labelSet[label] {
+			existingLabels = append(existingLabels, label)
+		}
+	}
+
+	return existingLabels
+}
