@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-amd-metrics-exporter-svc
   labels:
-  {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 2 }}
+  {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 4 }}
   {{- if .Values.service.annotations }}
   annotations:
     {{- toYaml .Values.service.annotations | nindent 4 }}
