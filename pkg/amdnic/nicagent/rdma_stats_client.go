@@ -121,7 +121,7 @@ func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workloa
 			logger.Log.Printf("failed to get vendor ID for %s: %v", rdmaDevName, err)
 			continue
 		}
-		if vendorID != AMDVendorID {
+		if !isVendorAllowed(vendorID) {
 			continue
 		}
 

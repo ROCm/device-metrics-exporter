@@ -369,9 +369,9 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 					roceDevName = ""
 					break // skip this device
 				}
-				if vendorID != AMDVendorID {
+				if !isVendorAllowed(vendorID) {
 					roceDevName = ""
-					break // skip non-AMD devices
+					break // skip non-allowed devices
 				}
 				if err := na.addRdmaDevPcieAddrIfAbsent(roceDevName); err != nil {
 					return netDevices, err

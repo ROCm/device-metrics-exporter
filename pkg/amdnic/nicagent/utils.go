@@ -19,11 +19,18 @@ package nicagent
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/nicagent/cmdexec"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+)
+
+var (
+	nonAMDMetricsEnabled     bool
+	nonAMDMetricsEnabledOnce sync.Once
 )
 
 // ExecWithContext executes a command with a context timeout
@@ -95,4 +102,31 @@ func appendLabelsWithoutDuplicates(existingLabels []string, newLabels []string) 
 	}
 
 	return existingLabels
+}
+
+// isNonAMDMetricsEnabled checks the EXPORT_NON_AMD_NIC_METRICS environment variable once
+// and caches the result. This avoids repeated os.Getenv calls in tight loops.
+// NOTE: This is for testing purposes only, not intended for production use.
+func isNonAMDMetricsEnabled() bool {
+	nonAMDMetricsEnabledOnce.Do(func() {
+		exportNonAMD := strings.ToLower(strings.TrimSpace(os.Getenv("EXPORT_NON_AMD_NIC_METRICS")))
+		nonAMDMetricsEnabled = exportNonAMD == "true" || exportNonAMD == "1"
+	})
+	return nonAMDMetricsEnabled
+}
+
+// isVendorAllowed checks if a vendor ID is allowed for NIC metrics collection
+// Reads EXPORT_NON_AMD_NIC_METRICS environment variable once at first call
+// - Not set or empty: AMD only (default, backward compatible)
+// - "true" or "1": All vendors allowed (for testing only)
+// NOTE: EXPORT_NON_AMD_NIC_METRICS is for testing purposes only, not for production use.
+func isVendorAllowed(vendorID string) bool {
+	// Always allow AMD
+	if vendorID == AMDVendorID {
+		return true
+	}
+
+	// Check if non-AMD metrics are enabled (cached result)
+	// When enabled, allow all vendors for testing purposes
+	return isNonAMDMetricsEnabled()
 }
