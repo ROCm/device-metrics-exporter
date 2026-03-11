@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	exputils "github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/tools/amd-gpu-health/cli/utils"
@@ -42,6 +43,7 @@ var (
 	prometheusEndpointUrl     string
 	severity                  string
 	afid                      uint64
+	inputAddress              string
 )
 
 func fetchAuthInfo(cmd *cobra.Command) utils.AuthInfo {
@@ -144,11 +146,23 @@ func counterMetricCmdHandler(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s", err.Error())
 		os.Exit(2)
 	}
-	metricsEndpoint, err := envProvider.GetMetricsEndpointURL()
-	if err != nil || metricsEndpoint == "" {
-		logger.Log.Printf("unable to get metrics endpoint url. error=%v", err)
-		fmt.Printf("unable to get metrics endpoint url")
-		os.Exit(2)
+
+	// if address is provided in cli argument, use it as metrics endpoint. otherwise use service discovery.
+	var metricsEndpoint string
+	if cmd.Flags().Changed("address") {
+		if !utils.ValidateInputAddress(inputAddress) {
+			logger.Log.Printf("invalid input address format")
+			fmt.Printf("invalid input address format")
+			os.Exit(2)
+		}
+		metricsEndpoint = fmt.Sprintf("http://%s%s", inputAddress, globals.AMDGPUHandlerPrefix)
+	} else {
+		metricsEndpoint, err = envProvider.GetMetricsEndpointURL()
+		if err != nil || metricsEndpoint == "" {
+			logger.Log.Printf("unable to get metrics endpoint url. error=%v", err)
+			fmt.Printf("unable to get metrics endpoint url")
+			os.Exit(2)
+		}
 	}
 	logger.Log.Printf("metrics endpoint url=%v", metricsEndpoint)
 	// check if the below mandatory args are provided or not
@@ -202,11 +216,21 @@ func gaugeMetricCmdHandler(cmd *cobra.Command, args []string) {
 	var metrics []float64
 	if exputils.IsDebianInstall() || !cmd.Flags().Changed("duration") {
 		// if debian install or duration is not specified, query the latest value from local exporter endpoint.
-		metricsEndpoint, err := envProvider.GetMetricsEndpointURL()
-		if err != nil || metricsEndpoint == "" {
-			logger.Log.Printf("unable to get metrics endpoint url. error=%v", err)
-			fmt.Printf("unable to get metrics endpoint url")
-			os.Exit(2)
+		var metricsEndpoint string
+		if cmd.Flags().Changed("address") {
+			if !utils.ValidateInputAddress(inputAddress) {
+				logger.Log.Printf("invalid input address format")
+				fmt.Printf("invalid address format")
+				os.Exit(2)
+			}
+			metricsEndpoint = fmt.Sprintf("http://%s%s", inputAddress, globals.AMDGPUHandlerPrefix)
+		} else {
+			metricsEndpoint, err = envProvider.GetMetricsEndpointURL()
+			if err != nil || metricsEndpoint == "" {
+				logger.Log.Printf("unable to get metrics endpoint url. error=%v", err)
+				fmt.Printf("unable to get metrics endpoint url")
+				os.Exit(2)
+			}
 		}
 		response, err := utils.QueryExporterEndpoint(metricsEndpoint, envProvider.authInfo)
 		if err != nil {
@@ -270,11 +294,22 @@ func inbandRasErrorsCmdHandler(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s", err.Error())
 		os.Exit(2)
 	}
-	inbandRASErrorsEndpoint, err := envProvider.GetInbandRASErrorsEndpointURL()
-	if err != nil || inbandRASErrorsEndpoint == "" {
-		logger.Log.Printf("unable to get inband ras errors endpoint url. error=%v", err)
-		fmt.Printf("unable to get endpoint url")
-		os.Exit(2)
+	// if address is provided in cli argument, use it as inband ras errors endpoint. otherwise use service discovery.
+	var inbandRASErrorsEndpoint string
+	if cmd.Flags().Changed("address") {
+		if !utils.ValidateInputAddress(inputAddress) {
+			logger.Log.Printf("invalid input address format")
+			fmt.Printf("invalid input address format")
+			os.Exit(2)
+		}
+		inbandRASErrorsEndpoint = fmt.Sprintf("http://%s%s", inputAddress, globals.AMDGPUInbandRASHandlerPrefix)
+	} else {
+		inbandRASErrorsEndpoint, err = envProvider.GetInbandRASErrorsEndpointURL()
+		if err != nil || inbandRASErrorsEndpoint == "" {
+			logger.Log.Printf("unable to get inband ras errors endpoint url. error=%v", err)
+			fmt.Printf("unable to get endpoint url")
+			os.Exit(2)
+		}
 	}
 	logger.Log.Printf("inband-ras errors endpoint url=%v", inbandRASErrorsEndpoint)
 
@@ -322,6 +357,7 @@ func init() {
 
 	counterMetricCmd.Flags().StringVarP(&metricName, "metric", "m", "", "Specify metric name")
 	counterMetricCmd.Flags().Int64VarP(&threshold, "threshold", "t", 0, "Specify threshold value for the metric")
+	counterMetricCmd.Flags().StringVar(&inputAddress, "address", "", "Metrics endpoint address (IP:PORT). If provided, skips service discovery and queries this address directly - Optional")
 	if !exputils.IsDebianInstall() {
 		counterMetricCmd.Flags().StringVar(&exporterRootCAPath, "exporter-root-ca", "", "Specify exporter root CA certificate mount path(If exporter endpoint has TLS/mTLS enabled) - Optional")
 		counterMetricCmd.Flags().StringVar(&exporterBearerTokenPath, "exporter-bearer-token", "", "Specify exporter bearer token mount path(If exporter endpoint has Authorization enabled) - Optional")
@@ -329,6 +365,7 @@ func init() {
 	}
 	gaugeMetricCmd.Flags().StringVarP(&metricName, "metric", "m", "", "Specify metric name")
 	gaugeMetricCmd.Flags().Float64VarP(&gaugeMetricThreshold, "threshold", "t", 0, "Specify threshold value for the metric")
+	gaugeMetricCmd.Flags().StringVar(&inputAddress, "address", "", "Metrics endpoint address (IP:PORT). If provided, skips service discovery and queries this address directly - Optional")
 	if !exputils.IsDebianInstall() {
 		gaugeMetricCmd.Flags().StringVarP(&metricDuration, "duration", "d", "", "Specify duration of query. Ex: 5s, 5m, etc.")
 		gaugeMetricCmd.Flags().StringVar(&prometheusEndpointUrl, "prometheus-endpoint", "", "Specify prometheus endpoint URL (If duration is specified) - Optional")
@@ -342,6 +379,7 @@ func init() {
 	inbandRasErrorsCmd.Flags().StringVarP(&severity, "severity", "s", "", "Specify error severity. Allowed values are CPER_SEVERITY_FATAL, CPER_SEVERITY_NON_FATAL_UNCORRECTED, CPER_SEVERITY_NON_FATAL_CORRECTED")
 	inbandRasErrorsCmd.Flags().Int64VarP(&threshold, "threshold", "t", 0, "Specify threshold value for inband ras error. Default is 0.")
 	inbandRasErrorsCmd.Flags().Uint64Var(&afid, "afid", 0, "Specify AFID to watch for specific inband ras event")
+	inbandRasErrorsCmd.Flags().StringVar(&inputAddress, "address", "", "Metrics endpoint address (IP:PORT). If provided, skips service discovery and queries this address directly - Optional")
 	if !exputils.IsDebianInstall() {
 		inbandRasErrorsCmd.Flags().StringVar(&exporterRootCAPath, "exporter-root-ca", "", "Specify exporter root CA certificate mount path(If exporter endpoint has TLS/mTLS enabled) - Optional")
 		inbandRasErrorsCmd.Flags().StringVar(&exporterBearerTokenPath, "exporter-bearer-token", "", "Specify exporter bearer token mount path(If exporter endpoint has Authorization enabled) - Optional")

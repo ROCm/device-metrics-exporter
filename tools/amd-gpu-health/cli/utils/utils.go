@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -699,4 +700,10 @@ func GetInbandRASErrorsEndpointURLLocalhost() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s%s", ep, globals.AMDGPUInbandRASHandlerPrefix), nil
+}
+
+var ipPortRegex = regexp.MustCompile(`^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$`)
+
+func ValidateInputAddress(address string) bool {
+	return ipPortRegex.MatchString(address)
 }
