@@ -11,9 +11,8 @@ docker run -d  \
 --privileged   \
 --network=host \
 -v ./config:/etc/metrics \
--v /usr/sbin/nicctl:/usr/sbin/nicctl \
 --name network-device-metrics-exporter \
-rocm/device-metrics-exporter:nic-v1.0.0 -monitor-nic=true -monitor-gpu=false
+rocm/device-metrics-exporter-ainic:nic-v1.1.0 -monitor-nic=true -monitor-gpu=false
 ```
 
 The exporter polls for configuration changes every minute, so updates take effect without container restarts.
