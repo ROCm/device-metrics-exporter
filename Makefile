@@ -18,6 +18,10 @@ RHEL_BASE_MIN_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.6
 AZURE_BASE_IMAGE ?= mcr.microsoft.com/azurelinux/base/core:3.0
 EXPORTER_AINIC_IMAGE_NAME ?= device-metrics-exporter-ainic
 
+# helm environment variables
+HELM_EXPORTER_IMAGE := $(DOCKER_REGISTRY)/$(EXPORTER_IMAGE_NAME)
+HELM_EXPORTER_IMAGE_TAG ?= $(PROJECT_VERSION)
+
 # Test runner container environment
 TESTRUNNER_IMAGE_TAG ?= latest
 TESTRUNNER_IMAGE_NAME ?= test-runner
@@ -147,6 +151,9 @@ endif
 PROJECT_VERSION ?= v1.5.0
 HELM_CHARTS_VERSION ?= $(PROJECT_VERSION)
 NIC_BUILD ?= 0
+ifeq ($(NIC_BUILD),1)
+HELM_EXPORTER_IMAGE := $(DOCKER_REGISTRY)/$(EXPORTER_AINIC_IMAGE_NAME)
+endif
 
 ifneq (,$(findstring nic-,$(PROJECT_VERSION)))
   # extract v1.0.0 from the nic-v1.0.0 format
