@@ -121,7 +121,22 @@ rm -rf ${TECH_SUPPORT_FILE}
 mkdir -p ${TECH_SUPPORT_FILE}
 ${KUBECTL} version >${TECH_SUPPORT_FILE}/kubectl.txt || die "${KUBECTL} failed"
 
-EXPORTER_NS=$(${KUBECTL} get pods --no-headers -A -l app=${RELNAME}-amdgpu-metrics-exporter | awk '{ print $1 }' | sort -u | head -n1)
+# Try selectors in order:
+# 1. gpu-operator: pods labeled daemonset-name=<devconfig> + app.kubernetes.io/name=metrics-exporter
+# 2. standalone helm chart: pods labeled app=<release>-amdgpu-metrics-exporter + app.kubernetes.io/name=metrics-exporter
+# 3. standalone helm chart (legacy, no app.kubernetes.io/name label): app=<release>-amdgpu-metrics-exporter
+EXPORTER_NS=$(${KUBECTL} get pods --no-headers -A -l "daemonset-name=${RELNAME},app.kubernetes.io/name=metrics-exporter" 2>/dev/null | awk '{ print $1 }' | sort -u | head -n1)
+if [ -n "${EXPORTER_NS}" ]; then
+	EXPORTER_LABEL="daemonset-name=${RELNAME},app.kubernetes.io/name=metrics-exporter"
+else
+	EXPORTER_NS=$(${KUBECTL} get pods --no-headers -A -l "app=${RELNAME}-amdgpu-metrics-exporter,app.kubernetes.io/name=metrics-exporter" 2>/dev/null | awk '{ print $1 }' | sort -u | head -n1)
+	if [ -n "${EXPORTER_NS}" ]; then
+		EXPORTER_LABEL="app=${RELNAME}-amdgpu-metrics-exporter,app.kubernetes.io/name=metrics-exporter"
+	else
+		EXPORTER_NS=$(${KUBECTL} get pods --no-headers -A -l "app=${RELNAME}-amdgpu-metrics-exporter" 2>/dev/null | awk '{ print $1 }' | sort -u | head -n1)
+		EXPORTER_LABEL="app=${RELNAME}-amdgpu-metrics-exporter"
+	fi
+fi
 
 echo -e "EXPORTER_NAMESPACE:$EXPORTER_NS" >${TECH_SUPPORT_FILE}/namespace.txt
 log "EXPORTER_NAMESPACE:$EXPORTER_NS \n"
@@ -154,48 +169,59 @@ for node in ${NODES}; do
 	mkdir -p ${TECH_SUPPORT_FILE}/${node}
 	${KUBECTL} describe nodes ${node} >${TECH_SUPPORT_FILE}/${node}/${node}.txt
 	
-	EXPORTER_PODS=$(${KNS} get pods -o name --field-selector spec.nodeName=${node} -l "app=${RELNAME}-amdgpu-metrics-exporter")
-	pod_logs $EXPORTER_NS "metrics-exporter" $node $EXPORTER_PODS
+	EXPORTER_PODS=$(${KNS} get pods -o name --field-selector spec.nodeName=${node} -l "${EXPORTER_LABEL}")
+	if [ -n "${EXPORTER_NS}" ] && [ -n "${EXPORTER_PODS}" ]; then
+		pod_logs "${EXPORTER_NS}" "metrics-exporter" "${node}" ${EXPORTER_PODS}
+	fi
 	
-	# Check if there are any running pods before attempting exec commands
+	# Prefer a fully Running pod for exec; fall back to Terminating (still alive
+	# during grace period when the node is tainted NoExecute).
 	RUNNING_POD=""
+	TERMINATING_POD=""
 	for expod in ${EXPORTER_PODS}; do
 		pod=$(basename ${expod})
 		POD_STATUS=$(${KNS} get pod "${pod}" -o jsonpath='{.status.phase}' 2>/dev/null)
-		if [ "${POD_STATUS}" == "Running" ]; then
+		DELETION_TS=$(${KNS} get pod "${pod}" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null)
+		if [ "${POD_STATUS}" == "Running" ] && [ -z "${DELETION_TS}" ]; then
 			RUNNING_POD="${pod}"
 			break
+		elif [ -n "${DELETION_TS}" ] && [ -z "${TERMINATING_POD}" ]; then
+			TERMINATING_POD="${pod}"
 		fi
 	done
-	
-	# Skip exec commands if no running pod found
-	if [ -z "${RUNNING_POD}" ]; then
-		log "   No running pods found for node ${node}, skipping exec commands"
+	EXEC_POD="${RUNNING_POD:-${TERMINATING_POD}}"
+
+	if [ -z "${EXEC_POD}" ]; then
+		log "   No Running or Terminating pod found for node ${node}, skipping exec commands"
+		cat >${TECH_SUPPORT_FILE}/${node}/missing-data-reason.txt <<REASON
+No Running or Terminating exporter pod found on node ${node} at collection time.
+This typically occurs when the node is tainted (e.g. during GPU partitioning),
+causing the DaemonSet pod to be evicted before techsupport was collected.
+REASON
 	else
 		# gpuagent logs
 		GPUAGENT_LOGS="gpu-agent.log gpu-agent-api.log gpu-agent-err.log"
 		mkdir -p ${TECH_SUPPORT_FILE}/${node}/gpu-agent
 		for l in ${GPUAGENT_LOGS}; do
-			${KNS} exec -it ${RUNNING_POD} -- sh -c "cat /var/log/$l" > ${TECH_SUPPORT_FILE}/${node}/gpu-agent/$l || true
+			${KNS} exec -it ${EXEC_POD} -- sh -c "cat /var/log/$l" >${TECH_SUPPORT_FILE}/${node}/gpu-agent/$l || true
 		done
-		#exporter version 
 		log "   exporter version"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt || true
 		log "   exporter health"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
 		log "   exporter config"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "cat /etc/metrics/config.json" >${TECH_SUPPORT_FILE}/${node}/exporterconfig.json || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "cat /etc/metrics/config.json" >${TECH_SUPPORT_FILE}/${node}/exporterconfig.json || true
 		log "   exporter pod details"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient -pod -json" >${TECH_SUPPORT_FILE}/${node}/exporterpod.json || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient -pod -json" >${TECH_SUPPORT_FILE}/${node}/exporterpod.json || true
 		log "   exporter node details"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "metricsclient -npod" >${TECH_SUPPORT_FILE}/${node}/exporternode.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient -npod" >${TECH_SUPPORT_FILE}/${node}/exporternode.txt || true
 		log "   amd-smi output"
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi list" >${TECH_SUPPORT_FILE}/${node}/amd-smi-list.txt || true
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi static " >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi firmware" >${TECH_SUPPORT_FILE}/${node}/amd-smi-firmware.txt || true
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
-		${KNS} exec -it ${RUNNING_POD} -- sh -c "amd-smi xgmi" >${TECH_SUPPORT_FILE}/${node}/amd-smi-xgmi.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi list" >${TECH_SUPPORT_FILE}/${node}/amd-smi-list.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi static " >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi firmware" >${TECH_SUPPORT_FILE}/${node}/amd-smi-firmware.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi xgmi" >${TECH_SUPPORT_FILE}/${node}/amd-smi-xgmi.txt || true
 	fi
 
 	${KUBECTL} get nodes -l "node-role.kubernetes.io/control-plane=NoSchedule" 2>/dev/null | grep ${node} && continue # skip master nodes
