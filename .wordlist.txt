@@ -300,3 +300,6 @@ uncorrectable
 url
 wavefronts
 yaml
+daemonsets
+Goroutine
+infiniband
