@@ -6,18 +6,90 @@ This topic provides an overview of troubleshooting options for Device Metrics Ex
 
 ### K8s Techsupport Collection
 
-The [techsupport-dump script](https://github.com/ROCm/device-metrics-exporter/blob/main/tools/techsupport_dump.sh) can be used to collect system state and logs for debugging:
+Two specialized techsupport scripts are available for collecting diagnostics:
+
+#### GPU Exporter Techsupport
+
+The [techsupport_dump.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/tools/techsupport_dump.sh) script collects GPU exporter diagnostics.
 
 ```bash
-# ./techsupport_dump.sh [-w] [-o yaml/json] [-k kubeconfig] [-r helm-release-name] <node-name/all>
+./techsupport_dump.sh -r <helm-release-name> [-k kubeconfig] [-o yaml/json] [-w] <node-name/all>
 ```
 
 Options:
 
-- `-w`: wide option
-- `-o yaml/json`: output format (default: json)
+- `-r helm-release-name`: helm release name (required)
 - `-k kubeconfig`: path to kubeconfig (default: ~/.kube/config)
-- `-r  helm-release-name`: helm release name
+- `-o yaml/json`: output format (default: json)
+- `-w`: wide option
+
+Example:
+
+```bash
+# Collect GPU exporter diagnostics for all nodes
+./techsupport_dump.sh -r amd-gpu-operator -k ~/.kube/config all
+
+# Collect for a specific node
+./techsupport_dump.sh -r amd-gpu-operator node1
+```
+
+Collected diagnostics include:
+
+- Exporter version, health, and configuration
+- Pod and container logs (current and previous)
+- amd-smi output (list, metric, static, firmware, partition, xgmi)
+- GPU agent logs
+- Kubernetes resources (nodes, events, pods, daemonsets)
+
+#### NIC Exporter Techsupport
+
+The [nic_techsupport_dump.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/tools/nic_techsupport_dump.sh) script collects NIC exporter diagnostics. It supports both standalone helm deployments and operator-managed deployments.
+
+```bash
+./nic_techsupport_dump.sh -r <helm-release-name> [-k kubeconfig] [-o yaml/json] [-w] <node-name/all>
+```
+
+Options:
+
+- `-r helm-release-name`: helm release name (required)
+  - For standalone: use the exporter helm release name (e.g., `amd-ainic-exporter`)
+  - For operator-managed: use the operator helm release name (e.g., `amd-network-operator`)
+- `-k kubeconfig`: path to kubeconfig (default: ~/.kube/config)
+- `-o yaml/json`: output format (default: json)
+- `-w`: wide option
+
+Examples:
+
+```bash
+# Standalone deployment
+./nic_techsupport_dump.sh -r amd-ainic-exporter -k ~/.kube/config genoa3
+
+# Operator-managed deployment
+./nic_techsupport_dump.sh -r amd-network-operator -k ~/.kube/config all
+```
+
+Collected diagnostics include:
+
+- Exporter version, health, and configuration
+- Pod and container logs (current and previous)
+- Metrics endpoint (`/metrics`)
+- RDMA statistics (`rdma statistic -j`)
+- ethtool statistics for AMD interfaces
+- nicctl statistics (if available):
+  - Port statistics
+  - LIF statistics
+  - RDMA queue-pair information and statistics
+- NIC device information (infiniband, network interfaces)
+- Goroutine dump for debugging
+- Kubernetes resources (nodes, events, pods, daemonsets)
+
+The script automatically:
+
+1. Detects the namespace from the helm release
+2. Finds the metrics exporter daemonset (works for both deployment types)
+3. Verifies it's a NIC exporter by checking container arguments
+4. Detects deployment type (standalone vs operator-managed)
+5. Generates a tarball named `techsupport-nic-<timestamp>.tgz`
 
 ### Docker Techsupport Collection
 
