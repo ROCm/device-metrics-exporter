@@ -2406,16 +2406,25 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	}
 	xgmiStats := stats.XGMILinkStats
 	if xgmiStats != nil {
+		rxExported, txExported := false, false
 		for j, linkStat := range xgmiStats {
 			labelsWithIndex["link_index"] = fmt.Sprintf("%v", j)
 			if utils.IsValueApplicable(linkStat.DataRead) {
 				ga.metrics.gpuXgmiLinkStatsRx.With(labelsWithIndex).Set(float64(linkStat.DataRead))
+				rxExported = true
 			}
 			if utils.IsValueApplicable(linkStat.DataWrite) {
 				ga.metrics.gpuXgmiLinkStatsTx.With(labelsWithIndex).Set(float64(linkStat.DataWrite))
+				txExported = true
 			}
 		}
 		delete(labelsWithIndex, "link_index")
+		if !rxExported {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_XGMI_LINK_RX.String())
+		}
+		if !txExported {
+			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_XGMI_LINK_TX.String())
+		}
 	}
 	violationStats := stats.ViolationStats
 	if violationStats != nil {
