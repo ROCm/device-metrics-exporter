@@ -1,5 +1,9 @@
 # NIC Exporter Release Notes
 
+## nic-v1.2.0
+
+- Image Size Optimization: Docker image size reduced by 57% (from 903MB to 386MB) by stripping debug symbols from nicctl binary and Go binaries
+
 ## nic-v1.1.0
 
 - nicctl Bundling: `nicctl` is now bundled within the NIC exporter Docker image, eliminating the need to mount nicctl from host

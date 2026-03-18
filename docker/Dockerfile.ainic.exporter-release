@@ -11,12 +11,14 @@ RUN curl -L -o /tmp/dtc.rpm https://download.rockylinux.org/pub/rocky/9/AppStrea
     rpm -ivh --nodeps /tmp/dtc.rpm && \
     rm -f /tmp/dtc.rpm
 RUN microdnf update -y && \
-    microdnf install -y nicctl util-linux && \
+    microdnf install -y nicctl util-linux binutils && \
     rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 # Export binaries and needed libs
 RUN mkdir -p /export/bin /export/lib64
 RUN cp -v /usr/sbin/nicctl /export/bin/
+# Strip debug symbols to reduce binary size from ~526MB to ~103MB
+RUN strip --strip-debug /export/bin/nicctl
 RUN cp -v /lib64/libpci* /export/lib64/
 
 ###########
@@ -31,7 +33,6 @@ RUN mkdir -p /home/amd/tools/
 
 ADD ./LICENSE /licenses/LICENSE
 ADD ./amd-metrics-exporter /home/amd/bin/server
-ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
 ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
 RUN chmod +x /home/amd/tools/entrypoint.sh
