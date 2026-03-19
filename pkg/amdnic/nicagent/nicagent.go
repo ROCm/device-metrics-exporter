@@ -340,7 +340,8 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 	}
 
 	if podInfo != nil {
-		pid, ok := na.podnameToPidCacheGet(podInfo)
+		var ok bool
+		pid, ok = na.podnameToPidCacheGet(podInfo)
 		if !ok {
 			return netDevices, fmt.Errorf("failed to get pid for %s", podName)
 		}
