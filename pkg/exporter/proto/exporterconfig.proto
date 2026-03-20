@@ -637,6 +637,8 @@ enum NICMetricField {
     ETH_FRAMES_TX_1519B_2047B                = 574;
     ETH_FRAMES_TX_2048B_4095B                = 575;
     ETH_FRAMES_TX_4096B_8191B                = 576;
+    ETH_FRAMES_RX_PRIPAUSE                   = 577;
+    ETH_FRAMES_TX_PRIPAUSE                   = 578;
 }
 
 enum NICMetricLabel {

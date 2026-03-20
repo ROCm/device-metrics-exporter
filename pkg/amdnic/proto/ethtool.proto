@@ -135,4 +135,6 @@ message EthtoolStats {
     uint64 FRAMES_TX_1519B_2047B            = 76 [(go.field).tags = 'yaml:"frames_tx_1519b_2047b,omitempty" json:"frames_tx_1519b_2047b,omitempty"'];
     uint64 FRAMES_TX_2048B_4095B            = 77 [(go.field).tags = 'yaml:"frames_tx_2048b_4095b,omitempty" json:"frames_tx_2048b_4095b,omitempty"'];
     uint64 FRAMES_TX_4096B_8191B            = 78 [(go.field).tags = 'yaml:"frames_tx_4096b_8191b,omitempty" json:"frames_tx_4096b_8191b,omitempty"'];
+    uint64 FRAMES_RX_PRIPAUSE               = 79 [(go.field).tags = 'yaml:"frames_rx_pripause,omitempty" json:"frames_rx_pripause,omitempty"'];
+    uint64 FRAMES_TX_PRIPAUSE               = 80 [(go.field).tags = 'yaml:"frames_tx_pripause,omitempty" json:"frames_tx_pripause,omitempty"'];
 }

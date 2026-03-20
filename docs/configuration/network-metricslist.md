@@ -179,6 +179,8 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &check;    | ETH_FRAMES_TX_MULTICAST                  | Count of multicast frames transmitted                                       |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_PAUSE                      | Count of pause frames received                                              |
 | &check;    | &check;   | &check;    | ETH_FRAMES_TX_PAUSE                      | Count of pause frames transmitted                                           |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRIPAUSE                   | Count of priority pause frames received                                     |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRIPAUSE                   | Count of priority pause frames transmitted                                  |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_64B                        | Count of 64-byte frames received                                            |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_65B_127B                   | Count of 65-127 byte frames received                                        |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_128B_255B                  | Count of 128-255 byte frames received                                       |
@@ -189,22 +191,22 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_2048B_4095B                | Count of 2048-4095 byte frames received                                     |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_4096B_8191B                | Count of 4096-8191 byte frames received                                     |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_BAD_FCS                    | Count of frames received with bad FCS                                       |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_0                      | Count of priority 0 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_1                      | Count of priority 1 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_2                      | Count of priority 2 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_3                      | Count of priority 3 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_4                      | Count of priority 4 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_5                      | Count of priority 5 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_6                      | Count of priority 6 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI_7                      | Count of priority 7 frames received                                         |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_0                      | Count of priority 0 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_1                      | Count of priority 1 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_2                      | Count of priority 2 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_3                      | Count of priority 3 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_4                      | Count of priority 4 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_5                      | Count of priority 5 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_6                      | Count of priority 6 frames transmitted                                      |
-| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI_7                      | Count of priority 7 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI0                       | Count of priority 0 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI1                       | Count of priority 1 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI2                       | Count of priority 2 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI3                       | Count of priority 3 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI4                       | Count of priority 4 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI5                       | Count of priority 5 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI6                       | Count of priority 6 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_RX_PRI7                       | Count of priority 7 frames received                                         |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI0                       | Count of priority 0 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI1                       | Count of priority 1 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI2                       | Count of priority 2 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI3                       | Count of priority 3 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI4                       | Count of priority 4 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI5                       | Count of priority 5 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI6                       | Count of priority 6 frames transmitted                                      |
+| &check;    | &check;   | &check;    | ETH_FRAMES_TX_PRI7                       | Count of priority 7 frames transmitted                                      |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_DROPPED                    | Count of frames dropped on receive                                          |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_ALL                        | Total number of frames received                                             |
 | &check;    | &check;   | &check;    | ETH_FRAMES_RX_BAD_ALL                    | Total number of bad frames received                                         |

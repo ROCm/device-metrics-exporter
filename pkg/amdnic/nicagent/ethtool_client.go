@@ -157,6 +157,8 @@ func (ec *EthtoolClient) populateEthStatsForNetDevice(podInfo *scheduler.PodReso
 	ec.na.m.ethFramesTxMulticast.With(labels).Set(float64(ethtoolStats.FRAMES_TX_MULTICAST))
 	ec.na.m.ethFramesRxPause.With(labels).Set(float64(ethtoolStats.FRAMES_RX_PAUSE))
 	ec.na.m.ethFramesTxPause.With(labels).Set(float64(ethtoolStats.FRAMES_TX_PAUSE))
+	ec.na.m.ethFramesRxPriPause.With(labels).Set(float64(ethtoolStats.FRAMES_RX_PRIPAUSE))
+	ec.na.m.ethFramesTxPriPause.With(labels).Set(float64(ethtoolStats.FRAMES_TX_PRIPAUSE))
 	ec.na.m.ethFramesRx64b.With(labels).Set(float64(ethtoolStats.FRAMES_RX_64B))
 	ec.na.m.ethFramesRx65b127b.With(labels).Set(float64(ethtoolStats.FRAMES_RX_65B_127B))
 	ec.na.m.ethFramesRx128b255b.With(labels).Set(float64(ethtoolStats.FRAMES_RX_128B_255B))
