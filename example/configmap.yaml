@@ -397,6 +397,8 @@ data:
           "ETH_FRAMES_TX_MULTICAST",
           "ETH_FRAMES_RX_PAUSE",
           "ETH_FRAMES_TX_PAUSE",
+          "ETH_FRAMES_RX_PRIPAUSE",
+          "ETH_FRAMES_TX_PRIPAUSE",
           "ETH_FRAMES_RX_64B",
           "ETH_FRAMES_RX_65B_127B",
           "ETH_FRAMES_RX_128B_255B",

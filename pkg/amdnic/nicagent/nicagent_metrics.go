@@ -224,6 +224,8 @@ type metrics struct {
 	ethFramesTxMulticast  prometheus.GaugeVec
 	ethFramesRxPause      prometheus.GaugeVec
 	ethFramesTxPause      prometheus.GaugeVec
+	ethFramesRxPriPause   prometheus.GaugeVec
+	ethFramesTxPriPause   prometheus.GaugeVec
 	ethFramesRx64b        prometheus.GaugeVec
 	ethFramesRx65b127b    prometheus.GaugeVec
 	ethFramesRx128b255b   prometheus.GaugeVec
@@ -756,6 +758,8 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_MULTICAST.String():                 {Metric: na.m.ethFramesTxMulticast},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_PAUSE.String():                     {Metric: na.m.ethFramesRxPause},
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_PAUSE.String():                     {Metric: na.m.ethFramesTxPause},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRIPAUSE.String():                  {Metric: na.m.ethFramesRxPriPause},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRIPAUSE.String():                  {Metric: na.m.ethFramesTxPriPause},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_64B.String():                       {Metric: na.m.ethFramesRx64b},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_65B_127B.String():                  {Metric: na.m.ethFramesRx65b127b},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_128B_255B.String():                 {Metric: na.m.ethFramesRx128b255b},
@@ -1541,6 +1545,16 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		ethFramesTxPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_frames_tx_pause",
 			Help: "Number of pause frames transmitted",
+		}, deviceLabels),
+
+		ethFramesRxPriPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_rx_pripause",
+			Help: "Number of priority pause frames received",
+		}, deviceLabels),
+
+		ethFramesTxPriPause: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "eth_frames_tx_pripause",
+			Help: "Number of priority pause frames transmitted",
 		}, deviceLabels),
 
 		ethFramesRx64b: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
