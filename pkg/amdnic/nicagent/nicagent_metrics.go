@@ -50,6 +50,7 @@ var (
 	fetchPortRateMetrics bool
 	fetchLifMetrics      bool
 	fetchQPMetrics       bool
+	fetchLIFAggQPMetrics bool
 )
 
 type FieldMeta struct {
@@ -212,6 +213,48 @@ type metrics struct {
 	qpRqQcnNumAlphaTimerExpired  prometheus.GaugeVec
 	qpRqQcnNumCNPrcvd            prometheus.GaugeVec
 	qpRqQcnNumCNPprocessed       prometheus.GaugeVec
+
+	// LIF-aggregated QPStats (sum of all QPs per LIF)
+	// LIF-aggregated QPStats Requester TX
+	lifQpSqReqTxNumPacketTotal           prometheus.GaugeVec
+	lifQpSqReqTxNumSendMsgsWithRkeTotal  prometheus.GaugeVec
+	lifQpSqReqTxNumLocalAckTimeoutsTotal prometheus.GaugeVec
+	lifQpSqReqTxRnrTimeoutTotal          prometheus.GaugeVec
+	lifQpSqReqTxTimesSQdrainedTotal      prometheus.GaugeVec
+	lifQpSqReqTxNumCNPsentTotal          prometheus.GaugeVec
+	// LIF-aggregated QPStats Requester RX
+	lifQpSqReqRxNumPacketTotal             prometheus.GaugeVec
+	lifQpSqReqRxNumPktsWithEcnMarkingTotal prometheus.GaugeVec
+	// LIF-aggregated QPStats Requester DCQCN
+	lifQpSqQcnCurrByteCounterTotal       prometheus.GaugeVec
+	lifQpSqQcnNumByteCounterExpiredTotal prometheus.GaugeVec
+	lifQpSqQcnNumTimerExpiredTotal       prometheus.GaugeVec
+	lifQpSqQcnNumAlphaTimerExpiredTotal  prometheus.GaugeVec
+	lifQpSqQcnNumCNPrcvdTotal            prometheus.GaugeVec
+	lifQpSqQcnNumCNPprocessedTotal       prometheus.GaugeVec
+	// LIF-aggregated QPStats Responder TX
+	lifQpRqRspTxNumPacketTotal         prometheus.GaugeVec
+	lifQpRqRspTxRnrErrorTotal          prometheus.GaugeVec
+	lifQpRqRspTxNumSequenceErrorTotal  prometheus.GaugeVec
+	lifQpRqRspTxNumRpByteThresHitTotal prometheus.GaugeVec
+	lifQpRqRspTxNumRpMaxRateHitTotal   prometheus.GaugeVec
+	// LIF-aggregated QPStats Responder RX
+	lifQpRqRspRxNumPacketTotal             prometheus.GaugeVec
+	lifQpRqRspRxNumSendMsgsWithRkeTotal    prometheus.GaugeVec
+	lifQpRqRspRxNumPktsWithEcnMarkingTotal prometheus.GaugeVec
+	lifQpRqRspRxNumCNPsReceivedTotal       prometheus.GaugeVec
+	lifQpRqRspRxMaxRecircExceededDropTotal prometheus.GaugeVec
+	lifQpRqRspRxNumMemWindowInvalidTotal   prometheus.GaugeVec
+	lifQpRqRspRxNumDuplWithWrSendOpcTotal  prometheus.GaugeVec
+	lifQpRqRspRxNumDuplReadBacktrackTotal  prometheus.GaugeVec
+	lifQpRqRspRxNumDuplReadAtomicDropTotal prometheus.GaugeVec
+	// LIF-aggregated QPStats Responder DCQCN
+	lifQpRqQcnCurrByteCounterTotal       prometheus.GaugeVec
+	lifQpRqQcnNumByteCounterExpiredTotal prometheus.GaugeVec
+	lifQpRqQcnNumTimerExpiredTotal       prometheus.GaugeVec
+	lifQpRqQcnNumAlphaTimerExpiredTotal  prometheus.GaugeVec
+	lifQpRqQcnNumCNPrcvdTotal            prometheus.GaugeVec
+	lifQpRqQcnNumCNPprocessedTotal       prometheus.GaugeVec
 
 	// Ethtool stats
 	ethTxPackets          prometheus.GaugeVec
@@ -558,6 +601,7 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	fetchPortRateMetrics = false
 	fetchLifMetrics = false
 	fetchQPMetrics = false
+	fetchLIFAggQPMetrics = false
 
 	if config == nil || len(config.GetFields()) == 0 {
 		fetchRdmaMetrics = true
@@ -566,8 +610,9 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 		fetchPortRateMetrics = true
 		fetchLifMetrics = true
 		fetchQPMetrics = true
-		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v}",
-			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics)
+		fetchLIFAggQPMetrics = true
+		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v}",
+			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics)
 		return
 	}
 
@@ -592,6 +637,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			fetchPortMetrics = true
 		case strings.HasPrefix(fieldName, "NIC_LIF_"):
 			fetchLifMetrics = true
+		case strings.HasPrefix(fieldName, "LIF_QP_"):
+			fetchLIFAggQPMetrics = true
 		case strings.HasPrefix(fieldName, "QP_"):
 			fetchQPMetrics = true
 		default:
@@ -605,8 +652,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			logger.Log.Printf("%v field is disabled", k)
 		}
 	}
-	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v}",
-		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics)
+	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v}",
+		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics)
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {
@@ -827,6 +874,41 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_1519B_2047B.String():               {Metric: na.m.ethFramesTx1519b2047b},
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_2048B_4095B.String():               {Metric: na.m.ethFramesTx2048b4095b},
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_4096B_8191B.String():               {Metric: na.m.ethFramesTx4096b8191b},
+		// LIF-aggregated QP metrics
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_PACKET_TOTAL.String():                {Metric: na.m.lifQpSqReqTxNumPacketTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE_TOTAL.String():    {Metric: na.m.lifQpSqReqTxNumSendMsgsWithRkeTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS_TOTAL.String():    {Metric: na.m.lifQpSqReqTxNumLocalAckTimeoutsTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_RNR_TIMEOUT_TOTAL.String():               {Metric: na.m.lifQpSqReqTxRnrTimeoutTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_TIMES_SQ_DRAINED_TOTAL.String():          {Metric: na.m.lifQpSqReqTxTimesSQdrainedTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_CNP_SENT_TOTAL.String():              {Metric: na.m.lifQpSqReqTxNumCNPsentTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_RX_NUM_PACKET_TOTAL.String():                {Metric: na.m.lifQpSqReqRxNumPacketTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL.String(): {Metric: na.m.lifQpSqReqRxNumPktsWithEcnMarkingTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_CURR_BYTE_COUNTER_TOTAL.String():            {Metric: na.m.lifQpSqQcnCurrByteCounterTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL.String():     {Metric: na.m.lifQpSqQcnNumByteCounterExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_TIMER_EXPIRED_TOTAL.String():            {Metric: na.m.lifQpSqQcnNumTimerExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL.String():      {Metric: na.m.lifQpSqQcnNumAlphaTimerExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_CNP_RCVD_TOTAL.String():                 {Metric: na.m.lifQpSqQcnNumCNPrcvdTotal},
+		exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_CNP_PROCESSED_TOTAL.String():            {Metric: na.m.lifQpSqQcnNumCNPprocessedTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_PACKET_TOTAL.String():                {Metric: na.m.lifQpRqRspTxNumPacketTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_RNR_ERROR_TOTAL.String():                 {Metric: na.m.lifQpRqRspTxRnrErrorTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR_TOTAL.String():        {Metric: na.m.lifQpRqRspTxNumSequenceErrorTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT_TOTAL.String():     {Metric: na.m.lifQpRqRspTxNumRpByteThresHitTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT_TOTAL.String():       {Metric: na.m.lifQpRqRspTxNumRpMaxRateHitTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_PACKET_TOTAL.String():                {Metric: na.m.lifQpRqRspRxNumPacketTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE_TOTAL.String():    {Metric: na.m.lifQpRqRspRxNumSendMsgsWithRkeTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL.String(): {Metric: na.m.lifQpRqRspRxNumPktsWithEcnMarkingTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED_TOTAL.String():         {Metric: na.m.lifQpRqRspRxNumCNPsReceivedTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP_TOTAL.String():  {Metric: na.m.lifQpRqRspRxMaxRecircExceededDropTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID_TOTAL.String():    {Metric: na.m.lifQpRqRspRxNumMemWindowInvalidTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC_TOTAL.String(): {Metric: na.m.lifQpRqRspRxNumDuplWithWrSendOpcTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK_TOTAL.String():   {Metric: na.m.lifQpRqRspRxNumDuplReadBacktrackTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP_TOTAL.String(): {Metric: na.m.lifQpRqRspRxNumDuplReadAtomicDropTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_CURR_BYTE_COUNTER_TOTAL.String():            {Metric: na.m.lifQpRqQcnCurrByteCounterTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL.String():     {Metric: na.m.lifQpRqQcnNumByteCounterExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_TIMER_EXPIRED_TOTAL.String():            {Metric: na.m.lifQpRqQcnNumTimerExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL.String():      {Metric: na.m.lifQpRqQcnNumAlphaTimerExpiredTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_CNP_RCVD_TOTAL.String():                 {Metric: na.m.lifQpRqQcnNumCNPrcvdTotal},
+		exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_CNP_PROCESSED_TOTAL.String():            {Metric: na.m.lifQpRqQcnNumCNPprocessedTotal},
 	}
 	logger.Log.Printf("Total NIC fields supported : %+v", len(fieldMetricsMap))
 }
@@ -1496,6 +1578,149 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 			Name: strings.ToLower(exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String()),
 			Help: "RecvQueue DCQCN number of Congestion notification packets processed",
 		}, append([]string{LabelEthIntfName, LabelPcieBusId, LabelQPID}, labelsWithWorkload...)),
+
+		/* LIF-aggregated QP stats (sum of all QPs per LIF) - without qp_id label */
+		lifQpSqReqTxNumPacketTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_PACKET_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx packets (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqTxNumSendMsgsWithRkeTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx num send msgs with invalid remote key error (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqTxNumLocalAckTimeoutsTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx local ACK timeouts (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqTxRnrTimeoutTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_RNR_TIMEOUT_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx receiver not ready timeouts (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqTxTimesSQdrainedTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_TIMES_SQ_DRAINED_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx times Send queue is drained (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqTxNumCNPsentTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_CNP_SENT_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Tx number of Congestion notification packets sent (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+
+		lifQpSqReqRxNumPacketTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_RX_NUM_PACKET_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Rx packets (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqReqRxNumPktsWithEcnMarkingTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue Requester Rx packets with explicit congestion notification marking (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+
+		lifQpSqQcnCurrByteCounterTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_CURR_BYTE_COUNTER_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN Current Byte Counter (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqQcnNumByteCounterExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN number of byte counter expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqQcnNumTimerExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_TIMER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN number of timer expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqQcnNumAlphaTimerExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN number of alpha timer expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqQcnNumCNPrcvdTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_CNP_RCVD_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN number of Congestion notification packets received (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpSqQcnNumCNPprocessedTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_SQ_QCN_NUM_CNP_PROCESSED_TOTAL.String()),
+			Help: "LIF-aggregated SendQueue DCQCN number of Congestion notification packets processed (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+
+		lifQpRqRspTxNumPacketTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_PACKET_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Tx number of packets (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspTxRnrErrorTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_RNR_ERROR_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Tx receiver not ready errors (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspTxNumSequenceErrorTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Tx number of sequence errors (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspTxNumRpByteThresHitTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Tx number of RP byte threshold hit (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspTxNumRpMaxRateHitTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Tx number of RP max rate hit (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+
+		lifQpRqRspRxNumPacketTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_PACKET_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of packets (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumSendMsgsWithRkeTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of send msgs with invalid remote key error (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumPktsWithEcnMarkingTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of pkts with ECN marking (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumCNPsReceivedTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of CNP pkts (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxMaxRecircExceededDropTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx max recirculation exceeded packet drop (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumMemWindowInvalidTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of memory window invalidate msg (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumDuplWithWrSendOpcTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of duplicate pkts with write send opcode (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumDuplReadBacktrackTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of duplicate read atomic backtrack packet (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqRspRxNumDuplReadAtomicDropTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue Responder Rx number of duplicate read atomic drop packet (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+
+		lifQpRqQcnCurrByteCounterTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_CURR_BYTE_COUNTER_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN Current Byte Counter (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqQcnNumByteCounterExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN number of byte counter expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqQcnNumTimerExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_TIMER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN number of timer expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqQcnNumAlphaTimerExpiredTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN number of alpha timer expired (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqQcnNumCNPrcvdTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_CNP_RCVD_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN number of Congestion notification packets received (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
+		lifQpRqQcnNumCNPprocessedTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_LIF_QP_RQ_QCN_NUM_CNP_PROCESSED_TOTAL.String()),
+			Help: "LIF-aggregated RecvQueue DCQCN number of Congestion notification packets processed (sum across all QPs)",
+		}, append([]string{LabelEthIntfName, LabelPcieBusId}, labelsWithWorkload...)),
 
 		ethTxPackets: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "eth_tx_packets",

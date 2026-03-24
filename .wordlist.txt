@@ -303,3 +303,6 @@ yaml
 daemonsets
 Goroutine
 infiniband
+cardinality
+QPs
+expirations

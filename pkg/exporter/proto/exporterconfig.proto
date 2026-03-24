@@ -559,6 +559,42 @@ enum NICMetricField {
     QP_RQ_QCN_NUM_CNP_RCVD                   = 332;
     QP_RQ_QCN_NUM_CNP_PROCESSED              = 333;
 
+    // LIF-aggregated QP metrics (sum of all QPs per LIF)
+    LIF_QP_SQ_REQ_TX_NUM_PACKET_TOTAL                     = 334;
+    LIF_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE_TOTAL         = 335;
+    LIF_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS_TOTAL         = 336;
+    LIF_QP_SQ_REQ_TX_RNR_TIMEOUT_TOTAL                    = 337;
+    LIF_QP_SQ_REQ_TX_TIMES_SQ_DRAINED_TOTAL               = 338;
+    LIF_QP_SQ_REQ_TX_NUM_CNP_SENT_TOTAL                   = 339;
+    LIF_QP_SQ_REQ_RX_NUM_PACKET_TOTAL                     = 340;
+    LIF_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL      = 341;
+    LIF_QP_SQ_QCN_CURR_BYTE_COUNTER_TOTAL                 = 342;
+    LIF_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL          = 343;
+    LIF_QP_SQ_QCN_NUM_TIMER_EXPIRED_TOTAL                 = 344;
+    LIF_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL           = 345;
+    LIF_QP_SQ_QCN_NUM_CNP_RCVD_TOTAL                      = 346;
+    LIF_QP_SQ_QCN_NUM_CNP_PROCESSED_TOTAL                 = 347;
+    LIF_QP_RQ_RSP_TX_NUM_PACKET_TOTAL                     = 348;
+    LIF_QP_RQ_RSP_TX_RNR_ERROR_TOTAL                      = 349;
+    LIF_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR_TOTAL             = 350;
+    LIF_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT_TOTAL          = 351;
+    LIF_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT_TOTAL            = 352;
+    LIF_QP_RQ_RSP_RX_NUM_PACKET_TOTAL                     = 353;
+    LIF_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE_TOTAL         = 354;
+    LIF_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING_TOTAL      = 355;
+    LIF_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED_TOTAL              = 356;
+    LIF_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP_TOTAL       = 357;
+    LIF_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID_TOTAL         = 358;
+    LIF_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC_TOTAL      = 359;
+    LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK_TOTAL        = 360;
+    LIF_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP_TOTAL      = 361;
+    LIF_QP_RQ_QCN_CURR_BYTE_COUNTER_TOTAL                 = 362;
+    LIF_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED_TOTAL          = 363;
+    LIF_QP_RQ_QCN_NUM_TIMER_EXPIRED_TOTAL                 = 364;
+    LIF_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED_TOTAL           = 365;
+    LIF_QP_RQ_QCN_NUM_CNP_RCVD_TOTAL                      = 366;
+    LIF_QP_RQ_QCN_NUM_CNP_PROCESSED_TOTAL                 = 367;
+
     // Ethtool stats
     ETH_TX_PACKETS                           = 500;
     ETH_TX_BYTES                             = 501;
