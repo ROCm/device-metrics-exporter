@@ -8,6 +8,14 @@ nodeSelector: {}
 tolerations: []
 # -- Add annotations to the pods
 podAnnotations: {}
+# -- DaemonSet upgrade policy configuration
+upgradePolicy:
+  # -- The type of daemonset upgrade: RollingUpdate or OnDelete
+  upgradeStrategy: RollingUpdate
+  # -- The maximum number of Pods that can be unavailable during the update process
+  # Can be an absolute number (e.g., 1, 5) or a percentage (e.g., "25%")
+  # Only applicable when upgradeStrategy is RollingUpdate
+  maxUnavailable: "1"
 # -- kubelet configuration
 kubelet:
   # -- host path for kubelet pod-resources directory (optional)
