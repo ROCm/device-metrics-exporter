@@ -17,6 +17,11 @@
 - **Slinky**
   - Slinky job reporting is now supported, with labels providing both Kubernetes and Slurm job information
 
+- **KFD_PROCESS_ID Label Now Optional**
+  - The `KFD_PROCESS_ID` label is no longer mandatory and is disabled by default to reduce metric cardinality
+  - This change helps optimize Prometheus storage and query performance for deployments that don't require process-level tracking
+  - For users who need this label, simply add it to the ConfigMap configuration. See [Configuration Documentation](configuration/configmap.md) for details
+
 ### Platform Support
 
 ROCm 7.2.X MI2xx, MI3xx
