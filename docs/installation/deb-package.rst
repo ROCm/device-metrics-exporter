@@ -5,7 +5,8 @@ Standalone Debian Package Install
 System Requirements
 ===================
 
-Before installing the AMD GPU Metrics Exporter, you need to install the following:
+Before installing the AMD GPU Metrics Exporter, you need to install the "AMDGPU" driver from the Radeon repository.
+Please ensure that your system meets the following requirements:
 
 - **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
 - **ROCm Version**: 6.4.1 (specific to each .deb pkg)
@@ -144,12 +145,15 @@ Step 4: Install Metrics Exporter
 
       sudo systemctl status amd-metrics-exporter.service
 
+.. note::
+   Before performing GPU driver unload/upgrade or partition operations, services must be stopped. See the `Service Management for Driver and Partition Operations`_ section for detailed instructions.
+
 Metrics Exporter Default Settings
 ====================================
 
 - **Metrics endpoint:** ``http://localhost:5000/metrics``
 - **Configuration file:** ``/etc/metrics/config.json``
-- **GPU Agent port (default):** ``50061``
+- **GPU Agent socket:** ``/var/run/gpuagent.sock`` (Unix Domain Socket)
 
 The Exporter HTTP port is configurable via the `ServerPort` field in the configuration file.
 
@@ -180,8 +184,12 @@ If you need to customize ports or settings:
 
       sudo systemctl daemon-reload
 
-Custom Port Configuration - Change GPU Agent Port
--------------------------------------------------
+Custom Socket Configuration - Change GPU Agent Socket Path (Advanced)
+---------------------------------------------------------------------
+
+By default, GPU Agent uses Unix Domain Socket at ``/var/run/gpuagent.sock`` for communication with the metrics exporter.
+
+To change the socket path:
 
 1. Edit the GPU Agent service file:
 
@@ -189,17 +197,30 @@ Custom Port Configuration - Change GPU Agent Port
 
       sudo vi /lib/systemd/system/gpuagent.service
 
-2. Update `ExecStart` with desired port:
+2. Update `ExecStart` with custom socket path:
 
    .. code-block:: bash
 
-      ExecStart=/usr/local/bin/gpuagent -p <port_number>
+      ExecStart=/usr/local/bin/gpuagent -s /path/to/custom.sock
 
-3. Restart GPU Agent service:
+3. Edit the Metrics Exporter service file:
+
+   .. code-block:: bash
+
+      sudo vi /lib/systemd/system/amd-metrics-exporter.service
+
+4. Update `ExecStart` to use the same socket path:
+
+   .. code-block:: bash
+
+      ExecStart=/usr/local/bin/amd-metrics-exporter -s /path/to/custom.sock
+
+5. Restart both services:
 
    .. code-block:: bash
 
       sudo systemctl restart gpuagent.service
+      sudo systemctl restart amd-metrics-exporter.service
       sudo systemctl daemon-reload
 
 Change Metrics Exporter Port
@@ -211,26 +232,11 @@ Change Metrics Exporter Port
 
       sudo vi /etc/metrics/config.json
 
-2. Update `ServerPort` to your desired port.
-
-Change Metrics Exporter Port Connecting to GPU Agent
----------------------------------------------------
-
-1. Edit the Metrics Exporter service file:
-   .. code-block:: bash
-
-      sudo vi /lib/systemd/system/amd-metrics-exporter.service
-
-2. Update `ExecStart` with desired port:
-
-   .. code-block:: bash
-
-      ExecStart=/usr/local/bin/amd-metrics-exporter -agent-grpc-port <port_number>
+2. Update `ServerPort` to your desired port
 
 3. Restart Metrics Exporter service:
 
    .. code-block:: bash
-
       sudo systemctl restart amd-metrics-exporter.service
       sudo systemctl daemon-reload
 
@@ -254,6 +260,20 @@ To confirm that the Metrics Exporter is running and accessible, you can use the 
       systemctl status amd-metrics-exporter.service
       systemctl status gpuagent.service
 
+Service Management for Driver and Partition Operations
+------------------------------------------------------
+
+The GPU Metrics Exporter and GPU Agent services must be stopped before performing the following operations:
+
+- GPU driver unload or upgrade
+- GPU partition configuration changes
+
+**Required Steps:**
+
+1. **Stop Services**: See `Stop Metrics Exporter`_ section for instructions on stopping both services
+2. **Perform driver upgrade or partition operations**
+3. **Restart Services**: Use the enable and start commands from `Step 4: Install Metrics Exporter`_
+4. **Verify Services**: See `Confirm Metrics Exporter is Running`_ section to verify both services are running correctly
 
 Removing Metrics Exporter and other components
 ------------------------------------------------

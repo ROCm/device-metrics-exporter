@@ -128,6 +128,17 @@ docker logs device-metrics-exporter
 sudo journalctl -xu amd-metrics-exporter
 ```
 
+## Service Management for Driver and Partition Operations
+
+When performing GPU driver unload/upgrade or partition operations, the AMD Device Metrics Exporter services must be stopped first. The specific steps vary depending on your deployment method:
+
+- **Docker Deployment**: See [Docker Installation - Service Management](../installation/docker.md#service-management-for-driver-and-partition-operations)
+- **Debian Package Deployment**: See [Debian Package Installation - Troubleshooting](../installation/deb-package.rst#troubleshooting)
+
+**Why is this necessary?**
+
+The AMD Device Metrics Exporter maintains active connections to GPU devices and drivers.
+
 ## Common Issues
 
 This section describes common issues with AMD Device Metrics Exporter
