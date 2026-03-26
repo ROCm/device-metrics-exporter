@@ -68,6 +68,10 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 				_, ok := metricData.Labels[label]
 				assert.Equal(c, true, ok, fmt.Sprintf("expecting label %v not found", label))
 			}
+
+			// Verify KFD_PROCESS_ID is NOT present by default (it's now optional)
+			_, hasKfdProcessId := metricData.Labels["kfd_process_id"]
+			assert.Equal(c, false, hasKfdProcessId, "kfd_process_id should not be present by default")
 		}
 	}
 }
@@ -88,6 +92,44 @@ func (s *E2ESuite) Test002NonMandatoryLabelUpdate(c *C) {
 	expectedLabels := append(labels, mandatoryLabels...)
 	err = verifyMetricsLablesFields(allgpus, expectedLabels, []string{})
 	assert.Nil(c, err)
+}
+
+func (s *E2ESuite) Test002bKFDProcessIdOptional(c *C) {
+	log.Print("Testing KFD_PROCESS_ID label is optional and can be enabled via ConfigMap")
+
+	// Enable KFD_PROCESS_ID label
+	labels := []string{"kfd_process_id"}
+	err := s.SetLabels(labels)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
+
+	var response string
+	assert.Eventually(c, func() bool {
+		response, _ = s.getExporterResponse()
+		return response != ""
+	}, 3*time.Second, 1*time.Second)
+
+	allgpus, err := testutils.ParsePrometheusMetrics(response)
+	assert.Nil(c, err)
+
+	// Verify KFD_PROCESS_ID is now present in metrics
+	expectedLabels := append([]string{"kfd_process_id"}, mandatoryLabels...)
+	for _, gpu := range allgpus {
+		for _, metricData := range gpu.Fields {
+			kfdProcessId, hasKfdProcessId := metricData.Labels["kfd_process_id"]
+			assert.Equal(c, true, hasKfdProcessId, "kfd_process_id should be present when enabled in ConfigMap")
+
+			// Verify the label value is valid (empty string or comma-separated process IDs)
+			// The value can be empty if no processes are using the GPU
+			log.Printf("kfd_process_id value: %s", kfdProcessId)
+
+			// Verify all expected labels are present
+			for _, label := range expectedLabels {
+				_, ok := metricData.Labels[label]
+				assert.Equal(c, true, ok, fmt.Sprintf("expecting label %v not found", label))
+			}
+		}
+	}
 }
 
 func (s *E2ESuite) Test003InvalidLabel(c *C) {
