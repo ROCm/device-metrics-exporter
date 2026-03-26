@@ -42,7 +42,6 @@ var (
 		exportermetrics.GPUMetricLabel_GPU_PARTITION_ID.String(),
 		exportermetrics.GPUMetricLabel_GPU_COMPUTE_PARTITION_TYPE.String(),
 		exportermetrics.GPUMetricLabel_GPU_MEMORY_PARTITION_TYPE.String(),
-		exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String(),
 		exportermetrics.GPUMetricLabel_DEPLOYMENT_MODE.String(),
 		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
 		exportermetrics.MetricLabel_POD.String(),

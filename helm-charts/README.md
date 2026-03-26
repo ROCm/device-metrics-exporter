@@ -56,3 +56,7 @@ Kubernetes: `>= 1.29.0-0`
 | serviceMonitor.metricRelabelings | list | `[]` | Relabeling rules applied to individual scraped metrics |
 | serviceMonitor.relabelings | list | `[]` | RelabelConfigs to apply to samples before scraping |
 | tolerations | list | `[]` | Add tolerations for deploying metrics exporter on tainted nodes |
+| upgradePolicy | object | `{"maxUnavailable":"1","upgradeStrategy":"RollingUpdate"}` | DaemonSet upgrade policy configuration |
+| upgradePolicy.maxUnavailable | string | `"1"` | The maximum number of Pods that can be unavailable during the update process Can be an absolute number (e.g., 1, 5) or a percentage (e.g., "25%") Only applicable when upgradeStrategy is RollingUpdate |
+| upgradePolicy.upgradeStrategy | string | `"RollingUpdate"` | The type of daemonset upgrade: RollingUpdate or OnDelete |
+

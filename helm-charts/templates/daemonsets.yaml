@@ -6,6 +6,14 @@ metadata:
     {{- include "metrics-exporter.appLabel" . | nindent 4 }}
     {{- include "helm-charts-exporter.labels" . | nindent 4 }}
 spec:
+  {{- if .Values.upgradePolicy }}
+  updateStrategy:
+    type: {{ .Values.upgradePolicy.upgradeStrategy }}
+    {{- if eq .Values.upgradePolicy.upgradeStrategy "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.upgradePolicy.maxUnavailable }}
+    {{- end }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "metrics-exporter.appLabelWithReleaseName" . | nindent 6 }}
