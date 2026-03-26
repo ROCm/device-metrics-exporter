@@ -4,6 +4,7 @@ FROM ${BASE_IMAGE}
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi:9.6"
 
+ARG AGFHC_VERSION=1.30.0
 ARG ROCM_VERSION=7.2.1
 ARG RADEON_REPO_URL=https://repo.radeon.com
 
@@ -19,11 +20,8 @@ RUN dnf clean all && \
     echo "gpgkey=${RADEON_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
     dnf update -y && \
     dnf install rocrand rocm-validation-suite -y && \
-    ln /usr/lib64/libdrm_amdgpu.so.1 /usr/lib64/libdrm_amdgpu.so && \
     rm -rf /var/cache/yum /var/cache/dnf && \
     dnf clean all
-
-WORKDIR /
 
 # Security patch for multiple CVEs
 RUN dnf update -y libarchive libxml2 pam python3-requests glibc && \
@@ -42,6 +40,27 @@ RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noar
     dnf clean all && \
     find /opt/rocm/share/rocm-validation-suite/conf -name '*level_1*' -type f -exec sed -i '/^[[:space:]]*package:/d; /^[[:space:]]*debpackagelist:/d; s/^[[:space:]]*rpmpackagelist:.*/  rpmpackagelist: rocm-core rocminfo comgr rocblas rocrand hsa-rocr hip-runtime-amd/' {} \;
 
+# Install AGFHC
+WORKDIR /agfhc
+
+RUN dnf install tar bzip2 python3-pyyaml wget rocm-smi-lib -y && \
+    wget https://atlartifactory.amd.com:8443/artifactory/HW-AGFHCRelease-REL-LOCAL/${AGFHC_VERSION}/mi300/agfhc-mi300_${AGFHC_VERSION}_rhel9.tar.bz2 && \
+    tar -xvjf agfhc-mi300_${AGFHC_VERSION}_rhel9.tar.bz2 && \
+    rm -rf agfhc-mi300_${AGFHC_VERSION}_rhel9.tar.bz2 && \
+    # Use AGFHC official installation script
+    ./install && \
+    # need to create this symbol link
+    # otherwise amd-smi commands may complain cannot find libdrm_amdgpu and mess up the json output parsing
+    ln /usr/lib64/libdrm_amdgpu.so.1 /usr/lib64/libdrm_amdgpu.so && \
+    # clean up installer packages
+    rm -rf *.tar.bz2 && \
+    rm -rf *.rpm && \
+    rm -rf rocm* && \
+    rm -rf /var/cache/yum /var/cache/dnf && \
+    dnf clean all
+
+WORKDIR /
+
 ADD amd-test-runner /amd-test-runner
 ADD LICENSE /licenses/LICENSE
 RUN chmod +x /amd-test-runner
@@ -55,6 +74,6 @@ LABEL name="amd-device-test-runner" \
     version="v1.4.1" \
     release="v1.4.1" \
     summary="AMD Device Test Runner performs troubleshooting and benchmarking tests on AMD GPUs across Kubernetes clusters." \
-    description="AMD Device Test Runner ensures that GPUs are functioning correctly and efficiently by running a series of diagnostic tests and performance benchmarks. It helps identify issues, optimize GPU performance, and validate the readiness of GPU resources by running Rocm Validation Suite (RVS) tests."
+    description="AMD Device Test Runner ensures that GPUs are functioning correctly and efficiently by running a series of diagnostic tests and performance benchmarks. It helps identify issues, optimize GPU performance, and validate the readiness of GPU resources by running Rocm Validation Suite (RVS) and AMD GPU Field Health Check (AGFHC) tests."
 
 ENTRYPOINT ["/amd-test-runner"]
