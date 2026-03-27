@@ -20,9 +20,11 @@ package exporter
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 )
 
 func copyFilesToHost() {
@@ -34,5 +36,25 @@ func copyFilesToHost() {
 				logger.Log.Printf("Unable to copy amdgpuhealth binary to host")
 			}
 		}
+	}
+}
+
+func removeIfExists(path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logger.Log.Printf("failed to remove %s: %v", path, err)
+	} else if err == nil {
+		logger.Log.Printf("removed %s", path)
+	}
+}
+
+func cleanupResources(enableGPUMonitoring, enableNICMonitoring bool) {
+	if enableGPUMonitoring {
+		removeIfExists(globals.MetricsSocketPath)
+	}
+	if enableNICMonitoring {
+		removeIfExists(globals.NICMetricsSocketPath)
+	}
+	if utils.IsKubernetes() {
+		removeIfExists(filepath.Join(globals.AMDGPUHealthHostDirPath, filepath.Base(globals.AMDGPUHealthContainerPath)))
 	}
 }
