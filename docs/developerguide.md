@@ -213,9 +213,9 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    exporter ->> metricsvc : start  gRPC service over unix socket
+    exporter ->> metricsvc : start gRPC service over unix socket
     metricsvc ->> gpuagentClient : UpdateStaticMetrics
-    gpuagentClient ->> gpuagent : gRPC getGPU
+    gpuagentClient ->> gpuagent : gRPC getGPU via /var/run/gpuagent.sock
     gpuagent -->> gpuagentClient : getGPU response
     gpuagentClient -->> metricsvc : UpdateStaticMetrics response
     metricsvc ->> metricsvc : evaluate GPU health @ 30s interval

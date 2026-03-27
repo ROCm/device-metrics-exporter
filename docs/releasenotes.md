@@ -2,6 +2,10 @@
 
 ## v1.5.0
 
+- **Unix Domain Socket For IPC**
+  - The GPU Agent now uses Unix Domain Socket (`/var/run/gpuagent.sock`) for communication with the metrics exporter
+  - Secure and Improved performance Lower latency compared to TCP/IP connections
+
 - **New Metrics**
   - `GPU_PROCESS_CU_OCCUPANCY` to report Compute Unit occupancy for each process using the GPU, with `process_id` label to differentiate between processes
 
