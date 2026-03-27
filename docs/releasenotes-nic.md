@@ -2,6 +2,12 @@
 
 ## nic-v1.2.0
 
+### New Features
+
+- **LIF-Level Aggregated Queue-Pair Metrics**: Introduced aggregated QP metrics at the LIF level, reducing Prometheus metric cardinality and lowering Exporter and Prometheus CPU/memory overhead compared to enabling per-QP metrics.
+
+### Improvements
+
 - Image Size Optimization: Docker image size reduced by 57% (from 903MB to 386MB) by stripping debug symbols from nicctl binary and Go binaries
 
 ## nic-v1.1.0

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -311,7 +312,7 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 
 func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) error {
 	var wg sync.WaitGroup
-	if !fetchQPMetrics {
+	if !fetchQPMetrics && !fetchLIFAggQPMetrics {
 		return nil
 	}
 
@@ -338,65 +339,257 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 				return
 			}
 
-			for _, nic := range rdmaQPStats.NicList {
-				labels := nc.na.populateLabelsFromNIC(nic.ID)
-				for _, qplif := range nic.LifList {
-					workloadLabels := nc.na.getAssociatedWorkloadLabels(nic.ID, qplif.Spec.ID, workloads)
+			type lifAggregates struct {
+				sqReqTxNumPackets          float64
+				sqReqTxNumSendMsgsRke      float64
+				sqReqTxNumLocalAckTimeouts float64
+				sqReqTxRnrTimeout          float64
+				sqReqTxTimesSQdrained      float64
+				sqReqTxNumCNPsent          float64
+				sqReqRxNumPackets          float64
+				sqReqRxNumPacketsEcnMarked float64
+				sqQcnCurrByteCounter       float64
+				sqQcnNumByteCounterExpired float64
+				sqQcnNumTimerExpired       float64
+				sqQcnNumAlphaTimerExpired  float64
+				sqQcnNumCNPrcvd            float64
+				sqQcnNumCNPprocessed       float64
+				rqRspTxNumPackets          float64
+				rqRspTxRnrError            float64
+				rqRspTxNumSequenceError    float64
+				rqRspTxRPByteThresholdHits float64
+				rqRspTxRPMaxRateHits       float64
+				rqRspRxNumPackets          float64
+				rqRspRxNumSendMsgsRke      float64
+				rqRspRxNumPacketsEcnMarked float64
+				rqRspRxNumCNPsReceived     float64
+				rqRspRxMaxRecircDrop       float64
+				rqRspRxNumMemWindowInvalid float64
+				rqRspRxNumDuplWriteSendOpc float64
+				rqRspRxNumDupReadBacktrack float64
+				rqRspRxNumDupReadDrop      float64
+				rqQcnCurrByteCounter       float64
+				rqQcnNumByteCounterExpired float64
+				rqQcnNumTimerExpired       float64
+				rqQcnNumAlphaTimerExpired  float64
+				rqQcnNumCNPrcvd            float64
+				rqQcnNumCNPprocessed       float64
+			}
+
+			for _, statsNIC := range rdmaQPStats.NicList {
+				nicLabels := nc.na.populateLabelsFromNIC(statsNIC.ID)
+				for _, qplif := range statsNIC.LifList {
+					// Clone base NIC labels for each LIF to avoid label pollution across LIF iterations
+					lifQPLabels := maps.Clone(nicLabels)
+
+					workloadLabels := nc.na.getAssociatedWorkloadLabels(statsNIC.ID, qplif.Spec.ID, workloads)
 					for k, v := range workloadLabels {
-						labels[k] = v
+						lifQPLabels[k] = v
 					}
 					// Add LIF labels for QP metrics
-					labels[LabelEthIntfName] = nc.na.nics[nic.ID].GetLifName(qplif.Spec.ID)
-					labels[LabelPcieBusId] = nc.na.nics[nic.ID].GetLifPcieAddr(qplif.Spec.ID)
+					lifQPLabels[LabelEthIntfName] = nc.na.nics[statsNIC.ID].GetLifName(qplif.Spec.ID)
+					lifQPLabels[LabelPcieBusId] = nc.na.nics[statsNIC.ID].GetLifPcieAddr(qplif.Spec.ID)
+
+					// Create a copy of lifQPLabels for per-QP metrics (will add qp_id below)
+					var labels map[string]string
+					if fetchQPMetrics {
+						labels = maps.Clone(lifQPLabels)
+					}
+
+					// LIF-level aggregation accumulators (sum of all QPs for this LIF)
+					var lifAgg lifAggregates
 
 					for _, qp := range qplif.QPStatsList {
-						// Add QueuePair ID label
-						labels[LabelQPID] = qp.Spec.ID
+						// Parse each field once and reuse for both per-QP export and LIF aggregation
+						// SQ Requester Tx
+						sqReqTxNumPacket := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_PACKET))
+						sqReqTxNumSendMsgsRke := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_SEND_MSGS_WITH_RKE))
+						sqReqTxNumLocalAckTimeouts := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_LOCAL_ACK_TIMEOUTS))
+						sqReqTxRnrTimeout := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.RNR_TIMEOUT))
+						sqReqTxTimesSQdrained := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.TIMES_SQ_DRAINED))
+						sqReqTxNumCNPsent := float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_CNP_SENT))
 
-						nc.na.m.qpSqReqTxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_PACKET)))
-						nc.na.m.qpSqReqTxNumSendMsgsRke.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_SEND_MSGS_WITH_RKE)))
-						nc.na.m.qpSqReqTxNumLocalAckTimeouts.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_LOCAL_ACK_TIMEOUTS)))
-						nc.na.m.qpSqReqTxRnrTimeout.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.RNR_TIMEOUT)))
-						nc.na.m.qpSqReqTxTimesSQdrained.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.TIMES_SQ_DRAINED)))
-						nc.na.m.qpSqReqTxNumCNPsent.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqTx.NUM_CNP_SENT)))
+						// SQ Requester Rx
+						sqReqRxNumPacket := float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PACKET))
+						sqReqRxNumPacketsEcnMarked := float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PKTS_WITH_ECN_MARKING))
 
-						nc.na.m.qpSqReqRxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PACKET)))
-						nc.na.m.qpSqReqRxNumPacketsEcnMarked.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.ReqRx.NUM_PKTS_WITH_ECN_MARKING)))
+						// RQ Responder Tx
+						rqRspTxNumPacket := float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_PACKET))
+						rqRspTxRnrError := float64(utils.StringToUint64(qp.Stats.Rq.RespTx.RNR_ERROR))
+						rqRspTxNumSequenceError := float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_SEQUENCE_ERROR))
+						rqRspTxRPByteThresholdHits := float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_BYTE_THRES_HIT))
+						rqRspTxRPMaxRateHits := float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_MAX_RATE_HIT))
+
+						// RQ Responder Rx
+						rqRspRxNumPacket := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PACKET))
+						rqRspRxNumSendMsgsRke := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_SEND_MSGS_WITH_RKE))
+						rqRspRxNumPacketsEcnMarked := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PKTS_WITH_ECN_MARKING))
+						rqRspRxNumCNPsReceived := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_CNPS_RECEIVED))
+						rqRspRxMaxRecircDrop := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.MAX_RECIRC_EXCEEDED_DROP))
+						rqRspRxNumMemWindowInvalid := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_MEM_WINDOW_INVALID))
+						rqRspRxNumDuplWriteSendOpc := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_WITH_WR_SEND_OPC))
+						rqRspRxNumDupReadBacktrack := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_BACKTRACK))
+						rqRspRxNumDupReadDrop := float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_ATOMIC_DROP))
+
+						var sqQcnCurrByteCounter, sqQcnNumByteCounterExpired, sqQcnNumTimerExpired, sqQcnNumAlphaTimerExpired, sqQcnNumCNPrcvd, sqQcnNumCNPprocessed float64
+						var rqQcnCurrByteCounter, rqQcnNumByteCounterExpired, rqQcnNumTimerExpired, rqQcnNumAlphaTimerExpired, rqQcnNumCNPrcvd, rqQcnNumCNPprocessed float64
 
 						if qp.Stats.Sq.DcQcn != nil {
-							nc.na.m.qpSqQcnCurrByteCounter.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.CURR_BYTE_COUNTER)))
-							nc.na.m.qpSqQcnNumByteCounterExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_BYTE_COUNTER_EXPIRED)))
-							nc.na.m.qpSqQcnNumTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_TIMER_EXPIRED)))
-							nc.na.m.qpSqQcnNumAlphaTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_ALPHA_TIMER_EXPIRED)))
-							nc.na.m.qpSqQcnNumCNPrcvd.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_RCVD)))
-							nc.na.m.qpSqQcnNumCNPprocessed.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_PROCESSED)))
+							sqQcnCurrByteCounter = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.CURR_BYTE_COUNTER))
+							sqQcnNumByteCounterExpired = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_BYTE_COUNTER_EXPIRED))
+							sqQcnNumTimerExpired = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_TIMER_EXPIRED))
+							sqQcnNumAlphaTimerExpired = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_ALPHA_TIMER_EXPIRED))
+							sqQcnNumCNPrcvd = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_RCVD))
+							sqQcnNumCNPprocessed = float64(utils.StringToUint64(qp.Stats.Sq.DcQcn.NUM_CNP_PROCESSED))
 						}
-
-						nc.na.m.qpRqRspTxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_PACKET)))
-						nc.na.m.qpRqRspTxRnrError.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.RNR_ERROR)))
-						nc.na.m.qpRqRspTxNumSequenceError.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_SEQUENCE_ERROR)))
-						nc.na.m.qpRqRspTxRPByteThresholdHits.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_BYTE_THRES_HIT)))
-						nc.na.m.qpRqRspTxRPMaxRateHits.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespTx.NUM_RP_MAX_RATE_HIT)))
-
-						nc.na.m.qpRqRspRxNumPackets.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PACKET)))
-						nc.na.m.qpRqRspRxNumSendMsgsRke.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_SEND_MSGS_WITH_RKE)))
-						nc.na.m.qpRqRspRxNumPacketsEcnMarked.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_PKTS_WITH_ECN_MARKING)))
-						nc.na.m.qpRqRspRxNumCNPsReceived.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_CNPS_RECEIVED)))
-						nc.na.m.qpRqRspRxMaxRecircDrop.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.MAX_RECIRC_EXCEEDED_DROP)))
-						nc.na.m.qpRqRspRxNumMemWindowInvalid.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_MEM_WINDOW_INVALID)))
-						nc.na.m.qpRqRspRxNumDuplWriteSendOpc.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_WITH_WR_SEND_OPC)))
-						nc.na.m.qpRqRspRxNumDupReadBacktrack.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_BACKTRACK)))
-						nc.na.m.qpRqRspRxNumDupReadDrop.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.RespRx.NUM_DUPL_READ_ATOMIC_DROP)))
-
 						if qp.Stats.Rq.DcQcn != nil {
-							nc.na.m.qpRqQcnCurrByteCounter.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.CURR_BYTE_COUNTER)))
-							nc.na.m.qpRqQcnNumByteCounterExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_BYTE_COUNTER_EXPIRED)))
-							nc.na.m.qpRqQcnNumTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_TIMER_EXPIRED)))
-							nc.na.m.qpRqQcnNumAlphaTimerExpired.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_ALPHA_TIMER_EXPIRED)))
-							nc.na.m.qpRqQcnNumCNPrcvd.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_RCVD)))
-							nc.na.m.qpRqQcnNumCNPprocessed.With(labels).Set(float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_PROCESSED)))
+							rqQcnCurrByteCounter = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.CURR_BYTE_COUNTER))
+							rqQcnNumByteCounterExpired = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_BYTE_COUNTER_EXPIRED))
+							rqQcnNumTimerExpired = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_TIMER_EXPIRED))
+							rqQcnNumAlphaTimerExpired = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_ALPHA_TIMER_EXPIRED))
+							rqQcnNumCNPrcvd = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_RCVD))
+							rqQcnNumCNPprocessed = float64(utils.StringToUint64(qp.Stats.Rq.DcQcn.NUM_CNP_PROCESSED))
 						}
 
+						// Export per-QP metrics
+						if fetchQPMetrics {
+							// Add QueuePair ID label
+							labels[LabelQPID] = qp.Spec.ID
+
+							nc.na.m.qpSqReqTxNumPackets.With(labels).Set(sqReqTxNumPacket)
+							nc.na.m.qpSqReqTxNumSendMsgsRke.With(labels).Set(sqReqTxNumSendMsgsRke)
+							nc.na.m.qpSqReqTxNumLocalAckTimeouts.With(labels).Set(sqReqTxNumLocalAckTimeouts)
+							nc.na.m.qpSqReqTxRnrTimeout.With(labels).Set(sqReqTxRnrTimeout)
+							nc.na.m.qpSqReqTxTimesSQdrained.With(labels).Set(sqReqTxTimesSQdrained)
+							nc.na.m.qpSqReqTxNumCNPsent.With(labels).Set(sqReqTxNumCNPsent)
+
+							nc.na.m.qpSqReqRxNumPackets.With(labels).Set(sqReqRxNumPacket)
+							nc.na.m.qpSqReqRxNumPacketsEcnMarked.With(labels).Set(sqReqRxNumPacketsEcnMarked)
+
+							// Only export SQ DCQCN metrics when DcQcn stats are present
+							if qp.Stats.Sq.DcQcn != nil {
+								nc.na.m.qpSqQcnCurrByteCounter.With(labels).Set(sqQcnCurrByteCounter)
+								nc.na.m.qpSqQcnNumByteCounterExpired.With(labels).Set(sqQcnNumByteCounterExpired)
+								nc.na.m.qpSqQcnNumTimerExpired.With(labels).Set(sqQcnNumTimerExpired)
+								nc.na.m.qpSqQcnNumAlphaTimerExpired.With(labels).Set(sqQcnNumAlphaTimerExpired)
+								nc.na.m.qpSqQcnNumCNPrcvd.With(labels).Set(sqQcnNumCNPrcvd)
+								nc.na.m.qpSqQcnNumCNPprocessed.With(labels).Set(sqQcnNumCNPprocessed)
+							}
+
+							nc.na.m.qpRqRspTxNumPackets.With(labels).Set(rqRspTxNumPacket)
+							nc.na.m.qpRqRspTxRnrError.With(labels).Set(rqRspTxRnrError)
+							nc.na.m.qpRqRspTxNumSequenceError.With(labels).Set(rqRspTxNumSequenceError)
+							nc.na.m.qpRqRspTxRPByteThresholdHits.With(labels).Set(rqRspTxRPByteThresholdHits)
+							nc.na.m.qpRqRspTxRPMaxRateHits.With(labels).Set(rqRspTxRPMaxRateHits)
+
+							nc.na.m.qpRqRspRxNumPackets.With(labels).Set(rqRspRxNumPacket)
+							nc.na.m.qpRqRspRxNumSendMsgsRke.With(labels).Set(rqRspRxNumSendMsgsRke)
+							nc.na.m.qpRqRspRxNumPacketsEcnMarked.With(labels).Set(rqRspRxNumPacketsEcnMarked)
+							nc.na.m.qpRqRspRxNumCNPsReceived.With(labels).Set(rqRspRxNumCNPsReceived)
+							nc.na.m.qpRqRspRxMaxRecircDrop.With(labels).Set(rqRspRxMaxRecircDrop)
+							nc.na.m.qpRqRspRxNumMemWindowInvalid.With(labels).Set(rqRspRxNumMemWindowInvalid)
+							nc.na.m.qpRqRspRxNumDuplWriteSendOpc.With(labels).Set(rqRspRxNumDuplWriteSendOpc)
+							nc.na.m.qpRqRspRxNumDupReadBacktrack.With(labels).Set(rqRspRxNumDupReadBacktrack)
+							nc.na.m.qpRqRspRxNumDupReadDrop.With(labels).Set(rqRspRxNumDupReadDrop)
+
+							// Only export RQ DCQCN metrics when DcQcn stats are present
+							if qp.Stats.Rq.DcQcn != nil {
+								nc.na.m.qpRqQcnCurrByteCounter.With(labels).Set(rqQcnCurrByteCounter)
+								nc.na.m.qpRqQcnNumByteCounterExpired.With(labels).Set(rqQcnNumByteCounterExpired)
+								nc.na.m.qpRqQcnNumTimerExpired.With(labels).Set(rqQcnNumTimerExpired)
+								nc.na.m.qpRqQcnNumAlphaTimerExpired.With(labels).Set(rqQcnNumAlphaTimerExpired)
+								nc.na.m.qpRqQcnNumCNPrcvd.With(labels).Set(rqQcnNumCNPrcvd)
+								nc.na.m.qpRqQcnNumCNPprocessed.With(labels).Set(rqQcnNumCNPprocessed)
+							}
+
+						}
+
+						// Accumulate values for LIF-aggregated metrics
+						if fetchLIFAggQPMetrics {
+							lifAgg.sqReqTxNumPackets += sqReqTxNumPacket
+							lifAgg.sqReqTxNumSendMsgsRke += sqReqTxNumSendMsgsRke
+							lifAgg.sqReqTxNumLocalAckTimeouts += sqReqTxNumLocalAckTimeouts
+							lifAgg.sqReqTxRnrTimeout += sqReqTxRnrTimeout
+							lifAgg.sqReqTxTimesSQdrained += sqReqTxTimesSQdrained
+							lifAgg.sqReqTxNumCNPsent += sqReqTxNumCNPsent
+
+							lifAgg.sqReqRxNumPackets += sqReqRxNumPacket
+							lifAgg.sqReqRxNumPacketsEcnMarked += sqReqRxNumPacketsEcnMarked
+
+							lifAgg.sqQcnCurrByteCounter += sqQcnCurrByteCounter
+							lifAgg.sqQcnNumByteCounterExpired += sqQcnNumByteCounterExpired
+							lifAgg.sqQcnNumTimerExpired += sqQcnNumTimerExpired
+							lifAgg.sqQcnNumAlphaTimerExpired += sqQcnNumAlphaTimerExpired
+							lifAgg.sqQcnNumCNPrcvd += sqQcnNumCNPrcvd
+							lifAgg.sqQcnNumCNPprocessed += sqQcnNumCNPprocessed
+
+							lifAgg.rqRspTxNumPackets += rqRspTxNumPacket
+							lifAgg.rqRspTxRnrError += rqRspTxRnrError
+							lifAgg.rqRspTxNumSequenceError += rqRspTxNumSequenceError
+							lifAgg.rqRspTxRPByteThresholdHits += rqRspTxRPByteThresholdHits
+							lifAgg.rqRspTxRPMaxRateHits += rqRspTxRPMaxRateHits
+
+							lifAgg.rqRspRxNumPackets += rqRspRxNumPacket
+							lifAgg.rqRspRxNumSendMsgsRke += rqRspRxNumSendMsgsRke
+							lifAgg.rqRspRxNumPacketsEcnMarked += rqRspRxNumPacketsEcnMarked
+							lifAgg.rqRspRxNumCNPsReceived += rqRspRxNumCNPsReceived
+							lifAgg.rqRspRxMaxRecircDrop += rqRspRxMaxRecircDrop
+							lifAgg.rqRspRxNumMemWindowInvalid += rqRspRxNumMemWindowInvalid
+							lifAgg.rqRspRxNumDuplWriteSendOpc += rqRspRxNumDuplWriteSendOpc
+							lifAgg.rqRspRxNumDupReadBacktrack += rqRspRxNumDupReadBacktrack
+							lifAgg.rqRspRxNumDupReadDrop += rqRspRxNumDupReadDrop
+
+							lifAgg.rqQcnCurrByteCounter += rqQcnCurrByteCounter
+							lifAgg.rqQcnNumByteCounterExpired += rqQcnNumByteCounterExpired
+							lifAgg.rqQcnNumTimerExpired += rqQcnNumTimerExpired
+							lifAgg.rqQcnNumAlphaTimerExpired += rqQcnNumAlphaTimerExpired
+							lifAgg.rqQcnNumCNPrcvd += rqQcnNumCNPrcvd
+							lifAgg.rqQcnNumCNPprocessed += rqQcnNumCNPprocessed
+
+						}
+					}
+
+					// Export LIF-aggregated metrics
+					if fetchLIFAggQPMetrics {
+						nc.na.m.lifQpSqReqTxNumPacketTotal.With(lifQPLabels).Set(lifAgg.sqReqTxNumPackets)
+						nc.na.m.lifQpSqReqTxNumSendMsgsWithRkeTotal.With(lifQPLabels).Set(lifAgg.sqReqTxNumSendMsgsRke)
+						nc.na.m.lifQpSqReqTxNumLocalAckTimeoutsTotal.With(lifQPLabels).Set(lifAgg.sqReqTxNumLocalAckTimeouts)
+						nc.na.m.lifQpSqReqTxRnrTimeoutTotal.With(lifQPLabels).Set(lifAgg.sqReqTxRnrTimeout)
+						nc.na.m.lifQpSqReqTxTimesSQdrainedTotal.With(lifQPLabels).Set(lifAgg.sqReqTxTimesSQdrained)
+						nc.na.m.lifQpSqReqTxNumCNPsentTotal.With(lifQPLabels).Set(lifAgg.sqReqTxNumCNPsent)
+
+						nc.na.m.lifQpSqReqRxNumPacketTotal.With(lifQPLabels).Set(lifAgg.sqReqRxNumPackets)
+						nc.na.m.lifQpSqReqRxNumPktsWithEcnMarkingTotal.With(lifQPLabels).Set(lifAgg.sqReqRxNumPacketsEcnMarked)
+
+						nc.na.m.lifQpSqQcnCurrByteCounterTotal.With(lifQPLabels).Set(lifAgg.sqQcnCurrByteCounter)
+						nc.na.m.lifQpSqQcnNumByteCounterExpiredTotal.With(lifQPLabels).Set(lifAgg.sqQcnNumByteCounterExpired)
+						nc.na.m.lifQpSqQcnNumTimerExpiredTotal.With(lifQPLabels).Set(lifAgg.sqQcnNumTimerExpired)
+						nc.na.m.lifQpSqQcnNumAlphaTimerExpiredTotal.With(lifQPLabels).Set(lifAgg.sqQcnNumAlphaTimerExpired)
+						nc.na.m.lifQpSqQcnNumCNPrcvdTotal.With(lifQPLabels).Set(lifAgg.sqQcnNumCNPrcvd)
+						nc.na.m.lifQpSqQcnNumCNPprocessedTotal.With(lifQPLabels).Set(lifAgg.sqQcnNumCNPprocessed)
+
+						nc.na.m.lifQpRqRspTxNumPacketTotal.With(lifQPLabels).Set(lifAgg.rqRspTxNumPackets)
+						nc.na.m.lifQpRqRspTxRnrErrorTotal.With(lifQPLabels).Set(lifAgg.rqRspTxRnrError)
+						nc.na.m.lifQpRqRspTxNumSequenceErrorTotal.With(lifQPLabels).Set(lifAgg.rqRspTxNumSequenceError)
+						nc.na.m.lifQpRqRspTxNumRpByteThresHitTotal.With(lifQPLabels).Set(lifAgg.rqRspTxRPByteThresholdHits)
+						nc.na.m.lifQpRqRspTxNumRpMaxRateHitTotal.With(lifQPLabels).Set(lifAgg.rqRspTxRPMaxRateHits)
+
+						nc.na.m.lifQpRqRspRxNumPacketTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumPackets)
+						nc.na.m.lifQpRqRspRxNumSendMsgsWithRkeTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumSendMsgsRke)
+						nc.na.m.lifQpRqRspRxNumPktsWithEcnMarkingTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumPacketsEcnMarked)
+						nc.na.m.lifQpRqRspRxNumCNPsReceivedTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumCNPsReceived)
+						nc.na.m.lifQpRqRspRxMaxRecircExceededDropTotal.With(lifQPLabels).Set(lifAgg.rqRspRxMaxRecircDrop)
+						nc.na.m.lifQpRqRspRxNumMemWindowInvalidTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumMemWindowInvalid)
+						nc.na.m.lifQpRqRspRxNumDuplWithWrSendOpcTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumDuplWriteSendOpc)
+						nc.na.m.lifQpRqRspRxNumDuplReadBacktrackTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumDupReadBacktrack)
+						nc.na.m.lifQpRqRspRxNumDuplReadAtomicDropTotal.With(lifQPLabels).Set(lifAgg.rqRspRxNumDupReadDrop)
+
+						nc.na.m.lifQpRqQcnCurrByteCounterTotal.With(lifQPLabels).Set(lifAgg.rqQcnCurrByteCounter)
+						nc.na.m.lifQpRqQcnNumByteCounterExpiredTotal.With(lifQPLabels).Set(lifAgg.rqQcnNumByteCounterExpired)
+						nc.na.m.lifQpRqQcnNumTimerExpiredTotal.With(lifQPLabels).Set(lifAgg.rqQcnNumTimerExpired)
+						nc.na.m.lifQpRqQcnNumAlphaTimerExpiredTotal.With(lifQPLabels).Set(lifAgg.rqQcnNumAlphaTimerExpired)
+						nc.na.m.lifQpRqQcnNumCNPrcvdTotal.With(lifQPLabels).Set(lifAgg.rqQcnNumCNPrcvd)
+						nc.na.m.lifQpRqQcnNumCNPprocessedTotal.With(lifQPLabels).Set(lifAgg.rqQcnNumCNPprocessed)
 					}
 				}
 			}
