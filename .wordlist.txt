@@ -69,6 +69,7 @@ debian
 ubuntu
 Rhel
 AMDSMI
+amdsmi
 libamdsmi
 rocprofilerclient
 gRPC
