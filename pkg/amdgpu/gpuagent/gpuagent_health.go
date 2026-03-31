@@ -140,6 +140,34 @@ func (ga *GPUAgentGPUClient) updateNewHealthState(newGPUState map[string]*metric
 	return nil
 }
 
+// ErrAgentUnreachable is returned by processHealthValidation when the gRPC
+// data pull fails, indicating the gpuagent process is unreachable. It is
+// distinct from non-connectivity errors (e.g. compute node unhealthy) so that
+// StartMonitor can count only genuine unreachability towards the exit threshold.
+var ErrAgentUnreachable = errors.New("gpuagent unreachable")
+
+// ErrZeroGPUs is returned by processHealthValidation when gpuagent is reachable
+// but reports 0 GPUs. Known causes:
+//   - Boot race: amdgpu loaded late so KFD nodes are not yet registered when
+//     amdsmi_get_socket_handles is called at gpuagent init time.
+//   - Driver crash: amdgpu crashes mid-run and gpuagent loses all GPU handles.
+//   - vfio-pci passthrough: GPU is bound to vfio-pci (passed through to a VM)
+//     so amdgpu/KFD never claims it and amdsmi sees 0 devices.
+//
+// In all cases gpuagent never re-discovers GPUs after init, so the only recovery
+// is a restart. Counting this towards the exit threshold allows --exit-on-agent-down
+// to trigger a container restart so the exporter can re-init once the GPU is
+// accessible again.
+var ErrZeroGPUs = errors.New("gpuagent reports zero GPUs")
+
+// isRestartableFailure reports whether err should count toward the consecutive-failure
+// exit threshold in StartMonitor. Only genuine unreachability and zero-GPU conditions
+// are restartable; other errors (e.g. compute node unhealthy) are transient and should
+// not trigger an exit.
+func isRestartableFailure(err error) bool {
+	return errors.Is(err, ErrAgentUnreachable) || errors.Is(err, ErrZeroGPUs)
+}
+
 func (ga *GPUAgentGPUClient) processHealthValidation() error {
 	wls, err := ga.gpuHandler.ListWorkloads()
 	if err != nil {
@@ -205,9 +233,14 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		logger.Log.Printf("gpuagent get metrics failed %v", err)
 		goto ret
 	} else if len(gpumetrics.Response) == 0 {
-		// on driver crash gpuagent will return 0 gpus, handle such cases
-		// if we have old state, mark all of the gpu as unhealthy
-		return ga.setUnhealthyGPU(wls)
+		// gpuagent returned 0 GPUs despite a successful RPC. This happens on a
+		// boot race (amdgpu loaded late, KFD nodes not registered yet at gpuagent
+		// init) or a driver crash. Mark existing GPUs unhealthy and return
+		// ErrZeroGPUs so StartMonitor can count this towards the exit threshold
+		// and restart the container for recovery.
+		logger.Log.Printf("gpuagent returned 0 GPUs; marking existing GPUs unhealthy")
+		_ = ga.setUnhealthyGPU(wls)
+		return fmt.Errorf("gpuagent returned 0 GPUs: %w", ErrZeroGPUs)
 	} else {
 		newGPUState = ga.processEccErrorMetrics(gpumetrics.Response, wls)
 	}
