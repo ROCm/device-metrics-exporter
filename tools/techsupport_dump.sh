@@ -208,7 +208,7 @@ REASON
 		log "   exporter version"
 		${KNS} exec -it ${EXEC_POD} -- sh -c "server -version" >${TECH_SUPPORT_FILE}/${node}/exporterversion.txt || true
 		log "   exporter health"
-		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient list" >${TECH_SUPPORT_FILE}/${node}/exporterhealth.txt || true
 		log "   exporter config"
 		${KNS} exec -it ${EXEC_POD} -- sh -c "cat /etc/metrics/config.json" >${TECH_SUPPORT_FILE}/${node}/exporterconfig.json || true
 		log "   exporter pod details"
