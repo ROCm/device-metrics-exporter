@@ -57,7 +57,7 @@ kubectl get pods -l app.kubernetes.io/name=metrics-exporter -n kube-amd-gpu  # F
 
 You can customize the installation using one of two methods:
 
-##### Option 1: Using `--set` flags
+##### Option 1: Using --set flags
 
 Override individual values on the command line using `--set key=value`:
 
@@ -85,7 +85,7 @@ helm install exporter exporter/device-metrics-exporter-charts \
   --set tolerations[0].effect=NoSchedule
 ```
 
-##### Option 2: Using a custom `values.yaml` file
+##### Option 2: Using a custom values.yaml file
 
 For more extensive customization, download and modify the default values.yaml:
 
@@ -160,7 +160,7 @@ You can customize the installation using one of two methods:
 
 **Note:** Ensure the Metrics Exporter image `image.tag` matches the AINIC firmware version installed on your nodes. Refer to the [Compatibility Matrix](../index.md) for the correct image version to use and configure the correct `image.tag` value in the values file.
 
-##### Option 1: Using `--set` flags
+##### Option 1: Using --set flags
 
 Override individual values on the command line using `--set key=value`:
 
@@ -188,7 +188,7 @@ helm install exporter exporter/nic-device-metrics-exporter-charts \
   --set tolerations[0].effect=NoSchedule
 ```
 
-##### Option 2: Using a custom `values.yaml` file
+##### Option 2: Using a custom values.yaml file
 
 For more extensive customization, download and modify the default values.yaml:
 
