@@ -111,13 +111,15 @@ if command -v metricsclient &> /dev/null; then
     echo "Collecting metricsclient diagnostics..."
 
     # Define metricsclient commands to collect
+    # Uses cobra subcommand interface (metricsclient was rewritten from flag-based
+    # to cobra in the unix-socket PR; old -flag syntax no longer works)
     METRICSCLIENT_COMMANDS=(
-        "metricsclient"
-        "metricsclient -gpu"
-        "metricsclient -gpuctl"
-        "metricsclient -label"
-        "metricsclient -npod"
-        "metricsclient -pod"
+        "metricsclient list"
+        "metricsclient device-map"
+        "metricsclient gpuctl"
+        "metricsclient node-labels"
+        "metricsclient node-pods"
+        "metricsclient pod-resources"
     )
 
     # Execute each command and save to separate log files
