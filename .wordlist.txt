@@ -88,6 +88,7 @@ apiserver
 cron
 CRD
 daemonset
+DaemonSet
 serviceMonitorNamespaceSelector
 serviceMonitorSelector
 SRIOV
@@ -311,3 +312,4 @@ cardinality
 QPs
 expirations
 KFD
+Uninstallation
