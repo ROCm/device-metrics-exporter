@@ -454,6 +454,8 @@ mod:
 	@go mod edit -go=1.25.5
 	#CVE-2024-24790 - amd-metrics-exporter
 	@go mod edit -replace golang.org/x/net@v0.29.0=golang.org/x/net@v0.36.0
+	#CVE-2026-33186
+	@go mod edit -replace google.golang.org/grpc@v1.72.1=google.golang.org/grpc@v1.79.3
 	#CVE-2025-30204 - amd-test-runner
 	@go mod edit -replace github.com/golang-jwt/jwt/v5@v5.2.1=github.com/golang-jwt/jwt/v5@v5.2.2
 	#CVE GHSA-fv92-fjc5-jj9h - amdgpuhealth

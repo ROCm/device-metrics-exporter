@@ -41,7 +41,7 @@ var (
 	previousFields   = []string{}
 	previousLabels   = []string{}
 	mandatoryLabels  = []string{}
-	testResults      = make(map[string]string) // Track test results: test name -> "PASS" or "FAIL"
+	testResults      = make(map[string]string) // Track test results: test name -> "PASS", "FAIL", or "SKIP"
 	testOrder        = []string{}              // Track test execution order
 )
 
@@ -116,12 +116,8 @@ func (s *E2ESuite) Test002bKFDProcessIdOptional(c *C) {
 	expectedLabels := append([]string{"kfd_process_id"}, mandatoryLabels...)
 	for _, gpu := range allgpus {
 		for _, metricData := range gpu.Fields {
-			kfdProcessId, hasKfdProcessId := metricData.Labels["kfd_process_id"]
+			_, hasKfdProcessId := metricData.Labels["kfd_process_id"]
 			assert.Equal(c, true, hasKfdProcessId, "kfd_process_id should be present when enabled in ConfigMap")
-
-			// Verify the label value is valid (empty string or comma-separated process IDs)
-			// The value can be empty if no processes are using the GPU
-			log.Printf("kfd_process_id value: %s", kfdProcessId)
 
 			// Verify all expected labels are present
 			for _, label := range expectedLabels {
@@ -952,12 +948,13 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 	//nolint
 	_, _ = s.exporter.RunCmd("jq '.cper |= map(.afid = [35])' /mockdata/inband-ras/error_list > tmp.json")
 	// nolint
-	_, _ = s.exporter.CopyFileTo("tmp.json", "/mockdata/inband-ras/error_list")
+	out, _ := s.exporter.CopyFileTo("tmp.json", "/mockdata/inband-ras/error_list")
+	log.Printf("Updated mock inband RAS error file with AFID 35: %s", out)
 
 	// Remove inband RAS mock setup file
 	defer func() {
 		// Clean up: remove the mock file after test
-		_, _ = s.exporter.RunCmd("rm -rf /mockdata/inband-ras/error_list")
+		_, _ = s.exporter.RunCmd("rm -rf /mockdata/inband-ras/error_list tmp.json")
 	}()
 
 	time.Sleep(2 * time.Second) // Wait for file to be available
@@ -966,15 +963,20 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 	var response string
 	assert.Eventually(c, func() bool {
 		response, _ = s.getExporterResponse()
-		return response != ""
-	}, 10*time.Second, 1*time.Second)
+		if response == "" {
+			log.Print("Waiting for metrics response to be available...")
+			return false
+		}
 
 	// Verify the response contains AFID 35
 	log.Printf("Metrics response: %s", response)
 
 	// Parse the response to get the field value of gpu_afid_errors
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
-	assert.Nil(c, err)
+		if err != nil {
+			log.Printf("Failed to parse metrics: %v", err)
+			return false
+		}
 
 	// Check for AFID 35 in gpu_afid_errors field
 	foundAFID35 := false
@@ -992,7 +994,9 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 		}
 	}
 
-	assert.True(c, foundAFID35, "Expected to find AFID 35 in gpu_afid_errors field")
+		return foundAFID35
+	}, 10*time.Second, 1*time.Second)
+
 	log.Print("Successfully verified AFID 35 in mock inband RAS error response")
 }
 
@@ -1096,15 +1100,10 @@ func (s *E2ESuite) SetUpTest(c *C) {
 	testOrder = append(testOrder, testName)
 	testResults[testName] = "RUNNING"
 
-	// Set up a deferred function to capture test result
-	defer func() {
-		// Check if test failed by examining if c.Failed() returns true
-		// This needs to be done in a way that captures the state at test end
-		if r := recover(); r != nil {
-			testResults[testName] = "FAIL"
-			panic(r) // Re-panic to maintain test framework behavior
-		}
-	}()
+	// Store this c — it shares the same logb (log buffer) as the test method's c.
+	// check.v1 passes c.logb from the test's c to SetUpTest's c, so we can later
+	// inspect the shared log for errors written by assert calls during the test.
+	s.setupC = c
 
 	s.validateCluster(c)
 	config := s.ReadConfig()
@@ -1112,10 +1111,12 @@ func (s *E2ESuite) SetUpTest(c *C) {
 }
 
 func (s *E2ESuite) TearDownTest(c *C) {
-	// Record test result after completion
 	testName := c.TestName()
-	// The check.v1 framework sets the failed state, check it here
-	if c.Failed() {
+	// check.v1 creates a separate *C for TearDownTest, so c.Failed() here
+	// never reflects the test method's failures. Instead, check the shared
+	// log buffer from SetUpTest's *C (which shares logb with the test *C)
+	// for "Error:" entries written by testify/assert on failure.
+	if s.setupC != nil && strings.Contains(s.setupC.GetTestLog(), "Error:") {
 		testResults[testName] = "FAIL"
 		log.Printf("Test %s FAILED", testName)
 	} else {
@@ -1159,13 +1160,17 @@ func printTestSummary() {
 		return
 	}
 
-	// Count pass/fail
+	// Count pass/skip/fail
 	passCount := 0
 	failCount := 0
+	skipCount := 0
 	for _, result := range testResults {
-		if result == "PASS" {
+		switch result {
+		case "PASS":
 			passCount++
-		} else if result == "FAIL" {
+		case "SKIP":
+			skipCount++
+		default:
 			failCount++
 		}
 	}
@@ -1183,9 +1188,12 @@ func printTestSummary() {
 	for _, testName := range testOrder {
 		result := testResults[testName]
 		resultStr := result
-		if result == "PASS" {
+		switch result {
+		case "PASS":
 			resultStr = "✓ PASS"
-		} else if result == "FAIL" {
+		case "SKIP":
+			resultStr = "→ SKIP"
+		default:
 			resultStr = "✗ FAIL"
 		}
 		fmt.Printf("%-60s | %-10s\n", testName, resultStr)
@@ -1193,7 +1201,8 @@ func printTestSummary() {
 
 	// Print footer with summary
 	fmt.Println(strings.Repeat("=", 80))
-	fmt.Printf("TOTAL: %d | PASSED: %d | FAILED: %d\n", len(testResults), passCount, failCount)
+	fmt.Printf("TOTAL: %d | PASSED: %d | SKIPPED: %d | FAILED: %d\n",
+		len(testResults), passCount, skipCount, failCount)
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Println()
 }

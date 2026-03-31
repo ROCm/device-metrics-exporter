@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	testutils "github.com/ROCm/device-metrics-exporter/test/utils"
+	check "gopkg.in/check.v1"
 )
 
 // E2ESuite e2e config
@@ -30,6 +31,11 @@ type E2ESuite struct {
 	tu             *testutils.TestUtils
 	configPath     string
 	e2eConfig      *E2EConfig
+	// setupC holds the SetUpTest's *C which shares the same logb as the test method's *C.
+	// check.v1 creates separate *C instances for fixtures vs test methods, so c.Failed()
+	// in TearDownTest never reflects the test's actual status. Instead, we check the shared
+	// log buffer for error output written by assert calls during the test.
+	setupC *check.C
 }
 
 type E2EConfig struct {
