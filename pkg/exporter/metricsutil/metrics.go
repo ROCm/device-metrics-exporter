@@ -89,6 +89,13 @@ func (mh *MetricsHandler) InitConfig() {
 	wg.Wait()
 }
 
+// SetDebugMode : enable/disable debug mode for all clients
+func (mh *MetricsHandler) SetDebugMode(mode globals.DebugMode) {
+	for _, client := range mh.clients {
+		client.SetDebugMode(mode)
+	}
+}
+
 // UpdateMetrics : send on demand update metrics request
 func (mh *MetricsHandler) UpdateMetrics() error {
 	var wg sync.WaitGroup

@@ -289,7 +289,8 @@ The following table contains a full list of AINIC Metrics that are available usi
 
 ## Notes
 
-* To reduce Prometheus memory footprint, users should enable LIF-aggregated QP stats (metrics prefixed with `LIF_QP_*`). Per-QP stats (metrics prefixed with `QP_*`) should only be enabled when deeper, QP-level insights are required for troubleshooting or detailed analysis.
+* To reduce Prometheus memory footprint, LIF-aggregated QP stats (metrics prefixed with `LIF_QP_*`) are enabled by default. Per-QP stats (metrics prefixed with `QP_*`) are **disabled by default** and can be enabled via configuration.
+* For short-lived debugging, per-QP metrics can be temporarily exposed via `/metrics?debug=qp`. This debug mode temporarily enables all QP_* metrics without modifying the configuration file.
 
 ## Port Stats example
 

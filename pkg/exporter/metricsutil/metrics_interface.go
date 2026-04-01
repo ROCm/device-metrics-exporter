@@ -41,6 +41,9 @@ type MetricsInterface interface {
 
 	// get inband-ras errors
 	QueryInbandRASErrors(severity string) (interface{}, error)
+
+	// enable/disable mode to export debug related metrics
+	SetDebugMode(mode globals.DebugMode)
 }
 
 type MetricsClient interface {

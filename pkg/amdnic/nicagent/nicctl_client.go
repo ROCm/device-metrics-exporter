@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetrics"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
@@ -312,7 +313,8 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 
 func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) error {
 	var wg sync.WaitGroup
-	if !fetchQPMetrics && !fetchLIFAggQPMetrics {
+	if debugMode != globals.DebugModeQP && !fetchQPMetrics && !fetchLIFAggQPMetrics {
+		// QP metrics NOT enabled, skip fetching QP stats to save resources
 		return nil
 	}
 
@@ -392,7 +394,7 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 
 					// Create a copy of lifQPLabels for per-QP metrics (will add qp_id below)
 					var labels map[string]string
-					if fetchQPMetrics {
+					if debugMode == globals.DebugModeQP || fetchQPMetrics {
 						labels = maps.Clone(lifQPLabels)
 					}
 
@@ -452,7 +454,7 @@ func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) e
 						}
 
 						// Export per-QP metrics
-						if fetchQPMetrics {
+						if debugMode == globals.DebugModeQP || fetchQPMetrics {
 							// Add QueuePair ID label
 							labels[LabelQPID] = qp.Spec.ID
 
