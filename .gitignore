@@ -25,3 +25,11 @@ BUILDROOT/*
 .vscode
 .cline_storage
 .vscode
+asset-build/*
+.job.yml
+box.rb
+entrypoint.sh
+branch_policy.yml
+tools-internal/*
+test/pytests/*
+test/pytest/*
