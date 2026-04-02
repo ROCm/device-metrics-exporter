@@ -114,10 +114,6 @@ func (ga *GPUAgentIFOEClient) GetDeviceType() globals.DeviceType {
 	return globals.IFOEDevice
 }
 
-func (ga *GPUAgentIFOEClient) SetDebugMode(mode globals.DebugMode) {
-	// This is a no-op for now, but kept for interface compatibility
-}
-
 func (ga *GPUAgentIFOEClient) GetExporterNonIFOELabels() []string {
 	labelList := []string{
 		strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()),

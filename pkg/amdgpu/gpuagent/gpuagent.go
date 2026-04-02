@@ -442,10 +442,6 @@ func (ga *GPUAgentClient) GetDeviceType() globals.DeviceType {
 
 }
 
-func (ga *GPUAgentClient) SetDebugMode(mode globals.DebugMode) {
-	// This is a no-op for now, but kept for interface compatibility
-}
-
 func (ga *GPUAgentClient) GetK8sApiClient() *k8sclient.K8sClient {
 	return ga.k8sApiClient
 }
@@ -458,10 +454,10 @@ func (ga *GPUAgentClient) UpdateStaticMetrics() error {
 	return nil
 }
 
-func (ga *GPUAgentClient) UpdateMetricsStats() error {
+func (ga *GPUAgentClient) UpdateMetricsStats(ctx context.Context) error {
 	for _, client := range ga.clients {
 		//nolint
-		_ = client.UpdateMetricsStats()
+		_ = client.UpdateMetricsStats(ctx)
 	}
 	return nil
 }

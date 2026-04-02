@@ -93,13 +93,19 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 
 			// Check for debug parameter to enable debug metrics temporarily
 			debugMode := globals.DebugMode(r.URL.Query().Get("debug"))
+			ctx := r.Context()
 			if debugMode != globals.DebugModeNone {
+				switch debugMode {
+				case globals.DebugModeQP:
 				logger.Log.Printf("Debug (%s) mode enabled via query parameter", debugMode)
-				mh.SetDebugMode(debugMode)
-				defer mh.SetDebugMode(globals.DebugModeNone)
+					ctx = globals.WithDebugMode(ctx, debugMode)
+				default:
+					// Continue without setting debug mode
+					logger.Log.Printf("Invalid debug mode '%s' requested. Valid values: qp", debugMode)
+				}
 			}
 
-			_ = mh.UpdateMetrics()
+			_ = mh.UpdateMetrics(ctx)
 			next.ServeHTTP(w, r)
 		} else {
 			next.ServeHTTP(w, r)

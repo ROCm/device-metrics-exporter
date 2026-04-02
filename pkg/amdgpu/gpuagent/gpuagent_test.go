@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -47,7 +48,7 @@ func TestGpuAgent(t *testing.T) {
 	err = ga.UpdateStaticMetrics()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats()
+	err = ga.UpdateMetricsStats(context.Background())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -84,7 +85,7 @@ func TestGpuAgentSlurm(t *testing.T) {
 	err = ga.UpdateStaticMetrics()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats()
+	err = ga.UpdateMetricsStats(context.Background())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -115,7 +116,7 @@ func TestGpuAgentK8s(t *testing.T) {
 	err = ga.UpdateStaticMetrics()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats()
+	err = ga.UpdateMetricsStats(context.Background())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -162,7 +163,7 @@ func TestGPUAgentIFOEOnly(t *testing.T) {
 	err = ga.UpdateStaticMetrics()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats()
+	err = ga.UpdateMetricsStats(context.Background())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	wls, err := ga.ListWorkloads()
@@ -181,7 +182,7 @@ func TestGetGPUsPartitionFilter(t *testing.T) {
 		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
 		Response: []*amdgpu.GPU{
 			{
-				Spec:   &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
+				Spec: &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
 				Status: &amdgpu.GPUStatus{
 					SerialNum:    "gpu-with-partition-field",
 					PCIeStatus:   &amdgpu.GPUPCIeStatus{PCIeBusId: "0000:01:00.0"},
@@ -191,7 +192,7 @@ func TestGetGPUsPartitionFilter(t *testing.T) {
 				Stats: &amdgpu.GPUStats{PackagePower: 100},
 			},
 			{
-				Spec:   &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
+				Spec: &amdgpu.GPUSpec{Id: []byte(uuid.New().String())},
 				Status: &amdgpu.GPUStatus{
 					SerialNum:  "gpu-without-partition-field",
 					PCIeStatus: &amdgpu.GPUPCIeStatus{PCIeBusId: "0000:01:00.1"},
@@ -718,4 +719,46 @@ func TestIsRestartableFailure(t *testing.T) {
 		"unrelated errors must not be restartable failures")
 	assert.Assert(t, !isRestartableFailure(nil),
 		"nil must not be a restartable failure")
+}
+
+func TestDebugModeContext(t *testing.T) {
+	// Test WithDebugMode and GetDebugMode context helpers
+	ctx := context.Background()
+
+	// Test default behavior - should return DebugModeNone
+	mode := globals.GetDebugMode(ctx)
+	assert.Assert(t, mode == globals.DebugModeNone,
+		"GetDebugMode should return DebugModeNone for empty context")
+
+	// Test setting DebugModeQP
+	ctxWithQP := globals.WithDebugMode(ctx, globals.DebugModeQP)
+	mode = globals.GetDebugMode(ctxWithQP)
+	assert.Assert(t, mode == globals.DebugModeQP,
+		"GetDebugMode should return DebugModeQP after setting it")
+
+	// Test that original context is not modified
+	mode = globals.GetDebugMode(ctx)
+	assert.Assert(t, mode == globals.DebugModeNone,
+		"Original context should remain unchanged")
+}
+
+func TestUpdateMetricsStatsWithDebugContext(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+
+	err := ga.InitConfigs()
+	assert.Assert(t, err == nil, "expecting success config init")
+
+	// Test with normal context (no debug mode)
+	err = ga.UpdateMetricsStats(context.Background())
+	assert.Assert(t, err == nil, "UpdateMetricsStats should succeed with normal context")
+
+	// Test with debug mode QP
+	ctxWithDebug := globals.WithDebugMode(context.Background(), globals.DebugModeQP)
+	err = ga.UpdateMetricsStats(ctxWithDebug)
+	assert.Assert(t, err == nil, "UpdateMetricsStats should succeed with debug mode QP context")
+
+	ga.Close()
 }
