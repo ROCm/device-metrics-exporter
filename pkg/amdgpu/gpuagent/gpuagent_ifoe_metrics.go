@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -511,7 +512,7 @@ func (ga *GPUAgentIFOEClient) UpdateStaticMetrics() error {
 	return ga.updateMetrics()
 }
 
-func (ga *GPUAgentIFOEClient) UpdateMetricsStats() error {
+func (ga *GPUAgentIFOEClient) UpdateMetricsStats(ctx context.Context) error {
 	return ga.updateMetrics()
 }
 

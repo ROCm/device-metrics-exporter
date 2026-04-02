@@ -17,6 +17,8 @@
 package metricsutil
 
 import (
+	"context"
+
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 )
 
@@ -25,7 +27,7 @@ type MetricsInterface interface {
 	UpdateStaticMetrics() error
 
 	// ondemand query request for client to update current stat
-	UpdateMetricsStats() error
+	UpdateMetricsStats(ctx context.Context) error
 
 	// metrics registration must be done in this
 	InitConfigs() error
@@ -41,9 +43,6 @@ type MetricsInterface interface {
 
 	// get inband-ras errors
 	QueryInbandRASErrors(severity string) (interface{}, error)
-
-	// enable/disable mode to export debug related metrics
-	SetDebugMode(mode globals.DebugMode)
 }
 
 type MetricsClient interface {

@@ -18,6 +18,7 @@ package nicagent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -62,11 +63,11 @@ func (rc *NICCtlClient) GetClientName() string {
 	return NICCtlClientName
 }
 
-func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	nc.Lock()
 	defer nc.Unlock()
 
-	fn_ptrs := []func(map[string]scheduler.Workload) error{
+	fn_ptrs := []func(context.Context, map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
 		nc.UpdateLifStats,
 		nc.UpdateQPStats}
@@ -74,9 +75,9 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 	var wg sync.WaitGroup
 	for _, fn := range fn_ptrs {
 		wg.Add(1)
-		go func(f func(map[string]scheduler.Workload) error) {
+		go func(f func(context.Context, map[string]scheduler.Workload) error) {
 			defer wg.Done()
-			if err := f(workloads); err != nil {
+			if err := f(ctx, workloads); err != nil {
 				logger.Log.Printf("failed to update NIC stats, err: %+v", err)
 			}
 		}(fn)
@@ -85,7 +86,7 @@ func (nc *NICCtlClient) UpdateNICStats(workloads map[string]scheduler.Workload) 
 	return nil
 }
 
-func (nc *NICCtlClient) UpdatePortStats(workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	if !fetchPortMetrics {
 		return nil
 	}
@@ -262,7 +263,7 @@ func parseRateValue(rateStr string) float64 {
 	return value
 }
 
-func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateLifStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	if !fetchLifMetrics {
 		return nil
 	}
@@ -311,7 +312,8 @@ func (nc *NICCtlClient) UpdateLifStats(workloads map[string]scheduler.Workload) 
 	return nil
 }
 
-func (nc *NICCtlClient) UpdateQPStats(workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+	debugMode := globals.GetDebugMode(ctx)
 	var wg sync.WaitGroup
 	if debugMode != globals.DebugModeQP && !fetchQPMetrics && !fetchLIFAggQPMetrics {
 		// QP metrics NOT enabled, skip fetching QP stats to save resources

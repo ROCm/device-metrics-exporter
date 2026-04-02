@@ -18,6 +18,7 @@ package nicagent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"sync"
@@ -74,7 +75,7 @@ func yamlifyEthtoolOutput(res []byte) []byte {
 	return lines
 }
 
-func (ec *EthtoolClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
+func (ec *EthtoolClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	if !fetchEthtoolMetrics {
 		return nil
 	}

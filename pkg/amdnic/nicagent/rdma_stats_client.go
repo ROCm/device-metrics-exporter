@@ -17,6 +17,7 @@
 package nicagent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -89,7 +90,7 @@ func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string
 	return map[string]string{}, err
 }
 
-func (rc *RDMAStatsClient) UpdateNICStats(workloads map[string]scheduler.Workload) error {
+func (rc *RDMAStatsClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	if !fetchRdmaMetrics {
 		return nil
 	}

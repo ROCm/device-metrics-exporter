@@ -16,11 +16,15 @@
 
 package nicagent
 
-import "github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+import (
+	"context"
+
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+)
 
 type NICInterface interface {
 	// fill AINIC stats
-	UpdateNICStats(map[string]scheduler.Workload) error
+	UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error
 	// Initiate connection and return connection status
 	Init() error
 	// Return NIC Client name implementing this interface

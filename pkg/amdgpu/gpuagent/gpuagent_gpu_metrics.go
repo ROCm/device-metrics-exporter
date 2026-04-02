@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -1720,7 +1721,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics() error {
 	return nil
 }
 
-func (ga *GPUAgentGPUClient) UpdateMetricsStats() error {
+func (ga *GPUAgentGPUClient) UpdateMetricsStats(ctx context.Context) error {
 	return ga.getMetricsAll()
 }
 
@@ -1737,10 +1738,6 @@ func (ga *GPUAgentGPUClient) QueryMetrics() (interface{}, error) {
 
 func (ga *GPUAgentGPUClient) GetDeviceType() globals.DeviceType {
 	return globals.GPUDevice
-}
-
-func (ga *GPUAgentGPUClient) SetDebugMode(mode globals.DebugMode) {
-	// This is a no-op for now, but kept for interface compatibility
 }
 
 func (ga *GPUAgentGPUClient) QueryInbandRASErrors(severity string) (interface{}, error) {

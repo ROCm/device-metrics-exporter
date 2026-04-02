@@ -17,6 +17,7 @@
 package nicagent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -51,7 +52,6 @@ var (
 	fetchLifMetrics      bool
 	fetchQPMetrics       bool
 	fetchLIFAggQPMetrics bool
-	debugMode            globals.DebugMode
 )
 
 type FieldMeta struct {
@@ -2173,8 +2173,8 @@ func (na *NICAgentClient) UpdateStaticMetrics() error {
 	return nil
 }
 
-func (na *NICAgentClient) UpdateMetricsStats() error {
-	return na.getMetricsAll()
+func (na *NICAgentClient) UpdateMetricsStats(ctx context.Context) error {
+	return na.getMetricsAll(ctx)
 }
 
 func (na *NICAgentClient) QueryMetrics() (interface{}, error) {
@@ -2183,15 +2183,6 @@ func (na *NICAgentClient) QueryMetrics() (interface{}, error) {
 
 func (na *NICAgentClient) GetDeviceType() globals.DeviceType {
 	return globals.NICDevice
-}
-
-func (na *NICAgentClient) SetDebugMode(mode globals.DebugMode) {
-	debugMode = mode
-	if mode != globals.DebugModeNone {
-		logger.Log.Printf("NIC debug metrics enabled (mode: %s)", mode)
-	} else {
-		logger.Log.Printf("NIC debug metrics disabled")
-	}
 }
 
 func (na *NICAgentClient) QueryInbandRASErrors(severity string) (interface{}, error) {

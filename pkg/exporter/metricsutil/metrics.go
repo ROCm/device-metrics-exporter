@@ -17,6 +17,7 @@
 package metricsutil
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -89,15 +90,8 @@ func (mh *MetricsHandler) InitConfig() {
 	wg.Wait()
 }
 
-// SetDebugMode : enable/disable debug mode for all clients
-func (mh *MetricsHandler) SetDebugMode(mode globals.DebugMode) {
-	for _, client := range mh.clients {
-		client.SetDebugMode(mode)
-	}
-}
-
 // UpdateMetrics : send on demand update metrics request
-func (mh *MetricsHandler) UpdateMetrics() error {
+func (mh *MetricsHandler) UpdateMetrics(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for _, client := range mh.clients {
 		wg.Add(1)
@@ -106,7 +100,7 @@ func (mh *MetricsHandler) UpdateMetrics() error {
 			if err := client.ResetMetrics(); err != nil {
 				logger.Log.Printf("failed to resetb metrics: %v", err)
 			}
-			if err := client.UpdateMetricsStats(); err != nil {
+			if err := client.UpdateMetricsStats(ctx); err != nil {
 				logger.Log.Printf("failed to update metrics: %v", err)
 			}
 		}(client)
