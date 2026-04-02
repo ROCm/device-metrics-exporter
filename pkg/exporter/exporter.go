@@ -89,9 +89,18 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 			// Since UpdateMetrics() is clearing metrics, we hold the lock such that no
 			// other goroutine will update/read the metrics
 			prometheusMiddlewareMu.Lock()
+			defer prometheusMiddlewareMu.Unlock()
+
+			// Check for debug parameter to enable debug metrics temporarily
+			debugMode := globals.DebugMode(r.URL.Query().Get("debug"))
+			if debugMode != globals.DebugModeNone {
+				logger.Log.Printf("Debug (%s) mode enabled via query parameter", debugMode)
+				mh.SetDebugMode(debugMode)
+				defer mh.SetDebugMode(globals.DebugModeNone)
+			}
+
 			_ = mh.UpdateMetrics()
 			next.ServeHTTP(w, r)
-			prometheusMiddlewareMu.Unlock()
 		} else {
 			next.ServeHTTP(w, r)
 		}

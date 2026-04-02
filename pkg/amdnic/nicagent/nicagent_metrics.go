@@ -51,6 +51,7 @@ var (
 	fetchLifMetrics      bool
 	fetchQPMetrics       bool
 	fetchLIFAggQPMetrics bool
+	debugMode            globals.DebugMode
 )
 
 type FieldMeta struct {
@@ -609,8 +610,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 		fetchPortMetrics = true
 		fetchPortRateMetrics = true
 		fetchLifMetrics = true
-		fetchQPMetrics = true
 		fetchLIFAggQPMetrics = true
+		fetchQPMetrics = false
 		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v}",
 			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics)
 		return
@@ -2182,6 +2183,15 @@ func (na *NICAgentClient) QueryMetrics() (interface{}, error) {
 
 func (na *NICAgentClient) GetDeviceType() globals.DeviceType {
 	return globals.NICDevice
+}
+
+func (na *NICAgentClient) SetDebugMode(mode globals.DebugMode) {
+	debugMode = mode
+	if mode != globals.DebugModeNone {
+		logger.Log.Printf("NIC debug metrics enabled (mode: %s)", mode)
+	} else {
+		logger.Log.Printf("NIC debug metrics disabled")
+	}
 }
 
 func (na *NICAgentClient) QueryInbandRASErrors(severity string) (interface{}, error) {

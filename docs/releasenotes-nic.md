@@ -9,6 +9,8 @@
 ### Improvements
 
 - Image Size Optimization: Docker image size reduced by 57% (from 903MB to 386MB) by stripping debug symbols from nicctl binary and Go binaries
+- **Per-QP Metrics Disabled by Default**: Per-QP metrics (metrics prefixed with `QP_*`) are now disabled by default for reduced cardinality.
+- **Per-QP Metrics Debug Mode**: Added support for retrieving per-QP metrics via URL parameter `/metrics?debug=qp` without modifying configuration files.
 
 ## nic-v1.1.0
 

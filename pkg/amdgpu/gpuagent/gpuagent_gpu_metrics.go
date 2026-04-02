@@ -1739,6 +1739,10 @@ func (ga *GPUAgentGPUClient) GetDeviceType() globals.DeviceType {
 	return globals.GPUDevice
 }
 
+func (ga *GPUAgentGPUClient) SetDebugMode(mode globals.DebugMode) {
+	// This is a no-op for now, but kept for interface compatibility
+}
+
 func (ga *GPUAgentGPUClient) QueryInbandRASErrors(severity string) (interface{}, error) {
 	var resp *amdgpu.GPUCPERGetResponse
 	var err error

@@ -442,6 +442,10 @@ func (ga *GPUAgentClient) GetDeviceType() globals.DeviceType {
 
 }
 
+func (ga *GPUAgentClient) SetDebugMode(mode globals.DebugMode) {
+	// This is a no-op for now, but kept for interface compatibility
+}
+
 func (ga *GPUAgentClient) GetK8sApiClient() *k8sclient.K8sClient {
 	return ga.k8sApiClient
 }
