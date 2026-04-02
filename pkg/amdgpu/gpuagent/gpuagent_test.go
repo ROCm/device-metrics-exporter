@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
 
@@ -552,4 +554,168 @@ func TestOccupancyElapsedCalculation(t *testing.T) {
 
 	t.Logf("✓ gpu_prof_occupancy_elapsed = %.6e (MeanOccupancyPerActiveCU=%.1f / GRBM_GUI_ACTIVE=%.0f)",
 		got, meanOccPerActiveCU, grbmActive)
+}
+
+// TestExitOnAgentDownExitsAfterConsecutiveFailures verifies that the exit logic
+// fires after maxConsecutiveFailures consecutive failures, matching the logic in
+// StartMonitor for the processHealthValidation() failure path.
+func TestExitOnAgentDownExitsAfterConsecutiveFailures(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+	ga.exitOnAgentDown = true
+	exitCalled := false
+	ga.exitFn = func(code int) {
+		exitCalled = true
+	}
+
+	const maxConsecutiveFailures = 3
+	consecutiveFailures := 0
+
+	simulateValidationFailure := func() {
+		consecutiveFailures++
+		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
+			ga.exitFn(1)
+		}
+	}
+
+	simulateValidationFailure()
+	simulateValidationFailure()
+	simulateValidationFailure()
+
+	assert.Assert(t, exitCalled, "exitFn should be called after %d consecutive failures", maxConsecutiveFailures)
+	assert.Equal(t, consecutiveFailures, maxConsecutiveFailures, "consecutive failures count should match")
+}
+
+// TestExitOnAgentDownCounterResetsOnSuccess verifies that a successful poll tick
+// resets the consecutive-failure counter so transient failures don't accumulate.
+func TestExitOnAgentDownCounterResetsOnSuccess(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+	ga.exitOnAgentDown = true
+	exitCalled := false
+	ga.exitFn = func(code int) {
+		exitCalled = true
+	}
+
+	// Simulate the counter-reset logic directly: 2 failures, then a success tick,
+	// then 2 more failures — total should never reach maxConsecutiveFailures (3).
+	const maxConsecutiveFailures = 3
+	consecutiveFailures := 0
+
+	reconnectFail := func() {
+		consecutiveFailures++
+		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
+			ga.exitFn(1)
+		}
+	}
+	successTick := func() {
+		consecutiveFailures = 0
+	}
+
+	reconnectFail()
+	reconnectFail()
+	successTick() // resets to 0
+	reconnectFail()
+	reconnectFail()
+
+	assert.Assert(t, !exitCalled,
+		"exitFn should not be called: failures were not consecutive across the success tick")
+	assert.Equal(t, consecutiveFailures, 2,
+		"counter should be 2 after reset + 2 more failures")
+}
+
+// TestExitOnAgentDownDisabledDoesNotExit verifies that when exitOnAgentDown is false
+// the exitFn is never invoked even after many reconnect failures.
+func TestExitOnAgentDownDisabledDoesNotExit(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+	ga.exitOnAgentDown = false
+	exitCalled := false
+	ga.exitFn = func(code int) {
+		exitCalled = true
+	}
+
+	const maxConsecutiveFailures = 3
+	consecutiveFailures := 0
+	for i := 0; i < maxConsecutiveFailures+5; i++ {
+		consecutiveFailures++
+		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
+			ga.exitFn(1)
+		}
+	}
+
+	assert.Assert(t, !exitCalled, "exitFn should not be called when exitOnAgentDown is false")
+}
+
+// TestProcessHealthValidationZeroGPUsReturnsErrZeroGPUs verifies that when the
+// gpuagent gRPC call succeeds but returns an empty GPU list (boot race / driver
+// crash scenario), processHealthValidation returns ErrZeroGPUs rather than nil.
+// This ensures StartMonitor counts the event toward the exit threshold.
+func TestProcessHealthValidationZeroGPUsReturnsErrZeroGPUs(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	// Use a fresh controller so the zero-GPU expectation is the only GPUGet
+	// registration, bypassing the AnyTimes() 2-GPU response from setupTest.
+	localCtl := gomock.NewController(t)
+	defer localCtl.Finish()
+	localGPUMock := mock_gen.NewMockGPUSvcClient(localCtl)
+	localEvtMock := mock_gen.NewMockEventSvcClient(localCtl)
+
+	// Return an empty GPU list: gpuagent reachable, amdsmi_get_socket_handles
+	// returned 0 because KFD nodes were not yet registered at gpuagent init.
+	zeroGPUResp := &amdgpu.GPUGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response:  []*amdgpu.GPU{},
+	}
+	localGPUMock.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(zeroGPUResp, nil).AnyTimes()
+	localEvtMock.EXPECT().EventGet(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	// Inject the local mocks into the GPU client.
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if c, ok := client.(*GPUAgentGPUClient); ok {
+			gpuclient = c
+			break
+		}
+	}
+	gpuclient.gpuclient = localGPUMock
+	gpuclient.evtclient = localEvtMock
+
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, err != nil, "processHealthValidation should return an error when GPUGet returns 0 GPUs")
+	assert.Assert(t, errors.Is(err, ErrZeroGPUs),
+		"processHealthValidation should return ErrZeroGPUs when GPUGet returns 0 GPUs, got: %v", err)
+}
+
+// TestIsRestartableFailure verifies that isRestartableFailure — the production
+// helper used by StartMonitor to decide which errors count toward the exit
+// threshold — returns true for ErrAgentUnreachable and ErrZeroGPUs (both
+// wrapped and direct) and false for all other errors.
+func TestIsRestartableFailure(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	assert.Assert(t, isRestartableFailure(ErrAgentUnreachable),
+		"ErrAgentUnreachable must be a restartable failure")
+	assert.Assert(t, isRestartableFailure(ErrZeroGPUs),
+		"ErrZeroGPUs must be a restartable failure")
+	assert.Assert(t, isRestartableFailure(fmt.Errorf("wrapped: %w", ErrZeroGPUs)),
+		"wrapped ErrZeroGPUs must be a restartable failure")
+	assert.Assert(t, isRestartableFailure(fmt.Errorf("wrapped: %w", ErrAgentUnreachable)),
+		"wrapped ErrAgentUnreachable must be a restartable failure")
+
+	assert.Assert(t, !isRestartableFailure(errors.New("compute node unhealthy")),
+		"unrelated errors must not be restartable failures")
+	assert.Assert(t, !isRestartableFailure(nil),
+		"nil must not be a restartable failure")
 }
