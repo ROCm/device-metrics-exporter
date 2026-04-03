@@ -451,6 +451,15 @@ func TestExporterOptions(t *testing.T) {
 				assert.Assert(t, e.enableSlurmScl, "Slurm client should be enabled")
 			},
 		},
+		{
+			name: "Exit on agent down enabled",
+			options: []ExporterOption{
+				WithExitOnAgentDown(true),
+			},
+			verify: func(e *Exporter) {
+				assert.Assert(t, e.exitOnAgentDown, "exitOnAgentDown should be enabled")
+			},
+		},
 	}
 
 	for _, tc := range tests {

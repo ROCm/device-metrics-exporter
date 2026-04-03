@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -282,7 +283,7 @@ ret:
 		ga.Close()
 		// set state to unhealthy with updated workload list
 		_ = ga.setUnhealthyGPU(wls)
-		return fmt.Errorf("data pull error occured")
+		return fmt.Errorf("data pull error occured: %w", ErrAgentUnreachable)
 	}
 
 	return ga.updateNewHealthState(newGPUState)

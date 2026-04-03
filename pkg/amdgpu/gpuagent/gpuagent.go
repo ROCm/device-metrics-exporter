@@ -18,21 +18,21 @@ package gpuagent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GPUAgentClient struct {
@@ -48,6 +48,8 @@ type GPUAgentClient struct {
 	enabledK8sApi        bool
 	enableSlurmScl       bool
 	enableSriov          bool
+	exitOnAgentDown      bool      // exit DME process when agent is unreachable
+	exitFn               func(int) // called instead of os.Exit; injectable for tests
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -113,6 +115,19 @@ func WithIFOEMonitoring(enableIFOEMonitoring bool) GPUAgentClientOptions {
 	}
 }
 
+// WithExitOnAgentDown causes DME to exit when the gpuagent is unreachable
+// after maxConsecutiveFailures consecutive poll failures. A failure is counted
+// only when the gRPC data pull fails (ErrAgentUnreachable), not for
+// non-connectivity conditions such as the compute node being marked unhealthy.
+// Combined with a container restart policy this handles cases where the driver
+// was not loaded at container start time — the container restarts and tries
+// again once ready.
+func WithExitOnAgentDown(exit bool) GPUAgentClientOptions {
+	return func(ga *GPUAgentClient) {
+		ga.exitOnAgentDown = exit
+	}
+}
+
 func (ga *GPUAgentClient) GetGRPCConnection() *grpc.ClientConn {
 	return ga.conn
 }
@@ -142,6 +157,7 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 		computeNodeHealthState: true,
 		enableGPUMonitoring:    true,
 		enableIFOEMonitoring:   false,
+		exitFn:                 os.Exit,
 	}
 	for _, o := range opts {
 		o(ga)
@@ -298,13 +314,23 @@ func (ga *GPUAgentClient) StartMonitor() {
 	pollTimer := time.NewTicker(pollInterval)
 	defer pollTimer.Stop()
 
+	const maxConsecutiveFailures = 3
+	consecutiveFailures := 0
+
 	// nolint
 	for {
 		select {
 		case <-pollTimer.C:
 			if !ga.isActive() {
 				if err := ga.reconnect(); err != nil {
-					logger.Log.Printf("gpuagent connection failed %v", err)
+					consecutiveFailures++
+					logger.Log.Printf("gpuagent connection failed %v (consecutive failures: %d)",
+						err, consecutiveFailures)
+					if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
+						logger.Log.Printf("gpuagent unreachable after %d consecutive failures, exiting",
+							consecutiveFailures)
+						ga.exitFn(1)
+					}
 					continue
 				}
 			}
@@ -333,11 +359,15 @@ func (ga *GPUAgentClient) StartMonitor() {
 						continue
 					}
 					logger.Log.Printf("gpuagent health validation failed %v", err)
-				}
-				if err := ga.sendNodeLabelUpdate(); err != nil {
-					logger.Log.Printf("gpuagent failed to send node label update %v", err)
+				} else {
+					if err := ga.sendNodeLabelUpdate(); err != nil {
+						logger.Log.Printf("gpuagent failed to send node label update %v", err)
+					}
 				}
 			}
+
+			// Successful poll tick — reset the failure counter.
+			consecutiveFailures = 0
 		}
 	}
 }
