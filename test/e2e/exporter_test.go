@@ -995,7 +995,7 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 	}
 
 		return foundAFID35
-	}, 10*time.Second, 1*time.Second)
+	}, 35*time.Second, 1*time.Second)
 
 	log.Print("Successfully verified AFID 35 in mock inband RAS error response")
 }

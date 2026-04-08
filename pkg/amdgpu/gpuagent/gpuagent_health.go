@@ -213,9 +213,9 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		gpuuid := uuid.String()
 		for _, record := range c.CPEREntry {
 			ts := record.GetTimestamp()
-			logger.Log.Printf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
+			logger.Debugf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
 				gpuuid, ts, record.RecordId, record.Severity.String(), record.Revision, record.CreatorId)
-			logger.Log.Printf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
+			logger.Debugf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
 			if record.Severity == amdgpu.CPERSeverity_CPER_SEVERITY_FATAL {
 				if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
 					newGPUState[gpuid].Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
@@ -264,10 +264,9 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 				eventErrCheck(evt)
 			}
 		}
-		gpuCper, err = ga.getGPUCPER("CPER_SEVERITY_FATAL")
-		if err != nil || (gpuCper != nil && gpuCper.ApiStatus != 0) {
-			// ignore cper errors log only
-			logger.Log.Printf("gpuagent get cper failed %v", err)
+		gpuCper, err = ga.cacheCperRead()
+		if err != nil || gpuCper == nil || gpuCper.ApiStatus != 0 {
+			logger.Debugf("gpuagent get cper failed %v", err)
 		} else {
 			// business logic for health detection
 			for _, cper := range gpuCper.CPER {
