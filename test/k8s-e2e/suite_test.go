@@ -32,19 +32,22 @@ import (
 )
 
 var kubeConfig = flag.String("kubeconfig", filepath.Join(homedir.HomeDir(), ".kube", "config"), "absolute path to the kubeconfig file")
-var helmChart = flag.String("helmchart", "", "helmchart")
+var helmChart = flag.String("helmchart", "", "helmchart path (DME standalone chart)")
 var exporterNS = flag.String("namespace", "kube-amd-gpu", "namespace")
 var registry = flag.String("registry", "docker.io/rocm/device-metrics-exporter", "exporter container registry")
 var imageTag = flag.String("imagetag", "latest", "exporter image version/tag")
 var platform = flag.String("platform", "k8s", "k8s/openshift")
 
-// All the test config, state and any helper caches for running this test
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) {
 	TestingT(t)
 }
 
-var _ = Suite(&E2ESuite{})
+// suite is the single E2ESuite instance shared across all test files in this package.
+// Exporting it as a package-level var allows test files (e.g. exporter_test.go) to
+// register their suiteHook via init() before the test runner starts.
+var suite = &E2ESuite{}
+var _ = Suite(suite)
 var platforms = map[string]string{
 	"k8s":       "k8s",
 	"openshift": "openshift",
@@ -75,13 +78,12 @@ func (s *E2ESuite) SetUpSuite(c *C) {
 	assert.NoError(c, err)
 
 	s.k8sclient = cs
-	//cleanup namespace if exists before creating
-	err = s.k8sclient.DeleteNamespace(ctx, s.ns)
-	if err == nil {
-		log.Print("Waiting for namespace cleanup")
-		time.Sleep(100 * time.Second)
+
+	// Delete namespace (if exists from a previous run), then create fresh.
+	log.Printf("SetUpSuite: deleting namespace %s (if exists)", s.ns)
+	if err = s.k8sclient.DeleteNamespaceAndWait(ctx, s.ns, "", 3*time.Minute); err != nil {
+		log.Printf("SetUpSuite: namespace delete/wait: %v (continuing)", err)
 	}
-	// create namespace for test
 	err = s.k8sclient.CreateNamespace(ctx, s.ns)
 	assert.NoError(c, err)
 
@@ -91,11 +93,18 @@ func (s *E2ESuite) SetUpSuite(c *C) {
 	)
 	assert.NoError(c, err)
 	s.helmClient = hClient
+
+	// Run any suite-level setup registered by individual test files via init().
+	if s.suiteHook != nil {
+		if err := s.suiteHook(ctx); err != nil {
+			assert.NoError(c, err, "suite hook failed")
+		}
+	}
 }
 
 func (s *E2ESuite) TearDownSuite(c *C) {
 	log.Print("cleaning setup after test")
-	err := s.k8sclient.DeleteNamespace(context.Background(), s.ns)
+	err := s.k8sclient.DeleteNamespaceAndWait(context.Background(), s.ns, "", 3*time.Minute)
 	assert.NoError(c, err)
 	s.helmClient.Cleanup()
 }

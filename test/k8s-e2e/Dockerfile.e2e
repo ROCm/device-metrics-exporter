@@ -1,0 +1,33 @@
+# Dockerfile.e2e — containerized runner for k8s-e2e tests
+#
+# Build:
+#   docker build -t dme-k8s-e2e:latest -f test/k8s-e2e/Dockerfile.e2e .
+#
+# Run DME standalone tests (Test001-Test200):
+#   docker run --rm -v ~/.kube:/root/.kube -v $(pwd)/helm-charts:/helm-charts \
+#     dme-k8s-e2e:latest \
+#     -helmchart /helm-charts -registry rocm/device-metrics-exporter -imagetag v1.5.0-beta.0 \
+#     -test.timeout 30m
+
+FROM golang:1.25-bookworm
+
+# Install kubectl (needed by Test200DeployWithServiceMonitorDynamic)
+RUN curl -fsSL "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    -o /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl
+
+WORKDIR /src
+
+# Copy go module files first for better layer caching
+COPY go.mod go.sum ./
+COPY vendor/ vendor/
+
+# Copy only the test sources
+COPY test/ test/
+COPY pkg/ pkg/
+
+WORKDIR /src/test/k8s-e2e
+
+# Pre-compile to catch errors at image build time
+RUN go build -mod=vendor ./...
+
+ENTRYPOINT ["go", "test", "-mod=vendor", "-v", "-test.timeout=30m"]

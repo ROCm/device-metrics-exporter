@@ -23,10 +23,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	testutils "github.com/ROCm/device-metrics-exporter/test/utils"
 	"github.com/prometheus/common/expfmt"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -64,6 +67,30 @@ func (k *K8sClient) DeleteNamespace(ctx context.Context, namespace string) error
 	return k.client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
 }
 
+// DeleteNamespaceAndWait deletes the namespace (if it exists) and waits until
+// it is fully removed from the API server, up to the given timeout.
+// labelSelector is unused (reserved for future filtering) and may be "".
+// Returns nil if the namespace was not found to begin with, or once it is gone.
+func (k *K8sClient) DeleteNamespaceAndWait(ctx context.Context, namespace, _ string, timeout time.Duration) error {
+	err := k.client.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+	if err != nil {
+		// Already gone — not an error.
+		if isNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("delete namespace %s: %w", namespace, err)
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		_, err := k.client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if isNotFound(err) {
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("timeout waiting for namespace %s to be deleted", namespace)
+}
+
 func (k *K8sClient) GetPodsByLabel(ctx context.Context, namespace string, labelMap map[string]string) ([]corev1.Pod, error) {
 	podList, err := k.client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap).String(),
@@ -94,14 +121,14 @@ func (k *K8sClient) GetServiceByLabel(ctx context.Context, namespace string, lab
 	return nodeList.Items, nil
 }
 
-func (k *K8sClient) GetEndpointByLabel(ctx context.Context, namespace string, labelMap map[string]string) ([]corev1.Endpoints, error) {
-	nodeList, err := k.client.CoreV1().Endpoints(namespace).List(ctx, metav1.ListOptions{
+func (k *K8sClient) GetEndpointByLabel(ctx context.Context, namespace string, labelMap map[string]string) ([]discoveryv1.EndpointSlice, error) {
+	list, err := k.client.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap).String(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return nodeList.Items, nil
+	return list.Items, nil
 }
 
 func (k *K8sClient) ValidatePod(ctx context.Context, namespace, podName string) error {
@@ -119,12 +146,12 @@ func (k *K8sClient) ValidatePod(ctx context.Context, namespace, podName string) 
 	return nil
 }
 
-func (k *K8sClient) GetMetricsFromEp(ctx context.Context, port uint, ep *corev1.Endpoints) (payload map[string]*testutils.GPUMetric, err error) {
-	for _, subnet := range ep.Subsets {
-		for _, addr := range subnet.Addresses {
-			resp, err := http.Get(fmt.Sprintf("http://%v:%d/metrics", addr, port))
+func (k *K8sClient) GetMetricsFromEp(ctx context.Context, port uint, ep *discoveryv1.EndpointSlice) (payload map[string]*testutils.GPUMetric, err error) {
+	for _, endpoint := range ep.Endpoints {
+		for _, addr := range endpoint.Addresses {
+			resp, err := http.Get(fmt.Sprintf("http://%s:%d/metrics", addr, port))
 			if err != nil {
-				log.Printf("failed to get metrics from %v:%d/metrics, %v", addr, port, err)
+				log.Printf("failed to get metrics from %s:%d/metrics, %v", addr, port, err)
 				continue
 			}
 			defer resp.Body.Close()
@@ -165,7 +192,7 @@ func (k *K8sClient) GetMetricsCmdFromPod(ctx context.Context, rc *restclient.Con
 	}
 
 	buf := &bytes.Buffer{}
-	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdout: buf,
 		Tty:    false,
 	})
@@ -193,6 +220,60 @@ func (k *K8sClient) GetMetricsCmdFromPod(ctx context.Context, rc *restclient.Con
 	return
 }
 
+// GetMetricValuesFromPod scrapes /metrics from the exporter running in the pod
+// and returns a map of metric name → value for the first GPU found.
+func (k *K8sClient) GetMetricValuesFromPod(ctx context.Context, rc *restclient.Config, pod *corev1.Pod) (map[string]float64, error) {
+	if pod == nil {
+		return nil, fmt.Errorf("invalid pod")
+	}
+	req := k.client.CoreV1().RESTClient().Post().Resource("pods").Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec")
+
+	cmd := "curl -s localhost:5000/metrics"
+	req.VersionedParams(&corev1.PodExecOptions{
+		Command: []string{"/bin/sh", "-c", cmd},
+		Stdin:   false,
+		Stdout:  true,
+		Stderr:  false,
+		TTY:     false,
+	}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(rc, "POST", req.URL())
+	if err != nil {
+		return nil, err
+	}
+
+	buf := &bytes.Buffer{}
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: buf,
+		Tty:    false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w failed executing command %s on %v/%v", err, cmd, pod.Namespace, pod.Name)
+	}
+
+	p := expfmt.TextParser{}
+	mf, err := p.TextToMetricFamilies(buf)
+	if err != nil {
+		return nil, fmt.Errorf("%w failed parsing metrics", err)
+	}
+
+	values := make(map[string]float64)
+	for name, family := range mf {
+		if len(family.Metric) == 0 {
+			continue
+		}
+		m := family.Metric[0]
+		if g := m.GetGauge(); g != nil {
+			values[name] = g.GetValue()
+		} else if ct := m.GetCounter(); ct != nil {
+			values[name] = ct.GetValue()
+		}
+	}
+	return values, nil
+}
+
 func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name string, json string) error {
 	mcfgMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -209,17 +290,15 @@ func (k *K8sClient) CreateConfigMap(ctx context.Context, namespace string, name 
 }
 
 func (k *K8sClient) UpdateConfigMap(ctx context.Context, namespace string, name string, json string) error {
-	mcfgMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			"config.json": json,
-		},
+	existing, err := k.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
-
-	_, err := k.client.CoreV1().ConfigMaps(namespace).Update(ctx, mcfgMap, metav1.UpdateOptions{})
+	if existing.Data == nil {
+		existing.Data = map[string]string{}
+	}
+	existing.Data["config.json"] = json
+	_, err = k.client.CoreV1().ConfigMaps(namespace).Update(ctx, existing, metav1.UpdateOptions{})
 	return err
 }
 
@@ -245,7 +324,7 @@ func (k *K8sClient) ExecCmdOnPod(ctx context.Context, rc *restclient.Config, pod
 		return "", fmt.Errorf("failed to create command executor. Error:%v", err)
 	}
 	buf := &bytes.Buffer{}
-	err = executor.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdout: buf,
 		Tty:    false,
 	})
@@ -254,4 +333,9 @@ func (k *K8sClient) ExecCmdOnPod(ctx context.Context, rc *restclient.Config, pod
 	}
 
 	return buf.String(), nil
+}
+
+// isNotFound returns true when err is a Kubernetes 404 Not Found error.
+func isNotFound(err error) bool {
+	return err != nil && k8serrors.IsNotFound(err)
 }
