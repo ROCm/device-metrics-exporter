@@ -41,7 +41,17 @@ const (
 	refreshInterval = 30 * time.Second
 	queryTimeout    = 15 * time.Second
 	cacheTimer      = 15 * time.Second
+
+	cperQueryTimeout = 60 * time.Second // higher than queryTimeout to handle 128-entry payloads
 )
+
+// cperRefreshInterval is 2s in sim mode, 30s in production.
+var cperRefreshInterval = func() time.Duration {
+	if utils.IsSimEnabled() {
+		return 2 * time.Second
+	}
+	return 30 * time.Second
+}()
 
 // Cache fields for GPUAgentClient
 type gpuCache struct {
@@ -270,7 +280,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	}
 	cper, err := ga.getLatestCPER()
 	if err != nil {
-		logger.Log.Printf("getLatestCPER failed with err : %v", err)
+		logger.Debugf("getLatestCPER failed with err : %v", err)
 		cper = nil
 	}
 	wls, _ := ga.gpuHandler.ListWorkloads()
@@ -371,38 +381,45 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 	return res, err
 }
 
+// cacheCperRead returns cached CPER data, or nil if the background refresh
+// has not yet populated the cache. Never blocks on a live gRPC call.
 func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error) {
-	now := time.Now()
-
-	// First try fast path with RLock
 	ga.gCache.RLock()
-	if ga.gCache.lastCperResponse != nil && now.Sub(ga.gCache.lastCperTimestamp) < cacheTimer {
-		res := ga.gCache.lastCperResponse
-		ga.gCache.RUnlock()
-		logger.Debug("returning CPER metrics from cache")
-		return res, nil
-	}
-	ga.gCache.RUnlock()
+	defer ga.gCache.RUnlock()
+		return ga.gCache.lastCperResponse, nil
+}
 
-	// Acquire full Lock to update cache
+// startCperRefresh keeps the CPER cache warm via a background goroutine.
+func (ga *GPUAgentGPUClient) startCperRefresh(ctx context.Context) {
+	go func() {
+		logger.Infof("CPER background refresh goroutine started (interval=%v, timeout=%v)",
+			cperRefreshInterval, cperQueryTimeout)
+		ga.refreshCperCache()
+
+		ticker := time.NewTicker(cperRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Infof("CPER background refresh goroutine exiting: context done (%v)", ctx.Err())
+				return
+			case <-ticker.C:
+				ga.refreshCperCache()
+			}
+	}
+	}()
+}
+
+func (ga *GPUAgentGPUClient) refreshCperCache() {
+	res, err := ga.getGPUCPER("")
 	ga.gCache.Lock()
 	defer ga.gCache.Unlock()
-
-	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
-	if ga.gCache.lastCperResponse != nil && time.Since(ga.gCache.lastCperTimestamp) < cacheTimer {
-		logger.Debug("returning CPER metrics from cache (after double-check)")
-		return ga.gCache.lastCperResponse, nil
-	}
-
-	// Perform query and update cache
-	res, err := ga.getGPUCPER("")
-	ga.gCache.lastCperTimestamp = time.Now()
 	if err == nil {
 		ga.gCache.lastCperResponse = res
 	} else {
-		ga.gCache.lastCperResponse = nil
+		logger.Debugf("CPER background refresh failed: %v", err)
 	}
-	return res, err
+	ga.gCache.lastCperTimestamp = time.Now()
 }
 
 // getLatestCPER fetches the latest CPER entry per GPU from the cached CPER data
@@ -415,7 +432,10 @@ func (ga *GPUAgentGPUClient) getLatestCPER() (map[string]*amdgpu.CPEREntry, erro
 	if err != nil {
 		return nil, err
 	}
-	if gpuCpers != nil && gpuCpers.ApiStatus != 0 {
+	if gpuCpers == nil {
+		return nil, nil
+	}
+	if gpuCpers.ApiStatus != 0 {
 		logger.Errorf("CPER resp status :%v", gpuCpers.ApiStatus)
 		return nil, fmt.Errorf("%v", gpuCpers.ApiStatus)
 	}
@@ -508,7 +528,7 @@ func (ga *GPUAgentGPUClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResp
 	if utils.IsMockCperEnabled() {
 		return utils.GetCperRecords()
 	}
-	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)
+	ctx, cancel := context.WithTimeout(ga.GetContext(), cperQueryTimeout)
 	defer cancel()
 
 	req := &amdgpu.GPUCPERGetRequest{}

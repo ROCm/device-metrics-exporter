@@ -307,6 +307,15 @@ func (ga *GPUAgentClient) StartMonitor() {
 	logger.Log.Printf("GPUAgent monitor started")
 	ga.initializeContext()
 
+	// start background CPER cache refresh per GPU client
+	if ga.enableGPUMonitoring {
+		for _, client := range ga.clients {
+			if gpuClient, ok := client.(*GPUAgentGPUClient); ok {
+				gpuClient.startCperRefresh(ga.ctx)
+			}
+		}
+	}
+
 	// Get health polling interval from configuration
 	pollInterval := ga.mh.GetHealthPollingInterval()
 	logger.Log.Printf("Health polling interval set to %v", pollInterval)
