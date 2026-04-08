@@ -497,7 +497,10 @@ func (ga *GPUAgentGPUClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.E
 			},
 		}
 	}
-	res, err := ga.evtclient.EventGet(ga.GetContext(), req)
+	// Bound timeout so a slow gpuagent does not block the /metrics handler indefinitely.
+	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)
+	defer cancel()
+	res, err := ga.evtclient.EventGet(ctx, req)
 	return res, err
 }
 

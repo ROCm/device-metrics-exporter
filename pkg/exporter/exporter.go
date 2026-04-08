@@ -197,7 +197,15 @@ func foreverWatcher(e *Exporter) {
 			logger.Log.Printf("stopping server")
 			srvCtx, srvCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			if err := srvHandler.Shutdown(srvCtx); err != nil {
-				panic(err) // failure/timeout shutting down the server gracefully
+				// Shutdown timed out (e.g. in-flight /metrics blocked on slow gRPC).
+				// Force-close to release the listener port before startServer() rebinds it.
+				logger.Log.Printf("server shutdown error: %v", err)
+				if closeErr := srvHandler.Close(); closeErr != nil {
+					// Port may still be bound -- skip nil/restart to avoid bind conflict.
+					logger.Log.Printf("server force-close error: %v", closeErr)
+					srvCancel()
+					return
+				}
 			}
 			srvCancel()
 			time.Sleep(1 * time.Second)
