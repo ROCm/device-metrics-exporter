@@ -595,6 +595,15 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	for _, name := range exportermetrics.NICMetricField_name {
 		exportFieldMap[name] = enable_default
 	}
+	// Also add values from reverse lookup map for backward compatibility with aliases.
+	// Alias-only names map to the same collectors as their canonical enum names, so
+	// they must remain disabled by default to avoid duplicate collector registration.
+	// They can still be enabled explicitly through config.
+	for name := range exportermetrics.NICMetricField_value {
+		if _, ok := exportFieldMap[name]; !ok {
+			exportFieldMap[name] = false
+		}
+	}
 
 	fetchRdmaMetrics = false
 	fetchEthtoolMetrics = false
@@ -818,22 +827,22 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_2048B_4095B.String():               {Metric: na.m.ethFramesRx2048b4095b},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_4096B_8191B.String():               {Metric: na.m.ethFramesRx4096b8191b},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_BAD_FCS.String():                   {Metric: na.m.ethFramesRxBadFcs},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI0.String():                      {Metric: na.m.ethFramesRxPri0},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI1.String():                      {Metric: na.m.ethFramesRxPri1},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI2.String():                      {Metric: na.m.ethFramesRxPri2},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI3.String():                      {Metric: na.m.ethFramesRxPri3},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI4.String():                      {Metric: na.m.ethFramesRxPri4},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI5.String():                      {Metric: na.m.ethFramesRxPri5},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI6.String():                      {Metric: na.m.ethFramesRxPri6},
-		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI7.String():                      {Metric: na.m.ethFramesRxPri7},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI0.String():                      {Metric: na.m.ethFramesTxPri0},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI1.String():                      {Metric: na.m.ethFramesTxPri1},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI2.String():                      {Metric: na.m.ethFramesTxPri2},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI3.String():                      {Metric: na.m.ethFramesTxPri3},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI4.String():                      {Metric: na.m.ethFramesTxPri4},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI5.String():                      {Metric: na.m.ethFramesTxPri5},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI6.String():                      {Metric: na.m.ethFramesTxPri6},
-		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI7.String():                      {Metric: na.m.ethFramesTxPri7},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_0.String():                     {Metric: na.m.ethFramesRxPri0},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_1.String():                     {Metric: na.m.ethFramesRxPri1},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_2.String():                     {Metric: na.m.ethFramesRxPri2},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_3.String():                     {Metric: na.m.ethFramesRxPri3},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_4.String():                     {Metric: na.m.ethFramesRxPri4},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_5.String():                     {Metric: na.m.ethFramesRxPri5},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_6.String():                     {Metric: na.m.ethFramesRxPri6},
+		exportermetrics.NICMetricField_ETH_FRAMES_RX_PRI_7.String():                     {Metric: na.m.ethFramesRxPri7},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_0.String():                     {Metric: na.m.ethFramesTxPri0},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_1.String():                     {Metric: na.m.ethFramesTxPri1},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_2.String():                     {Metric: na.m.ethFramesTxPri2},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_3.String():                     {Metric: na.m.ethFramesTxPri3},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_4.String():                     {Metric: na.m.ethFramesTxPri4},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_5.String():                     {Metric: na.m.ethFramesTxPri5},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_6.String():                     {Metric: na.m.ethFramesTxPri6},
+		exportermetrics.NICMetricField_ETH_FRAMES_TX_PRI_7.String():                     {Metric: na.m.ethFramesTxPri7},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_DROPPED.String():                   {Metric: na.m.ethFramesRxDropped},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_ALL.String():                       {Metric: na.m.ethFramesRxAll},
 		exportermetrics.NICMetricField_ETH_FRAMES_RX_BAD_ALL.String():                   {Metric: na.m.ethFramesRxBadAll},
@@ -875,6 +884,23 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_1519B_2047B.String():               {Metric: na.m.ethFramesTx1519b2047b},
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_2048B_4095B.String():               {Metric: na.m.ethFramesTx2048b4095b},
 		exportermetrics.NICMetricField_ETH_FRAMES_TX_4096B_8191B.String():               {Metric: na.m.ethFramesTx4096b8191b},
+		// Backward compatibility aliases (deprecated, use PRI_N format)
+		"ETH_FRAMES_RX_PRI0": {Metric: na.m.ethFramesRxPri0},
+		"ETH_FRAMES_RX_PRI1": {Metric: na.m.ethFramesRxPri1},
+		"ETH_FRAMES_RX_PRI2": {Metric: na.m.ethFramesRxPri2},
+		"ETH_FRAMES_RX_PRI3": {Metric: na.m.ethFramesRxPri3},
+		"ETH_FRAMES_RX_PRI4": {Metric: na.m.ethFramesRxPri4},
+		"ETH_FRAMES_RX_PRI5": {Metric: na.m.ethFramesRxPri5},
+		"ETH_FRAMES_RX_PRI6": {Metric: na.m.ethFramesRxPri6},
+		"ETH_FRAMES_RX_PRI7": {Metric: na.m.ethFramesRxPri7},
+		"ETH_FRAMES_TX_PRI0": {Metric: na.m.ethFramesTxPri0},
+		"ETH_FRAMES_TX_PRI1": {Metric: na.m.ethFramesTxPri1},
+		"ETH_FRAMES_TX_PRI2": {Metric: na.m.ethFramesTxPri2},
+		"ETH_FRAMES_TX_PRI3": {Metric: na.m.ethFramesTxPri3},
+		"ETH_FRAMES_TX_PRI4": {Metric: na.m.ethFramesTxPri4},
+		"ETH_FRAMES_TX_PRI5": {Metric: na.m.ethFramesTxPri5},
+		"ETH_FRAMES_TX_PRI6": {Metric: na.m.ethFramesTxPri6},
+		"ETH_FRAMES_TX_PRI7": {Metric: na.m.ethFramesTxPri7},
 		// LIF-aggregated QP metrics
 		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_PACKET_TOTAL.String():                {Metric: na.m.lifQpSqReqTxNumPacketTotal},
 		exportermetrics.NICMetricField_LIF_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE_TOTAL.String():    {Metric: na.m.lifQpSqReqTxNumSendMsgsWithRkeTotal},
