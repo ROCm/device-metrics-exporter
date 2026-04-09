@@ -33,3 +33,6 @@ branch_policy.yml
 tools-internal/*
 test/pytests/*
 test/pytest/*
+CLAUDE.md
+.claude/*
+.copilot/*
