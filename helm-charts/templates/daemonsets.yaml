@@ -101,8 +101,11 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - "--monitor-gpu={{ .Values.monitor.resources.gpu }}"
-            - "--monitor-nic={{ .Values.monitor.resources.nic }}"
+            - "-monitor-gpu={{ .Values.monitor.resources.gpu }}"
+            - "-monitor-nic={{ .Values.monitor.resources.nic }}"
+            {{- range .Values.args }}
+            - {{ . | quote }}
+            {{- end }}
           env:
           - name: NODE_NAME
             valueFrom:
