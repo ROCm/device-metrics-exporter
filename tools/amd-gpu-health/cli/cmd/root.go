@@ -46,6 +46,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	logger.SetLogDir(globals.GPUHealthCheckerLogDir)
 	logger.SetLogFile(globals.GPUHealthCheckerLogFile)
+	logger.EnableLogFallback()
 	logger.Init(false)
 	RootCmd.PersistentFlags().StringVar(&configFile, "config", "", "Config file (default is $HOME/.cobra.yaml)")
 }

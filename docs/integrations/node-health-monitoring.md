@@ -46,7 +46,7 @@ Exit codes 0, 1, and 2 are used for plugin monitor. Exit code 0 is treated as wo
 
 We provide a small utility, `amdgpuhealth`, queries various AMD GPU metrics from `device-metrics-exporter` and `Prometheus` endpoint. Based on user-configured thresholds, it determines if any AMD GPU is in problem state. NPD custom plugin monitor can invoke this program at configurable intervals to monitor various metrics and assess overall health of AMD GPUs.
 
-The utility `amdgpuhealth` is packaged with device-metrics-exporter docker image and will be copied to host path `/var/lib/amd-metrics-exporter`. NPD needs to mount this host path to be able to use the utility via custom plugin monitor.
+The utility `amdgpuhealth` is packaged with the device-metrics-exporter distribution. For **Kubernetes** deployments, the tool is included in the container image and is made available on the node under `/var/lib/amd-metrics-exporter`; NPD must mount that host path so the custom plugin monitor can execute `amdgpuhealth`. For **Debian** installations from the standalone package, `amdgpuhealth` is installed to `/usr/local/bin` (on the default search path for shells and scripts).
 
 Example usage of amdgpuhealth CLI:
 
@@ -234,7 +234,7 @@ Mount this secret as a volume in your NPD deployment yaml. Same mount path needs
 ### Creating Secret for Prometheus endpoint Root CA
 
 ```bash
-kubectl create secret generic -n <NPD_NAESPACE> prometheus-rootca --from-file=ca.crt=<path-to-ca-cert>
+kubectl create secret generic -n <NPD_NAMESPACE> prometheus-rootca --from-file=ca.crt=<path-to-ca-cert>
 ```
 
 Mount this secret as a volume in your NPD deployment yaml. Pass the mount path in CLI argument followed by the key `ca.crt`. Example below:
