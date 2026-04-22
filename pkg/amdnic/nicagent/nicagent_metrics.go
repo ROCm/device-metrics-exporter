@@ -2209,7 +2209,7 @@ func (na *NICAgentClient) populateNonNICLabels() map[string]string {
 	for _, ckey := range na.GetExporterNonNICLabels() {
 		key := strings.ToLower(ckey)
 		switch ckey {
-		case exportermetrics.MetricLabel_HOSTNAME.String():
+		case strings.ToLower(exportermetrics.MetricLabel_HOSTNAME.String()):
 			labels[key] = na.staticHostLabels[exportermetrics.MetricLabel_HOSTNAME.String()]
 		default:
 			labels[key] = ""
