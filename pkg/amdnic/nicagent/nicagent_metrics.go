@@ -2122,7 +2122,9 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 
 func (na *NICAgentClient) initFieldRegistration() error {
 	for field, enabled := range exportFieldMap {
-		if !enabled {
+		// Always register QP_ metrics so that ?debug=qp works at runtime
+		// Data collection is still gated by isFieldEnabled/debugMode
+		if !enabled && !strings.HasPrefix(field, "QP_") {
 			continue
 		}
 		prommetric, ok := fieldMetricsMap[field]
@@ -2136,6 +2138,11 @@ func (na *NICAgentClient) initFieldRegistration() error {
 	}
 
 	return nil
+}
+
+func (na *NICAgentClient) isFieldEnabled(fieldName string) bool {
+	enabled, exists := exportFieldMap[fieldName]
+	return exists && enabled
 }
 
 func (na *NICAgentClient) initPodExtraLabels(config *exportermetrics.NICMetricConfig) {
