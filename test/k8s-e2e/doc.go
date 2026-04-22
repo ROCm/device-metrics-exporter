@@ -17,6 +17,8 @@
 package k8e2e
 
 import (
+	"context"
+
 	"github.com/ROCm/device-metrics-exporter/test/k8s-e2e/clients"
 	restclient "k8s.io/client-go/rest"
 )
@@ -32,4 +34,9 @@ type E2ESuite struct {
 	ns         string
 	kubeconfig string
 	platform   string
+	// suiteHook is an optional callback invoked at the end of SetUpSuite.
+	// Set by individual test files (e.g. exporter_test.go) via init() to
+	// register suite-level setup that only that test file needs.
+	// Returning a non-nil error aborts the suite.
+	suiteHook func(ctx context.Context) error
 }

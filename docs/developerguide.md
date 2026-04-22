@@ -117,6 +117,82 @@ make e2e
 
 **Note**: End-end tests run on mock AMD Metrics Exporter image that mocks the metrics generated.
 
+## Kubernetes E2E Tests
+
+The `test/k8s-e2e/` directory contains a test suite that runs against a live Kubernetes cluster:
+
+| Suite | Tests | What it tests |
+| --- | --- | --- |
+| **DME standalone** | `Test001`–`Test200` | DME deployed via its own Helm chart |
+
+### Prerequisites
+
+- A running Kubernetes cluster with at least one AMD GPU node
+- `kubectl` configured (`~/.kube/config` or a custom kubeconfig)
+- Docker (to build the test runner image)
+- The DME Helm chart at `helm-charts/` (for DME standalone mode)
+
+### Test runner image
+
+All modes use a containerized test runner built from `test/k8s-e2e/Dockerfile.e2e`. Build it once (or pass `--rebuild` to rebuild automatically):
+
+```bash
+docker build -t dme-k8s-e2e:latest -f test/k8s-e2e/Dockerfile.e2e .
+```
+
+### Running with run-e2e.sh
+
+`test/k8s-e2e/run-e2e.sh` is the recommended entry point. It builds the image if needed and dispatches to the correct mode.
+
+#### DME standalone tests (Test001–Test200)
+
+Deploys DME via its standalone Helm chart and verifies metrics, health, and label propagation.
+
+```bash
+bash test/k8s-e2e/run-e2e.sh --dme \
+  --kubeconfig /path/to/kubeconfig \
+  --registry rocm/device-metrics-exporter \
+  --imagetag v1.5.0-beta.0
+```
+
+### Running with make (inside the build container)
+
+From inside the `test/k8s-e2e/` directory, or via the top-level Makefile with `TOP_DIR` set:
+
+```bash
+# DME standalone
+make all TOP_DIR=$(pwd) KUBECONFIG=/path/to/kubeconfig \
+  DOCKER_REGISTRY=rocm EXPORTER_IMAGE_NAME=device-metrics-exporter EXPORTER_IMAGE_TAG=v1.5.0-beta.0
+```
+
+### Running with go test directly
+
+You can also run tests directly with `go test` from `test/k8s-e2e/`. This requires Go 1.25+ in `$PATH`.
+
+#### DME standalone
+
+```bash
+cd test/k8s-e2e
+go test -mod=vendor -v -failfast \
+  -helmchart ../../helm-charts \
+  -registry rocm/device-metrics-exporter \
+  -imagetag v1.5.0-beta.0 \
+  -kubeconfig /path/to/kubeconfig \
+  -test.timeout 30m
+```
+
+### Common flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `-kubeconfig` | `~/.kube/config` | Path to kubeconfig |
+| `-namespace` | `kube-amd-gpu` | Kubernetes namespace |
+| `-check.f` | _(all)_ | Regex filter for test names (gocheck syntax) |
+| `-test.timeout` | `30m` | Overall test timeout |
+| `-helmchart` | _(none)_ | Path to DME standalone Helm chart |
+| `-registry` | `docker.io/rocm/device-metrics-exporter` | DME image registry |
+| `-imagetag` | `latest` | DME image tag |
+
 ### Helm Chart Packaging
 
 To package Helm charts:

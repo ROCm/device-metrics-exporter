@@ -25,6 +25,7 @@ import (
 
 	helm "github.com/mittwald/go-helm-client"
 	helmValues "github.com/mittwald/go-helm-client/values"
+	"helm.sh/helm/v3/pkg/repo"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -63,14 +64,17 @@ func NewHelmClient(opts ...HelmClientOpt) (*HelmClient, error) {
 		return nil, err
 	}
 
-	client.config, err = os.MkdirTemp("", ".hconfig")
+	configDir, err := os.MkdirTemp("", ".hconfig")
 	if err != nil {
 		return nil, err
 	}
+	// RepositoryConfig must be a file path (repositories.yaml), not a directory.
+	client.config = configDir
+	repoFile := configDir + "/repositories.yaml"
 	restConfOptions := &helm.RestConfClientOptions{
 		Options: &helm.Options{
 			Namespace:        client.ns,
-			RepositoryConfig: client.config,
+			RepositoryConfig: repoFile,
 			Debug:            true,
 			RepositoryCache:  client.cache,
 			DebugLog: func(format string, v ...interface{}) {
@@ -119,6 +123,65 @@ func (h *HelmClient) UninstallChart() error {
 		return fmt.Errorf("helm chart is not installed by client")
 	}
 	return h.client.UninstallReleaseByName(h.relName)
+}
+
+// AddRepository adds a helm repository. url is the chart repo URL; name is the local alias.
+func (h *HelmClient) AddRepository(name, url string) error {
+	return h.client.AddOrUpdateChartRepo(repo.Entry{
+		Name: name,
+		URL:  url,
+	})
+}
+
+// InstallChartWithTimeout is like InstallChart but accepts a custom timeout, release name, and
+// optional chart version. version may be empty (uses the latest available version).
+func (h *HelmClient) InstallChartWithTimeout(ctx context.Context, releaseName, chart, version string, params []string, timeout time.Duration) (string, error) {
+	values := helmValues.Options{
+		Values: params,
+	}
+
+	chartSpec := &helm.ChartSpec{
+		ReleaseName:   releaseName,
+		ChartName:     chart,
+		Version:       version,
+		Namespace:     h.ns,
+		GenerateName:  false,
+		Wait:          true,
+		Timeout:       timeout,
+		CleanupOnFail: false,
+		DryRun:        false,
+		SkipCRDs:      false,
+		ValuesOptions: values,
+	}
+
+	resp, err := h.client.InstallChart(ctx, chartSpec, nil)
+	if err != nil {
+		return "", err
+	}
+	log.Printf("helm chart install resp: %+v", resp)
+	h.relName = resp.Name
+	return resp.Name, nil
+}
+
+// UninstallChartByName uninstalls a helm release by name without requiring it was installed by this client.
+func (h *HelmClient) UninstallChartByName(releaseName string) error {
+	return h.client.UninstallReleaseByName(releaseName)
+}
+
+// UninstallAllReleases uninstalls all helm releases in the client's namespace.
+// Errors are logged but not returned so cleanup continues regardless.
+func (h *HelmClient) UninstallAllReleases() {
+	releases, err := h.client.ListDeployedReleases()
+	if err != nil {
+		log.Printf("UninstallAllReleases: list: %v", err)
+		return
+	}
+	for _, rel := range releases {
+		log.Printf("UninstallAllReleases: uninstalling %s", rel.Name)
+		if err := h.client.UninstallReleaseByName(rel.Name); err != nil {
+			log.Printf("UninstallAllReleases: %s: %v", rel.Name, err)
+		}
+	}
 }
 
 func (h *HelmClient) Cleanup() {
