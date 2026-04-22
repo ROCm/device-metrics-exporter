@@ -253,16 +253,18 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		gpuUUIDMap[gpuuid] = gpuid
 	}
 
-	// disable events for gpus with sriov or sim enabled
+	// disable events when SR-IOV is enabled or when events are disabled via configuration/env (utils.IsEventsDisabled)
 	if !(ga.gpuHandler.enableSriov || utils.IsSimEnabled()) {
-		evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
-		if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
-			errOccured = true
-			logger.Log.Printf("gpuagent get events failed %v", err)
-		} else {
-			// business logic for health detection
-			for _, evt := range evtData.Event {
-				eventErrCheck(evt)
+		if !utils.IsEventsDisabled() {
+			evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
+			if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
+				errOccured = true
+				logger.Log.Printf("gpuagent get events failed %v", err)
+			} else {
+				// business logic for health detection
+				for _, evt := range evtData.Event {
+					eventErrCheck(evt)
+				}
 			}
 		}
 		gpuCper, err = ga.cacheCperRead()
