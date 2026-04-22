@@ -22,5 +22,5 @@ LD_PRELOAD=/home/amd/lib/libgim_amd_smi.so /home/amd/bin/gpuagent &
 
 # sleep before starting promethesu server
 sleep 10
-# start prometheus server
-/home/amd/bin/server -sriov-enable
+# start exporter with sriov-enable hardcoded; forward any additional args passed to the container
+exec /home/amd/bin/server "$@" -sriov-enable

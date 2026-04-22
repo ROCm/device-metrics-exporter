@@ -23,6 +23,8 @@ kubelet:
   #    - micro k8s kubelet path: /var/snap/microk8s/common/var/lib/kubelet/pod-resources/
   #    - default to /var/lib/kubelet/pod-resources
   podResourceAPISocketPath: /var/lib/kubelet/pod-resources
+# -- Additional arguments to pass to the exporter container (for testing only)
+args: []
 # -- monitoring configuration
 monitor:
   # -- Enable or disable specific resource monitoring components.
