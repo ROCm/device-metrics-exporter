@@ -87,6 +87,7 @@ mTLS
 apiserver
 cron
 CRD
+CRI
 daemonset
 DaemonSet
 serviceMonitorNamespaceSelector
