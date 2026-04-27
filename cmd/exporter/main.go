@@ -63,6 +63,7 @@ func main() {
 	enableK8sScl := fs.Bool("enable-k8s-scl", true, "Enable Kubernetes Scheduler client integration")
 	enableSlumrScl := fs.Bool("enable-slurm-scl", true, "Enable Slurm Scheduler client integration")
 	sriov := fs.Bool("sriov-enable", false, "sriov host mode")
+	exitOnAgentDown := fs.Bool("exit-on-agent-down", false, "Exit DME if gpuagent is unreachable after consecutive failures")
 	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server")
 	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path")
 
@@ -119,6 +120,7 @@ func main() {
 		exporter.WithNICMonitoring(*enableNICMonitoring),
 		exporter.WithGPUMonitoring(*enableGPUMonitoring),
 		exporter.WithSRIOV(*sriov),
+		exporter.WithExitOnAgentDown(*exitOnAgentDown),
 		exporter.WithBindAddr(*bindAddr),
 		exporter.WithSlurmClient(*enableSlumrScl),
 		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),

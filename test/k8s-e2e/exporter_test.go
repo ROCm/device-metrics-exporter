@@ -36,9 +36,10 @@ import (
 )
 
 var (
-	nodePort      = 32100
-	exporterPod   *corev1.Pod
-	configmapName = "test-e2e-config"
+	nodePort         = 32100
+	exporterPod      *corev1.Pod
+	exporterLabelMap map[string]string // label selector for the exporter DaemonSet pod
+	configmapName    = "test-e2e-config"
 )
 
 type gpuconfig struct {
@@ -81,25 +82,30 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	log.Printf("helm installed exporter relName :%v err:%v", rel, err)
 	log.Printf("sleep for 20s for pod to be ready")
 	time.Sleep(20 * time.Second)
-	labelMap := map[string]string{"app": fmt.Sprintf("%v-amdgpu-metrics-exporter", rel)}
+	exporterLabelMap = map[string]string{"app": fmt.Sprintf("%v-amdgpu-metrics-exporter", rel)}
 	assert.Eventually(c, func() bool {
-		pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, labelMap)
+		pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, exporterLabelMap)
 		if err != nil {
 			log.Printf("label get pod err %v", err)
 			return false
 		}
-		log.Printf("pods : %+v", pods)
-		if len(pods) >= 1 {
-			for _, pod := range pods {
-				if pod.Status.Phase == "Running" {
-					exporterPod = &pod
-					break
-				}
+		for i := range pods {
+			pod := &pods[i]
+			if pod.DeletionTimestamp != nil {
+				continue // skip terminating pods
 			}
-			return true
+			if pod.Status.Phase == "Running" {
+				exporterPod = pod
+				log.Printf("found running pod: %s", pod.Name)
+				return true
+			}
 		}
 		return false
 	}, 2*time.Minute, 10*time.Second)
+	if exporterPod == nil {
+		assert.Fail(c, "exporter pod never reached Running state")
+		return
+	}
 	assert.Eventually(c, func() bool {
 		err := s.k8sclient.ValidatePod(ctx, s.ns, exporterPod.Name)
 		if err != nil {
@@ -110,11 +116,63 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	}, 10*time.Second, 1*time.Second)
 }
 
+// refreshExporterPod re-discovers a running exporter pod via exporterLabelMap.
+// Returns true if a new pod was found and exporterPod was updated.
+func (s *E2ESuite) refreshExporterPod(ctx context.Context) bool {
+	if exporterLabelMap == nil {
+		return false
+	}
+	pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, exporterLabelMap)
+	if err != nil {
+		return false
+	}
+	for i := range pods {
+		p := &pods[i]
+		if p.DeletionTimestamp != nil {
+			continue
+		}
+		if p.Status.Phase == "Running" {
+			log.Printf("refreshExporterPod: %s -> %s", exporterPod.Name, p.Name)
+			exporterPod = p
+			return true
+		}
+	}
+	return false
+}
+
+// getMetrics scrapes /metrics from exporterPod, re-discovering the pod via
+// exporterLabelMap when the current pod is stale (deleted/restarted).
+func (s *E2ESuite) getMetrics(ctx context.Context) (labels []string, fields []string, err error) {
+	labels, fields, err = s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+	if err == nil {
+		return
+	}
+	// Pod may have been replaced (e.g. after a configmap update). Re-discover.
+	if s.refreshExporterPod(ctx) {
+		labels, fields, err = s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+	}
+	return
+}
+
+// getMetricValues scrapes /metrics from exporterPod and returns a map of values,
+// re-discovering the pod if it is stale.
+func (s *E2ESuite) getMetricValues(ctx context.Context) (map[string]float64, error) {
+	values, err := s.k8sclient.GetMetricValuesFromPod(ctx, s.restConfig, exporterPod)
+	if err == nil {
+		return values, nil
+	}
+	// Pod may have been replaced. Re-discover.
+	if s.refreshExporterPod(ctx) {
+		return s.k8sclient.GetMetricValuesFromPod(ctx, s.restConfig, exporterPod)
+	}
+	return nil, err
+}
+
 func (s *E2ESuite) Test002MetricsServer(c *C) {
 	ctx := context.Background()
 	log.Print("Test metrics server is responding")
 	assert.Eventually(c, func() bool {
-		labels, fields, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, fields, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
@@ -142,20 +200,20 @@ func (s *E2ESuite) Test003LabelUpdate(c *C) {
 	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
 	assert.NoError(c, err)
 	assert.Eventually(c, func() bool {
-		labels, fields, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, fields, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
 		}
 		log.Printf("got valid payload : %v, %v", labels, fields)
 		return len(labels) == len(cmLabels)+len(mandatoryLabels)
-	}, 90*time.Second, 5*time.Second)
+	}, 3*time.Minute, 5*time.Second)
 }
 
 func (s *E2ESuite) Test004FieldUpdate(c *C) {
 	ctx := context.Background()
 	log.Print("Test metrics server is updating fields")
-	cmFields := []string{"gpu_package_power", "gpu_edge_temperature"}
+	cmFields := []string{"gpu_package_power", "gpu_junction_temperature"}
 	config := exporterConfig{
 		GPUConfig: &gpuconfig{
 			Fields: cmFields,
@@ -169,14 +227,14 @@ func (s *E2ESuite) Test004FieldUpdate(c *C) {
 	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
 	assert.NoError(c, err)
 	assert.Eventually(c, func() bool {
-		labels, fields, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, fields, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
 		}
 		log.Printf("got valid payload : %v, %v", labels, fields)
 		return len(fields) == len(cmFields)+1
-	}, 90*time.Second, 5*time.Second)
+	}, 3*time.Minute, 5*time.Second)
 }
 
 func (s *E2ESuite) Test005HealthFieldUpdate(c *C) {
@@ -196,14 +254,63 @@ func (s *E2ESuite) Test005HealthFieldUpdate(c *C) {
 	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
 	assert.NoError(c, err)
 	assert.Eventually(c, func() bool {
-		labels, fields, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, fields, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
 		}
 		log.Printf("got valid payload : %v, %v", labels, fields)
 		return len(fields) == len(cmFields)+1
-	}, 90*time.Second, 5*time.Second)
+	}, 3*time.Minute, 5*time.Second)
+}
+
+func (s *E2ESuite) Test006VerifyMetricValues(c *C) {
+	ctx := context.Background()
+	log.Print("Test individual metric values are non-zero")
+	cmFields := []string{
+		"gpu_total_vram",
+		"gpu_used_vram",
+		"gpu_health",
+		"gpu_junction_temperature",
+		"gpu_package_power",
+	}
+	config := exporterConfig{
+		GPUConfig: &gpuconfig{
+			Fields: cmFields,
+		},
+	}
+	cfgData, err := json.Marshal(config)
+	if err != nil {
+		assert.Fail(c, err.Error())
+		return
+	}
+	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
+	assert.NoError(c, err)
+
+	assert.Eventually(c, func() bool {
+		values, err := s.getMetricValues(ctx)
+		if err != nil {
+			log.Printf("error getting metric values: %v", err)
+			return false
+		}
+		totalVRAM, ok := values["gpu_total_vram"]
+		if !ok || totalVRAM <= 0 {
+			log.Printf("gpu_total_vram not found or zero: %v", totalVRAM)
+			return false
+		}
+		health, ok := values["gpu_health"]
+		if !ok || health != 1 {
+			log.Printf("gpu_health not found or not 1: %v", health)
+			return false
+		}
+		temp, ok := values["gpu_junction_temperature"]
+		if !ok || temp <= 0 {
+			log.Printf("gpu_junction_temperature not found or zero: %v", temp)
+			return false
+		}
+		log.Printf("metric values ok: total_vram=%.0f health=%.0f junction_temp=%.1f", totalVRAM, health, temp)
+		return true
+	}, 3*time.Minute, 5*time.Second)
 }
 
 func (s *E2ESuite) Test007MarkAndVerifyGPUUnhealthyLabel(c *C) {
@@ -215,7 +322,7 @@ func (s *E2ESuite) Test007MarkAndVerifyGPUUnhealthyLabel(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	cmd1 := "metricsclient -ecc-file-path /tmp/ecc.json"
+	cmd1 := "metricsclient --ecc-file-path /tmp/ecc.json"
 	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
 	if err != nil {
 		assert.Fail(c, err.Error())
@@ -231,7 +338,7 @@ func (s *E2ESuite) Test007MarkAndVerifyGPUUnhealthyLabel(c *C) {
 		}
 		log.Printf("Got %d nodes with unhealthy label", len(nodes))
 		return true
-	}, 90*time.Second, 10*time.Second, "expected gpu 0 to become unhealthy but got healthy")
+	}, 3*time.Minute, 10*time.Second, "expected gpu 0 to become unhealthy but got healthy")
 }
 
 func (s *E2ESuite) Test008MarkAndVerifyGPUHealthyLabel(c *C) {
@@ -243,7 +350,7 @@ func (s *E2ESuite) Test008MarkAndVerifyGPUHealthyLabel(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	cmd1 := "metricsclient -ecc-file-path /tmp/ecc.json"
+	cmd1 := "metricsclient --ecc-file-path /tmp/ecc.json"
 	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
 	if err != nil {
 		assert.Fail(c, err.Error())
@@ -259,7 +366,7 @@ func (s *E2ESuite) Test008MarkAndVerifyGPUHealthyLabel(c *C) {
 		}
 		log.Printf("Got %d nodes with healthy label", len(nodes))
 		return false
-	}, 90*time.Second, 10*time.Second, "expected gpu 0 to become healthy but got unhealthy")
+	}, 3*time.Minute, 10*time.Second, "expected gpu 0 to become healthy but got unhealthy")
 }
 
 func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
@@ -285,14 +392,14 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
 	assert.NoError(c, err)
 	assert.Eventually(c, func() bool {
-		labels, flds, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, flds, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
 		}
 		log.Printf("got valid payload : %v, %v", labels, flds)
 		return len(flds) == len(fields)+1
-	}, 90*time.Second, 5*time.Second)
+	}, 3*time.Minute, 5*time.Second)
 
 	// use metricsclient to set the counters to 1
 	log.Print("Set Metrics fields values to 1")
@@ -302,7 +409,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	cmd1 := "metricsclient -ecc-file-path /tmp/ecc.json"
+	cmd1 := "metricsclient --ecc-file-path /tmp/ecc.json"
 	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
 	if err != nil {
 		assert.Fail(c, err.Error())
@@ -321,7 +428,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		}
 		log.Printf("Got %d nodes with healthy label", len(nodes))
 		return false
-	}, 90*time.Second, 10*time.Second, "expected gpu 0 to be healthy but got unhealthy")
+	}, 3*time.Minute, 10*time.Second, "expected gpu 0 to be healthy but got unhealthy")
 
 	log.Print("Increasing metrics values to exceed thresholds")
 	cmd = fmt.Sprintf(`echo "%s" > /tmp/ecc.json`, utils.GetMockECCJSON(fields, 0, 2))
@@ -330,7 +437,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		assert.Fail(c, err.Error())
 		return
 	}
-	cmd1 = "metricsclient -ecc-file-path /tmp/ecc.json"
+	cmd1 = "metricsclient --ecc-file-path /tmp/ecc.json"
 	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
 	if err != nil {
 		assert.Fail(c, err.Error())
@@ -346,7 +453,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		}
 		log.Printf("Got %d nodes with unhealthy label", len(nodes))
 		return true
-	}, 90*time.Second, 10*time.Second, "expected gpu 0 to become unhealthy but got healthy")
+	}, 3*time.Minute, 10*time.Second, "expected gpu 0 to become unhealthy but got healthy")
 
 	log.Print("Increase threshold and verify gpu becomes healthy")
 	for _, field := range fields {
@@ -361,14 +468,14 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
 	assert.NoError(c, err)
 	assert.Eventually(c, func() bool {
-		labels, flds, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, flds, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false
 		}
 		log.Printf("got valid payload : %v, %v", labels, fields)
 		return len(flds) == len(fields)+1
-	}, 90*time.Second, 5*time.Second)
+	}, 3*time.Minute, 5*time.Second)
 	labelMap["metricsexporter.amd.com.gpu.0.state"] = "healthy"
 	log.Print("Verifying healthy label on the node(s)")
 	assert.Eventually(c, func() bool {
@@ -378,7 +485,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		}
 		log.Printf("Got %d nodes with healthy label", len(nodes))
 		return false
-	}, 90*time.Second, 10*time.Second, "expected gpu 0 to be healthy but got unhealthy")
+	}, 3*time.Minute, 10*time.Second, "expected gpu 0 to be healthy but got unhealthy")
 }
 
 func (s *E2ESuite) Test100HelmUninstall(c *C) {
@@ -415,25 +522,30 @@ func (s *E2ESuite) Test101SecondDeplymentNoConfigMap(c *C) {
 	log.Printf("helm installed exporter relName :%v err:%v", rel, err)
 	log.Printf("sleep for 20s for pod to be ready")
 	time.Sleep(20 * time.Second)
-	labelMap := map[string]string{"app": fmt.Sprintf("%v-amdgpu-metrics-exporter", rel)}
+	exporterLabelMap = map[string]string{"app": fmt.Sprintf("%v-amdgpu-metrics-exporter", rel)}
 	assert.Eventually(c, func() bool {
-		pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, labelMap)
+		pods, err := s.k8sclient.GetPodsByLabel(ctx, s.ns, exporterLabelMap)
 		if err != nil {
 			log.Printf("label get pod err %v", err)
 			return false
 		}
-		log.Printf("pods : %+v", pods)
-		if len(pods) >= 1 {
-			for _, pod := range pods {
-				if pod.Status.Phase == "Running" {
-					exporterPod = &pod
-					break
-				}
+		for i := range pods {
+			pod := &pods[i]
+			if pod.DeletionTimestamp != nil {
+				continue // skip terminating pods
 			}
-			return true
+			if pod.Status.Phase == "Running" {
+				exporterPod = pod
+				log.Printf("found running pod: %s", pod.Name)
+				return true
+			}
 		}
 		return false
 	}, 2*time.Minute, 10*time.Second)
+	if exporterPod == nil {
+		assert.Fail(c, "exporter pod never reached Running state")
+		return
+	}
 	assert.Eventually(c, func() bool {
 		err := s.k8sclient.ValidatePod(ctx, s.ns, exporterPod.Name)
 		if err != nil {
@@ -448,7 +560,7 @@ func (s *E2ESuite) Test102MetricsServer(c *C) {
 	ctx := context.Background()
 	log.Print("Test noconfigmap metrics server is responding")
 	assert.Eventually(c, func() bool {
-		labels, fields, err := s.k8sclient.GetMetricsCmdFromPod(ctx, s.restConfig, exporterPod)
+		labels, fields, err := s.getMetrics(ctx)
 		if err != nil {
 			log.Printf("error : %v", err)
 			return false

@@ -392,7 +392,7 @@ message LoggingConfig {
 }
 
 message CommonConfig {
-	// string to add as perfix to all exported fields
+    // string to add as prefix to all exported fields
 	string MetricsFieldPrefix = 1;
 
     // Health Service config
@@ -403,6 +403,8 @@ message CommonConfig {
 }
 
 enum NICMetricField {
+    option allow_alias = true;
+
     NIC_TOTAL                   = 0;
     NIC_MAX_SPEED               = 1;
 
@@ -616,22 +618,22 @@ enum NICMetricField {
     ETH_FRAMES_RX_2048B_4095B                = 517;
     ETH_FRAMES_RX_4096B_8191B                = 518;
     ETH_FRAMES_RX_BAD_FCS                    = 519;
-    ETH_FRAMES_RX_PRI0                       = 520;
-    ETH_FRAMES_RX_PRI1                       = 521;
-    ETH_FRAMES_RX_PRI2                       = 522;
-    ETH_FRAMES_RX_PRI3                       = 523;
-    ETH_FRAMES_RX_PRI4                       = 524;
-    ETH_FRAMES_RX_PRI5                       = 525;
-    ETH_FRAMES_RX_PRI6                       = 526;
-    ETH_FRAMES_RX_PRI7                       = 527;
-    ETH_FRAMES_TX_PRI0                       = 528;
-    ETH_FRAMES_TX_PRI1                       = 529;
-    ETH_FRAMES_TX_PRI2                       = 530;
-    ETH_FRAMES_TX_PRI3                       = 531;
-    ETH_FRAMES_TX_PRI4                       = 532;
-    ETH_FRAMES_TX_PRI5                       = 533;
-    ETH_FRAMES_TX_PRI6                       = 534;
-    ETH_FRAMES_TX_PRI7                       = 535;
+    ETH_FRAMES_RX_PRI_0                      = 520;
+    ETH_FRAMES_RX_PRI_1                      = 521;
+    ETH_FRAMES_RX_PRI_2                      = 522;
+    ETH_FRAMES_RX_PRI_3                      = 523;
+    ETH_FRAMES_RX_PRI_4                      = 524;
+    ETH_FRAMES_RX_PRI_5                      = 525;
+    ETH_FRAMES_RX_PRI_6                      = 526;
+    ETH_FRAMES_RX_PRI_7                      = 527;
+    ETH_FRAMES_TX_PRI_0                      = 528;
+    ETH_FRAMES_TX_PRI_1                      = 529;
+    ETH_FRAMES_TX_PRI_2                      = 530;
+    ETH_FRAMES_TX_PRI_3                      = 531;
+    ETH_FRAMES_TX_PRI_4                      = 532;
+    ETH_FRAMES_TX_PRI_5                      = 533;
+    ETH_FRAMES_TX_PRI_6                      = 534;
+    ETH_FRAMES_TX_PRI_7                      = 535;
     ETH_FRAMES_RX_DROPPED                    = 536;
     ETH_FRAMES_RX_ALL                        = 537;
     ETH_FRAMES_RX_BAD_ALL                    = 538;
@@ -675,6 +677,24 @@ enum NICMetricField {
     ETH_FRAMES_TX_4096B_8191B                = 576;
     ETH_FRAMES_RX_PRIPAUSE                   = 577;
     ETH_FRAMES_TX_PRIPAUSE                   = 578;
+
+    // Backward compatibility aliases (deprecated, use PRI_N format)
+    ETH_FRAMES_RX_PRI0                       = 520 [deprecated = true];
+    ETH_FRAMES_RX_PRI1                       = 521 [deprecated = true];
+    ETH_FRAMES_RX_PRI2                       = 522 [deprecated = true];
+    ETH_FRAMES_RX_PRI3                       = 523 [deprecated = true];
+    ETH_FRAMES_RX_PRI4                       = 524 [deprecated = true];
+    ETH_FRAMES_RX_PRI5                       = 525 [deprecated = true];
+    ETH_FRAMES_RX_PRI6                       = 526 [deprecated = true];
+    ETH_FRAMES_RX_PRI7                       = 527 [deprecated = true];
+    ETH_FRAMES_TX_PRI0                       = 528 [deprecated = true];
+    ETH_FRAMES_TX_PRI1                       = 529 [deprecated = true];
+    ETH_FRAMES_TX_PRI2                       = 530 [deprecated = true];
+    ETH_FRAMES_TX_PRI3                       = 531 [deprecated = true];
+    ETH_FRAMES_TX_PRI4                       = 532 [deprecated = true];
+    ETH_FRAMES_TX_PRI5                       = 533 [deprecated = true];
+    ETH_FRAMES_TX_PRI6                       = 534 [deprecated = true];
+    ETH_FRAMES_TX_PRI7                       = 535 [deprecated = true];
 }
 
 enum NICMetricLabel {

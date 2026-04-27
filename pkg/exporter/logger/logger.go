@@ -28,6 +28,7 @@ var (
 	logdir    = "/var/log/"
 	logfile   = "exporter.log"
 	logPrefix = "exporter "
+	logFallback bool
 	once      sync.Once
 )
 
@@ -52,8 +53,22 @@ func SetLogFilePath(path string) {
 	logfile = filepath.Base(path)
 }
 
+// EnableLogFallback enables fallback log file locations ($HOME/.amd/, $TMPDIR)
+// when the primary log path is not writable. Must be called before Init.
+func EnableLogFallback() {
+	logFallback = true
+}
+
 func GetLogFilePath() string {
 	return filepath.Join(logdir, logfile)
+}
+
+func tryOpenLogFile(path string) (*os.File, error) {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 }
 
 func initLogger(console bool) {
@@ -76,7 +91,24 @@ func initLogger(console bool) {
 		}
 
 		logPath := GetLogFilePath()
-		outfile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		outfile, err := tryOpenLogFile(logPath)
+		if err != nil && logFallback {
+			fallbacks := []string{
+				filepath.Join(os.TempDir(), logfile),
+			}
+			if home, hErr := os.UserHomeDir(); hErr == nil {
+				fallbacks = append([]string{
+					filepath.Join(home, ".amd", logfile),
+				}, fallbacks...)
+			}
+			for _, fb := range fallbacks {
+				outfile, err = tryOpenLogFile(fb)
+				if err == nil {
+					logdir = filepath.Dir(fb)
+					break
+				}
+			}
+		}
 		if err != nil {
 			// Fallback to stdout if file creation fails
 			Log.logrus.SetOutput(os.Stdout)

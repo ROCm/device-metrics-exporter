@@ -2472,7 +2472,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		for xcc_index, lowUtilAcc := range violationStats.GFXLowUtilizationAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
 			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilAcc) {
-				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED.String())
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED.String())
 				break
 			} else if utils.IsValueApplicable(lowUtilAcc) {
 				ga.metrics.gpuGfxLowUtilizationAcc.With(labelsWithIndex).Set(float64(lowUtilAcc))
@@ -2508,7 +2508,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		for xcc_index, lowUtilPer := range violationStats.GFXLowUtilizationPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
 			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilPer) {
-				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE.String())
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE.String())
 				break
 			} else if utils.IsValueApplicable(lowUtilPer) {
 				ga.metrics.gpuGfxLowUtilizationPercent.With(labelsWithIndex).Set(float64(lowUtilPer))

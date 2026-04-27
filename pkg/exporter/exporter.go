@@ -70,6 +70,7 @@ type Exporter struct {
 	disableK8sScl        bool
 	enableSlurmScl       bool
 	enableSriov          bool
+	exitOnAgentDown      bool
 	bindAddr             string
 	k8sApiClient         *k8sclient.K8sClient
 	svcHandler           *metricsserver.SvcHandler
@@ -196,7 +197,15 @@ func foreverWatcher(e *Exporter) {
 			logger.Log.Printf("stopping server")
 			srvCtx, srvCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			if err := srvHandler.Shutdown(srvCtx); err != nil {
-				panic(err) // failure/timeout shutting down the server gracefully
+				// Shutdown timed out (e.g. in-flight /metrics blocked on slow gRPC).
+				// Force-close to release the listener port before startServer() rebinds it.
+				logger.Log.Printf("server shutdown error: %v", err)
+				if closeErr := srvHandler.Close(); closeErr != nil {
+					// Port may still be bound -- skip nil/restart to avoid bind conflict.
+					logger.Log.Printf("server force-close error: %v", closeErr)
+					srvCancel()
+					return
+				}
 			}
 			srvCancel()
 			time.Sleep(1 * time.Second)
@@ -395,6 +404,13 @@ func WithSlurmClient(enable bool) ExporterOption {
 	}
 }
 
+func WithExitOnAgentDown(exit bool) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("exit-on-agent-down set to %v", exit)
+		e.exitOnAgentDown = exit
+	}
+}
+
 // StartMain - doesn't return it exits only on failure
 func (e *Exporter) StartMain(enableDebugAPI bool) {
 	defer e.Close()
@@ -431,6 +447,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 			gpuagent.WithSlurmClient(e.enableSlurmScl),
 			gpuagent.WithGPUMonitoring(true),
 			gpuagent.WithIFOEMonitoring(e.enableIFOEMonitoring),
+			gpuagent.WithExitOnAgentDown(e.exitOnAgentDown),
 		)
 
 		if err := gpuclient.Init(); err != nil {
@@ -450,6 +467,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 			gpuagent.WithK8sSchedulerClient(e.k8sScl),
 			gpuagent.WithGPUMonitoring(false),
 			gpuagent.WithIFOEMonitoring(true),
+			gpuagent.WithExitOnAgentDown(e.exitOnAgentDown),
 		)
 		if err := gpuclient.Init(); err != nil {
 			logger.Log.Printf("gpuclient init err :%+v", err)

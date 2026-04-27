@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -213,9 +214,9 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		gpuuid := uuid.String()
 		for _, record := range c.CPEREntry {
 			ts := record.GetTimestamp()
-			logger.Log.Printf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
+			logger.Debugf("gpuuid=%v TimeStamp=%v RecordId=%v Severity=%v Revision=%v CreatorId=%v",
 				gpuuid, ts, record.RecordId, record.Severity.String(), record.Revision, record.CreatorId)
-			logger.Log.Printf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
+			logger.Debugf("NotificationType=%v AFID=%+v", record.NotificationType.String(), record.AFId)
 			if record.Severity == amdgpu.CPERSeverity_CPER_SEVERITY_FATAL {
 				if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
 					newGPUState[gpuid].Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
@@ -252,22 +253,23 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		gpuUUIDMap[gpuuid] = gpuid
 	}
 
-	// disable events for gpus with sriov or sim enabled
+	// disable events when SR-IOV is enabled or when events are disabled via configuration/env (utils.IsEventsDisabled)
 	if !(ga.gpuHandler.enableSriov || utils.IsSimEnabled()) {
-		evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
-		if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
-			errOccured = true
-			logger.Log.Printf("gpuagent get events failed %v", err)
-		} else {
-			// business logic for health detection
-			for _, evt := range evtData.Event {
-				eventErrCheck(evt)
+		if !utils.IsEventsDisabled() {
+			evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
+			if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
+				errOccured = true
+				logger.Log.Printf("gpuagent get events failed %v", err)
+			} else {
+				// business logic for health detection
+				for _, evt := range evtData.Event {
+					eventErrCheck(evt)
+				}
 			}
 		}
-		gpuCper, err = ga.getGPUCPER("CPER_SEVERITY_FATAL")
-		if err != nil || (gpuCper != nil && gpuCper.ApiStatus != 0) {
-			// ignore cper errors log only
-			logger.Log.Printf("gpuagent get cper failed %v", err)
+		gpuCper, err = ga.cacheCperRead()
+		if err != nil || gpuCper == nil || gpuCper.ApiStatus != 0 {
+			logger.Debugf("gpuagent get cper failed %v", err)
 		} else {
 			// business logic for health detection
 			for _, cper := range gpuCper.CPER {
@@ -282,7 +284,7 @@ ret:
 		ga.Close()
 		// set state to unhealthy with updated workload list
 		_ = ga.setUnhealthyGPU(wls)
-		return fmt.Errorf("data pull error occured")
+		return fmt.Errorf("data pull error occured: %w", ErrAgentUnreachable)
 	}
 
 	return ga.updateNewHealthState(newGPUState)

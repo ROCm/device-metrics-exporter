@@ -25,8 +25,10 @@ import (
 	"os/exec"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetrics"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
@@ -315,6 +317,15 @@ func (nc *NICCtlClient) UpdateLifStats(ctx context.Context, workloads map[string
 func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
 	debugMode := globals.GetDebugMode(ctx)
 	var wg sync.WaitGroup
+
+	start := time.Now()
+	defer func() {
+		if debugMode == globals.DebugModeQP {
+			elapsed := time.Since(start).Milliseconds()
+			logger.Log.Printf("UpdateQPStats execution time: %d ms", elapsed)
+		}
+	}()
+
 	if debugMode != globals.DebugModeQP && !fetchQPMetrics && !fetchLIFAggQPMetrics {
 		// QP metrics NOT enabled, skip fetching QP stats to save resources
 		return nil
@@ -396,8 +407,16 @@ func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]
 
 					// Create a copy of lifQPLabels for per-QP metrics (will add qp_id below)
 					var labels map[string]string
+					var setIfEnabled func(string, func())
+
 					if debugMode == globals.DebugModeQP || fetchQPMetrics {
 						labels = maps.Clone(lifQPLabels)
+						// Always set metric in debugModeQP, else check if Field is enabled in config
+						setIfEnabled = func(fieldName string, setFunc func()) {
+							if debugMode == globals.DebugModeQP || nc.na.isFieldEnabled(fieldName) {
+								setFunc()
+							}
+						}
 					}
 
 					// LIF-level aggregation accumulators (sum of all QPs for this LIF)
@@ -460,50 +479,152 @@ func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]
 							// Add QueuePair ID label
 							labels[LabelQPID] = qp.Spec.ID
 
-							nc.na.m.qpSqReqTxNumPackets.With(labels).Set(sqReqTxNumPacket)
-							nc.na.m.qpSqReqTxNumSendMsgsRke.With(labels).Set(sqReqTxNumSendMsgsRke)
-							nc.na.m.qpSqReqTxNumLocalAckTimeouts.With(labels).Set(sqReqTxNumLocalAckTimeouts)
-							nc.na.m.qpSqReqTxRnrTimeout.With(labels).Set(sqReqTxRnrTimeout)
-							nc.na.m.qpSqReqTxTimesSQdrained.With(labels).Set(sqReqTxTimesSQdrained)
-							nc.na.m.qpSqReqTxNumCNPsent.With(labels).Set(sqReqTxNumCNPsent)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_PACKET.String(),
+								func() { nc.na.m.qpSqReqTxNumPackets.With(labels).Set(sqReqTxNumPacket) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_SEND_MSGS_WITH_RKE.String(),
+								func() { nc.na.m.qpSqReqTxNumSendMsgsRke.With(labels).Set(sqReqTxNumSendMsgsRke) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_LOCAL_ACK_TIMEOUTS.String(),
+								func() { nc.na.m.qpSqReqTxNumLocalAckTimeouts.With(labels).Set(sqReqTxNumLocalAckTimeouts) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_RNR_TIMEOUT.String(),
+								func() { nc.na.m.qpSqReqTxRnrTimeout.With(labels).Set(sqReqTxRnrTimeout) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_TIMES_SQ_DRAINED.String(),
+								func() { nc.na.m.qpSqReqTxTimesSQdrained.With(labels).Set(sqReqTxTimesSQdrained) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_TX_NUM_CNP_SENT.String(),
+								func() { nc.na.m.qpSqReqTxNumCNPsent.With(labels).Set(sqReqTxNumCNPsent) },
+							)
 
-							nc.na.m.qpSqReqRxNumPackets.With(labels).Set(sqReqRxNumPacket)
-							nc.na.m.qpSqReqRxNumPacketsEcnMarked.With(labels).Set(sqReqRxNumPacketsEcnMarked)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PACKET.String(),
+								func() { nc.na.m.qpSqReqRxNumPackets.With(labels).Set(sqReqRxNumPacket) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_SQ_REQ_RX_NUM_PKTS_WITH_ECN_MARKING.String(),
+								func() { nc.na.m.qpSqReqRxNumPacketsEcnMarked.With(labels).Set(sqReqRxNumPacketsEcnMarked) },
+							)
 
 							// Only export SQ DCQCN metrics when DcQcn stats are present
 							if qp.Stats.Sq.DcQcn != nil {
-								nc.na.m.qpSqQcnCurrByteCounter.With(labels).Set(sqQcnCurrByteCounter)
-								nc.na.m.qpSqQcnNumByteCounterExpired.With(labels).Set(sqQcnNumByteCounterExpired)
-								nc.na.m.qpSqQcnNumTimerExpired.With(labels).Set(sqQcnNumTimerExpired)
-								nc.na.m.qpSqQcnNumAlphaTimerExpired.With(labels).Set(sqQcnNumAlphaTimerExpired)
-								nc.na.m.qpSqQcnNumCNPrcvd.With(labels).Set(sqQcnNumCNPrcvd)
-								nc.na.m.qpSqQcnNumCNPprocessed.With(labels).Set(sqQcnNumCNPprocessed)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_CURR_BYTE_COUNTER.String(),
+									func() { nc.na.m.qpSqQcnCurrByteCounter.With(labels).Set(sqQcnCurrByteCounter) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String(),
+									func() { nc.na.m.qpSqQcnNumByteCounterExpired.With(labels).Set(sqQcnNumByteCounterExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_NUM_TIMER_EXPIRED.String(),
+									func() { nc.na.m.qpSqQcnNumTimerExpired.With(labels).Set(sqQcnNumTimerExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String(),
+									func() { nc.na.m.qpSqQcnNumAlphaTimerExpired.With(labels).Set(sqQcnNumAlphaTimerExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_RCVD.String(),
+									func() { nc.na.m.qpSqQcnNumCNPrcvd.With(labels).Set(sqQcnNumCNPrcvd) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_SQ_QCN_NUM_CNP_PROCESSED.String(),
+									func() { nc.na.m.qpSqQcnNumCNPprocessed.With(labels).Set(sqQcnNumCNPprocessed) },
+								)
 							}
 
-							nc.na.m.qpRqRspTxNumPackets.With(labels).Set(rqRspTxNumPacket)
-							nc.na.m.qpRqRspTxRnrError.With(labels).Set(rqRspTxRnrError)
-							nc.na.m.qpRqRspTxNumSequenceError.With(labels).Set(rqRspTxNumSequenceError)
-							nc.na.m.qpRqRspTxRPByteThresholdHits.With(labels).Set(rqRspTxRPByteThresholdHits)
-							nc.na.m.qpRqRspTxRPMaxRateHits.With(labels).Set(rqRspTxRPMaxRateHits)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_PACKET.String(),
+								func() { nc.na.m.qpRqRspTxNumPackets.With(labels).Set(rqRspTxNumPacket) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_TX_RNR_ERROR.String(),
+								func() { nc.na.m.qpRqRspTxRnrError.With(labels).Set(rqRspTxRnrError) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_SEQUENCE_ERROR.String(),
+								func() { nc.na.m.qpRqRspTxNumSequenceError.With(labels).Set(rqRspTxNumSequenceError) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_BYTE_THRES_HIT.String(),
+								func() { nc.na.m.qpRqRspTxRPByteThresholdHits.With(labels).Set(rqRspTxRPByteThresholdHits) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_TX_NUM_RP_MAX_RATE_HIT.String(),
+								func() { nc.na.m.qpRqRspTxRPMaxRateHits.With(labels).Set(rqRspTxRPMaxRateHits) },
+							)
 
-							nc.na.m.qpRqRspRxNumPackets.With(labels).Set(rqRspRxNumPacket)
-							nc.na.m.qpRqRspRxNumSendMsgsRke.With(labels).Set(rqRspRxNumSendMsgsRke)
-							nc.na.m.qpRqRspRxNumPacketsEcnMarked.With(labels).Set(rqRspRxNumPacketsEcnMarked)
-							nc.na.m.qpRqRspRxNumCNPsReceived.With(labels).Set(rqRspRxNumCNPsReceived)
-							nc.na.m.qpRqRspRxMaxRecircDrop.With(labels).Set(rqRspRxMaxRecircDrop)
-							nc.na.m.qpRqRspRxNumMemWindowInvalid.With(labels).Set(rqRspRxNumMemWindowInvalid)
-							nc.na.m.qpRqRspRxNumDuplWriteSendOpc.With(labels).Set(rqRspRxNumDuplWriteSendOpc)
-							nc.na.m.qpRqRspRxNumDupReadBacktrack.With(labels).Set(rqRspRxNumDupReadBacktrack)
-							nc.na.m.qpRqRspRxNumDupReadDrop.With(labels).Set(rqRspRxNumDupReadDrop)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PACKET.String(),
+								func() { nc.na.m.qpRqRspRxNumPackets.With(labels).Set(rqRspRxNumPacket) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_SEND_MSGS_WITH_RKE.String(),
+								func() { nc.na.m.qpRqRspRxNumSendMsgsRke.With(labels).Set(rqRspRxNumSendMsgsRke) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_PKTS_WITH_ECN_MARKING.String(),
+								func() { nc.na.m.qpRqRspRxNumPacketsEcnMarked.With(labels).Set(rqRspRxNumPacketsEcnMarked) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_CNPS_RECEIVED.String(),
+								func() { nc.na.m.qpRqRspRxNumCNPsReceived.With(labels).Set(rqRspRxNumCNPsReceived) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_MAX_RECIRC_EXCEEDED_DROP.String(),
+								func() { nc.na.m.qpRqRspRxMaxRecircDrop.With(labels).Set(rqRspRxMaxRecircDrop) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_MEM_WINDOW_INVALID.String(),
+								func() { nc.na.m.qpRqRspRxNumMemWindowInvalid.With(labels).Set(rqRspRxNumMemWindowInvalid) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_WITH_WR_SEND_OPC.String(),
+								func() { nc.na.m.qpRqRspRxNumDuplWriteSendOpc.With(labels).Set(rqRspRxNumDuplWriteSendOpc) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_BACKTRACK.String(),
+								func() { nc.na.m.qpRqRspRxNumDupReadBacktrack.With(labels).Set(rqRspRxNumDupReadBacktrack) },
+							)
+							setIfEnabled(
+								exportermetrics.NICMetricField_QP_RQ_RSP_RX_NUM_DUPL_READ_ATOMIC_DROP.String(),
+								func() { nc.na.m.qpRqRspRxNumDupReadDrop.With(labels).Set(rqRspRxNumDupReadDrop) },
+							)
 
 							// Only export RQ DCQCN metrics when DcQcn stats are present
 							if qp.Stats.Rq.DcQcn != nil {
-								nc.na.m.qpRqQcnCurrByteCounter.With(labels).Set(rqQcnCurrByteCounter)
-								nc.na.m.qpRqQcnNumByteCounterExpired.With(labels).Set(rqQcnNumByteCounterExpired)
-								nc.na.m.qpRqQcnNumTimerExpired.With(labels).Set(rqQcnNumTimerExpired)
-								nc.na.m.qpRqQcnNumAlphaTimerExpired.With(labels).Set(rqQcnNumAlphaTimerExpired)
-								nc.na.m.qpRqQcnNumCNPrcvd.With(labels).Set(rqQcnNumCNPrcvd)
-								nc.na.m.qpRqQcnNumCNPprocessed.With(labels).Set(rqQcnNumCNPprocessed)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_CURR_BYTE_COUNTER.String(),
+									func() { nc.na.m.qpRqQcnCurrByteCounter.With(labels).Set(rqQcnCurrByteCounter) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_NUM_BYTE_COUNTER_EXPIRED.String(),
+									func() { nc.na.m.qpRqQcnNumByteCounterExpired.With(labels).Set(rqQcnNumByteCounterExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_NUM_TIMER_EXPIRED.String(),
+									func() { nc.na.m.qpRqQcnNumTimerExpired.With(labels).Set(rqQcnNumTimerExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_NUM_ALPHA_TIMER_EXPIRED.String(),
+									func() { nc.na.m.qpRqQcnNumAlphaTimerExpired.With(labels).Set(rqQcnNumAlphaTimerExpired) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_RCVD.String(),
+									func() { nc.na.m.qpRqQcnNumCNPrcvd.With(labels).Set(rqQcnNumCNPrcvd) },
+								)
+								setIfEnabled(
+									exportermetrics.NICMetricField_QP_RQ_QCN_NUM_CNP_PROCESSED.String(),
+									func() { nc.na.m.qpRqQcnNumCNPprocessed.With(labels).Set(rqQcnNumCNPprocessed) },
+								)
 							}
 
 						}

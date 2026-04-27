@@ -20,14 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/google/uuid"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gotest.tools/assert"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
@@ -761,4 +765,150 @@ func TestUpdateMetricsStatsWithDebugContext(t *testing.T) {
 	assert.Assert(t, err == nil, "UpdateMetricsStats should succeed with debug mode QP context")
 
 	ga.Close()
+}
+
+// newCPERTestMocks creates an isolated gomock controller with GPU, CPER, and event mocks.
+// Using a separate controller avoids FIFO expectation conflicts with the AnyTimes
+// defaults registered in setupTest.
+func newCPERTestMocks(t *testing.T, cperErr error) (gpuSvc *mock_gen.MockGPUSvcClient, evtSvc *mock_gen.MockEventSvcClient, finish func()) {
+	ctrl := gomock.NewController(t)
+
+	gpuSvc = mock_gen.NewMockGPUSvcClient(ctrl)
+	evtSvc = mock_gen.NewMockEventSvcClient(ctrl)
+
+	gpuSvc.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(&amdgpu.GPUGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		Response: []*amdgpu.GPU{
+			{
+				Spec:   &amdgpu.GPUSpec{Id: []byte("72ff740f-0000-1000-804c-3b58bf67050e")},
+				Status: &amdgpu.GPUStatus{PCIeStatus: &amdgpu.GPUPCIeStatus{PCIeBusId: "pcie0"}},
+				Stats:  &amdgpu.GPUStats{},
+			},
+		},
+	}, nil).AnyTimes()
+	gpuSvc.EXPECT().GPUCPERGet(gomock.Any(), gomock.Any()).Return(nil, cperErr).AnyTimes()
+	evtSvc.EXPECT().EventGet(gomock.Any(), gomock.Any()).Return(&amdgpu.EventResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+	}, nil).AnyTimes()
+
+	return gpuSvc, evtSvc, ctrl.Finish
+}
+
+// TestCPERDeadlineExceededDoesNotTriggerExit verifies that a DeadlineExceeded error
+// from the CPER RPC in processHealthValidation does NOT return ErrAgentUnreachable.
+// Older drivers without inband-RAS support will always timeout on this call; treating
+// it as an agent-down event would break those nodes. The background goroutine
+// (startCperRefresh) handles the /metrics cache path separately.
+func TestCPERDeadlineExceededDoesNotTriggerExit(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	gpuSvc, evtSvc, finish := newCPERTestMocks(t, status.Error(codes.DeadlineExceeded, "deadline exceeded"))
+	defer finish()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuSvc
+	gpuclient.evtclient = evtSvc
+	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
+		"DeadlineExceeded on CPER RPC should NOT return ErrAgentUnreachable, got: %v", err)
+}
+
+// TestCPERNonFatalErrorDoesNotTriggerExit verifies that non-DeadlineExceeded errors
+// from the CPER RPC (e.g. Unimplemented/NOT_SUPPORTED) do not return ErrAgentUnreachable —
+// the exporter continues serving other metrics.
+func TestCPERNonFatalErrorDoesNotTriggerExit(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	gpuSvc, evtSvc, finish := newCPERTestMocks(t, status.Error(codes.Unimplemented, "not supported"))
+	defer finish()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuSvc
+	gpuclient.evtclient = evtSvc
+	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
+		"non-fatal CPER error should NOT return ErrAgentUnreachable, got: %v", err)
+}
+
+// TestCPERFatalSeveritySetsGPUUnhealthy verifies that only CPER_SEVERITY_FATAL
+// entries mark the GPU unhealthy; non-fatal severities must not.
+func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
+
+	gpuSvc, evtSvc, finish := newCPERTestMocks(t, nil)
+	defer finish()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuSvc
+	gpuclient.evtclient = evtSvc
+	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	setCperCache := func(severity amdgpu.CPERSeverity) {
+		gpuclient.gCache.Lock()
+		defer gpuclient.gCache.Unlock()
+		gpuclient.gCache.lastCperResponse = &amdgpu.GPUCPERGetResponse{
+			ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+			CPER: []*amdgpu.GPUCPEREntry{
+				{GPU: gpuIDBytes, CPEREntry: []*amdgpu.CPEREntry{{Severity: severity}}},
+			},
+		}
+	}
+
+	unhealthy := strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+
+	setCperCache(amdgpu.CPERSeverity_CPER_SEVERITY_FATAL)
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
+		"CPER fatal should not return ErrAgentUnreachable, got: %v", err)
+	gpuclient.Lock()
+	for _, state := range gpuclient.healthState {
+		assert.Equal(t, unhealthy, state.Health, "GPU must be unhealthy on CPER_SEVERITY_FATAL")
+	}
+	gpuclient.Unlock()
+
+	setCperCache(amdgpu.CPERSeverity_CPER_SEVERITY_NON_FATAL_UNCORRECTED)
+	err = gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
+		"non-fatal CPER severity should not return ErrAgentUnreachable, got: %v", err)
+	gpuclient.Lock()
+	for _, state := range gpuclient.healthState {
+		assert.Assert(t, state.Health != unhealthy, "GPU must not be unhealthy on non-fatal CPER severity")
+	}
+	gpuclient.Unlock()
 }
