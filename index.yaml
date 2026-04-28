@@ -264,9 +264,9 @@ entries:
   nic-device-metrics-exporter-charts:
   - apiVersion: v2
     appVersion: v1.2.0
-    created: "2026-04-28T18:40:29.345207809Z"
+    created: "2026-04-28T20:33:16.324373922Z"
     description: A Helm chart for AMD Device Metric Exporter
-    digest: cf3ff739572714032ab0edc331764b8757cb912d0925b6ee26e359c4b5b779fa
+    digest: 4afcfc0da7c91ac7893558219575ab635eaf5ee66b7d50b944019105b44d2ce9
     keywords:
     - kubernetes
     - cluster
@@ -286,6 +286,6 @@ entries:
     name: nic-device-metrics-exporter-charts
     type: application
     urls:
-    - https://rocm.github.io/device-metrics-exporter/device-metrics-exporter-charts-nic-v1.2.0.tgz
+    - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-nic-v1.2.0.tgz
     version: v1.2.0
-generated: "2026-04-28T18:40:29.343997766Z"
+generated: "2026-04-28T20:33:16.323124106Z"
