@@ -261,4 +261,31 @@ entries:
     urls:
     - https://rocm.github.io/device-metrics-exporter/charts/device-metrics-exporter-charts-v1.0.0.tgz
     version: v1.0.0
-generated: "2026-02-13T00:17:02.832613099Z"
+  nic-device-metrics-exporter-charts:
+  - apiVersion: v2
+    appVersion: v1.2.0
+    created: "2026-04-28T18:40:29.345207809Z"
+    description: A Helm chart for AMD Device Metric Exporter
+    digest: cf3ff739572714032ab0edc331764b8757cb912d0925b6ee26e359c4b5b779fa
+    keywords:
+    - kubernetes
+    - cluster
+    - hardware
+    - amd
+    - gpu
+    - monitoring
+    - prometheus
+    kubeVersion: '>= 1.29.0-0'
+    maintainers:
+    - email: prshanmug@amd.com
+      name: Praveen Kumar Shanmugam
+    - email: yan.sun3@amd.com
+      name: Yan Sun
+    - email: shrey.ajmera@amd.com
+      name: Shrey Ajmera
+    name: nic-device-metrics-exporter-charts
+    type: application
+    urls:
+    - https://rocm.github.io/device-metrics-exporter/device-metrics-exporter-charts-nic-v1.2.0.tgz
+    version: v1.2.0
+generated: "2026-04-28T18:40:29.343997766Z"
