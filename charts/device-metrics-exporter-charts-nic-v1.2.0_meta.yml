@@ -1,2 +1,0 @@
-images:
-  - target: docker.io/rocm/device-metrics-exporter:nic-v1.2.0
