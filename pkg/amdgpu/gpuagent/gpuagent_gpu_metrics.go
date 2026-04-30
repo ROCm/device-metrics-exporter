@@ -863,7 +863,7 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 		},
 			labels),
 		gpuVramMaxBandwidth: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "amd_gpu_vram_max_bandwidth",
+			Name: "gpu_vram_max_bandwidth",
 			Help: "GPU VRAM maximum bandwidth at max memory clock in GB/s",
 		},
 			labels),
