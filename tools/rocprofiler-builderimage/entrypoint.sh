@@ -26,7 +26,7 @@ if [[ -z "${HIP_ARCHS}" ]]; then
 fi
 if [[ -z "${HIP_ARCHS}" ]]; then
     # Sensible default; adjust as needed or override via env
-    HIP_ARCHS="gfx942"
+    HIP_ARCHS="gfx942,gfx950"
 fi
 
 echo "Using HIP compiler: ${HIPCC_BIN}"
