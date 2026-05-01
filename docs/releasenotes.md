@@ -26,6 +26,19 @@
   - This change helps optimize Prometheus storage and query performance for deployments that don't require process-level tracking
   - For users who need this label, simply add it to the ConfigMap configuration. See [Configuration Documentation](configuration/configmap.md) for details
 
+### Known Issues
+
+- **Power metrics intermittently missing for individual GPUs on MI350X (SPX/NPS1 mode)**
+  - `gpu_package_power` and `gpu_power_usage` may be absent for one or more GPUs on
+    MI350X nodes in SPX/NPS1 mode. The affected GPU is present in all other metrics
+    (temperature, VRAM, clocks) in the same response.
+  - **Root cause**: If the first metrics poll after exporter startup returns `0` for a
+    GPU's power (which occurs transiently on MI350X when PMFW/SMU telemetry is not yet
+    populated), the exporter suppresses that GPU's power metrics until the exporter is
+    restarted.
+  - **Workaround**: Restart the exporter pod after the GPU has been running for a few
+    seconds so the first poll sees non-zero power.
+
 ### Platform Support
 
 ROCm 7.2.X MI2xx, MI3xx

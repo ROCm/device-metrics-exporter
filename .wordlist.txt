@@ -316,3 +316,6 @@ KFD
 Uninstallation
 DME
 gocheck
+GPU's
+PMFW
+SMU
