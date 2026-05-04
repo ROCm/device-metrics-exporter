@@ -547,6 +547,8 @@ func FetchMetricFromGPU(gpu *amdgpu.GPU, metricName string) []float64 {
 		if stats.ViolationStats != nil {
 			res = float64(stats.ViolationStats.HBMThermalResidencyAccumulated)
 		}
+	default:
+		return []float64{}
 	}
 	return []float64{res}
 }
