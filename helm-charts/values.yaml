@@ -6,6 +6,8 @@ affinity: {}
 nodeSelector: {}
 # -- Add tolerations for deploying metrics exporter on tainted nodes
 tolerations: []
+# -- Set priorityClassName for the metrics exporter pods (optional)
+priorityClassName: ""
 # -- Add annotations to the pods
 podAnnotations: {}
 # -- DaemonSet upgrade policy configuration

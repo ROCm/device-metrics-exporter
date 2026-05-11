@@ -35,6 +35,7 @@ Kubernetes: `>= 1.29.0-0`
 | nodeSelector | object | `{}` | Add node selector for the daemonset of metrics exporter |
 | platform | string | `"k8s"` | Specify the platform to deploy the metrics exporter, k8s or openshift |
 | podAnnotations | object | `{}` | Add annotations to the pods |
+| priorityClassName | string | `""` | Set priorityClassName for the metrics exporter pods (optional) |
 | resources | object | `{"limits":{"cpu":"2","memory":"4Gi"},"requests":{"cpu":"500m","memory":"512M"}}` | options for the metrics exporter container - default values are set if not specified |
 | resources.limits | object | `{"cpu":"2","memory":"4Gi"}` | Resource limits and requests for the metrics exporter container |
 | resources.limits.cpu | string | `"2"` | CPU limit for the metrics exporter container |
