@@ -485,10 +485,10 @@ func (ga *GPUAgentClient) GetK8sApiClient() *k8sclient.K8sClient {
 	return ga.k8sApiClient
 }
 
-func (ga *GPUAgentClient) UpdateStaticMetrics() error {
+func (ga *GPUAgentClient) UpdateStaticMetrics(ctx context.Context) error {
 	for _, client := range ga.clients {
 		//nolint
-		_ = client.UpdateStaticMetrics()
+		_ = client.UpdateStaticMetrics(ctx)
 	}
 	return nil
 }

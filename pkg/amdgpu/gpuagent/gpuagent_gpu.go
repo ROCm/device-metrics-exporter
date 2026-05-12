@@ -216,13 +216,13 @@ func (ga *GPUAgentGPUClient) PopulateStaticHostLabels() error {
 }
 
 // make it easy to parse from json
-func (ga *GPUAgentGPUClient) getProfilerMetrics() (map[string]map[string]float64, error) {
+func (ga *GPUAgentGPUClient) getProfilerMetrics(ctx context.Context) (map[string]map[string]float64, error) {
 	gpuMetrics := make(map[string]map[string]float64)
 	// stop exporting fields when disabled
 	if !ga.isProfilerEnabled() {
 		return gpuMetrics, nil
 	}
-	gpuProfiler, err := ga.rocpclient.GetMetrics()
+	gpuProfiler, err := ga.rocpclient.GetMetrics(ctx)
 	if err != nil {
 		return gpuMetrics, err
 	}
@@ -248,7 +248,7 @@ func (ga *GPUAgentGPUClient) isProfilerEnabled() bool {
 	return true
 }
 
-func (ga *GPUAgentGPUClient) getMetricsAll() error {
+func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	if !ga.isActive() {
 		// nolint
 		_ = ga.InitClients()
@@ -261,7 +261,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	profilerChan := make(chan profilerResult, 1)
 
 	go func() {
-		pmetrics, err := ga.getProfilerMetrics()
+		pmetrics, err := ga.getProfilerMetrics(ctx)
 		if err != nil {
 			//continue as this may not be available at this time
 			pmetrics = nil
@@ -285,8 +285,14 @@ func (ga *GPUAgentGPUClient) getMetricsAll() error {
 	}
 	wls, _ := ga.gpuHandler.ListWorkloads()
 
-	// Wait for profiler metrics to complete
-	profResult := <-profilerChan
+	// Wait for profiler metrics to complete, but respect request cancellation
+	var profResult profilerResult
+	select {
+	case profResult = <-profilerChan:
+	case <-ctx.Done():
+		logger.Log.Printf("profiler fetch cancelled by context: %v", ctx.Err())
+		return ctx.Err()
+	}
 	pmetrics := profResult.metrics
 
 	ga.k8PodInfoMap, err = ga.FetchPodInfoForNode()
@@ -386,7 +392,7 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error) {
 	ga.gCache.RLock()
 	defer ga.gCache.RUnlock()
-		return ga.gCache.lastCperResponse, nil
+	return ga.gCache.lastCperResponse, nil
 }
 
 // startCperRefresh keeps the CPER cache warm via a background goroutine.
@@ -406,7 +412,7 @@ func (ga *GPUAgentGPUClient) startCperRefresh(ctx context.Context) {
 			case <-ticker.C:
 				ga.refreshCperCache()
 			}
-	}
+		}
 	}()
 }
 

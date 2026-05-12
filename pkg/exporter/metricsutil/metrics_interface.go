@@ -24,7 +24,7 @@ import (
 
 type MetricsInterface interface {
 	// one time statistic pull for clients
-	UpdateStaticMetrics() error
+	UpdateStaticMetrics(ctx context.Context) error
 
 	// ondemand query request for client to update current stat
 	UpdateMetricsStats(ctx context.Context) error

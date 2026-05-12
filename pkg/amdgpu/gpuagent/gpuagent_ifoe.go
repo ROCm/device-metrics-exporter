@@ -169,8 +169,7 @@ func (ga *GPUAgentIFOEClient) GetExportLabels() []string {
 	return labelList
 }
 
-func (ga *GPUAgentIFOEClient) listNetworkPort() (*amdgpu.UALNetworkPortGetResponse, error) {
-	ctx := ga.GetContext()
+func (ga *GPUAgentIFOEClient) listNetworkPort(ctx context.Context) (*amdgpu.UALNetworkPortGetResponse, error) {
 	req := &amdgpu.UALNetworkPortGetRequest{}
 	resp, err := ga.ualClient.UALNetworkPortGet(ctx, req)
 	if err != nil {
@@ -184,8 +183,7 @@ func (ga *GPUAgentIFOEClient) listNetworkPort() (*amdgpu.UALNetworkPortGetRespon
 	return resp, nil
 }
 
-func (ga *GPUAgentIFOEClient) listStation() (*amdgpu.UALStationGetResponse, error) {
-	ctx := ga.GetContext()
+func (ga *GPUAgentIFOEClient) listStation(ctx context.Context) (*amdgpu.UALStationGetResponse, error) {
 	req := &amdgpu.UALStationGetRequest{}
 	resp, err := ga.ualClient.UALStationGet(ctx, req)
 	if err != nil {
@@ -199,8 +197,7 @@ func (ga *GPUAgentIFOEClient) listStation() (*amdgpu.UALStationGetResponse, erro
 	return resp, nil
 }
 
-func (ga *GPUAgentIFOEClient) listDevice() (*amdgpu.UALDeviceGetResponse, error) {
-	ctx := ga.GetContext()
+func (ga *GPUAgentIFOEClient) listDevice(ctx context.Context) (*amdgpu.UALDeviceGetResponse, error) {
 	req := &amdgpu.UALDeviceGetRequest{}
 	resp, err := ga.ualClient.UALDeviceGet(ctx, req)
 	if err != nil {
@@ -214,14 +211,14 @@ func (ga *GPUAgentIFOEClient) listDevice() (*amdgpu.UALDeviceGetResponse, error)
 	return resp, nil
 }
 
-func (ga *GPUAgentIFOEClient) updateMetrics() error {
+func (ga *GPUAgentIFOEClient) updateMetrics(ctx context.Context) error {
 	if !ga.isActive() {
 		// nolint
 		_ = ga.InitClients()
 	}
 	labels := ga.populateLabelsFromObject(nil, nil, nil)
 
-	resp, err := ga.listNetworkPort()
+	resp, err := ga.listNetworkPort(ctx)
 	if err != nil {
 		return err
 	}
@@ -231,7 +228,7 @@ func (ga *GPUAgentIFOEClient) updateMetrics() error {
 		return fmt.Errorf("UALNetworkPortGet api status: %v", resp.ApiStatus)
 	}
 
-	dresp, err := ga.listDevice()
+	dresp, err := ga.listDevice(ctx)
 	if err != nil {
 		return err
 	}
@@ -241,7 +238,7 @@ func (ga *GPUAgentIFOEClient) updateMetrics() error {
 		return fmt.Errorf("UALDeviceGet api status: %v", dresp.ApiStatus)
 	}
 
-	sresp, err := ga.listStation()
+	sresp, err := ga.listStation(ctx)
 	if err != nil {
 		return err
 	}

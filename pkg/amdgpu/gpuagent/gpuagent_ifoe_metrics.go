@@ -508,12 +508,12 @@ func (ga *GPUAgentIFOEClient) ResetMetrics() error {
 	return nil
 }
 
-func (ga *GPUAgentIFOEClient) UpdateStaticMetrics() error {
-	return ga.updateMetrics()
+func (ga *GPUAgentIFOEClient) UpdateStaticMetrics(ctx context.Context) error {
+	return ga.updateMetrics(ctx)
 }
 
 func (ga *GPUAgentIFOEClient) UpdateMetricsStats(ctx context.Context) error {
-	return ga.updateMetrics()
+	return ga.updateMetrics(ctx)
 }
 
 func (ga *GPUAgentIFOEClient) QueryMetrics() (interface{}, error) {

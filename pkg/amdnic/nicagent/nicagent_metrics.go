@@ -2194,7 +2194,10 @@ func (na *NICAgentClient) InitConfigs() error {
 	return na.initFieldRegistration()
 }
 
-func (na *NICAgentClient) UpdateStaticMetrics() error {
+func (na *NICAgentClient) UpdateStaticMetrics(_ context.Context) error {
+	// ctx is intentionally unused: fetchPodInfoForNode calls k8sApiClient.GetAllPods()
+	// which uses the K8s client's own internal context. Plumbing ctx here would require
+	// a larger refactor of the K8s client interface.
 	var err error
 	k8PodInfoMap, err = na.fetchPodInfoForNode()
 	if err != nil {

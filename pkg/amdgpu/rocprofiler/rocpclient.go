@@ -94,7 +94,7 @@ func (rpc *ROCProfilerClient) SetFields(fields []string) {
 // cacheMetrics returns the cached metrics if they are fresh, otherwise it fetches new metrics
 // and updates the cache. If the fetch fails, the cache is cleared and the error is returned.
 // this is required to avoid frequent calls to rocpctl for metrics to avoid stress on hardware
-func (rpc *ROCProfilerClient) cacheMetrics() (*amdgpu.GpuProfiler, error) {
+func (rpc *ROCProfilerClient) cacheMetrics(ctx context.Context) (*amdgpu.GpuProfiler, error) {
 	rpc.pCache.RLock()
 
 	// If cache is fresh, return it
@@ -106,7 +106,7 @@ func (rpc *ROCProfilerClient) cacheMetrics() (*amdgpu.GpuProfiler, error) {
 	rpc.pCache.RUnlock()
 
 	// Otherwise, fetch new metrics and update cache
-	metrics, err := rpc.getMetrics()
+	metrics, err := rpc.getMetrics(ctx)
 	rpc.pCache.Lock()
 	rpc.pCache.cacheLastRead = time.Now()
 	if err == nil {
@@ -120,8 +120,8 @@ func (rpc *ROCProfilerClient) cacheMetrics() (*amdgpu.GpuProfiler, error) {
 	return metrics, err
 }
 
-func (rpc *ROCProfilerClient) GetMetrics() (*amdgpu.GpuProfiler, error) {
-	return rpc.cacheMetrics()
+func (rpc *ROCProfilerClient) GetMetrics(ctx context.Context) (*amdgpu.GpuProfiler, error) {
+	return rpc.cacheMetrics(ctx)
 }
 
 func (rpc *ROCProfilerClient) IncFailureCount() {
@@ -157,7 +157,7 @@ func (rpc *ROCProfilerClient) SetFatalFailureState() {
 	logger.Log.Printf(" %v has been disabled after system failure", rpc.Name)
 }
 
-func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
+func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfiler, error) {
 	// Check consecutive failure count
 	if rpc.IsDisabledOnFailure() {
 		return nil, fmt.Errorf("%v disabled after consecutive failures", rpc.Name)
@@ -169,8 +169,8 @@ func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
 		return &gpus, nil
 	}
 
-	// Create a context with a 15s timeout
-	ctx, cancel := context.WithTimeout(context.Background(), rocprofilerTimeout*time.Second)
+	// Derive timeout from caller's context so cancellation propagates to rocpctl
+	ctx, cancel := context.WithTimeout(ctx, rocprofilerTimeout*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", rpc.cmd)
@@ -194,11 +194,13 @@ func (rpc *ROCProfilerClient) getMetrics() (*amdgpu.GpuProfiler, error) {
 	}
 
 	if ctx.Err() == context.DeadlineExceeded {
-		logger.Log.Printf("command timed out after 15s: %v", rpc.cmd)
+		logger.Log.Printf("command timed out after %ds: %v", rocprofilerTimeout, rpc.cmd)
 		if stderr.Len() > 0 {
 			logger.Log.Printf("stderr: %s", stderr.String())
 		}
 		rpc.IncFailureCount()
+		return nil, ctx.Err()
+	} else if ctx.Err() == context.Canceled {
 		return nil, ctx.Err()
 	} else if err != nil {
 		logger.Log.Printf("error occurred: %v", err)

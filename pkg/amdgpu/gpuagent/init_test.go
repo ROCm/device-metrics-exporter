@@ -17,6 +17,7 @@
 package gpuagent
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -200,7 +201,7 @@ func setupTest(t *testing.T) func(t *testing.T) {
 	mConfig = config.NewConfigHandler("config.json", globals.GPUAgentPort)
 
 	mh, _ = metricsutil.NewMetrics(mConfig)
-	mh.InitConfig()
+	mh.InitConfig(context.Background())
 
 	return func(t *testing.T) {
 		t.Logf("============= Test:TearDown %v ===============", t.Name())

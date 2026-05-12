@@ -20,7 +20,6 @@ import (
 	"context"
 	"expvar"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -152,8 +151,8 @@ func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 	go func() {
 		logger.Log.Printf("serving requests on %s:%v", bindAddr, serverPort)
 		err := srv.ListenAndServe()
-		if err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe(): %v", err)
+		if err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatalf("ListenAndServe(): %v", err)
 		}
 		logger.Log.Printf("server on %s:%v shutdown gracefully", bindAddr, serverPort)
 	}()
@@ -175,7 +174,7 @@ func foreverWatcher(e *Exporter) {
 
 	startServer := func() {
 		if !serverRunning() {
-			mh.InitConfig()
+			mh.InitConfig(e.ctx)
 			serverPort := runConf.GetServerPort()
 			err := logger.Log.ConfigureFromConfig(runConf.GetLoggerConfig())
 			if err != nil {
@@ -419,7 +418,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	runConf = config.NewConfigHandler(e.configFile, e.agentGrpcPort)
 
 	mh, _ = metricsutil.NewMetrics(runConf)
-	mh.InitConfig()
+	mh.InitConfig(e.ctx)
 
 	e.svcHandler = metricsserver.InitSvcs(mh,
 		metricsserver.WithDebugAPIOption(enableDebugAPI),

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	dto "github.com/prometheus/client_model/go"
 
@@ -49,10 +50,10 @@ func TestGpuAgent(t *testing.T) {
 	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateStaticMetrics()
+	err = ga.UpdateStaticMetrics(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats(context.Background())
+	err = ga.UpdateMetricsStats(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -86,10 +87,10 @@ func TestGpuAgentSlurm(t *testing.T) {
 	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateStaticMetrics()
+	err = ga.UpdateStaticMetrics(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats(context.Background())
+	err = ga.UpdateMetricsStats(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -117,10 +118,10 @@ func TestGpuAgentK8s(t *testing.T) {
 	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateStaticMetrics()
+	err = ga.UpdateStaticMetrics(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats(context.Background())
+	err = ga.UpdateMetricsStats(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	for _, client := range ga.clients {
@@ -164,10 +165,10 @@ func TestGPUAgentIFOEOnly(t *testing.T) {
 	err := ga.InitConfigs()
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateStaticMetrics()
+	err = ga.UpdateStaticMetrics(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
-	err = ga.UpdateMetricsStats(context.Background())
+	err = ga.UpdateMetricsStats(ga.GetContext())
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	wls, err := ga.ListWorkloads()
@@ -756,7 +757,7 @@ func TestUpdateMetricsStatsWithDebugContext(t *testing.T) {
 	assert.Assert(t, err == nil, "expecting success config init")
 
 	// Test with normal context (no debug mode)
-	err = ga.UpdateMetricsStats(context.Background())
+	err = ga.UpdateMetricsStats(ga.GetContext())
 	assert.Assert(t, err == nil, "UpdateMetricsStats should succeed with normal context")
 
 	// Test with debug mode QP
@@ -1061,4 +1062,39 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 		assert.Assert(t, state.Health != unhealthy, "GPU must not be unhealthy on non-fatal CPER severity")
 	}
 	gpuclient.Unlock()
+}
+
+// TestGetMetricsAllContextCancellation verifies that getMetricsAll returns
+// promptly when the context is cancelled, rather than blocking on the
+// profiler goroutine for the full rocpctl timeout.
+func TestGetMetricsAllContextCancellation(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+
+	// Pre-cancel the context before calling getMetricsAll.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- gpuclient.getMetricsAll(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		assert.Equal(t, context.Canceled, err, "expected context.Canceled, got: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("getMetricsAll did not return after context cancellation")
+	}
 }

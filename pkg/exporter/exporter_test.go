@@ -208,7 +208,7 @@ func TestExporterBasicConfiguration(t *testing.T) {
 				var err error
 				mh, err = metricsutil.NewMetrics(runConf)
 				assert.NilError(t, err)
-				mh.InitConfig()
+				mh.InitConfig(context.Background())
 
 				// Start a minimal metrics server for testing
 				srv := startMetricsServer(runConf, "127.0.0.1")
@@ -278,7 +278,7 @@ func TestExporterHTTPEndpoints(t *testing.T) {
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
-	mh.InitConfig()
+	mh.InitConfig(context.Background())
 
 	srv := startMetricsServer(runConf, "127.0.0.1")
 	defer func() {
@@ -543,7 +543,7 @@ func TestExporterMetricsValidation(t *testing.T) {
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
-	mh.InitConfig()
+	mh.InitConfig(context.Background())
 
 	// Start metrics server
 	srv := startMetricsServer(runConf, "127.0.0.1")
@@ -658,7 +658,7 @@ func TestExporterConcurrentRequests(t *testing.T) {
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
-	mh.InitConfig()
+	mh.InitConfig(context.Background())
 
 	srv := startMetricsServer(runConf, "127.0.0.1")
 	defer func() {

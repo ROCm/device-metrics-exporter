@@ -69,7 +69,7 @@ func (mh *MetricsHandler) RegisterMetricsClient(client MetricsInterface) {
 	mh.clients = append(mh.clients, client)
 }
 
-func (mh *MetricsHandler) InitConfig() {
+func (mh *MetricsHandler) InitConfig(ctx context.Context) {
 	mh.reg = prometheus.NewRegistry()
 	if err := mh.runConf.RefreshConfig(); err != nil {
 		logger.Log.Printf("failed to refresh config: %v", err)
@@ -82,7 +82,7 @@ func (mh *MetricsHandler) InitConfig() {
 			if err := client.InitConfigs(); err != nil {
 				logger.Log.Printf("failed to init configs: %v", err)
 			}
-			if err := client.UpdateStaticMetrics(); err != nil {
+			if err := client.UpdateStaticMetrics(ctx); err != nil {
 				logger.Log.Printf("failed to update static metrics: %v", err)
 			}
 		}(client)
