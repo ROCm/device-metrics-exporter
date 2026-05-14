@@ -40,7 +40,7 @@ chmod 700 get_helm.sh
 helm repo add exporter https://rocm.github.io/device-metrics-exporter
 helm repo update
 helm install exporter exporter/device-metrics-exporter-charts \
-  --version v1.4.1 \
+  --version v1.5.0 \
   --namespace kube-amd-gpu \
   --create-namespace
 ```
@@ -65,7 +65,7 @@ Override individual values on the command line using `--set key=value`:
 
 ```bash
 helm install exporter exporter/device-metrics-exporter-charts \
-  --version v1.4.1 \
+  --version v1.5.0 \
   --namespace kube-amd-gpu \
   --create-namespace \
   --set serviceMonitor.enabled=true \
@@ -77,7 +77,7 @@ helm install exporter exporter/device-metrics-exporter-charts \
 
 ```bash
 helm install exporter exporter/device-metrics-exporter-charts \
-  --version v1.4.1 \
+  --version v1.5.0 \
   --namespace kube-amd-gpu \
   --create-namespace \
   --set tolerations[0].key=example.com/foo \
@@ -91,7 +91,7 @@ For more extensive customization, download and modify the default values.yaml:
 
 ```bash
 # Download the default values.yaml for GPU monitoring
-helm show values exporter/device-metrics-exporter-charts --version v1.4.1 > gpu-values.yaml
+helm show values exporter/device-metrics-exporter-charts --version v1.5.0 > gpu-values.yaml
 ```
 
 Edit `gpu-values.yaml` as needed (example below), then install using the custom file:
@@ -105,7 +105,7 @@ tolerations:
 
 ```bash
 helm install exporter exporter/device-metrics-exporter-charts \
-  --version v1.4.1 \
+  --version v1.5.0 \
   --namespace kube-amd-gpu \
   --create-namespace \
   -f gpu-values.yaml
@@ -125,7 +125,7 @@ Use `--dry-run` with helm install to simulate the installation without applying 
 
 ```bash
 helm install exporter exporter/device-metrics-exporter-charts \
-  --version v1.4.1 \
+  --version v1.5.0 \
   --namespace kube-amd-gpu \
   --create-namespace \
   --dry-run \
