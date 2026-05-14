@@ -22,6 +22,8 @@ endif
 		-e "USER_GID=$(shell id -g)" \
 		-e "BRANCH=$(AMDSMI_BRANCH)" \
 		-e "COMMIT=$(AMDSMI_COMMIT)" \
+		-e "REPO=$(AMDSMI_REPO)" \
+		-e "SUBDIR=$(AMDSMI_SUBDIR)" \
 	    --name smibuild -v $(AMDMSMI_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
 		-w $(SMILIB_CONTAINER_WORKDIR) $(BUILD_IMAGE_OS)
 	@echo 'Copying amdsmi assets to ${TOP_DIR}/build/assets/${OS}'
@@ -148,6 +150,7 @@ endif
 	@docker image rm $(BUILDER_IMAGE) || true
 	@docker build --build-arg BUILD_BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg ROCM_VERSION=${REPOPKGVERSION} \
+		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
 		-t $(BUILDER_IMAGE) . -f $(DOCKERFILE)
 	@docker run --rm -it --privileged \
 		-e "USER_NAME=$(shell whoami)" \

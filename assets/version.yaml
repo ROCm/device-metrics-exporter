@@ -20,12 +20,12 @@ assets:
     branch  : main
 
   - name    : amd_smi_lib
-    version : 91c1f54
-    branch  : release/rocm-rel-7.2
+    version : 7239631
+    branch  : release/therock-7.13
 
   - name    : rocprofiler
-    version : 7.2
-    branch  : release/rocm-rel-7.2
+    version : 7.13
+    branch  : release/therock-7.13
 
   - name    : profiler_lib
-    version : 7.2
+    version : 7.13

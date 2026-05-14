@@ -216,12 +216,20 @@ REASON
 		log "   exporter node details"
 		${KNS} exec -it ${EXEC_POD} -- sh -c "metricsclient -npod" >${TECH_SUPPORT_FILE}/${node}/exporternode.txt || true
 		log "   amd-smi output"
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi version" >${TECH_SUPPORT_FILE}/${node}/amd-smi-version.txt || true
 		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi list" >${TECH_SUPPORT_FILE}/${node}/amd-smi-list.txt || true
-		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
-		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi static " >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi static" >${TECH_SUPPORT_FILE}/${node}/amd-smi-static.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi static -p" >${TECH_SUPPORT_FILE}/${node}/amd-smi-static-partition.txt || true
 		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi firmware" >${TECH_SUPPORT_FILE}/${node}/amd-smi-firmware.txt || true
-		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi metric" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi metric -v" >${TECH_SUPPORT_FILE}/${node}/amd-smi-metric-violation.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi bad-pages" >${TECH_SUPPORT_FILE}/${node}/amd-smi-bad-pages.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi topology" >${TECH_SUPPORT_FILE}/${node}/amd-smi-topology.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi process" >${TECH_SUPPORT_FILE}/${node}/amd-smi-process.txt || true
 		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi xgmi" >${TECH_SUPPORT_FILE}/${node}/amd-smi-xgmi.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi partition" >${TECH_SUPPORT_FILE}/${node}/amd-smi-partition.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi node" >${TECH_SUPPORT_FILE}/${node}/amd-smi-node.txt || true
+		${KNS} exec -it ${EXEC_POD} -- sh -c "amd-smi ras --cper" >${TECH_SUPPORT_FILE}/${node}/amd-smi-ras-cper.txt || true
 	fi
 
 	${KUBECTL} get nodes -l "node-role.kubernetes.io/control-plane=NoSchedule" 2>/dev/null | grep ${node} && continue # skip master nodes

@@ -7,12 +7,15 @@ DOCKER_SRIOV_CONTAINER_IMAGE ?= $(EXPORTER_SRIOV_IMAGE_NAME)-$(EXPORTER_IMAGE_TA
 DOCKER_AINIC_CONTAINER_IMAGE ?= $(EXPORTER_AINIC_IMAGE_NAME)-$(EXPORTER_IMAGE_TAG)
 HOURLY_TAG_LABEL ?= latest
 
+ROCM_TARBALL_URL ?=
+
 .PHONY: docker
 docker:
 	@echo "building amd exporter container"
 	@TOP_DIR=$(TOP_DIR) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
 		-t $(EXPORTER_IMAGE) \
 		. -f Dockerfile.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
@@ -33,6 +36,7 @@ docker-cicd:
 	@TOP_DIR=$(TOP_DIR) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
 		-t $(EXPORTER_IMAGE) \
 		--label HOURLY_TAG=$(HOURLY_TAG_LABEL) \
 		. -f Dockerfile.exporter-release

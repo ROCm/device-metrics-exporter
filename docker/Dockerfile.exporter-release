@@ -9,40 +9,55 @@ LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
 ARG ROCM_VERSION=7.2
 ARG AMDGPU_VERSION=7.2
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
+# S3 therock nightly tarball (optional). Set ROCM_TARBALL_URL to install ROCm
+# from a therock tarball instead of repo.radeon.com.
+ARG ROCM_TARBALL_URL=""
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/:/opt/nic/bin:/opt/nic/sbin
+# /opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib is needed for therock tarball builds
+# (librocm_sysdeps_drm.so.2 etc.). For repo.radeon.com builds it is a no-op.
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib:$LD_LIBRARY_PATH
+ENV GPUAGENT_EVENTS_DISABLE=1
+
+ADD install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
+RUN chmod +x /usr/local/bin/install-rocm-tarball.sh
 
 RUN microdnf clean all && \
-   echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
-   echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "baseurl=${AMDGPU_REPO_URL}/graphics/${AMDGPU_VERSION}/rhel/9.6/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
-   echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
-   echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
-   echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${ROCM_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
-   echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
-   echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
-   echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
-   echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
-   microdnf update -y && \
-   microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
-   libcap-devel amd-smi-lib libdrm-amdgpu vim numactl numactl-libs \
-   hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq libatomic && \
+   if [ -n "${ROCM_TARBALL_URL}" ]; then \
+      microdnf install -y wget tar gzip sudo findutils procps elfutils-libelf cmake kmod file \
+         libcap-devel vim numactl numactl-libs jq libatomic python3 && \
+      /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" /usr/lib64; \
+   else \
+      echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
+      echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "baseurl=${AMDGPU_REPO_URL}/graphics/${AMDGPU_VERSION}/rhel/9.6/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
+      echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
+      echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${ROCM_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
+      echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
+      echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
+      echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
+      echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
+      microdnf update -y && \
+      microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
+         libcap-devel amd-smi-lib libdrm-amdgpu vim numactl numactl-libs \
+         hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq libatomic; \
+   fi && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 # amdgpu.ids: fetched by build_prep_docker.sh via tools/fetch-amdgpu-ids.sh
 ADD ./amdgpu.ids /usr/share/libdrm/amdgpu.ids
 
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/:/opt/nic/bin:/opt/nic/sbin
-ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
-ENV GPUAGENT_EVENTS_DISABLE=1
 RUN mkdir -p /home/amd/bin/ /home/amd/lib/ /home/amd/tools/
 
 # override built libraries
 ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
-ADD ./libamd_smi.so.26.2.1 /home/amd/lib/libamd_smi.so.26.2.1
-RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.26.2.1 libamd_smi.so.26
+ADD ./libamd_smi.so.26.4.0 /home/amd/lib/libamd_smi.so.26.4.0
+RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.26.4.0 libamd_smi.so.26
 
 ADD ./rocpctl /home/amd/bin/rocpctl
 ADD ./gpuctl /home/amd/bin/gpuctl
@@ -55,7 +70,7 @@ RUN chmod +x /home/amd/tools/entrypoint.sh
 ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
 RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 
-LABEL name="amd-device-metrics-exporter" \ 
+LABEL name="amd-device-metrics-exporter" \
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
     version="v1.5.0" \

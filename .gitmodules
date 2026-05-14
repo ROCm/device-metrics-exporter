@@ -1,7 +1,3 @@
-[submodule "libamdsmi"]
-	path = libamdsmi
-	url = https://github.com/ROCm/amdsmi.git
-    branch = amd-mainline
 [submodule "gpuagent"]
 	path = gpuagent
 	url = https://github.com/ROCm/gpu-agent.git

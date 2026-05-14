@@ -80,12 +80,17 @@ if command -v amd-smi &> /dev/null; then
         "amd-smi version"
         "amd-smi list"
         "amd-smi static"
+        "amd-smi static -p"
         "amd-smi firmware"
         "amd-smi metric"
+        "amd-smi metric -v"
+        "amd-smi bad-pages"
         "amd-smi topology"
         "amd-smi process"
         "amd-smi xgmi"
         "amd-smi partition"
+        "amd-smi node"
+        "amd-smi ras --cper"
     )
 
     # Execute each command and save to separate log files
