@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1097,4 +1098,112 @@ func TestGetMetricsAllContextCancellation(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("getMetricsAll did not return after context cancellation")
 	}
+}
+
+// getGPUClient is a test helper that returns the GPUAgentGPUClient from a
+// freshly initialised agent. Fails the test if no GPU client is present.
+func getGPUClient(t *testing.T) *GPUAgentGPUClient {
+	t.Helper()
+	ga := getNewAgentWithoutScheduler(t)
+	for _, c := range ga.clients {
+		if c.GetDeviceType() == globals.GPUDevice {
+			return c.(*GPUAgentGPUClient)
+		}
+	}
+	t.Fatal("no GPU client in agent")
+	return nil
+}
+
+// waitFor polls condition() up to 2 seconds, returning true when it becomes true.
+// Use this when the condition is set from a goroutine (e.g. emitEvent callbacks).
+func waitFor(t *testing.T, condition func() bool) bool {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return true
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return false
+}
+
+func TestProfilerDisabledEvent_NilK8sClient(t *testing.T) {
+	teardown := setupTest(t)
+	defer teardown(t)
+
+	gpuclient := getGPUClient(t)
+	// emitEvent is nil when no k8s client — SetFatalFailureState must not panic
+	gpuclient.rocpclient.SetEventEmitter(nil)
+	gpuclient.rocpclient.SetFatalFailureState(t.Context())
+
+	assert.Assert(t, gpuclient.rocpclient.IsDisabledOnFailure(),
+		"profiler must be disabled after fatal failure")
+	assert.Assert(t, gpuclient.rocpclient.GetDisabledReason() != "",
+		"disabled reason must be set after fatal failure")
+}
+
+func TestProfilerDisabledEvent_FlagSetOnDisabled(t *testing.T) {
+	teardown := setupTest(t)
+	defer teardown(t)
+
+	gpuclient := getGPUClient(t)
+
+	var called atomic.Bool
+	gpuclient.rocpclient.SetEventEmitter(func(ctx context.Context, reason, msg string) {
+		called.Store(true)
+	})
+
+	for !gpuclient.rocpclient.IsDisabledOnFailure() {
+		gpuclient.rocpclient.IncFailureCount(t.Context())
+	}
+
+	// emitEvent runs in a goroutine; give it a moment to complete
+	assert.Assert(t, waitFor(t, called.Load), "emitter was not called when consecutive failure threshold reached")
+}
+
+func TestProfilerDisabledEvent_FlagResetOnRecovery(t *testing.T) {
+	teardown := setupTest(t)
+	defer teardown(t)
+
+	gpuclient := getGPUClient(t)
+
+	// Trigger disable then reset
+	for !gpuclient.rocpclient.IsDisabledOnFailure() {
+		gpuclient.rocpclient.IncFailureCount(t.Context())
+	}
+	gpuclient.rocpclient.ResetFailureCount()
+	assert.Assert(t, !gpuclient.rocpclient.IsDisabledOnFailure(),
+		"profiler must not be disabled after reset")
+
+	// After reset, a second round of failures must fire the emitter again
+	var called atomic.Bool
+	gpuclient.rocpclient.SetEventEmitter(func(ctx context.Context, reason, msg string) {
+		called.Store(true)
+	})
+	for !gpuclient.rocpclient.IsDisabledOnFailure() {
+		gpuclient.rocpclient.IncFailureCount(t.Context())
+	}
+	assert.Assert(t, waitFor(t, called.Load), "emitter was not called after reset and re-disable")
+}
+
+func TestProfilerDisabledEvent_FatalFailure(t *testing.T) {
+	teardown := setupTest(t)
+	defer teardown(t)
+
+	gpuclient := getGPUClient(t)
+
+	var emittedReason atomic.Value
+	gpuclient.rocpclient.SetEventEmitter(func(ctx context.Context, reason, msg string) {
+		emittedReason.Store(reason)
+	})
+	gpuclient.rocpclient.SetFatalFailureState(t.Context())
+
+	assert.Assert(t, waitFor(t, func() bool { return emittedReason.Load() != nil }),
+		"emitter was not called on fatal failure (crash/abort)")
+	assert.Assert(t, emittedReason.Load().(string) != "", "emitter reason must not be empty on crash")
+	assert.Assert(t, !gpuclient.isProfilerEnabled(),
+		"profiler must be disabled after fatal failure (crash/abort)")
+	assert.Assert(t, gpuclient.rocpclient.GetDisabledReason() != "",
+		"disabled reason must be set after fatal failure (crash/abort)")
 }

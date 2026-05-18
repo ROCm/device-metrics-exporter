@@ -190,6 +190,7 @@ func (tr *TestRunner) initK8sClientIfNeeded() {
 			logger.Log.Printf("failed to create k8s client: %v", err)
 			logger.Log.Fatal(err)
 		}
+		k8sClient.SetEventSourceComponent("amd-test-runner")
 		tr.k8sClient = k8sClient
 	}
 }

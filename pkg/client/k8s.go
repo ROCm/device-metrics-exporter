@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -50,6 +51,17 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
+const (
+	podNameFile      = "/etc/hostname"
+	podNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+)
+
+type K8sEventReason string
+
+const (
+	ProfilerDisabledReason K8sEventReason = "ProfilerDisabled"
+)
+
 type K8sClient struct {
 	sync.Mutex
 	ctx             context.Context
@@ -60,6 +72,18 @@ type K8sClient struct {
 	nodeInformer    cache.SharedIndexInformer
 	podInformer     cache.SharedIndexInformer
 	nodelabellerCfg utils.NodeHealthLabellerConfig
+	podName              string
+	podNamespace         string
+	eventSourceComponent string
+}
+
+// readFileContent reads a file and returns its trimmed content, or empty string on error.
+func readFileContent(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 func NewClient(ctx context.Context, configPath, nodeName string) (*K8sClient, error) {
@@ -90,8 +114,17 @@ func NewClient(ctx context.Context, configPath, nodeName string) (*K8sClient, er
 		nodeName:  nodeName,
 		stopCh:    make(chan struct{}),
 		started:   false,
+		podName:      readFileContent(podNameFile),
+		podNamespace: readFileContent(podNamespaceFile),
 	}
+
 	return k8c, nil
+}
+
+func (k *K8sClient) SetEventSourceComponent(component string) {
+	k.Lock()
+	defer k.Unlock()
+	k.eventSourceComponent = component
 }
 
 func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
@@ -111,6 +144,54 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	}
 
 	return nil
+}
+
+func (k *K8sClient) EmitWarningEvent(ctx context.Context, reason K8sEventReason, msg string) {
+	go k.dispatchWarningEvent(ctx, reason, msg)
+}
+
+func (k *K8sClient) dispatchWarningEvent(ctx context.Context, reason K8sEventReason, msg string) {
+	if k.podName == "" || k.podNamespace == "" {
+		return
+	}
+
+	k.Lock()
+	component := k.eventSourceComponent
+	k.Unlock()
+
+	if component == "" {
+		component = "amd-metrics-exporter"
+	}
+
+	now := metav1.Now()
+	evt := &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: component + "-",
+			Namespace:    k.podNamespace,
+		},
+		InvolvedObject: v1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: k.podNamespace,
+			Name:      k.podName,
+		},
+		Type:           v1.EventTypeWarning,
+		Reason:         string(reason),
+		Message:        msg,
+		FirstTimestamp: now,
+		LastTimestamp:  now,
+		Count:          1,
+		Source: v1.EventSource{
+			Host:      k.nodeName,
+			Component: component,
+		},
+	}
+
+	if _, err := k.clientset.CoreV1().Events(evt.Namespace).Create(ctx, evt, metav1.CreateOptions{}); err != nil {
+		logger.Log.Printf("dispatchWarningEvent %q: failed: %v", reason, err)
+		return
+	}
+	logger.Log.Printf("emitted K8s Warning event %q on pod %s/%s: %s",
+		reason, k.podNamespace, k.podName, msg)
 }
 
 func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) error {

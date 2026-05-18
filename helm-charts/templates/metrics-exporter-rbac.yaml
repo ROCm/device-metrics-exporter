@@ -33,6 +33,12 @@ rules:
   - get
   - list
   - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
 {{- if eq .Values.platform "openshift" }}
 - apiGroups:
   - security.openshift.io

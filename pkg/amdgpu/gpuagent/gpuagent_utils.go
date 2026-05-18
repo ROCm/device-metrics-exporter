@@ -17,10 +17,12 @@
 package gpuagent
 
 import (
+	"context"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 )
@@ -112,4 +114,12 @@ func (fl *fieldLogger) SetFilterDone() {
 	defer fl.Unlock()
 	fl.filterDone = true
 	logger.Log.Println("Unsupported fields filtering completed.")
+}
+
+func (ga *GPUAgentClient) SendWarningEvent(ctx context.Context, reason k8sclient.K8sEventReason, msg string) {
+	k8sClient := ga.GetK8sApiClient()
+	if k8sClient == nil {
+		return
+	}
+	k8sClient.EmitWarningEvent(ctx, reason, msg)
 }

@@ -35,7 +35,14 @@ const (
 	rocprofilerTimeout = 30 // to handle long running rocpctl commands
 	cachedTimer        = 10 * time.Second
 	failThreshold      = 3
+
+	disabledReasonConsecutive = "rocpctl failed %d consecutive times (timeouts or non-crash errors)"
+	disabledReasonCrash       = "rocpctl process core dumped/aborted"
 )
+
+// EventEmitFunc is a callback invoked when the profiler is auto-disabled.
+// Set via SetEventEmitter; called at most once per disable event.
+type EventEmitFunc func(ctx context.Context, reason, msg string)
 
 type ROCProfilerClient struct {
 	Name             string
@@ -44,6 +51,7 @@ type ROCProfilerClient struct {
 	PtlDelayMs       uint32
 	cmd              string
 	pCache           *profilerCache
+	emitEvent        EventEmitFunc
 }
 
 type profilerCache struct {
@@ -52,6 +60,7 @@ type profilerCache struct {
 	cacheLastRead       time.Time
 	consecutiveFailures int
 	fatalFailure        bool
+	disabledReason      string // set when profiler is disabled; cleared on recovery
 }
 
 func NewRocProfilerClient(name string) *ROCProfilerClient {
@@ -65,11 +74,23 @@ func NewRocProfilerClient(name string) *ROCProfilerClient {
 	}
 }
 
+// SetEventEmitter registers a callback invoked (once) when the profiler auto-disables.
+func (rpc *ROCProfilerClient) SetEventEmitter(fn EventEmitFunc) {
+	rpc.emitEvent = fn
+}
+
 func (rpc *ROCProfilerClient) ResetFailureCount() {
 	rpc.pCache.Lock()
 	defer rpc.pCache.Unlock()
 	rpc.pCache.consecutiveFailures = 0
 	rpc.pCache.fatalFailure = false
+	rpc.pCache.disabledReason = ""
+}
+
+func (rpc *ROCProfilerClient) GetDisabledReason() string {
+	rpc.pCache.RLock()
+	defer rpc.pCache.RUnlock()
+	return rpc.pCache.disabledReason
 }
 
 func (rpc *ROCProfilerClient) SetSamplingInterval(intervalUs uint64) {
@@ -124,14 +145,21 @@ func (rpc *ROCProfilerClient) GetMetrics(ctx context.Context) (*amdgpu.GpuProfil
 	return rpc.cacheMetrics(ctx)
 }
 
-func (rpc *ROCProfilerClient) IncFailureCount() {
+func (rpc *ROCProfilerClient) IncFailureCount(ctx context.Context) {
+	var emitReason string
 	rpc.pCache.Lock()
-	defer rpc.pCache.Unlock()
 	rpc.pCache.consecutiveFailures++
 	// log only once when consecutive failures reach threshold
 	// this is to avoid log spamming
 	if rpc.pCache.consecutiveFailures == failThreshold {
-		logger.Log.Printf("%v has failed %v times, disabling", rpc.Name, failThreshold)
+		emitReason = fmt.Sprintf(disabledReasonConsecutive, failThreshold)
+		logger.Log.Printf("%v has failed %v times, disabling: %s", rpc.Name, failThreshold, emitReason)
+		rpc.pCache.disabledReason = emitReason
+	}
+	rpc.pCache.Unlock()
+	if emitReason != "" && rpc.emitEvent != nil {
+		msg := fmt.Sprintf("GPU profiler metrics (gpu_prof_*) disabled: %s. Restart the pod to re-enable.", emitReason)
+		go rpc.emitEvent(ctx, emitReason, msg)
 	}
 }
 
@@ -150,11 +178,16 @@ func (rpc *ROCProfilerClient) IsDisabledOnFailure() bool {
 	return rpc.pCache.fatalFailure || rpc.pCache.consecutiveFailures >= failThreshold
 }
 
-func (rpc *ROCProfilerClient) SetFatalFailureState() {
+func (rpc *ROCProfilerClient) SetFatalFailureState(ctx context.Context) {
 	rpc.pCache.Lock()
-	defer rpc.pCache.Unlock()
 	rpc.pCache.fatalFailure = true
-	logger.Log.Printf(" %v has been disabled after system failure", rpc.Name)
+	rpc.pCache.disabledReason = disabledReasonCrash
+	rpc.pCache.Unlock()
+	logger.Log.Printf("%v has been disabled after system failure: %s", rpc.Name, disabledReasonCrash)
+	if rpc.emitEvent != nil {
+		msg := fmt.Sprintf("GPU profiler metrics (gpu_prof_*) disabled: %s. Restart the pod to re-enable.", disabledReasonCrash)
+		go rpc.emitEvent(ctx, disabledReasonCrash, msg)
+	}
 }
 
 func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfiler, error) {
@@ -169,6 +202,8 @@ func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfil
 		return &gpus, nil
 	}
 
+	// Save caller's context before timeout shadow so it can be passed to emitters.
+	callerCtx := ctx
 	// Derive timeout from caller's context so cancellation propagates to rocpctl
 	ctx, cancel := context.WithTimeout(ctx, rocprofilerTimeout*time.Second)
 	defer cancel()
@@ -198,7 +233,7 @@ func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfil
 		if stderr.Len() > 0 {
 			logger.Log.Printf("stderr: %s", stderr.String())
 		}
-		rpc.IncFailureCount()
+		rpc.IncFailureCount(callerCtx)
 		return nil, ctx.Err()
 	} else if ctx.Err() == context.Canceled {
 		return nil, ctx.Err()
@@ -212,17 +247,17 @@ func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfil
 			logger.Log.Printf("stdout: %s", string(gpuMetrics))
 		}
 		if strings.Contains(err.Error(), "dumped") || strings.Contains(err.Error(), "aborted") {
-			rpc.SetFatalFailureState()
+			rpc.SetFatalFailureState(callerCtx)
 			return nil, fmt.Errorf("%v core dumped/aborted, profiler disabled", rpc.Name)
 		}
-		rpc.IncFailureCount()
+		rpc.IncFailureCount(callerCtx)
 		return nil, err
 	}
 
 	err = json.Unmarshal(gpuMetrics, &gpus)
 	if err != nil {
 		logger.Log.Printf("error unmarshaling profiler statistics err :%v -> data: %v", err, string(gpuMetrics))
-		rpc.IncFailureCount()
+		rpc.IncFailureCount(callerCtx)
 		return nil, err
 	}
 	rpc.ResetFailureCount()
