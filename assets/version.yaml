@@ -20,7 +20,7 @@ assets:
     branch  : main
 
   - name    : amd_smi_lib
-    version : 7239631
+    version : "7.13.0"
     branch  : release/therock-7.13
 
   - name    : rocprofiler
