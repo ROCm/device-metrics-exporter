@@ -70,6 +70,7 @@ type Exporter struct {
 	disableK8sScl        bool
 	enableSlurmScl       bool
 	enableSriov          bool
+	enableCRI            bool
 	exitOnAgentDown      bool
 	bindAddr             string
 	k8sApiClient         *k8sclient.K8sClient
@@ -285,6 +286,7 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 		k8sApiClient:  nil,
 		disableK8sApi: false, // by default k8s api is enabled
 		disableK8sScl: false, // by default k8s scheduler client is enabled
+		enableCRI:     true,  // by default CRI client is enabled
 	}
 
 	for _, o := range opts {
@@ -384,6 +386,18 @@ func WithK8sApiClient(enable bool) ExporterOption {
 	}
 }
 
+func WithCRIClient(enable bool) ExporterOption {
+	return func(e *Exporter) {
+		if enable {
+			logger.Log.Printf("CRI client enabled")
+			e.enableCRI = true
+		} else {
+			logger.Log.Printf("CRI client disabled")
+			e.enableCRI = false
+		}
+	}
+}
+
 func WithK8sSchedulerClient(enable bool) ExporterOption {
 	return func(e *Exporter) {
 		if enable {
@@ -476,10 +490,21 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	}
 
 	if e.enableNICMonitoring {
-		nicAgent = nicagent.NewAgent(mh,
+		opts := []nicagent.NICAgentClientOptions{
 			nicagent.WithK8sSchedulerClient(e.k8sScl),
 			nicagent.WithK8sClient(e.GetK8sApiClient()),
-		)
+		}
+
+		if e.enableCRI {
+			criClient, err := k8sclient.NewCRIClient(e.ctx)
+			if err != nil {
+				logger.Log.Printf("CRI client init failed (per-pod NIC metrics unavailable): %v", err)
+			} else {
+				opts = append(opts, nicagent.WithCRIClient(criClient))
+			}
+		}
+
+		nicAgent = nicagent.NewAgent(mh, opts...)
 		if err := nicAgent.Init(); err != nil {
 			logger.Log.Printf("nic client init err :%+v", err)
 		}

@@ -42,20 +42,17 @@ const (
 	// set pod cache size > max concurrent workload pods per node to avoid cache thrashing
 	podCacheSize = 100
 
-	RDMAClientName                = "RDMA_Stats_Client"
-	NICCtlClientName              = "NICCTL_Client"
-	EthtoolClientName             = "Ethtool_Client"
-	NICCtlBinary                  = "nicctl"
-	RDMABinary                    = "rdma"
-	EthtoolBinary                 = "ethtool"
-	PodNetnsExecCmd               = "nsenter --net=/host/proc/%d/ns/net "
-	ShowRdmaDevicesCmd            = "rdma link"
-	ShowNetDeviceCmd              = "ip link show %s"
-	EthToolCmd                    = "ethtool -S %s"
-	GetPcieAddrFromRdmaDevCmd     = "cat /sys/class/infiniband/%s/device/uevent  | grep PCI_SLOT"
-	CrioRuntimeSocket             = "/host/run/crio/crio.sock"
-	ContainerdRuntimeSocket       = "/host/run/containerd/containerd.sock"
-	GetPIDFromContainerRuntimeCmd = "crictl --runtime-endpoint unix://%s  inspect %s | jq .info.pid"
+	RDMAClientName            = "RDMA_Stats_Client"
+	NICCtlClientName          = "NICCTL_Client"
+	EthtoolClientName         = "Ethtool_Client"
+	NICCtlBinary              = "nicctl"
+	RDMABinary                = "rdma"
+	EthtoolBinary             = "ethtool"
+	PodNetnsExecCmd           = "nsenter --net=/host/proc/%d/ns/net "
+	ShowRdmaDevicesCmd        = "rdma link"
+	ShowNetDeviceCmd          = "ip link show %s"
+	EthToolCmd                = "ethtool -S %s"
+	GetPcieAddrFromRdmaDevCmd = "cat /sys/class/infiniband/%s/device/uevent  | grep PCI_SLOT"
 )
 
 var (

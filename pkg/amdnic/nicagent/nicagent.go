@@ -37,9 +37,6 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
 	_ "github.com/alta/protopatch/patch" // nolint: gosec
 	lru "github.com/hashicorp/golang-lru/v2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	pb "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 var (
@@ -55,6 +52,7 @@ type NICAgentClient struct {
 	nics                    map[string]*NIC
 	k8sScheduler            scheduler.SchedulerClient
 	k8sApiClient            *k8sclient.K8sClient
+	criClient               *k8sclient.CRIClient // CRI runtime client for container/PID lookups
 	staticHostLabels        map[string]string // static labels for the host
 	nodeHealthLabellerCfg   *utils.NodeHealthLabellerConfig
 	ctx                     context.Context
@@ -73,9 +71,11 @@ func WithK8sSchedulerClient(k8sScheduler scheduler.SchedulerClient) NICAgentClie
 	return func(na *NICAgentClient) {
 		if utils.IsKubernetes() {
 			na.isKubernetes = true
+			if k8sScheduler != nil {
 			logger.Log.Printf("K8sSchedulerClient option set")
 			na.k8sScheduler = k8sScheduler
 		}
+	}
 	}
 }
 
@@ -84,8 +84,22 @@ func WithK8sClient(k8sApiClient *k8sclient.K8sClient) NICAgentClientOptions {
 	return func(na *NICAgentClient) {
 		if utils.IsKubernetes() {
 			na.isKubernetes = true
+			if k8sApiClient != nil {
 			logger.Log.Printf("K8sApiClient option set")
 			na.k8sApiClient = k8sApiClient
+		}
+	}
+	}
+}
+
+// WithCRIClient sets the CRI runtime client for container ID / PID resolution.
+// Decoupled from k8s detection — the CRI client talks to the container runtime
+// directly and works regardless of k8s API availability.
+func WithCRIClient(criClient *k8sclient.CRIClient) NICAgentClientOptions {
+	return func(na *NICAgentClient) {
+		if criClient != nil {
+			na.criClient = criClient
+			logger.Log.Printf("CRIClient option set on %s", criClient.Socket())
 		}
 	}
 }
@@ -217,48 +231,25 @@ func (na *NICAgentClient) addPodPidIfAbsent(podName string, podNamespace string)
 	return nil
 }
 
-// getPidOfPod returns the PID of a pod container using its containerID
+// getPidOfPod returns the PID of a pod container by querying the CRI runtime
+// socket via ListPodSandbox/ListContainers/ContainerStatus. The CRI client is
+// initialized during Init() and reused for all calls.
 func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
-	// Step 1: Get container ID for pod
 	logStr := fmt.Sprintf("podname %s, ns %s", podName, ns)
-	cid, err := na.k8sApiClient.GetContainerIDforPod(podName, ns)
+
+	if na.criClient == nil {
+		return -1, fmt.Errorf("CRI client not initialized for %s", logStr)
+	}
+
+	ctx, cancel := context.WithTimeout(na.ctx, 5*time.Second)
+	defer cancel()
+
+	containerID, err := na.criClient.LookupContainerID(ctx, podName, ns)
 	if err != nil {
-		return -1, fmt.Errorf("failed to find containerID for %s: %v", logStr, err)
+		return -1, fmt.Errorf("failed to find containerID via CRI for %s: %v", logStr, err)
 	}
 
-	// Step 2: Determine runtime type from containerID prefix
-	parts := strings.Split(cid, "://")
-	if len(parts) != 2 {
-		return -1, fmt.Errorf("found invalid containerID: %s for %s", cid, logStr)
-	}
-	runtimeType := parts[0] // "containerd" or "cri-o"
-	containerID := parts[1]
-	var socket string
-	switch runtimeType {
-	case "containerd":
-		socket = ContainerdRuntimeSocket
-	case "cri-o":
-		socket = CrioRuntimeSocket
-	default:
-		return -1, fmt.Errorf("unsupported runtime: %s", runtimeType)
-	}
-
-	// Step 3: Connect to CRI using grpc.NewClient
-	conn, err := grpc.NewClient(
-		"unix://"+socket,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return -1, fmt.Errorf("failed to connect to CRI socket: %v", err)
-	}
-	defer conn.Close()
-	runtimeClient := pb.NewRuntimeServiceClient(conn)
-
-	// Step 4: Inspect container
-	resp, err := runtimeClient.ContainerStatus(na.ctx, &pb.ContainerStatusRequest{
-		ContainerId: containerID,
-		Verbose:     true,
-	})
+	resp, err := na.criClient.ContainerStatus(ctx, containerID)
 	if err != nil {
 		return -1, fmt.Errorf("failed to get status for container %s: %v", containerID, err)
 	}
@@ -266,7 +257,6 @@ func (na *NICAgentClient) getPidOfPod(podName, ns string) (int, error) {
 		return -1, fmt.Errorf("container status response missing Info field for container %s", containerID)
 	}
 
-	// Step 5: Parse Info map to extract PID
 	for _, v := range resp.Info {
 		var data map[string]interface{}
 		if err := json.Unmarshal([]byte(v), &data); err != nil {
@@ -515,13 +505,15 @@ func (na *NICAgentClient) sendNodeLabelUpdate(healthState map[string]interface{}
 		nicPCIeAddr = strings.ReplaceAll(nicPCIeAddr, ".", "_")
 		nicHealthStates[nicPCIeAddr] = hs.Health
 	}
+	if na.k8sApiClient != nil {
 	_ = na.k8sApiClient.UpdateHealthLabel(na.nodeHealthLabellerCfg, nodeName, nicHealthStates)
+	}
 	return nil
 }
 
 func (na *NICAgentClient) fetchPodInfoForNode() (map[string]types.K8sPodInfo, error) {
 	listMap := make(map[string]types.K8sPodInfo)
-	if utils.IsKubernetes() && podInfoEnabled {
+	if utils.IsKubernetes() && podInfoEnabled && na.k8sApiClient != nil {
 		return na.k8sApiClient.GetAllPods()
 	}
 	return listMap, nil
@@ -532,6 +524,10 @@ func (na *NICAgentClient) Close() {
 	defer na.Unlock()
 	if na.cancel != nil {
 		na.cancel()
+	}
+	if na.criClient != nil {
+		na.criClient.Close()
+		na.criClient = nil
 	}
 	na.nicClients = []NICInterface{}
 }
