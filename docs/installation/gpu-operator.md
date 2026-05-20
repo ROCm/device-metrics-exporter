@@ -4,7 +4,7 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 
 ## System requirements
 
-- ROCm 6.2.0
+- ROCm 6.2.0 or later
 - Ubuntu 22.04 or later
 - Kubernetes cluster v1.29.0 or later
 - Helm v3.2.0 or later

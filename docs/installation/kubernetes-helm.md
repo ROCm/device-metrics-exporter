@@ -4,7 +4,7 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 
 ## System requirements
 
-- ROCm 6.3.x
+- ROCm 6.2.0 or later
 - Ubuntu 22.04 or later
 - Kubernetes cluster v1.29.0 or later
 - Helm v3.2.0 or later
@@ -13,7 +13,7 @@ This page explains how to install AMD Device Metrics Exporter using Kubernetes.
 **Note:** GPU and NIC monitoring cannot be enabled simultaneously in a single Helm deployment.
 Choose the appropriate configuration based on your monitoring needs:
 
-- **GPU Monitoring**: For monitoring AMD GPUs (requires ROCm 6.2.0+)
+- **GPU Monitoring**: For monitoring AMD GPUs (requires ROCm 6.2.0 or later)
 - **NIC Monitoring**: For monitoring AMD NICs (requires compatible AMD NIC hardware)
 
 ## Installation

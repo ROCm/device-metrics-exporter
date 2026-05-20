@@ -42,7 +42,7 @@
 
 ### Platform Support
 
-ROCm 7.2.X MI2xx, MI3xx
+ROCm 6.2 or later, MI2xx, MI3xx
 
 ## v1.4.2
 
