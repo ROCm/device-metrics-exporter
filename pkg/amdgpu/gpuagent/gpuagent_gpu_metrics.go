@@ -817,7 +817,7 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 			labels),
 		gpuVCNActivity: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gpu_vcn_activity",
-			Help: "List of Video Core Next (VCN) encoe/decode usage in percentage",
+			Help: "List of Video Core Next (VCN) encode/decode usage in percentage",
 		},
 			append([]string{"vcn_index"}, labels...)),
 		gpuJPEGActivity: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
