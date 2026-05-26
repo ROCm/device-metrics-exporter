@@ -71,6 +71,7 @@ type Exporter struct {
 	enableSriov          bool
 	enableCRI            bool
 	exitOnAgentDown      bool
+	exitOnRocpctlError   bool
 	bindAddr             string
 	k8sApiClient         *k8sclient.K8sClient
 	svcHandler           *metricsserver.SvcHandler
@@ -425,6 +426,13 @@ func WithExitOnAgentDown(exit bool) ExporterOption {
 	}
 }
 
+func WithExitOnRocpctlError(exit bool) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("exit-on-rocpctl-error set to %v", exit)
+		e.exitOnRocpctlError = exit
+	}
+}
+
 // StartMain - doesn't return it exits only on failure
 func (e *Exporter) StartMain(enableDebugAPI bool) {
 	defer e.Close()
@@ -462,6 +470,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 			gpuagent.WithGPUMonitoring(true),
 			gpuagent.WithIFOEMonitoring(e.enableIFOEMonitoring),
 			gpuagent.WithExitOnAgentDown(e.exitOnAgentDown),
+			gpuagent.WithExitOnRocpctlError(e.exitOnRocpctlError),
 		)
 
 		if err := gpuclient.Init(); err != nil {
@@ -482,6 +491,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 			gpuagent.WithGPUMonitoring(false),
 			gpuagent.WithIFOEMonitoring(true),
 			gpuagent.WithExitOnAgentDown(e.exitOnAgentDown),
+			gpuagent.WithExitOnRocpctlError(e.exitOnRocpctlError),
 		)
 		if err := gpuclient.Init(); err != nil {
 			logger.Log.Printf("gpuclient init err :%+v", err)

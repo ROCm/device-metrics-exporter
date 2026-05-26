@@ -25,6 +25,27 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `ProfilerConfig`: Configuration for Profiler metrics.
     - `SamplingInterval`: Specifies the duration, in microseconds, of the sampling window used by the profiler to collect metrics for each query request. The default value is 1000 µs (1 millisecond), which is also the minimum allowed value. Excessively high values may result in delayed or timeout errors during metric collection.
     - `PtlDelay` : Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` ms no delay. This setting is useful for platform supporting Peaks Top Limiter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
+
+## CLI flags
+
+The following flags can be passed to the exporter binary via the `args` field in `values.yaml`:
+
+- `--exit-on-rocpctl-error`: Exit DME when `rocpctl` is auto-disabled after 3 consecutive failures or a crash (default: `false`). When enabled, DME exits and relies on the pod restart policy to recover. This is useful in Kubernetes environments where a `CrashLoopBackOff` and the associated K8s Warning event are preferred over a silently degraded metrics stream.
+
+  **When to enable:** Use this flag if profiler metrics (`gpu_prof_*`) are critical to your monitoring and you want the pod to restart automatically when `rocpctl` becomes unresponsive or crashes.
+
+  **Operator guidance:**
+  - If `rocpctl` failures are persistent (for example, due to a ROCm driver issue), the pod will enter `CrashLoopBackOff`. In that case, disable profiler metrics via the ConfigMap (`"ProfilerMetrics": {"all": false}`) before restarting the pod, then investigate the root cause.
+  - This flag has no effect when `ProfilerMetrics` is disabled.
+
+  **Helm example** (`values.yaml`):
+
+  ```yaml
+  args:
+    - "--exit-on-rocpctl-error=true"
+  ```
+
+- `--exit-on-agent-down`: Exit DME when the `gpuagent` process is unreachable after 3 consecutive health-poll failures (default: `false`).
 - `NICConfig`:
   - `Fields`: An array of strings specifying what metrics field to be exported. Detailed list of fields can be found at [Metrics list](metricslist.md)
   - `Labels`: `NIC_SERIAL_NUMBER`, `NIC_UUID`, `NIC_HOSTNAME` are always set and cannot be removed. Workload related labels such as `NIC_POD`, `NIC_NAMESPACE`, and `NIC_CONTAINER` are dynamically added to the LIF when there is an associated workload. The `POD_UUID` label is fetched from the Kubernetes API server and provides the unique identifier (UID) of the pod. Labels supported are available in the provided example `configmap.yml`.

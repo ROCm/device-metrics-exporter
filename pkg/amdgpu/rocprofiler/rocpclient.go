@@ -180,9 +180,13 @@ func (rpc *ROCProfilerClient) IsDisabledOnFailure() bool {
 
 func (rpc *ROCProfilerClient) SetFatalFailureState(ctx context.Context) {
 	rpc.pCache.Lock()
+	alreadyFatal := rpc.pCache.fatalFailure
 	rpc.pCache.fatalFailure = true
 	rpc.pCache.disabledReason = disabledReasonCrash
 	rpc.pCache.Unlock()
+	if alreadyFatal {
+		return
+	}
 	logger.Log.Printf("%v has been disabled after system failure: %s", rpc.Name, disabledReasonCrash)
 	if rpc.emitEvent != nil {
 		msg := fmt.Sprintf("GPU profiler metrics (gpu_prof_*) disabled: %s. Restart the pod to re-enable.", disabledReasonCrash)

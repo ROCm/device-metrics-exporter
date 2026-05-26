@@ -67,6 +67,12 @@ func (m *MockExporter) SkipConfigMount() {
 }
 
 func (m *MockExporter) Start() error {
+	return m.StartWithArgs(nil)
+}
+
+// StartWithArgs starts the container with extra args appended to the exporter binary.
+// Each element of extraArgs is passed as a separate argument to avoid shell splitting issues.
+func (m *MockExporter) StartWithArgs(extraArgs []string) error {
 	portsExposed := []string{}
 	for hport, cport := range m.portMap {
 		dockerPort := fmt.Sprintf(" -p %v:%v", hport, cport)
@@ -76,7 +82,8 @@ func (m *MockExporter) Start() error {
 	if m.configPath != "" {
 		mountOps = fmt.Sprintf(" -v %v:/etc/metrics ", m.configPath)
 	}
-	cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIMENABLED=1 -e PATH=$PATH:/home/amd/bin/ %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL)
+	extraArgsStr := strings.Join(extraArgs, " ")
+	cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIM_ENABLE=1 -e PATH=$PATH:/home/amd/bin/ %v %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL, extraArgsStr)
 	log.Print(cmd)
 	resp := m.tu.LocalCommandOutput(cmd)
 	if resp == "" {

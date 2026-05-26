@@ -1246,6 +1246,50 @@ func verifyJobLabels(gpu *testutils.GPUMetric, expectedJobLabels map[string]stri
 	return nil
 }
 
+// Test028ExitOnRocpctlError verifies DME exits when --exit-on-rocpctl-error is set
+// and rocpctl crashes. In mock mode rocpctl-mock aborts on every invocation.
+// Start with profiler disabled (container stays stable), enable it to trigger the
+// abort → SetFatalFailureState → os.Exit(1) → container stops.
+func (s *E2ESuite) Test028ExitOnRocpctlError(c *C) {
+	log.Print("Testing --exit-on-rocpctl-error: DME exits after rocpctl crash")
+
+	containerName := s.e2eConfig.ContainerName
+
+	_ = s.exporter.Stop()
+	time.Sleep(2 * time.Second)
+
+	err := s.SetProfilerState(false)
+	assert.Nil(c, err)
+
+	err = s.exporter.StartWithArgs([]string{"--exit-on-rocpctl-error=true"})
+	if !assert.Nil(c, err) {
+		_ = s.SetProfilerState(false)
+		_ = s.exporter.Start()
+		time.Sleep(25 * time.Second)
+		return
+	}
+	time.Sleep(20 * time.Second)
+
+	running := s.tu.LocalCommandOutput(fmt.Sprintf("docker ps -q -f Name=%v", containerName))
+	assert.True(c, running != "", "container should be running before profiler is enabled")
+
+	err = s.SetProfilerState(true)
+	assert.Nil(c, err)
+
+	assert.Eventually(c, func() bool {
+		return s.tu.LocalCommandOutput(fmt.Sprintf("docker ps -q -f Name=%v", containerName)) == ""
+	}, 60*time.Second, 1*time.Second, "container should exit after rocpctl crash")
+
+	_ = s.SetProfilerState(false)
+	// docker ps -aq includes Removing state; wait until name is fully released.
+	assert.Eventually(c, func() bool {
+		return s.tu.LocalCommandOutput(fmt.Sprintf("docker ps -aq -f Name=%v", containerName)) == ""
+	}, 15*time.Second, 500*time.Millisecond, "container name should be fully released before restart")
+	err = s.exporter.Start()
+	assert.Nil(c, err)
+	time.Sleep(25 * time.Second)
+}
+
 func (s *E2ESuite) SetUpTest(c *C) {
 	// Record test name at the start
 	testName := c.TestName()

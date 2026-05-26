@@ -18,6 +18,7 @@ package e2e
 
 type Exporter interface {
 	Start() error
+	StartWithArgs(extraArgs []string) error
 	SetPortMap(map[int]int) error
 	SkipConfigMount()
 	Restart() error

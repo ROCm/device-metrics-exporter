@@ -66,6 +66,7 @@ func main() {
 	enableSlumrScl := fs.Bool("enable-slurm-scl", true, "Enable Slurm Scheduler client integration")
 	sriov := fs.Bool("sriov-enable", false, "sriov host mode")
 	exitOnAgentDown := fs.Bool("exit-on-agent-down", false, "Exit DME if gpuagent is unreachable after consecutive failures")
+	exitOnRocpctlError := fs.Bool("exit-on-rocpctl-error", false, "Exit DME when rocpctl is auto-disabled after consecutive failures or a crash")
 	bindAddr := fs.String("bind", "0.0.0.0", "bind address for metrics server")
 	logFilePath := fs.String("log-file-path", "/var/log/exporter.log", "log file path")
 
@@ -123,6 +124,7 @@ func main() {
 		exporter.WithGPUMonitoring(*enableGPUMonitoring),
 		exporter.WithSRIOV(*sriov),
 		exporter.WithExitOnAgentDown(*exitOnAgentDown),
+		exporter.WithExitOnRocpctlError(*exitOnRocpctlError),
 		exporter.WithBindAddr(*bindAddr),
 		exporter.WithSlurmClient(*enableSlumrScl),
 		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),
