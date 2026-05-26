@@ -24,17 +24,8 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 
 - Ubuntu 22.04, 24.04
 - Docker (or compatible container runtime)
-
-### Compatibility Matrix
-
-| Rocm Version | Driver Version | Exporter Image Version | Platform     |
-|--------------|----------------|------------------------|--------------|
-| 6.2.x        | 6.8.5          | v1.0.0                 | MI2xx, MI3xx |
-| 6.3.x        | 6.10.5         | v1.2.0                 | MI2xx, MI3xx |
-| 6.4.x        | 6.12.12        | v1.3.1                 | MI2xx, MI3xx |
-| 7.0.x        | 6.14.14        | v1.4.0.1               | MI2xx, MI3xx |
-| 7.1.x        | 6.16.6         | v1.4.2                 | MI2xx, MI3xx |
-| TBD          | TBD            | v1.5.0 (dev)           | MI2xx, MI3xx |
+- ROCm 6.2.0 or later
+- MI2xx or MI3xx platform
 
 ### Available Metrics
 

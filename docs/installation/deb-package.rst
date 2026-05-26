@@ -9,31 +9,7 @@ Before installing the AMD GPU Metrics Exporter, you need to install the "AMDGPU"
 Please ensure that your system meets the following requirements:
 
 - **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
-- **ROCm Version**: 6.4.1 (specific to each .deb pkg)
-
-Each Debian package release of the Standalone Metrics Exporter is dependent on a specific version of the ROCm amdgpu driver. Please see table below for more information:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Metrics Exporter Debian Version
-     - ROCm Version
-     - AMDGPU Driver Version
-   * - amdgpu-exporter-1.2.0
-     - ROCm 6.3.x
-     - 6.10.5
-   * - amdgpu-exporter-1.3.1
-     - ROCm 6.4.x
-     - 6.12.12
-   * - amdgpu-exporter-1.4.0.1
-     - ROCm 7.0.x
-     - 6.14.x
-   * - amdgpu-exporter-1.4.2
-     - ROCm 7.1.x
-     - 6.16.6
-   * - amdgpu-exporter-1.5.0
-     - ROCm 7.2.x
-     - 6.16.13
+- **ROCm / AMDGPU Driver**: ROCm 6.2.0 or later (includes the compatible AMDGPU driver)
 
 Installation
 ===================
@@ -58,17 +34,17 @@ Step 2: Install AMDGPU Driver
 ------------------------------
 
 .. note::
-   For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page. The below instructions are the most current instructions as of ROCm 7.0.rc1.
+   For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page.
 
-1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example if you want to get the latest ROCm 7.0.0 drivers for Ubuntu 22.04 you would run the following command:
+1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example, to install ROCm 7.2.3 on Ubuntu 22.04:
 
    .. code-block:: bash
 
-      wget https://repo.radeon.com/amdgpu-install/7.0/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb
-      sudo apt install ./amdgpu-install_7.0.70000-1_all.deb
+      wget https://repo.radeon.com/amdgpu-install/7.2.3/ubuntu/jammy/amdgpu-install_7.2.3.70203-1_all.deb
+      sudo apt install ./amdgpu-install_7.2.3.70203-1_all.deb
       sudo apt update
 
-   Please note that the above url will be different depending on what version of the drivers you will be installing and type of Operating System you are using.
+   For other ROCm versions, browse `repo.radeon.com/amdgpu-install <https://repo.radeon.com/amdgpu-install>`_ to find the correct ``.deb`` for your OS.
 
 2. Install the driver:
 
