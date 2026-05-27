@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -43,12 +44,19 @@ type CRIClient struct {
 }
 
 // NewCRIClient probes the given sockets to find the active CRI runtime.
-// Detection uses ListPodSandbox with no filter — the socket that has pods is
-// kubelet's runtime. This disambiguates k3s (where stock containerd exists
-// but has no kubelet pods) from the k3s-managed containerd.
+// Detection uses ListPodSandbox — a successful response confirms the socket
+// is a live CRI endpoint. When multiple sockets respond (e.g. k3s node with
+// both stock containerd and k3s-containerd), the one with pods is preferred
+// since that is kubelet's runtime.
 // Returns an error if no active runtime is found.
 func NewCRIClient(ctx context.Context) (*CRIClient, error) {
 	sockets := []string{ContainerdRuntimeSocket, K3sContainerdRuntimeSocket, CrioRuntimeSocket}
+
+	// Prefer the socket with pods (disambiguates k3s); fall back to any
+	// socket that responded with 0 pods (freshly-started kubelet).
+	// On k3s fresh start with both sockets at 0 pods, the first socket
+	// wins — acceptable since pods appear within seconds of kubelet start.
+	var fallback *CRIClient
 	for _, socket := range sockets {
 		if _, err := os.Stat(socket); err != nil {
 			continue
@@ -66,12 +74,30 @@ func NewCRIClient(ctx context.Context) (*CRIClient, error) {
 		resp, err := client.ListPodSandbox(probeCtx, &pb.ListPodSandboxRequest{})
 		cancel()
 
-		if err != nil || resp == nil || len(resp.Items) == 0 {
+		if err != nil || resp == nil {
 			conn.Close()
 			continue
 		}
 
-		return &CRIClient{conn: conn, client: client, socket: socket}, nil
+		if len(resp.Items) > 0 {
+			logger.Log.Printf("CRI: detected runtime at %s (%d pods)", socket, len(resp.Items))
+			if fallback != nil {
+				fallback.Close()
+			}
+			return &CRIClient{conn: conn, client: client, socket: socket}, nil
+		}
+
+		// Socket responded but has 0 pods — keep as fallback
+		if fallback == nil {
+			fallback = &CRIClient{conn: conn, client: client, socket: socket}
+		} else {
+			conn.Close()
+		}
+	}
+
+	if fallback != nil {
+		logger.Log.Printf("CRI: no socket had pods; using %s (0 pods, kubelet may still be starting)", fallback.socket)
+		return fallback, nil
 	}
 	return nil, fmt.Errorf("no active CRI runtime found at %v", sockets)
 }
