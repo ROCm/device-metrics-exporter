@@ -435,6 +435,63 @@ func (ga *GPUAgentGPUClient) refreshCperCache() {
 	ga.gCache.lastCperTimestamp = time.Now()
 }
 
+const cperTimestampLayout = "2006-01-02 15:04:05"
+
+// defaultCPERHealthMaxAge is used when CPERHealthMaxAge is unset in config.
+// Fatal CPER records older than this do not mark a GPU unhealthy.
+const defaultCPERHealthMaxAge = time.Hour
+
+func parseCPERRecordTimestamp(record *amdgpu.CPEREntry) (time.Time, bool) {
+	ts := record.GetTimestamp()
+	if ts == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse(cperTimestampLayout, ts)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+// latestCPERPerGPU returns the most recent CPER entry per GPU UUID from a CPER response.
+func latestCPERPerGPU(gpuCpers *amdgpu.GPUCPERGetResponse) map[string]*amdgpu.CPEREntry {
+	if gpuCpers == nil {
+		return nil
+	}
+
+	latestCPER := make(map[string]*cperCacheEntry)
+
+	for _, c := range gpuCpers.CPER {
+		gpuuid := utils.UUIDToString(c.GPU)
+
+		for _, record := range c.CPEREntry {
+			currentTS, ok := parseCPERRecordTimestamp(record)
+			if !ok {
+				logger.Log.Printf("Failed to parse CPER timestamp for RecordId=%v", record.GetRecordId())
+				continue
+			}
+
+			if existingCPER, exists := latestCPER[gpuuid]; !exists {
+				latestCPER[gpuuid] = &cperCacheEntry{
+					entry:     record,
+					timestamp: currentTS,
+				}
+			} else if currentTS.After(existingCPER.timestamp) {
+				latestCPER[gpuuid] = &cperCacheEntry{
+					entry:     record,
+					timestamp: currentTS,
+				}
+			}
+		}
+	}
+
+	result := make(map[string]*amdgpu.CPEREntry, len(latestCPER))
+	for gpuuid, cacheEntry := range latestCPER {
+		result[gpuuid] = cacheEntry.entry
+	}
+	return result
+}
+
 // getLatestCPER fetches the latest CPER entry per GPU from the cached CPER data
 func (ga *GPUAgentGPUClient) getLatestCPER() (map[string]*amdgpu.CPEREntry, error) {
 	// skip if afid metrics are disabled - saves time on fetching CPER data
@@ -453,45 +510,7 @@ func (ga *GPUAgentGPUClient) getLatestCPER() (map[string]*amdgpu.CPEREntry, erro
 		return nil, fmt.Errorf("%v", gpuCpers.ApiStatus)
 	}
 
-	latestCPER := make(map[string]*cperCacheEntry)
-
-	for _, c := range gpuCpers.CPER {
-		gpuuid := utils.UUIDToString(c.GPU)
-
-		for _, record := range c.CPEREntry {
-			ts := record.GetTimestamp() // this is of format Timestamp:"2025-09-12 15:00:27"
-			// Parse current timestamp
-			currentTS, err := time.Parse("2006-01-02 15:04:05", ts)
-			if err != nil {
-				logger.Log.Printf("Failed to parse current timestamp: %v", err)
-				continue
-			}
-
-			if existingCPER, exists := latestCPER[gpuuid]; !exists {
-				latestCPER[gpuuid] = &cperCacheEntry{
-					entry:     record,
-					timestamp: currentTS,
-				}
-			} else {
-				// Update if current is more recent
-				if currentTS.After(existingCPER.timestamp) {
-					latestCPER[gpuuid] = &cperCacheEntry{
-						entry:     record,
-						timestamp: currentTS,
-					}
-				}
-			}
-		}
-	}
-
-	// Convert to return type and log summary
-	result := make(map[string]*amdgpu.CPEREntry)
-	for gpuuid, cacheEntry := range latestCPER {
-		entry := cacheEntry.entry
-		result[gpuuid] = entry
-	}
-
-	return result, nil
+	return latestCPERPerGPU(gpuCpers), nil
 }
 
 func (ga *GPUAgentGPUClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdgpu.GPU, error) {
