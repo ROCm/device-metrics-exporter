@@ -60,6 +60,11 @@ func IsSimEnabled() bool {
 	return os.Getenv("SIM_ENABLE") == "1"
 }
 
+// IsEventsDisabled reports whether critical GPU event polling is disabled.
+func IsEventsDisabled() bool {
+	return os.Getenv("AMD_EXPORTER_DISABLE_EVENTS") == "1"
+}
+
 func IsDebianInstall() bool {
 	serviceFiles := []string{ServiceFile, SriovServiceFile, NICServiceFile}
 	for _, file := range serviceFiles {
