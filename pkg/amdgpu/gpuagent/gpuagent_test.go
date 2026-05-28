@@ -1031,36 +1031,155 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 	gpuclient.evtclient = evtSvc
 	gpuclient.gpuHandler.computeNodeHealthState = true
 
-	setCperCache := func(severity amdgpu.CPERSeverity) {
+	setCperCache := func(entries []*amdgpu.CPEREntry) {
 		gpuclient.gCache.Lock()
 		defer gpuclient.gCache.Unlock()
 		gpuclient.gCache.lastCperResponse = &amdgpu.GPUCPERGetResponse{
 			ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
 			CPER: []*amdgpu.GPUCPEREntry{
-				{GPU: gpuIDBytes, CPEREntry: []*amdgpu.CPEREntry{{Severity: severity}}},
+				{GPU: gpuIDBytes, CPEREntry: entries},
 			},
 		}
 	}
 
+	recentCPERTimestamp := time.Now().Format(cperTimestampLayout)
+
 	unhealthy := strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
 
-	setCperCache(amdgpu.CPERSeverity_CPER_SEVERITY_FATAL)
+	setCperCache([]*amdgpu.CPEREntry{{
+		Severity:  amdgpu.CPERSeverity_CPER_SEVERITY_FATAL,
+		RecordId:  "fatal-recent",
+		Timestamp: recentCPERTimestamp,
+	}})
 	err := gpuclient.processHealthValidation()
 	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
 		"CPER fatal should not return ErrAgentUnreachable, got: %v", err)
 	gpuclient.Lock()
 	for _, state := range gpuclient.healthState {
-		assert.Equal(t, unhealthy, state.Health, "GPU must be unhealthy on CPER_SEVERITY_FATAL")
+		assert.Equal(t, unhealthy, state.Health, "GPU must be unhealthy on recent CPER_SEVERITY_FATAL")
 	}
 	gpuclient.Unlock()
 
-	setCperCache(amdgpu.CPERSeverity_CPER_SEVERITY_NON_FATAL_UNCORRECTED)
+	setCperCache([]*amdgpu.CPEREntry{{
+		Severity:  amdgpu.CPERSeverity_CPER_SEVERITY_NON_FATAL_UNCORRECTED,
+		RecordId:  "non-fatal-recent",
+		Timestamp: recentCPERTimestamp,
+	}})
 	err = gpuclient.processHealthValidation()
 	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable),
 		"non-fatal CPER severity should not return ErrAgentUnreachable, got: %v", err)
 	gpuclient.Lock()
 	for _, state := range gpuclient.healthState {
 		assert.Assert(t, state.Health != unhealthy, "GPU must not be unhealthy on non-fatal CPER severity")
+	}
+	gpuclient.Unlock()
+}
+
+// TestCPERStaleFatalDoesNotSetUnhealthy verifies that a fatal CPER older than
+// CPERHealthMaxAge does not mark the GPU unhealthy (issue #506).
+func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
+
+	gpuSvc, evtSvc, finish := newCPERTestMocks(t, nil)
+	defer finish()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuSvc
+	gpuclient.evtclient = evtSvc
+	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	staleTS := time.Now().Add(-2 * time.Hour).Format(cperTimestampLayout)
+	gpuclient.gCache.Lock()
+	gpuclient.gCache.lastCperResponse = &amdgpu.GPUCPERGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		CPER: []*amdgpu.GPUCPEREntry{{
+			GPU: gpuIDBytes,
+			CPEREntry: []*amdgpu.CPEREntry{{
+				Severity:  amdgpu.CPERSeverity_CPER_SEVERITY_FATAL,
+				RecordId:  "fatal-stale",
+				Timestamp: staleTS,
+			}},
+		}},
+	}
+	gpuclient.gCache.Unlock()
+
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable), "stale CPER should not return ErrAgentUnreachable, got: %v", err)
+
+	unhealthy := strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+	gpuclient.Lock()
+	for _, state := range gpuclient.healthState {
+		assert.Assert(t, state.Health != unhealthy, "GPU must not be unhealthy on stale fatal CPER")
+	}
+	gpuclient.Unlock()
+}
+
+// TestCPERLatestNonFatalOverridesOlderFatal verifies only the latest CPER entry
+// per GPU affects health.
+func TestCPERLatestNonFatalOverridesOlderFatal(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
+
+	gpuSvc, evtSvc, finish := newCPERTestMocks(t, nil)
+	defer finish()
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+
+	var gpuclient *GPUAgentGPUClient
+	for _, client := range ga.clients {
+		if client.GetDeviceType() == globals.GPUDevice {
+			gpuclient = client.(*GPUAgentGPUClient)
+			break
+		}
+	}
+	gpuclient.gpuclient = gpuSvc
+	gpuclient.evtclient = evtSvc
+	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	now := time.Now()
+	gpuclient.gCache.Lock()
+	gpuclient.gCache.lastCperResponse = &amdgpu.GPUCPERGetResponse{
+		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
+		CPER: []*amdgpu.GPUCPEREntry{{
+			GPU: gpuIDBytes,
+			CPEREntry: []*amdgpu.CPEREntry{
+				{
+					Severity:  amdgpu.CPERSeverity_CPER_SEVERITY_FATAL,
+					RecordId:  "fatal-old",
+					Timestamp: now.Add(-30 * time.Minute).Format(cperTimestampLayout),
+				},
+				{
+					Severity:  amdgpu.CPERSeverity_CPER_SEVERITY_NON_FATAL_CORRECTED,
+					RecordId:  "corrected-new",
+					Timestamp: now.Format(cperTimestampLayout),
+				},
+			},
+		}},
+	}
+	gpuclient.gCache.Unlock()
+
+	err := gpuclient.processHealthValidation()
+	assert.Assert(t, !errors.Is(err, ErrAgentUnreachable), "latest non-fatal CPER should not return ErrAgentUnreachable, got: %v", err)
+
+	unhealthy := strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+	gpuclient.Lock()
+	for _, state := range gpuclient.healthState {
+		assert.Assert(t, state.Health != unhealthy, "GPU must not be unhealthy when latest CPER is non-fatal")
 	}
 	gpuclient.Unlock()
 }
