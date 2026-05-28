@@ -43,7 +43,9 @@ const (
 	queryTimeout    = 15 * time.Second
 	cacheTimer      = 15 * time.Second
 
-	cperQueryTimeout = 60 * time.Second // higher than queryTimeout to handle 128-entry payloads
+	cperQueryTimeout    = 60 * time.Second       // higher than queryTimeout to handle 128-entry payloads
+	cperTimestampLayout = "2006-01-02 15:04:05"
+	defaultCPERHealthMaxAge = 60 * 60 * time.Second // 1h when CPERHealthMaxAge is unset in config
 )
 
 // cperRefreshInterval is 2s in sim mode, 30s in production.
@@ -434,12 +436,6 @@ func (ga *GPUAgentGPUClient) refreshCperCache() {
 	}
 	ga.gCache.lastCperTimestamp = time.Now()
 }
-
-const cperTimestampLayout = "2006-01-02 15:04:05"
-
-// defaultCPERHealthMaxAge is used when CPERHealthMaxAge is unset in config.
-// Fatal CPER records older than this do not mark a GPU unhealthy.
-const defaultCPERHealthMaxAge = time.Hour
 
 func parseCPERRecordTimestamp(record *amdgpu.CPEREntry) (time.Time, bool) {
 	ts := record.GetTimestamp()
