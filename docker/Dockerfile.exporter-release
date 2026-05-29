@@ -31,6 +31,8 @@ RUN microdnf clean all && \
    hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd jq libatomic && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
+# amdgpu.ids: fetched by build_prep_docker.sh via tools/fetch-amdgpu-ids.sh
+ADD ./amdgpu.ids /usr/share/libdrm/amdgpu.ids
 
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/:/opt/nic/bin:/opt/nic/sbin
 ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH

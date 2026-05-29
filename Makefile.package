@@ -52,7 +52,9 @@ rpmpkg: rpmpkg-clean
 	# copy to bin folders for tar
 	@mkdir -p ${RPM_PACKAGE_DIR}/bin
 	@mkdir -p ${RPM_PACKAGE_DIR}/lib
+	@mkdir -p ${RPM_PACKAGE_DIR}/data
 	@mkdir -p ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
+	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${RPM_PACKAGE_DIR}/data/amdgpu.ids
 	tar -xf ${ASSETS_PATH}/gpuagent_static.bin.gz -C ${RPM_PACKAGE_DIR}/bin/
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_DIR}/bin/
@@ -101,7 +103,9 @@ rpmpkg-sriov: rpmpkg-clean
 	# copy to bin folders for tar
 	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/bin
 	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/lib
+	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/data
 	@mkdir -p ${PKG_SRIOV_LUA_PATH}
+	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${RPM_PACKAGE_SRIOV_DIR}/data/amdgpu.ids
 	tar -xf ${ASSETS_PATH}/gpuagent_sriov_static.bin.gz -C ${RPM_PACKAGE_SRIOV_DIR}/bin/
 	@mv -vf ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent-sriov
 	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${RPM_PACKAGE_SRIOV_DIR}/bin/metrics-exporter-ts.sh
@@ -152,6 +156,8 @@ debpkg: debpkg-clean
 	@mkdir -p ${METRICS_CONF_PATH}
 	@mkdir -p ${PKG_PATH}
 	@mkdir -p ${SDK_COUNTER_DEF}
+	@mkdir -p ${TOP_DIR}/debian/usr/share/libdrm
+	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${TOP_DIR}/debian/usr/share/libdrm/amdgpu.ids
 	@if [ -f ${GPUAGENT_BUILT_BIN} ]; then \
 		echo "Copying newly built gpuagent";\
 		cp -rvf ${GPUAGENT_BUILT_BIN} ${PKG_PATH}/; \
@@ -210,6 +216,7 @@ debpkg: debpkg-clean
 	@rm -rf ${PKG_LIB_PATH}
 	@rm -rf ${METRICS_CONF_DIR}
 	@rm -rf ${PKG_LUA_PATH}/plugin.proto
+	@rm -rf ${TOP_DIR}/debian/usr/share
 	# revert the dynamic version set file
 	@git checkout $(DEBIAN_CONTROL)
 	# rename for internal build
@@ -222,6 +229,8 @@ debpkg-sriov: debpkg-sriov-clean
 	@mkdir -p ${METRICS_SRIOV_CONF_PATH}
 	@mkdir -p ${PKG_SRIOV_PATH}
 	@mkdir -p ${PKG_SRIOV_LUA_PATH}
+	@mkdir -p ${TOP_DIR}/debian-sriov/usr/share/libdrm
+	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${TOP_DIR}/debian-sriov/usr/share/libdrm/amdgpu.ids
 	@echo "Copying prebuilt gpuagent"
 	@tar -xf ${ASSETS_PATH}/gpuagent_sriov_static.bin.gz -C ${PKG_SRIOV_PATH}/
 	@echo "Copy prebuilt libraries"
@@ -259,6 +268,7 @@ debpkg-sriov: debpkg-sriov-clean
 	@rm -rf ${PKG_SRIOV_LIB_PATH}
 	@rm -rf ${METRICS_SRIOV_CONF_DIR}
 	@rm -rf ${PKG_SRIOV_LUA_PATH}
+	@rm -rf ${TOP_DIR}/debian-sriov/usr/share
 	# revert the dynamic version set file
 	@git checkout $(DEBIAN_SRIOV_CONTROL)
 	# rename for internal build

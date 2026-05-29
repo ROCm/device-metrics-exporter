@@ -2002,11 +2002,21 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			}
 		case exportermetrics.MetricLabel_CARD_MODEL.String():
 			if gpu != nil {
+				var model string
 				if parentPartition != nil {
-					labels[key] = parentPartition.Status.CardModel
+					model = parentPartition.Status.CardModel
 				} else {
-					labels[key] = gpu.Status.CardModel
+					model = gpu.Status.CardModel
 				}
+				// Fall back to CardSeries when CardModel is empty (e.g. Radeon GPUs)
+				if model == "" {
+					if parentPartition != nil {
+						model = parentPartition.Status.CardSeries
+					} else {
+						model = gpu.Status.CardSeries
+					}
+				}
+				labels[key] = model
 			}
 		case exportermetrics.MetricLabel_CARD_VENDOR.String():
 			if gpu != nil {
