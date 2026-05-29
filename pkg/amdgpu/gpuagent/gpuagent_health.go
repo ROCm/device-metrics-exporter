@@ -258,7 +258,7 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		if !utils.IsEventsDisabled() {
 			evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
 			if err != nil || (evtData != nil && evtData.ApiStatus != 0) {
-				errOccured = true
+				// ignore event errors log only
 				logger.Log.Printf("gpuagent get events failed %v", err)
 			} else {
 				// business logic for health detection
