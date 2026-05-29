@@ -33,6 +33,7 @@ RUN pip install PyYAML
 
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:
 ENV GPUAGENT_EVENTS_DISABLE=1
+ENV AGA_SMI_LAZY_INIT=1
 RUN mkdir -p /home/amd/bin/
 RUN mkdir -p /home/amd/lib/
 RUN mkdir -p /home/amd/tools/
