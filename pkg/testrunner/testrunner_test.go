@@ -91,6 +91,93 @@ func TestGetHostName(t *testing.T) {
 	assert.NotEmpty(t, tr.hostName)
 }
 
+func TestFindGPUModelFolder(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir := t.TempDir()
+
+	// Create test directories with various casings
+	testDirs := map[string]string{
+		"MI300A":  filepath.Join(tmpDir, "MI300A"),
+		"Nv21":    filepath.Join(tmpDir, "Nv21"),
+		"mi350x":  filepath.Join(tmpDir, "mi350x"),
+		"GFX950":  filepath.Join(tmpDir, "GFX950"),
+		"notadir": filepath.Join(tmpDir, "notadir.txt"), // file, not directory
+	}
+
+	for name, path := range testDirs {
+		if name == "notadir" {
+			// Create a file instead of directory
+			if err := os.WriteFile(path, []byte("test"), 0644); err != nil {
+				t.Fatalf("failed to create test file: %v", err)
+			}
+		} else {
+			if err := os.Mkdir(path, 0755); err != nil {
+				t.Fatalf("failed to create test directory %s: %v", name, err)
+			}
+		}
+	}
+
+	tests := []struct {
+		name      string
+		baseDir   string
+		gpuModel  string
+		expected  string
+		expectLog bool
+	}{
+		{
+			name:     "Exact match",
+			baseDir:  tmpDir,
+			gpuModel: "MI300A",
+			expected: "MI300A",
+		},
+		{
+			name:     "Case insensitive - uppercase to mixed",
+			baseDir:  tmpDir,
+			gpuModel: "NV21",
+			expected: "Nv21",
+		},
+		{
+			name:     "Case insensitive - mixed to lowercase",
+			baseDir:  tmpDir,
+			gpuModel: "Mi350X",
+			expected: "mi350x",
+		},
+		{
+			name:     "Case insensitive - lowercase to uppercase",
+			baseDir:  tmpDir,
+			gpuModel: "gfx950",
+			expected: "GFX950",
+		},
+		{
+			name:     "Not found",
+			baseDir:  tmpDir,
+			gpuModel: "MI355X",
+			expected: "",
+		},
+		{
+			name:      "Base directory does not exist",
+			baseDir:   filepath.Join(tmpDir, "nonexistent"),
+			gpuModel:  "MI300A",
+			expected:  "",
+			expectLog: true,
+		},
+		{
+			name:      "Path exists but is not a directory",
+			baseDir:   tmpDir,
+			gpuModel:  "notadir",
+			expected:  "",
+			expectLog: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := findGPUModelFolder(tt.baseDir, tt.gpuModel)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestGetOverallResult(t *testing.T) {
 	tr := &TestRunner{}
 	tr.initLogger()

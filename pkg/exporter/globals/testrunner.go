@@ -96,6 +96,7 @@ var (
 	// reference: https://admin.pci-ids.ucw.cz/read/PC/1002
 	// https://github.com/amd/MxGPU-Virtualization/blob/staging/libgv/core/amdgv_marketing_name.c
 	GPUDeviceIDToModelName = map[string]string{
+		// Instinct
 		"0x740f": "MI210",
 		"0x7410": "MI210", // MI210 VF
 		"0x74a0": "MI300A",
@@ -115,5 +116,22 @@ var (
 		"0x75b3": "MI355X", // MI355X VF
 		"0x75a8": "MI350P",
 		"0x75b8": "MI350P", // MI350P VF
+		// Radeon Pro
+		"0x73a3": "nv21",   // Radeon PRO W6800
+		"0x7470": "nv32",   // Radeon PRO W7700
+		"0x745e": "nv31",   // Radeon PRO W7800
+		"0x7449": "nv31",   // Radeon PRO W7800 48GB
+		"0x7448": "nv31",   // Radeon PRO W7900
+		"0x744a": "nv31",   // Radeon PRO W7900 Dual Slot
+		"0x744b": "nv31",   // Radeon PRO W7900D
+		"0x7551": "R9600D", // Radeon AI PRO 9600D/9700/9700S
+		// Radeon
+		"0x73bf": "nv21",   // Radeon RX 6800/6800XT/6900XT
+		"0x73af": "nv21",   // Radeon RX 6900XT
+		"0x73a5": "nv21",   // Radeon RX 6950XT
+		"0x747e": "nv32",   // Radeon RX 7700/7700XT/7800XT/7800M
+		"0x744c": "nv31",   // Radeon RX 7900XT/7900XTX/7900GRE/7900M
+		"0x7590": "RX9060", // Radeon RX 9060/9060XT/9060XT(8GB)
+		"0x7550": "RX9070", // Radeon RX 9070/9070XT
 	}
 )

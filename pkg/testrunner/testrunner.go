@@ -195,6 +195,43 @@ func (tr *TestRunner) initK8sClientIfNeeded() {
 	}
 }
 
+// findGPUModelFolder performs true case-insensitive lookup for a GPU model folder.
+// It lists the baseDir entries and compares names using strings.EqualFold to handle
+// mixed-case folder names (e.g., "Nv21", "Mi350x") on case-sensitive filesystems.
+// Returns the actual directory name found, or empty string if not found.
+// Logs unexpected errors (e.g., permission issues) that aren't simple "not found".
+func findGPUModelFolder(baseDir, gpuModel string) string {
+	// First try exact match for performance (avoids directory listing)
+	exactPath := filepath.Join(baseDir, gpuModel)
+	if info, err := os.Stat(exactPath); err == nil {
+		if info.IsDir() {
+			return gpuModel
+		}
+		logger.Log.Printf("path %v exists but is not a directory", exactPath)
+		return ""
+	}
+
+	// Perform case-insensitive directory listing
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger.Log.Printf("base directory %v does not exist", baseDir)
+		} else {
+			logger.Log.Printf("error reading directory %v: %v", baseDir, err)
+		}
+		return ""
+	}
+
+	// Find matching directory with case-insensitive comparison
+	for _, entry := range entries {
+		if entry.IsDir() && strings.EqualFold(entry.Name(), gpuModel) {
+			return entry.Name()
+		}
+	}
+
+	return ""
+}
+
 // validateCfg validates the test category/location/trigger existence
 // return test location, either global or specific hostname
 func (tr *TestRunner) validateCfg() {
@@ -286,26 +323,33 @@ func (tr *TestRunner) validateCfg() {
 			// MI355X: gfx950
 			switch gpuModelSubDir {
 			case "MI350X":
-				// if MI350X subdir does not exist
+				// if MI350X subdir does not exist (with case-insensitive matching)
 				// try to use gfx950-dlc alias
-				if _, err := os.Stat(filepath.Join(tr.rvsTestCaseDir, gpuModelSubDir)); err != nil {
+				if foundFolder := findGPUModelFolder(tr.rvsTestCaseDir, gpuModelSubDir); foundFolder != "" {
+					gpuModelSubDir = foundFolder
+				} else {
 					logger.Log.Printf("failed to find recipe folder for MI350X, trying gfx950-dlc alias")
 					gpuModelSubDir = globals.MI350XAlias
 				}
 			case "MI355X":
-				// if MI355X subdir does not exist
+				// if MI355X subdir does not exist (with case-insensitive matching)
 				// try to use gfx950 alias
-				if _, err := os.Stat(filepath.Join(tr.rvsTestCaseDir, gpuModelSubDir)); err != nil {
+				if foundFolder := findGPUModelFolder(tr.rvsTestCaseDir, gpuModelSubDir); foundFolder != "" {
+					gpuModelSubDir = foundFolder
+				} else {
 					logger.Log.Printf("failed to find recipe folder for MI355X, trying gfx950 alias")
 					gpuModelSubDir = globals.MI355XAlias
 				}
 			}
-			if _, err := os.Stat(filepath.Join(tr.rvsTestCaseDir, gpuModelSubDir)); err != nil {
-				logger.Log.Printf("failed to find recipe folder for GPU model %+v, using model-agnostic recipes", gpuModelSubDir)
-				gpuModelSubDir = ""
+			// Check if the final GPU model folder exists (with case-insensitive matching)
+			if foundFolder := findGPUModelFolder(tr.rvsTestCaseDir, gpuModelSubDir); foundFolder != "" {
+				logger.Log.Printf("using test recipe from %+v folder", foundFolder)
+				tr.testCfgGPUModelName = foundFolder
+				gpuModelSubDir = foundFolder
 			} else {
-				logger.Log.Printf("using test recipe from %+v folder", gpuModelSubDir)
-				tr.testCfgGPUModelName = gpuModelSubDir
+				logger.Log.Printf("failed to find recipe folder for GPU model %+v, using model-agnostic recipes", gpuModelSubDir)
+				tr.testCfgGPUModelName = ""
+				gpuModelSubDir = ""
 			}
 			// Always assign testCfgPath based on possibly updated gpuModelSubDir
 			testCfgPath = filepath.Join(tr.rvsTestCaseDir, gpuModelSubDir, Deref(testParams.TestCases[0].Recipe)+".conf")
