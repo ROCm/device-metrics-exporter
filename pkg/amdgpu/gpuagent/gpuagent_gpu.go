@@ -538,6 +538,9 @@ func (ga *GPUAgentGPUClient) getEvents(severity amdgpu.EventSeverity) (*amdgpu.E
 }
 
 func (ga *GPUAgentGPUClient) getGPUCPER(severity string) (*amdgpu.GPUCPERGetResponse, error) {
+	if !utils.IsCperEnabled() {
+		return &amdgpu.GPUCPERGetResponse{}, nil
+	}
 	if utils.IsMockCperEnabled() {
 		return utils.GetCperRecords()
 	}

@@ -376,6 +376,9 @@ func (ga *GPUAgentGPUClient) initAfidMetrics(config *exportermetrics.GPUMetricCo
 	if !ga.getExporterFieldState(afidField) {
 		ga.enableAfidMetrics = false
 	}
+	if !utils.IsCperEnabled() {
+		ga.enableAfidMetrics = false
+	}
 	logger.Log.Printf("AFID metric state set to %v", ga.enableAfidMetrics)
 }
 

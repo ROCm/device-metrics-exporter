@@ -315,7 +315,7 @@ func (ga *GPUAgentClient) StartMonitor() {
 	ga.initializeContext()
 
 	// start background CPER cache refresh per GPU client
-	if ga.enableGPUMonitoring {
+	if ga.enableGPUMonitoring && utils.IsCperEnabled() {
 		for _, client := range ga.clients {
 			if gpuClient, ok := client.(*GPUAgentGPUClient); ok {
 				gpuClient.startCperRefresh(ga.ctx)
