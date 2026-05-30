@@ -83,7 +83,7 @@ func (m *MockExporter) StartWithArgs(extraArgs []string) error {
 		mountOps = fmt.Sprintf(" -v %v:/etc/metrics ", m.configPath)
 	}
 	extraArgsStr := strings.Join(extraArgs, " ")
-	cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIM_ENABLE=1 -e PATH=$PATH:/home/amd/bin/ %v %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL, extraArgsStr)
+	cmd := fmt.Sprintf("docker run --rm -itd --privileged --name %v %v %v -e SIM_ENABLE=1 -e AMD_METRICS_EXPORTER_ENABLE_CPER=1 -e PATH=$PATH:/home/amd/bin/ %v %v", m.Name, strings.Join(portsExposed, " "), mountOps, m.ImageURL, extraArgsStr)
 	log.Print(cmd)
 	resp := m.tu.LocalCommandOutput(cmd)
 	if resp == "" {
