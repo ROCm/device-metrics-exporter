@@ -143,6 +143,15 @@ rpmpkg-sriov: rpmpkg-clean
 debpkg-clean:
 	rm -rf ${TOP_DIR}/bin/*.deb
 	rm -rf ${PKG_LIB_PATH} ${PKG_PATH}
+	rm -rf ${TOP_DIR}/debian/usr/share/libdrm
+
+debpkg-sriov-clean:
+	rm -rf ${TOP_DIR}/bin/amdgpu-exporter-sriov*.deb
+	# Narrow per-step staging dirs only; do NOT wipe debian-sriov/usr/local
+	# wholesale because that path now contains the git-tracked
+	# usr/local/etc/metrics/gpuagent.conf EnvironmentFile.
+	rm -rf ${PKG_SRIOV_PATH} ${PKG_SRIOV_LIB_PATH} ${PKG_SRIOV_LUA_PATH} ${METRICS_SRIOV_CONF_DIR}
+	rm -rf ${TOP_DIR}/debian-sriov/usr/share/libdrm
 
 debpkg: debpkg-clean
 	${MAKE} amdexporter
