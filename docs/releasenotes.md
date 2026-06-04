@@ -1,5 +1,38 @@
 # Release Notes
 
+## v1.5.1-beta
+
+- **New Platform Support**
+  - MI350P and Radeon AI platforms are now supported
+
+- **Helm Chart: Configurable Exporter Arguments**
+  - The Helm chart now supports passing arbitrary arguments to the exporter at deploy time
+  - New deployment options available:
+    - `--exit-on-rocpctl-error`: Exit instead of auto-disabling profiler metrics after consecutive errors
+    - `--exit-on-agent-down`: Exit when the GPU agent is unreachable or reports a GPU error. **Note:** affects health monitoring continuity during pod restart window
+
+  > The image ships with recommended defaults built in; Helm chart args allow selective overrides per deployment environment.
+
+### Known Issues
+
+- **CPER-based health detection is disabled**
+  - CPER-based health detection is not functional in this release for MI350P
+    and Radeon AI platforms
+
+- **AFID field is disabled**
+  - The `GPU_AFID_ERRORS` field is disabled in this release for MI350P and
+    Radeon AI platforms
+
+- **`gfx_activity` idle uptick on Radeon AI**
+  - On Radeon AI platforms, `gfx_activity` may show a spurious uptick when
+    the GPU is idle. This is a cosmetic issue and does not indicate actual
+    GPU activity
+
+### Platform Support
+
+ROCm 6.2 or later, MI2xx, MI3xx
+ROCm 7.13 or later, MI350P, Radeon AI
+
 ## v1.5.0
 
 - **Unix Domain Socket For IPC**

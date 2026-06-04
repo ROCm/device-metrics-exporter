@@ -319,3 +319,5 @@ gocheck
 GPU's
 PMFW
 SMU
+CPER
+args
