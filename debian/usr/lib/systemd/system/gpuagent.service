@@ -17,7 +17,7 @@ ExecStartPre=/bin/sleep 5
 
 # update-alternative has been run for gpuagent and
 # soft link will be available in usr/bin
-ExecStart=/usr/local/bin/gpuagent
+ExecStart=/usr/local/bin/gpuagent -s /var/run/gpuagent.sock
 
 # If we need to start anything after gpuagent use this
 # ExecStartPost=

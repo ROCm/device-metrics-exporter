@@ -34,22 +34,29 @@ var (
 	}
 )
 
+// GPUAgentConfig holds GPU agent connection configuration
+type GPUAgentConfig struct {
+	GrpcPort   int
+	UseSocket  bool
+	SocketPath string
+}
+
 // ConfigHandler to update/read config data layer
 type ConfigHandler struct {
 	sync.Mutex
 	// this doesn't change during the life cycle
-	grpcAgentPort int
-	configPath    string
+	agentConfig GPUAgentConfig
+	configPath  string
 	// running config can change keep updating states
 	runningConfig *Config
 }
 
-func NewConfigHandler(configPath string, port int) *ConfigHandler {
+func NewConfigHandler(configPath string, agentConfig GPUAgentConfig) *ConfigHandler {
 	logger.Log.Printf("Running Config :%+v", configPath)
 	c := &ConfigHandler{
 		configPath:    configPath,
 		runningConfig: NewConfig(),
-		grpcAgentPort: port,
+		agentConfig:   agentConfig,
 	}
 	return c
 }
@@ -128,7 +135,10 @@ func (c *ConfigHandler) GetMetricsConfigPath() string {
 }
 
 func (c *ConfigHandler) GetAgentAddr() string {
-	return fmt.Sprintf("%v:%v", globals.GPUAgentIP, c.grpcAgentPort)
+	if c.agentConfig.UseSocket {
+		return fmt.Sprintf("unix://%s", c.agentConfig.SocketPath)
+	}
+	return fmt.Sprintf("%v:%v", globals.GPUAgentIP, c.agentConfig.GrpcPort)
 }
 
 func (c *ConfigHandler) GetConfig() *exportermetrics.MetricConfig {

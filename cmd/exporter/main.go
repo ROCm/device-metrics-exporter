@@ -99,8 +99,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	if (0 >= *agentGrpcPort) || (*agentGrpcPort > 65535) {
-		fmt.Printf("invalid agent-grpc-port exiting")
+	// Validate port if it was set
+	if *agentGrpcPort != 0 && (*agentGrpcPort < 1 || *agentGrpcPort > 65535) {
+		fmt.Printf("invalid agent-grpc-port: must be between 1 and 65535, exiting")
 		os.Exit(1)
 	}
 

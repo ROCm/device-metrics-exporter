@@ -24,12 +24,12 @@ import (
 )
 
 var (
-	Log       *EnhancedLogger // Enhanced logger instance (now the default)
-	logdir    = "/var/log/"
-	logfile   = "exporter.log"
-	logPrefix = "exporter "
+	Log         *EnhancedLogger // Enhanced logger instance (now the default)
+	logdir      = "/var/log/"
+	logfile     = "exporter.log"
+	logPrefix   = "exporter "
 	logFallback bool
-	once      sync.Once
+	once        sync.Once
 )
 
 // SetLogPrefix sets prefix in the log to be exporter or testrunner
@@ -83,7 +83,7 @@ func initLogger(console bool) {
 
 	// Configure output for enhanced logger
 	if console {
-		Log.logrus.SetOutput(os.Stdout)
+		Log.SetOutput(os.Stdout)
 		Log.Log = log.New(os.Stdout, logPrefix, log.Lmsgprefix)
 	} else {
 		if os.Getenv("LOGDIR") != "" {
@@ -111,7 +111,7 @@ func initLogger(console bool) {
 		}
 		if err != nil {
 			// Fallback to stdout if file creation fails
-			Log.logrus.SetOutput(os.Stdout)
+			Log.SetOutput(os.Stdout)
 			Log.Log = log.New(os.Stdout, logPrefix, log.Lmsgprefix)
 		} else {
 			Log.initLoggerRotation()

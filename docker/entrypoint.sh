@@ -31,11 +31,12 @@ for arg in "$@"; do
 done
 
 if [ "$MONITOR_GPU" == "true" ]; then
-  LD_PRELOAD=/home/amd/lib/libamd_smi.so.26 /home/amd/bin/gpuagent &
+  LD_PRELOAD=/home/amd/lib/libamd_smi.so.26 /home/amd/bin/gpuagent -s /var/run/gpuagent.sock &
+
   # sleep before starting exporter
   sleep 10
 fi
 
-# start prometheus serve
+# start exporter
 # Run the underlying binary with all arguments passed to the script
 exec /home/amd/bin/server "$@"

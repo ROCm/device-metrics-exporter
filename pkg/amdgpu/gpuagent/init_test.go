@@ -198,7 +198,7 @@ func setupTest(t *testing.T) func(t *testing.T) {
 	ualMockCl.EXPECT().UALStationGet(gomock.Any(), gomock.Any()).Return(ifoe_mockstationresp, nil).AnyTimes()
 	ualMockCl.EXPECT().UALDeviceGet(gomock.Any(), gomock.Any()).Return(ifoe_mockdeviceresp, nil).AnyTimes()
 
-	mConfig = config.NewConfigHandler("config.json", globals.GPUAgentPort)
+	mConfig = config.NewConfigHandler("config.json", config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 
 	mh, _ = metricsutil.NewMetrics(mConfig)
 	mh.InitConfig(context.Background())

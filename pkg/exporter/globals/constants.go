@@ -30,6 +30,8 @@ const (
 
 	ZmqPort = "6601"
 
+	GPUAgentDefaultSocketPath = "/var/run/gpuagent.sock"
+
 	SlurmDir = "/var/run/exporter/"
 
 	MetricsSocketPath = "/var/lib/amd-metrics-exporter/amdgpu_device_metrics_exporter_grpc.socket"

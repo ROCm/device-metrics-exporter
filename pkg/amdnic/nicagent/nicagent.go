@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/alta/protopatch/patch" // nolint: gosec
-
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/nicagent/cmdexec"
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
@@ -53,7 +51,7 @@ type NICAgentClient struct {
 	k8sScheduler            scheduler.SchedulerClient
 	k8sApiClient            *k8sclient.K8sClient
 	criClient               *k8sclient.CRIClient // CRI runtime client for container/PID lookups
-	staticHostLabels        map[string]string // static labels for the host
+	staticHostLabels        map[string]string    // static labels for the host
 	nodeHealthLabellerCfg   *utils.NodeHealthLabellerConfig
 	ctx                     context.Context
 	cancel                  context.CancelFunc
@@ -72,10 +70,10 @@ func WithK8sSchedulerClient(k8sScheduler scheduler.SchedulerClient) NICAgentClie
 		if utils.IsKubernetes() {
 			na.isKubernetes = true
 			if k8sScheduler != nil {
-			logger.Log.Printf("K8sSchedulerClient option set")
-			na.k8sScheduler = k8sScheduler
+				logger.Log.Printf("K8sSchedulerClient option set")
+				na.k8sScheduler = k8sScheduler
+			}
 		}
-	}
 	}
 }
 
@@ -85,10 +83,10 @@ func WithK8sClient(k8sApiClient *k8sclient.K8sClient) NICAgentClientOptions {
 		if utils.IsKubernetes() {
 			na.isKubernetes = true
 			if k8sApiClient != nil {
-			logger.Log.Printf("K8sApiClient option set")
-			na.k8sApiClient = k8sApiClient
+				logger.Log.Printf("K8sApiClient option set")
+				na.k8sApiClient = k8sApiClient
+			}
 		}
-	}
 	}
 }
 
@@ -506,7 +504,7 @@ func (na *NICAgentClient) sendNodeLabelUpdate(healthState map[string]interface{}
 		nicHealthStates[nicPCIeAddr] = hs.Health
 	}
 	if na.k8sApiClient != nil {
-	_ = na.k8sApiClient.UpdateHealthLabel(na.nodeHealthLabellerCfg, nodeName, nicHealthStates)
+		_ = na.k8sApiClient.UpdateHealthLabel(na.nodeHealthLabellerCfg, nodeName, nicHealthStates)
 	}
 	return nil
 }

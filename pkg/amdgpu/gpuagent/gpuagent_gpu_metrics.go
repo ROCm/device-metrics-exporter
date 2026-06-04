@@ -625,11 +625,11 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 		exportermetrics.GPUMetricField_GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE.String():               FieldMeta{Metric: ga.metrics.gpuHBMTRPercent},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED.String():   FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitPowerAcc},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED.String(): FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitTHMAcc},
-		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED.String():          FieldMeta{Metric: ga.metrics.gpuGfxLowUtilizationAcc},
+		exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED.String():                    FieldMeta{Metric: ga.metrics.gpuGfxLowUtilizationAcc},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED.String():   FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitTotalAcc},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE.String():    FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitPowerPercent},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE.String():  FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitTHMPercent},
-		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE.String():           FieldMeta{Metric: ga.metrics.gpuGfxLowUtilizationPercent},
+		exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE.String():                     FieldMeta{Metric: ga.metrics.gpuGfxLowUtilizationPercent},
 		exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE.String():    FieldMeta{Metric: ga.metrics.gpuGfxBelowHostLimitTotalPercent},
 		// instantaneous busy metrics
 		exportermetrics.GPUMetricField_GPU_GFX_BUSY_INSTANTANEOUS.String():   FieldMeta{Metric: ga.metrics.gpuGfxBusyInst},
@@ -1409,8 +1409,8 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 		},
 			append([]string{"xcc_index"}, labels...)),
 		gpuGfxLowUtilizationAcc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "gpu_violation_gfx_low_utilization_accumulated",
-			Help: "GFX low utilization accumulated violation counter",
+			Name: "gpu_violation_low_utilization_accumulated",
+			Help: "GPU low utilization accumulated violation counter",
 		},
 			append([]string{"xcc_index"}, labels...)),
 		gpuGfxBelowHostLimitTotalAcc: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -1429,8 +1429,8 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 		},
 			append([]string{"xcc_index"}, labels...)),
 		gpuGfxLowUtilizationPercent: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "gpu_violation_gfx_low_utilization_percentage",
-			Help: "GFX low utilization percentage violation counter",
+			Name: "gpu_violation_low_utilization_percentage",
+			Help: "GPU utilization percentage violation counter",
 		},
 			append([]string{"xcc_index"}, labels...)),
 		gpuGfxBelowHostLimitTotalPercent: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -2670,7 +2670,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		for xcc_index, lowUtilAcc := range violationStats.GFXLowUtilizationAccumulated {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
 			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilAcc) {
-				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_ACCUMULATED.String())
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED.String())
 				break
 			} else if utils.IsValueApplicable(lowUtilAcc) {
 				ga.metrics.gpuGfxLowUtilizationAcc.With(labelsWithIndex).Set(float64(lowUtilAcc))
@@ -2706,7 +2706,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		for xcc_index, lowUtilPer := range violationStats.GFXLowUtilizationPercentage {
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", xcc_index)
 			if xcc_index == 0 && !utils.IsValueApplicable(lowUtilPer) {
-				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_GFX_CLOCK_LOW_UTILIZATION_PERCENTAGE.String())
+				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE.String())
 				break
 			} else if utils.IsValueApplicable(lowUtilPer) {
 				ga.metrics.gpuGfxLowUtilizationPercent.With(labelsWithIndex).Set(float64(lowUtilPer))

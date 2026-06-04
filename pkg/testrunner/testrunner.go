@@ -1083,14 +1083,15 @@ func (tr *TestRunner) saveAndExportHandlerLogs(handler types.TestHandlerInterfac
 			uploadFailed := make([]string, 0)
 			uploadPassed := make([]string, 0)
 			for _, exportConf := range exportConfigs {
-				logger.Log.Printf("exporting logs to provider=%s bucketName=%s under folder=%s", exportConf.Provider.String(), exportConf.BucketName, cloudFolderPath)
-				e1 := UploadFileToCloudBucket(exportConf.Provider.String(), exportConf.BucketName, cloudFolderPath, cloudFileName, localCombinedTar, exportConf.SecretName)
+				provider := strings.ToLower(exportConf.Provider)
+				logger.Log.Printf("exporting logs to provider=%s bucketName=%s under folder=%s", provider, exportConf.BucketName, cloudFolderPath)
+				e1 := UploadFileToCloudBucket(provider, exportConf.BucketName, cloudFolderPath, cloudFileName, localCombinedTar, exportConf.SecretName)
 				if e1 != nil {
-					logger.Log.Printf("export logs to provider=%s bucket=%s failed", exportConf.Provider.String(), exportConf.BucketName)
-					uploadFailed = append(uploadFailed, exportConf.Provider.String())
+					logger.Log.Printf("export logs to provider=%s bucket=%s failed", provider, exportConf.BucketName)
+					uploadFailed = append(uploadFailed, provider)
 				} else {
-					logger.Log.Printf("export logs to provider=%s bucket=%s succeeded", exportConf.Provider.String(), exportConf.BucketName)
-					uploadPassed = append(uploadPassed, exportConf.Provider.String())
+					logger.Log.Printf("export logs to provider=%s bucket=%s succeeded", provider, exportConf.BucketName)
+					uploadPassed = append(uploadPassed, provider)
 				}
 			}
 			if len(exportConfigs) > 0 {

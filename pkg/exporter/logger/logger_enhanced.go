@@ -18,11 +18,11 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
@@ -32,23 +32,21 @@ import (
 
 // EnhancedLogger wraps the Log and new logrus.Logger for enhanced features
 type EnhancedLogger struct {
-	Log           *log.Logger        // Standard logger for backward compatibility
-	logrus        *logrus.Logger     // Enhanced logger
-	logger        *lumberjack.Logger // Lumberjack logger for log rotation
-	logFile       *os.File           // Log file handle when rotation is disabled
-	currentLevel  logrus.Level       // Current log level
-	mu            sync.RWMutex       // Mutex for thread-safe operations
-	isConsoleMode bool               // Whether logging to console
+	Log            *log.Logger        // Standard logger for backward compatibility
+	*logrus.Logger                    // Enhanced logger
+	logger         *lumberjack.Logger // Lumberjack logger for log rotation
+	logFile        *os.File           // Log file handle when rotation is disabled
+	currentLevel   logrus.Level       // Current log level
+	isConsoleMode  bool               // Whether logging to console
 }
 
 // NewEnhancedLogger creates a new enhanced logger instance
 func NewEnhancedLogger() *EnhancedLogger {
 	e := &EnhancedLogger{
-		logrus:       logrus.New(),
+		Logger:       logrus.New(),
 		currentLevel: logrus.InfoLevel, // Default level
 	}
-	// Set JSON formatter for structured logging
-	e.logrus.SetFormatter(&logrus.TextFormatter{
+	e.SetFormatter(&logrus.TextFormatter{
 		TimestampFormat: time.RFC3339,
 		FullTimestamp:   true,
 	})
@@ -66,54 +64,39 @@ func (e *EnhancedLogger) initLoggerRotation() {
 		LocalTime:  true,             // Use local time for timestamps in rotated filenames
 	}
 	e.logger = logRotator
-	e.logrus.SetOutput(e.logger)
+	e.SetOutput(e.logger)
 }
 
-// SetOutput sets the output destination for the logger - only for unit test
-func (e *EnhancedLogger) SetOutput(output io.Writer) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	// Close existing log file or logger if any
-	if e.logFile != nil {
-		e.logFile.Close()
-		e.logFile = nil
+// logWithCaller returns a logrus.Entry with caller information
+// skip is the number of stack frames to skip (typically 2 for logging methods)
+func (e *EnhancedLogger) logWithCaller(skip int) *logrus.Entry {
+	if _, file, line, ok := runtime.Caller(skip); ok {
+		return e.Logger.WithField("func", fmt.Sprintf("%s:%d", filepath.Base(file), line))
 	}
-	if e.logger != nil {
-		e.logger.Close()
-		e.logger = nil
-	}
-
-	// Set new output
-	e.logrus.SetOutput(output)
+	return e.Logger.WithFields(logrus.Fields{})
 }
 
 // SetLogLevel sets the logging level at runtime
 func (e *EnhancedLogger) SetLogLevel(level logrus.Level) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	e.currentLevel = level
 
-	e.logrus.Infof("Log level set to: %s", level.String())
-	e.logrus.SetLevel(level)
+	e.Infof("Log level set to: %s", level.String())
+	e.SetLevel(level)
 }
 
 // GetLogLevel returns current log level
 func (e *EnhancedLogger) GetLogLevel() string {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
 	return e.currentLevel.String()
 }
 
 // SetLogRotation configures log rotation settings
 func (e *EnhancedLogger) SetLogRotation(maxSize, maxBackups, maxAge int, disable bool) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	if e.isConsoleMode {
 		return fmt.Errorf("log rotation not supported in console mode")
 	}
+
+	// Reset to default output first
+	e.SetOutput(os.Stdout)
 
 	// Close existing log file if any
 	if e.logFile != nil {
@@ -134,9 +117,9 @@ func (e *EnhancedLogger) SetLogRotation(maxSize, maxBackups, maxAge int, disable
 			return fmt.Errorf("failed to open log file: %w", err)
 		}
 		e.logFile = outfile
-		e.logrus.SetOutput(e.logFile)
+		e.SetOutput(e.logFile)
 		e.logger = nil
-		e.logrus.Info("Log rotation disabled")
+		e.Info("Log rotation disabled")
 		return nil
 	}
 
@@ -151,10 +134,10 @@ func (e *EnhancedLogger) SetLogRotation(maxSize, maxBackups, maxAge int, disable
 
 	// apply new log rotator
 	e.logger = logRotator
-	e.logrus.SetOutput(e.logger)
+	e.SetOutput(e.logger)
 
 	// For now, just log the rotation settings for future implementation
-	e.logrus.WithFields(logrus.Fields{
+	e.WithFields(logrus.Fields{
 		"level":      e.currentLevel.String(),
 		"maxSize":    maxSize,
 		"maxBackups": maxBackups,
@@ -167,110 +150,58 @@ func (e *EnhancedLogger) SetLogRotation(maxSize, maxBackups, maxAge int, disable
 
 // Debug logs a debug message
 func (e *EnhancedLogger) Debug(args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.DebugLevel {
-		e.logrus.Debug(args...)
+	if e.currentLevel <= logrus.DebugLevel {
+		e.logWithCaller(3).Debug(args...)
 	}
 }
 
 // Debugf logs a formatted debug message
 func (e *EnhancedLogger) Debugf(format string, args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.DebugLevel {
-		e.logrus.Debugf(format, args...)
+	if e.currentLevel <= logrus.DebugLevel {
+		e.logWithCaller(3).Debugf(format, args...)
 	}
 }
 
 // Info logs an info message
 func (e *EnhancedLogger) Info(args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.InfoLevel {
-		e.logrus.Info(args...)
+	if e.currentLevel <= logrus.InfoLevel {
+		e.logWithCaller(3).Info(args...)
 	}
 }
 
 // Infof logs a formatted info message
 func (e *EnhancedLogger) Infof(format string, args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.InfoLevel {
-		e.logrus.Infof(format, args...)
+	if e.currentLevel <= logrus.InfoLevel {
+		e.logWithCaller(3).Infof(format, args...)
 	}
 }
 
 // Warn logs a warning message
 func (e *EnhancedLogger) Warn(args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.WarnLevel {
-		e.logrus.Warn(args...)
+	if e.currentLevel <= logrus.WarnLevel {
+		e.logWithCaller(3).Warn(args...)
 	}
 }
 
 // Warnf logs a formatted warning message
 func (e *EnhancedLogger) Warnf(format string, args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.WarnLevel {
-		e.logrus.Warnf(format, args...)
+	if e.currentLevel <= logrus.WarnLevel {
+		e.logWithCaller(3).Warnf(format, args...)
 	}
 }
 
 // Error logs an error message
 func (e *EnhancedLogger) Error(args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.ErrorLevel {
-		e.logrus.Error(args...)
+	if e.currentLevel <= logrus.ErrorLevel {
+		e.logWithCaller(3).Error(args...)
 	}
 }
 
 // Errorf logs a formatted error message
 func (e *EnhancedLogger) Errorf(format string, args ...interface{}) {
-	e.mu.RLock()
-	currentLevel := e.currentLevel
-	e.mu.RUnlock()
-
-	if currentLevel <= logrus.ErrorLevel {
-		e.logrus.Errorf(format, args...)
+	if e.currentLevel <= logrus.ErrorLevel {
+		e.logWithCaller(3).Errorf(format, args...)
 	}
-}
-
-// Fatal logs a fatal message and exits
-func (e *EnhancedLogger) Fatal(args ...interface{}) {
-	e.logrus.Fatal(args...)
-}
-
-// Fatalf logs a formatted fatal message and exits
-func (e *EnhancedLogger) Fatalf(format string, args ...interface{}) {
-	e.logrus.Fatalf(format, args...)
-}
-
-// WithField adds a field to the log entry
-func (e *EnhancedLogger) WithField(key string, value interface{}) *logrus.Entry {
-	return e.logrus.WithField(key, value)
-}
-
-// WithFields adds multiple fields to the log entry
-func (e *EnhancedLogger) WithFields(fields logrus.Fields) *logrus.Entry {
-	return e.logrus.WithFields(fields)
 }
 
 // Backward compatibility methods to maintain existing Log interface
@@ -291,9 +222,6 @@ func (e *EnhancedLogger) Println(args ...interface{}) {
 
 // Close closes the logger and any open file handles
 func (e *EnhancedLogger) Close() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	if e.logFile != nil {
 		err := e.logFile.Close()
 		e.logFile = nil

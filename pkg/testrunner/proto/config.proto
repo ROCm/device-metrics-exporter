@@ -89,7 +89,7 @@ message TestLogsExportConfig {
         Aws   = 0;
         Azure = 1;
     }
-    CloudProvider Provider = 1;
+    string Provider        = 1;
     string BucketName      = 2;
     string SecretName      = 3;
 }

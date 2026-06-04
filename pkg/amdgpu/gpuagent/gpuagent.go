@@ -51,6 +51,8 @@ type GPUAgentClient struct {
 	exitOnAgentDown      bool      // exit DME process when agent is unreachable
 	exitOnRocpctlError   bool      // exit DME process when rocpctl auto-disables on failure
 	exitFn               func(int) // called instead of os.Exit; injectable for tests
+	useSocket            bool      // use socket connection instead of IP:port
+	socketPath           string    // socket path for connection
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -116,6 +118,14 @@ func WithIFOEMonitoring(enableIFOEMonitoring bool) GPUAgentClientOptions {
 	}
 }
 
+func WithSocketConnection(socketPath string) GPUAgentClientOptions {
+	return func(ga *GPUAgentClient) {
+		logger.Log.Printf("Socket connection enabled with path: %v", socketPath)
+		ga.useSocket = true
+		ga.socketPath = socketPath
+	}
+}
+
 // WithExitOnAgentDown causes DME to exit when the gpuagent is unreachable
 // after maxConsecutiveFailures consecutive poll failures. A failure is counted
 // only when the gRPC data pull fails (ErrAgentUnreachable), not for
@@ -140,6 +150,7 @@ func (ga *GPUAgentClient) GetGRPCConnection() *grpc.ClientConn {
 }
 
 func (ga *GPUAgentClient) initclients() (err error) {
+	// Get agent configuration from metrics handler
 	agentAddr := ga.mh.GetAgentAddr()
 	logger.Log.Printf("Agent connecting to %v", agentAddr)
 	conn, err := grpc.NewClient(agentAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))

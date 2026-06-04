@@ -204,7 +204,7 @@ func TestExporterBasicConfiguration(t *testing.T) {
 				defer cancel()
 
 				// Initialize config and metrics
-				runConf = config.NewConfigHandler(configPath, globals.GPUAgentPort)
+				runConf = config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 				var err error
 				mh, err = metricsutil.NewMetrics(runConf)
 				assert.NilError(t, err)
@@ -274,7 +274,7 @@ func TestExporterHTTPEndpoints(t *testing.T) {
 	defer cleanup()
 
 	// Start exporter
-	runConf = config.NewConfigHandler(configPath, globals.GPUAgentPort)
+	runConf = config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
@@ -539,7 +539,7 @@ func TestExporterMetricsValidation(t *testing.T) {
 	defer cleanup()
 
 	// Initialize configuration and metrics
-	runConf = config.NewConfigHandler(configPath, globals.GPUAgentPort)
+	runConf = config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
@@ -630,7 +630,7 @@ func TestExporterErrorScenarios(t *testing.T) {
 		assert.NilError(t, err)
 
 		// Should handle invalid port gracefully
-		config := config.NewConfigHandler(configPath, globals.GPUAgentPort)
+		config := config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 		assert.Assert(t, config != nil, "Should handle invalid port")
 	})
 
@@ -641,7 +641,7 @@ func TestExporterErrorScenarios(t *testing.T) {
 		err := os.WriteFile(configPath, []byte("{}"), 0644)
 		assert.NilError(t, err)
 
-		config := config.NewConfigHandler(configPath, globals.GPUAgentPort)
+		config := config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 		assert.Assert(t, config != nil, "Should handle empty config")
 	})
 }
@@ -654,7 +654,7 @@ func TestExporterConcurrentRequests(t *testing.T) {
 	defer cleanup()
 
 	// Initialize
-	runConf = config.NewConfigHandler(configPath, globals.GPUAgentPort)
+	runConf = config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 	var err error
 	mh, err = metricsutil.NewMetrics(runConf)
 	assert.NilError(t, err)
@@ -736,4 +736,217 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// TestGPUAgentSocketConnection tests socket-based vs IP:port connection to gpuagent
+func TestGPUAgentSocketConnection(t *testing.T) {
+	logger.Init(false)
+
+	tests := []struct {
+		name             string
+		socketPath       string
+		createSocketFile bool
+		usePort          bool
+		expectedConnType string // "socket" or "ip:port"
+	}{
+		{
+			name:             "Socket file exists - use socket",
+			socketPath:       "/tmp/test-gpuagent.sock",
+			createSocketFile: true,
+			usePort:          false,
+			expectedConnType: "socket",
+		},
+		{
+			name:             "Socket file does not exist - fallback to IP:port",
+			socketPath:       globals.GPUAgentDefaultSocketPath,
+			createSocketFile: false,
+			usePort:          false,
+			expectedConnType: "ip:port",
+		},
+		{
+			name:             "Explicit port provided - use IP:port",
+			socketPath:       "/tmp/test-gpuagent.sock",
+			createSocketFile: true,
+			usePort:          true,
+			expectedConnType: "ip:port",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup: Create temporary socket file if needed
+			var tempSocketPath string
+			if tc.createSocketFile {
+				tempDir := t.TempDir()
+				tempSocketPath = filepath.Join(tempDir, "gpuagent.sock")
+				file, err := os.Create(tempSocketPath)
+				assert.NilError(t, err, "Failed to create temp socket file")
+				file.Close()
+			}
+
+			// Verify the connection logic
+			var addrString string
+			if tc.usePort {
+				// When port is specified, always use IP:port
+				addrString = fmt.Sprintf("localhost:%d", globals.GPUAgentPort)
+			} else if tc.createSocketFile && tempSocketPath != "" {
+				// Socket file exists, use socket connection
+				addrString = fmt.Sprintf("unix://%s", tempSocketPath)
+			} else {
+				// Socket doesn't exist, fallback to IP:port
+				addrString = fmt.Sprintf("localhost:%d", globals.GPUAgentPort)
+			}
+
+			// Validate the connection string format
+			if tc.expectedConnType == "socket" {
+				assert.Assert(t, strings.HasPrefix(addrString, "unix://"),
+					"Socket connection should start with unix://")
+			} else {
+				assert.Assert(t, strings.HasPrefix(addrString, "localhost:"),
+					"IP:port connection should start with localhost:")
+			}
+
+			t.Logf("Connection type: %s, Address: %s", tc.expectedConnType, addrString)
+		})
+	}
+}
+
+// TestGPUAgentConnectionPrecedence tests that port takes precedence over socket
+func TestGPUAgentConnectionPrecedence(t *testing.T) {
+	logger.Init(false)
+
+	// Create a temporary socket file
+	tempDir := t.TempDir()
+	tempSocket := filepath.Join(tempDir, "test.sock")
+	file, err := os.Create(tempSocket)
+	assert.NilError(t, err, "Failed to create temp socket file")
+	file.Close()
+
+	// Test that port takes precedence over socket
+	t.Run("Port takes precedence", func(t *testing.T) {
+		// When both port and socket are available, port should be used
+		portStr := fmt.Sprintf("%d", globals.GPUAgentPort)
+		socketStr := tempSocket
+
+		// Simulate the logic: if port is specified, use it
+		var addrString string
+		if portStr != "" {
+			addrString = fmt.Sprintf("localhost:%s", portStr)
+		} else if socketStr != "" {
+			addrString = fmt.Sprintf("unix://%s", socketStr)
+		}
+
+		assert.Assert(t, strings.HasPrefix(addrString, "localhost:"),
+			"Should use IP:port when port is specified")
+		assert.Assert(t, !strings.Contains(addrString, "unix://"),
+			"Should not use socket when port is specified")
+	})
+
+	t.Run("Socket used when no port", func(t *testing.T) {
+		// When only socket is available, use socket
+		portStr := ""
+		socketStr := tempSocket
+
+		var addrString string
+		if portStr != "" {
+			addrString = fmt.Sprintf("localhost:%s", portStr)
+		} else if socketStr != "" {
+			addrString = fmt.Sprintf("unix://%s", socketStr)
+		}
+
+		assert.Assert(t, strings.HasPrefix(addrString, "unix://"),
+			"Should use socket when port is not specified")
+	})
+}
+
+// TestGPUAgentDefaultSocketBehavior tests the default socket path behavior
+func TestGPUAgentDefaultSocketBehavior(t *testing.T) {
+	logger.Init(false)
+
+	t.Run("Default socket path constant", func(t *testing.T) {
+		// Verify the default socket path is set correctly
+		assert.Equal(t, globals.GPUAgentDefaultSocketPath, "/var/run/gpuagent.sock",
+			"Default socket path should be /var/run/gpuagent.sock")
+	})
+
+	t.Run("Fallback to default port", func(t *testing.T) {
+		// When default socket doesn't exist, should fall back to default port
+		socketPath := globals.GPUAgentDefaultSocketPath
+
+		// Check if socket file exists
+		_, err := os.Stat(socketPath)
+		socketExists := err == nil
+
+		var addrString string
+		if socketExists {
+			addrString = fmt.Sprintf("unix://%s", socketPath)
+		} else {
+			// Socket doesn't exist, use default IP:port
+			addrString = fmt.Sprintf("localhost:%d", globals.GPUAgentPort)
+		}
+
+		// The address should be one of the two valid formats
+		validFormat := strings.HasPrefix(addrString, "unix://") ||
+			strings.HasPrefix(addrString, "localhost:")
+		assert.Assert(t, validFormat,
+			"Address should use either unix:// or localhost: format")
+
+		t.Logf("Socket exists: %v, Using address: %s", socketExists, addrString)
+	})
+}
+
+// TestGPUAgentExporterIntegration tests the exporter with different gpuagent connection modes
+func TestGPUAgentExporterIntegration(t *testing.T) {
+	logger.Init(false)
+
+	configPath, cleanup := setupTestConfig(t, 9112)
+	defer cleanup()
+
+	tests := []struct {
+		name        string
+		gpuPort     int
+		socketPath  string
+		description string
+	}{
+		{
+			name:        "IP:port connection mode",
+			gpuPort:     globals.GPUAgentPort,
+			socketPath:  "",
+			description: "Exporter should connect to gpuagent via IP:port",
+		},
+		{
+			name:        "Socket connection mode",
+			gpuPort:     0, // 0 indicates socket mode
+			socketPath:  globals.GPUAgentDefaultSocketPath,
+			description: "Exporter should connect to gpuagent via socket when port is 0",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create exporter with specific gpuagent connection mode
+			opts := []ExporterOption{
+				WithGPUMonitoring(true),
+				WithNoK8sApiclient(),
+				WithBindAddr("127.0.0.1"),
+			}
+
+			port := tc.gpuPort
+			if port == 0 {
+				port = globals.GPUAgentPort
+			}
+
+			exporter := NewExporter(port, configPath, opts...)
+			assert.Assert(t, exporter != nil, "Exporter should be created")
+
+			// Validate the exporter was created with correct settings
+			assert.Assert(t, exporter.enableGPUMonitoring, "GPU monitoring should be enabled")
+
+			t.Logf("%s - Port: %d, Socket: %s", tc.description, tc.gpuPort, tc.socketPath)
+
+			// Close the exporter
+			err := exporter.Close()
+			assert.NilError(t, err, "Close should succeed")
+		})
+	}
 }

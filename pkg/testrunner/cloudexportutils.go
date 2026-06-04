@@ -60,9 +60,9 @@ func loadSecretKeyAsEnvVariable(secretName, key string) error {
 func setEnvVariablesFromSecretVolumeMount(cloudProvider, secretName string) error {
 	var envs []string
 	switch cloudProvider {
-	case trproto.TestLogsExportConfig_Azure.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Azure.String()):
 		envs = []string{azureAccountName, azureStorageKey}
-	case trproto.TestLogsExportConfig_Aws.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Aws.String()):
 		envs = []string{awsAccessKeyId, awsSecretAccessKey, awsRegion}
 	default:
 		logger.Log.Printf("cloud provider %s is not supported", cloudProvider)
@@ -80,9 +80,9 @@ func setEnvVariablesFromSecretVolumeMount(cloudProvider, secretName string) erro
 func unsetEnvVariables(cloudProvider string) error {
 	var envs []string
 	switch cloudProvider {
-	case trproto.TestLogsExportConfig_Azure.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Azure.String()):
 		envs = []string{azureAccountName, azureStorageKey}
-	case trproto.TestLogsExportConfig_Aws.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Aws.String()):
 		envs = []string{awsAccessKeyId, awsSecretAccessKey, awsRegion}
 	default:
 		return fmt.Errorf("cloud provider %s is not supported", cloudProvider)
@@ -114,12 +114,11 @@ func UploadFileToCloudBucket(cloudProvider, cloudBucket, cloudFolder, cloudFileN
 	}()
 
 	switch cloudProvider {
-	case trproto.TestLogsExportConfig_Azure.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Azure.String()):
 		cloudPrefix = "azblob"
 		url = fmt.Sprintf("%s://%s?prefix=%s/", cloudPrefix, cloudBucket, cloudFolder)
-	case trproto.TestLogsExportConfig_Aws.String():
+	case strings.ToLower(trproto.TestLogsExportConfig_Aws.String()):
 		cloudPrefix = "s3"
-
 		// for s3 compatible storage servers like minio, endpoint url is different from aws and passed in secret.
 		endpointURL := getAWSEndpointURL(secretName)
 		if endpointURL == "" {

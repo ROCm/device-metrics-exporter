@@ -57,7 +57,7 @@ func IsEventsDisabled() bool {
 }
 
 func IsSimEnabled() bool {
-	return os.Getenv("SIMENABLED") == "1"
+	return os.Getenv("SIM_ENABLE") == "1"
 }
 
 func IsDebianInstall() bool {
@@ -104,41 +104,6 @@ func GetHostName() (string, error) {
 		}
 	}
 	return hostname, nil
-}
-
-// NormalizeFloat - return 0 if any of the value is of MaxFloat indication NA
-//   - return x as float64 otherwise
-func NormalizeFloat(x interface{}) float64 {
-	switch x := x.(type) {
-	case float64:
-		if math.IsNaN(x) || math.IsInf(x, 0) {
-			return 0
-		}
-		// Convert to uint64 and check for max values
-		uintX := uint64(x)
-		if uintX == math.MaxUint64 || uintX == math.MaxUint32 || uintX == math.MaxUint16 || uintX == math.MaxUint8 {
-			return 0
-		}
-		if x == math.MaxFloat64 || x == math.MaxFloat32 {
-			return 0
-		}
-		return float64(x)
-	case float32:
-		if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
-			return 0
-		}
-		// Convert to uint32 and check for max values
-		uintX := uint32(x)
-		if uintX == math.MaxUint32 || uintX == math.MaxUint16 || uintX == math.MaxUint8 {
-			return 0
-		}
-		if x == math.MaxFloat32 {
-			return 0
-		}
-		return float64(x)
-	}
-	logger.Log.Fatalf("only float64, float32 are expected but got %v", reflect.TypeOf(x))
-	return 0
 }
 
 func StringToUint64(str string) uint64 {

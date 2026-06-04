@@ -29,7 +29,6 @@ import (
 
 const (
 	AMDLogicalDevicePrefix = "amdgpu_xcp_"
-	AMDGPURenderStartID    = 128
 )
 
 var (
@@ -95,7 +94,7 @@ func getAllUsedVRAM() (map[string]float64, error) {
 }
 
 // FindAMDGPUDevices scans the system for AMDGPU XCP devices and returns a map
-// where the key is "gpu_id" and value is device name "amdgpu_xcp_N"
+// where the key is render id and value is device name "amdgpu_xcp_N"
 func FindAMDGPUDevices() (map[string]string, error) {
 	result := make(map[string]string)
 
@@ -128,8 +127,8 @@ func FindAMDGPUDevices() (map[string]string, error) {
 			continue
 		}
 
-		gpuID := fmt.Sprintf("%v", renderKey%AMDGPURenderStartID)
-		result[gpuID] = xcpVal
+		renderStr := fmt.Sprintf("%v", renderKey)
+		result[renderStr] = xcpVal
 	}
 
 	return result, nil

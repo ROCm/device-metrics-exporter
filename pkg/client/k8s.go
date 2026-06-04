@@ -64,14 +64,14 @@ const (
 
 type K8sClient struct {
 	sync.Mutex
-	ctx             context.Context
-	clientset       kubernetes.Interface
-	nodeName        string
-	stopCh          chan struct{}
-	started         bool
-	nodeInformer    cache.SharedIndexInformer
-	podInformer     cache.SharedIndexInformer
-	nodelabellerCfg utils.NodeHealthLabellerConfig
+	ctx                  context.Context
+	clientset            kubernetes.Interface
+	nodeName             string
+	stopCh               chan struct{}
+	started              bool
+	nodeInformer         cache.SharedIndexInformer
+	podInformer          cache.SharedIndexInformer
+	nodelabellerCfg      utils.NodeHealthLabellerConfig
 	podName              string
 	podNamespace         string
 	eventSourceComponent string
@@ -109,11 +109,11 @@ func NewClient(ctx context.Context, configPath, nodeName string) (*K8sClient, er
 	}
 
 	k8c := &K8sClient{
-		ctx:       ctx,
-		clientset: clientset,
-		nodeName:  nodeName,
-		stopCh:    make(chan struct{}),
-		started:   false,
+		ctx:          ctx,
+		clientset:    clientset,
+		nodeName:     nodeName,
+		stopCh:       make(chan struct{}),
+		started:      false,
 		podName:      readFileContent(podNameFile),
 		podNamespace: readFileContent(podNamespaceFile),
 	}
@@ -340,6 +340,7 @@ func (k *K8sClient) startWatchers() error {
 	k.nodeInformer = nodeFactory.Core().V1().Nodes().Informer()
 	k.podInformer = podFactory.Core().V1().Pods().Informer()
 
+	// nolint
 	k.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if node, ok := obj.(*v1.Node); ok {
@@ -354,6 +355,7 @@ func (k *K8sClient) startWatchers() error {
 			}
 		},
 	})
+	// nolint
 	k.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if pod, ok := obj.(*v1.Pod); ok {
@@ -388,6 +390,7 @@ func (k *K8sClient) startWatchers() error {
 	}
 
 	// Block until stop signal received
+	// nolint
 	select {
 	case <-k.stopCh:
 		return nil
