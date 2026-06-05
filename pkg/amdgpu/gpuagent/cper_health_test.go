@@ -23,6 +23,7 @@ import (
 	"gotest.tools/assert"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
 
@@ -51,6 +52,25 @@ func TestLatestCPERPerGPUPicksNewestEntry(t *testing.T) {
 	for _, entry := range latest {
 		assert.Equal(t, "new-corrected", entry.RecordId)
 	}
+}
+
+func TestGetCperHealthMaxAgeEmptyDisablesAgeFilter(t *testing.T) {
+	teardownSuite := setupTest(t)
+	defer teardownSuite(t)
+
+	ga := &GPUAgentGPUClient{
+		gpuHandler: &GPUAgentClient{mh: mh},
+	}
+	assert.Equal(t, time.Duration(0), ga.getCperHealthMaxAge())
+
+	cfg := mConfig.GetConfig()
+	if cfg.GPUConfig == nil {
+		cfg.GPUConfig = &exportermetrics.GPUMetricConfig{}
+	}
+	cfg.GPUConfig.HealthThresholds = &exportermetrics.GPUHealthThresholds{
+		CPERHealthMaxAge: "1h",
+	}
+	assert.Equal(t, time.Hour, ga.getCperHealthMaxAge())
 }
 
 func TestIsFatalCPERActionableRespectsMaxAge(t *testing.T) {

@@ -38,6 +38,7 @@ import (
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
 
@@ -1076,7 +1077,7 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 }
 
 // TestCPERStaleFatalDoesNotSetUnhealthy verifies that a fatal CPER older than
-// CPERHealthMaxAge does not mark the GPU unhealthy (issue #506).
+// an explicitly configured CPERHealthMaxAge does not mark the GPU unhealthy (issue #506).
 func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
@@ -1099,6 +1100,14 @@ func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 	gpuclient.gpuclient = gpuSvc
 	gpuclient.evtclient = evtSvc
 	gpuclient.gpuHandler.computeNodeHealthState = true
+
+	cfg := mConfig.GetConfig()
+	if cfg.GPUConfig == nil {
+		cfg.GPUConfig = &exportermetrics.GPUMetricConfig{}
+	}
+	cfg.GPUConfig.HealthThresholds = &exportermetrics.GPUHealthThresholds{
+		CPERHealthMaxAge: "1h",
+	}
 
 	staleTS := time.Now().Add(-2 * time.Hour).Format(cperTimestampLayout)
 	gpuclient.gCache.Lock()

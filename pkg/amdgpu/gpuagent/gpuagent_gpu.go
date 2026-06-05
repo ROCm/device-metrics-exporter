@@ -43,9 +43,8 @@ const (
 	queryTimeout    = 15 * time.Second
 	cacheTimer      = 15 * time.Second
 
-	cperQueryTimeout    = 60 * time.Second       // higher than queryTimeout to handle 128-entry payloads
+	cperQueryTimeout    = 60 * time.Second // higher than queryTimeout to handle 128-entry payloads
 	cperTimestampLayout = "2006-01-02 15:04:05"
-	defaultCPERHealthMaxAge = 60 * 60 * time.Second // 1h when CPERHealthMaxAge is unset in config
 )
 
 // cperRefreshInterval is 2s in sim mode, 30s in production.

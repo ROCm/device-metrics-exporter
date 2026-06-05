@@ -311,8 +311,9 @@ message GPUHealthThresholds {
     uint32 GPU_ECC_UNCORRECT_IH = 18;
     uint32 GPU_ECC_UNCORRECT_MPIO = 19;
     // Maximum age of a fatal CPER record that can mark a GPU unhealthy.
-    // Go duration string (e.g. "1h", "30m"). Empty defaults to 1h.
-    // Set to "0" to disable the age filter (any latest fatal CPER marks unhealthy).
+    // Go duration string (e.g. "1h", "30m"). Empty or unset preserves legacy behavior
+    // (any latest fatal CPER marks unhealthy). Set an explicit duration to ignore older records.
+    // Set to "0" to explicitly disable the age filter (same as empty).
     string CPERHealthMaxAge = 20;
 }
 
