@@ -154,11 +154,11 @@ func (c *ConfigHandler) GetGPUCperMaxAge() time.Duration {
 
 	maxAge, err := time.ParseDuration(ageStr)
 	if err != nil {
-		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': %v. Disabling age filter", ageStr, err)
+		logger.Errorf("Invalid GPU_CPER_MAX_AGE '%s': %v. Disabling age filter", ageStr, err)
 		return 0
 	}
 	if maxAge < 0 {
-		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': must be >= 0. Disabling age filter", ageStr)
+		logger.Errorf("Invalid GPU_CPER_MAX_AGE '%s': must be >= 0. Disabling age filter", ageStr)
 		return 0
 	}
 	return maxAge

@@ -64,7 +64,7 @@ func (ga *GPUAgentGPUClient) isFatalCPERActionable(record *amdgpu.CPEREntry, max
 	}
 	age := time.Since(recordTS)
 	if age > maxAge {
-		logger.Log.Printf("ignoring stale fatal CPER RecordId=%v age=%v maxAge=%v TimeStamp=%v",
+		logger.Debugf("ignoring stale fatal CPER RecordId=%v age=%v maxAge=%v TimeStamp=%v",
 			record.RecordId, age.Round(time.Second), maxAge, record.GetTimestamp())
 		return false
 	}
