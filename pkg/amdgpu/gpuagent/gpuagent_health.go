@@ -98,8 +98,6 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 		}
 		if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
 			newGPUState[gpuid].Health = unhealthy
-			logger.Log.Printf("gpuid[%v] is set to unhealthy for latest fatal cper RecordId=%v TimeStamp=%v",
-				gpuid, record.RecordId, record.GetTimestamp())
 		} else {
 			logger.Log.Printf("ignoring invalid gpuid[%v] for latest fatal cper RecordId=%v", gpuuid, record.RecordId)
 		}
