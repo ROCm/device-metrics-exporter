@@ -82,7 +82,7 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 		return
 	}
 	if gpuCper == nil {
-		logger.Debugf("skipping CPER health checks: CPER cache not populated yet")
+		logger.Errorf("skipping CPER health checks: CPER cache not populated yet")
 		return
 	}
 	if gpuCper.ApiStatus != 0 {
