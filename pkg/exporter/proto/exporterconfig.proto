@@ -314,7 +314,7 @@ message GPUHealthThresholds {
     // Go duration string (e.g. "1h", "30m"). Empty or unset preserves legacy behavior
     // (any latest fatal CPER marks unhealthy). Set an explicit duration to ignore older records.
     // Set to "0" to explicitly disable the age filter (same as empty).
-    string CPERHealthMaxAge = 20;
+    string GPU_CPER_MAX_AGE = 20;
 }
 
 enum GPUMetricLabel {

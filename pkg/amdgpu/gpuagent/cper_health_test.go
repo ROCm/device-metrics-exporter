@@ -68,7 +68,7 @@ func TestGetCperHealthMaxAgeEmptyDisablesAgeFilter(t *testing.T) {
 		cfg.GPUConfig = &exportermetrics.GPUMetricConfig{}
 	}
 	cfg.GPUConfig.HealthThresholds = &exportermetrics.GPUHealthThresholds{
-		CPERHealthMaxAge: "1h",
+		GPU_CPER_MAX_AGE: "1h",
 	}
 	assert.Equal(t, time.Hour, ga.getCperHealthMaxAge())
 }

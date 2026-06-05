@@ -50,17 +50,17 @@ func (ga *GPUAgentGPUClient) getHealthThreshholds() *exportermetrics.GPUHealthTh
 // Empty or unset config also disables the age filter to preserve legacy behavior.
 func (ga *GPUAgentGPUClient) getCperHealthMaxAge() time.Duration {
 	thresholds := ga.getHealthThreshholds()
-	ageStr := thresholds.GetCPERHealthMaxAge()
+	ageStr := thresholds.GetGPU_CPER_MAX_AGE()
 	if ageStr == "" {
 		return 0
 	}
 	maxAge, err := time.ParseDuration(ageStr)
 	if err != nil {
-		logger.Log.Printf("Invalid CPERHealthMaxAge '%s': %v. Disabling age filter", ageStr, err)
+		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': %v. Disabling age filter", ageStr, err)
 		return 0
 	}
 	if maxAge < 0 {
-		logger.Log.Printf("Invalid CPERHealthMaxAge '%s': must be >= 0. Disabling age filter", ageStr)
+		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': must be >= 0. Disabling age filter", ageStr)
 		return 0
 	}
 	return maxAge

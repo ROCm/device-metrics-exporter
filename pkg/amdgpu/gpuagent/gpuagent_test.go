@@ -1077,7 +1077,7 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 }
 
 // TestCPERStaleFatalDoesNotSetUnhealthy verifies that a fatal CPER older than
-// an explicitly configured CPERHealthMaxAge does not mark the GPU unhealthy (issue #506).
+// an explicitly configured GPU_CPER_MAX_AGE does not mark the GPU unhealthy (issue #506).
 func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
@@ -1106,7 +1106,7 @@ func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 		cfg.GPUConfig = &exportermetrics.GPUMetricConfig{}
 	}
 	cfg.GPUConfig.HealthThresholds = &exportermetrics.GPUHealthThresholds{
-		CPERHealthMaxAge: "1h",
+		GPU_CPER_MAX_AGE: "1h",
 	}
 
 	staleTS := time.Now().Add(-2 * time.Hour).Format(cperTimestampLayout)
