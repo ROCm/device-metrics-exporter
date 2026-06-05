@@ -281,6 +281,9 @@ The list comprises of all well known metrics supported by MI 200 & 300 platforms
 
 ### Command Processor Metrics
 
+**_Radeon_**: not supported. All metrics in this section are disabled at
+startup by gpu-agent and are not exported on Radeon.
+
 | Metric                                      | Description                                                                                    |
 |---------------------------------------------|------------------------------------------------------------------------------------------------|
 | GPU_PROF_CPC_CPC_STAT_BUSY                  | Number of cycles command processor-compute is busy                                             |
@@ -321,6 +324,10 @@ The list comprises of all well known metrics supported by MI 200 & 300 platforms
 
 ### GPU Core Metrics
 
+**_Radeon_**: `GPU_PROF_GRBM_GUI_ACTIVE`, `GPU_PROF_SQ_WAVES`,
+`GPU_PROF_GRBM_COUNT`, and `GPU_PROF_GUI_UTIL_PERCENT` are supported.
+`GPU_PROF_SM_ACTIVE` is exported but always returns `0` on Radeon.
+
 | Metric                    | Description                                                                                              |
 |---------------------------|----------------------------------------------------------------------------------------------------------|
 | GPU_PROF_GRBM_GUI_ACTIVE  | Number of GPU active cycles                                                                              |
@@ -331,12 +338,18 @@ The list comprises of all well known metrics supported by MI 200 & 300 platforms
 
 ### Memory & Data Transfer Metrics
 
+**_Radeon_**: not supported. `GPU_PROF_FETCH_SIZE` is exported but always
+returns `0`; `GPU_PROF_WRITE_SIZE` is not exported.
+
 | Metric              | Description                                                                                                                                   |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | GPU_PROF_FETCH_SIZE | The total kilobytes fetched from the video memory. This is measured with all extra fetches and any cache or memory effects taken into account |
 | GPU_PROF_WRITE_SIZE | The total kilobytes written to the video memory. This is measured with all extra fetches and any cache or memory effects taken into account   |
 
 ### Compute Operation Metrics
+
+**_Radeon_**: not supported. None of the metrics in this section are exported
+on Radeon.
 
 | Metric                | Description                        |
 |-----------------------|------------------------------------|
@@ -345,6 +358,10 @@ The list comprises of all well known metrics supported by MI 200 & 300 platforms
 | GPU_PROF_TOTAL_64_OPS | The number of 64 bits OPS executed |
 
 ### Occupancy & Utilization Metrics
+
+**_Radeon_**: not supported. `GPU_PROF_TENSOR_ACTIVE_PERCENT` and
+`GPU_PROF_SIMD_UTILIZATION` are not exported; all other metrics in this
+section are exported but always return `0` on Radeon.
 
 | Metric                           | Description                                         |
 |----------------------------------|-----------------------------------------------------|
