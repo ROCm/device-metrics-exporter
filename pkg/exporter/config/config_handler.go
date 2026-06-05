@@ -130,6 +130,40 @@ func (c *ConfigHandler) GetHealthPollingInterval() time.Duration {
 	return duration
 }
 
+// GetGPUCperMaxAge returns how long a fatal CPER record remains actionable for health.
+// Zero disables the age filter (latest fatal CPER always marks the GPU unhealthy).
+// Empty or unset config also disables the age filter to preserve legacy behavior.
+func (c *ConfigHandler) GetGPUCperMaxAge() time.Duration {
+	c.Lock()
+	defer c.Unlock()
+
+	cfg := c.runningConfig.GetConfig()
+	if cfg == nil || cfg.GetGPUConfig() == nil {
+		return 0
+	}
+
+	thresholds := cfg.GetGPUConfig().GetHealthThresholds()
+	if thresholds == nil {
+		return 0
+	}
+
+	ageStr := thresholds.GetGPU_CPER_MAX_AGE()
+	if ageStr == "" {
+		return 0
+	}
+
+	maxAge, err := time.ParseDuration(ageStr)
+	if err != nil {
+		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': %v. Disabling age filter", ageStr, err)
+		return 0
+	}
+	if maxAge < 0 {
+		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': must be >= 0. Disabling age filter", ageStr)
+		return 0
+	}
+	return maxAge
+}
+
 func (c *ConfigHandler) GetMetricsConfigPath() string {
 	return c.configPath
 }

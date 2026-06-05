@@ -46,24 +46,8 @@ func (ga *GPUAgentGPUClient) getHealthThreshholds() *exportermetrics.GPUHealthTh
 }
 
 // getCperHealthMaxAge returns how long a fatal CPER record remains actionable for health.
-// Zero disables the age filter (latest fatal CPER always marks the GPU unhealthy).
-// Empty or unset config also disables the age filter to preserve legacy behavior.
 func (ga *GPUAgentGPUClient) getCperHealthMaxAge() time.Duration {
-	thresholds := ga.getHealthThreshholds()
-	ageStr := thresholds.GetGPU_CPER_MAX_AGE()
-	if ageStr == "" {
-		return 0
-	}
-	maxAge, err := time.ParseDuration(ageStr)
-	if err != nil {
-		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': %v. Disabling age filter", ageStr, err)
-		return 0
-	}
-	if maxAge < 0 {
-		logger.Log.Printf("Invalid GPU_CPER_MAX_AGE '%s': must be >= 0. Disabling age filter", ageStr)
-		return 0
-	}
-	return maxAge
+	return ga.gpuHandler.mh.GetRunConfig().GetGPUCperMaxAge()
 }
 
 func (ga *GPUAgentGPUClient) isFatalCPERActionable(record *amdgpu.CPEREntry, maxAge time.Duration) bool {
