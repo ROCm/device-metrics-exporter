@@ -462,7 +462,7 @@ func latestCPERPerGPU(gpuCpers *amdgpu.GPUCPERGetResponse) map[string]*amdgpu.CP
 		for _, record := range c.CPEREntry {
 			currentTS, ok := parseCPERRecordTimestamp(record)
 			if !ok {
-				logger.Log.Printf("Failed to parse CPER timestamp for RecordId=%v", record.GetRecordId())
+				logger.Errorf("failed to parse CPER timestamp for RecordId=%v TimeStamp=%v", record.GetRecordId(), record.GetTimestamp())
 				continue
 			}
 

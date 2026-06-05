@@ -78,15 +78,15 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 	cperErr error,
 ) {
 	if cperErr != nil {
-		logger.Log.Printf("skipping CPER health checks: cache read failed: %v", cperErr)
+		logger.Errorf("skipping CPER health checks: cache read failed: %v", cperErr)
 		return
 	}
 	if gpuCper == nil {
-		logger.Log.Printf("skipping CPER health checks: CPER cache not populated yet")
+		logger.Debugf("skipping CPER health checks: CPER cache not populated yet")
 		return
 	}
 	if gpuCper.ApiStatus != 0 {
-		logger.Log.Printf("skipping CPER health checks: CPER ApiStatus=%v", gpuCper.ApiStatus)
+		logger.Errorf("skipping CPER health checks: CPER ApiStatus=%v", gpuCper.ApiStatus)
 		return
 	}
 	maxAge := ga.getCperHealthMaxAge()
@@ -99,7 +99,7 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 		if gpuid, ok := gpuUUIDMap[gpuuid]; ok {
 			newGPUState[gpuid].Health = unhealthy
 		} else {
-			logger.Log.Printf("ignoring invalid gpuid[%v] for latest fatal cper RecordId=%v", gpuuid, record.RecordId)
+			logger.Errorf("ignoring latest fatal CPER RecordId=%v: unknown GPU UUID %v", record.RecordId, gpuuid)
 		}
 	}
 }
