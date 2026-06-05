@@ -253,7 +253,8 @@
       "GPU_ECC_UNCORRECT_VCN" : 0,
       "GPU_ECC_UNCORRECT_JPEG" : 0,
       "GPU_ECC_UNCORRECT_IH" : 0,
-      "GPU_ECC_UNCORRECT_MPIO" : 0
+      "GPU_ECC_UNCORRECT_MPIO" : 0,
+      "GPU_CPER_MAX_AGE" : ""
     },
     "CustomLabels" : {
       "CLUSTER_NAME" : "amdgpu-k8s-metrics-exporter"
