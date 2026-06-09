@@ -112,8 +112,8 @@ AMDSMI_REPO   ?= https://github.com/ROCm/rocm-systems.git
 AMDSMI_BRANCH ?= therock-7.13
 AMDSMI_COMMIT ?= 79e85e1468f96a867108043c953e9547c13b4c5e
 AMDSMI_SUBDIR ?= projects/amdsmi
-GIMSMI_BRANCH ?= mainline
-GIMSMI_COMMIT ?= mainline/8.7.0.K
+GIMSMI_BRANCH ?= release/8.7.0.K-rc
+GIMSMI_COMMIT ?= 8.7.0.K
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 9645999
 
