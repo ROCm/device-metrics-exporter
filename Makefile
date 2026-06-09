@@ -110,8 +110,8 @@ HTML_DIR := $(BUILD_DIR)/html
 # library branch to build amdsmi libraries for gpuagent
 AMDSMI_BRANCH ?= release/rocm-rel-7.2
 AMDSMI_COMMIT ?= 91c1f54
-GIMSMI_BRANCH ?= mainline
-GIMSMI_COMMIT ?= mainline/8.3.0.K
+GIMSMI_BRANCH ?= release/8.7.0.K-rc
+GIMSMI_COMMIT ?= 8.7.0.K
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 534af3b
 
