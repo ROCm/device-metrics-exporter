@@ -29,7 +29,7 @@ import (
 
 func TestGetGPUCperMaxAge(t *testing.T) {
 	logger.Init(true)
-	handler := NewConfigHandler("config.json", globals.GPUAgentPort)
+	handler := NewConfigHandler("config.json", GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 
 	assert.Equal(t, time.Duration(0), handler.GetGPUCperMaxAge())
 

@@ -68,6 +68,7 @@ type gpuCache struct {
 type cperCacheEntry struct {
 	entry     *amdgpu.CPEREntry
 	timestamp time.Time
+	hasTS     bool
 }
 
 // gpuMeta holds ID metadata for gpu fields for workload association and labeling without having to fetch from hardware repeatedly
@@ -441,7 +442,8 @@ func parseCPERRecordTimestamp(record *amdgpu.CPEREntry) (time.Time, bool) {
 	if ts == "" {
 		return time.Time{}, false
 	}
-	parsed, err := time.Parse(cperTimestampLayout, ts)
+	// Parse in local zone: producers format with time.Now() (local wall-clock).
+	parsed, err := time.ParseInLocation(cperTimestampLayout, ts, time.Local)
 	if err != nil {
 		return time.Time{}, false
 	}
@@ -463,19 +465,21 @@ func latestCPERPerGPU(gpuCpers *amdgpu.GPUCPERGetResponse) map[string]*amdgpu.CP
 			currentTS, ok := parseCPERRecordTimestamp(record)
 			if !ok {
 				logger.Errorf("failed to parse CPER timestamp for RecordId=%v TimeStamp=%v", record.GetRecordId(), record.GetTimestamp())
-				continue
 			}
 
-			if existingCPER, exists := latestCPER[gpuuid]; !exists {
-				latestCPER[gpuuid] = &cperCacheEntry{
-					entry:     record,
-					timestamp: currentTS,
-				}
-			} else if currentTS.After(existingCPER.timestamp) {
-				latestCPER[gpuuid] = &cperCacheEntry{
-					entry:     record,
-					timestamp: currentTS,
-				}
+			candidate := &cperCacheEntry{entry: record, timestamp: currentTS, hasTS: ok}
+			existing, exists := latestCPER[gpuuid]
+			// Keep records with unparseable timestamps as a fallback so a fatal
+			// entry is never silently dropped: a timestamped record supersedes
+			// an untimestamped one, timestamped records compare by recency, and
+			// untimestamped records fall back to last-seen.
+			switch {
+			case !exists:
+				latestCPER[gpuuid] = candidate
+			case ok && (!existing.hasTS || currentTS.After(existing.timestamp)):
+				latestCPER[gpuuid] = candidate
+			case !ok && !existing.hasTS:
+				latestCPER[gpuuid] = candidate
 			}
 		}
 	}

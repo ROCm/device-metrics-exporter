@@ -920,6 +920,13 @@ func TestECCDeferredErrorsNotInHealthService(t *testing.T) {
 	t.Logf("✓ Deferred errors correctly NOT used in health service determination")
 }
 
+// cperTestGPUIDBytes returns the GPU UUID as raw 16 bytes so uuid.FromBytes and
+// utils.UUIDToString decode to the same string.
+func cperTestGPUIDBytes() []byte {
+	b := uuid.MustParse("72ff740f-0000-1000-804c-3b58bf67050e")
+	return b[:]
+}
+
 // newCPERTestMocks creates an isolated gomock controller with GPU, CPER, and event mocks.
 // Using a separate controller avoids FIFO expectation conflicts with the AnyTimes
 // defaults registered in setupTest.
@@ -933,7 +940,7 @@ func newCPERTestMocks(t *testing.T, cperErr error) (gpuSvc *mock_gen.MockGPUSvcC
 		ApiStatus: amdgpu.ApiStatus_API_STATUS_OK,
 		Response: []*amdgpu.GPU{
 			{
-				Spec:   &amdgpu.GPUSpec{Id: []byte("72ff740f-0000-1000-804c-3b58bf67050e")},
+				Spec:   &amdgpu.GPUSpec{Id: cperTestGPUIDBytes()},
 				Status: &amdgpu.GPUStatus{PCIeStatus: &amdgpu.GPUPCIeStatus{PCIeBusId: "pcie0"}},
 				Stats:  &amdgpu.GPUStats{},
 			},
@@ -1013,7 +1020,7 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
 
-	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
+	gpuIDBytes := cperTestGPUIDBytes()
 
 	gpuSvc, evtSvc, finish := newCPERTestMocks(t, nil)
 	defer finish()
