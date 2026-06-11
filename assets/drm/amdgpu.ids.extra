@@ -1,5 +1,0 @@
-# Unreleased AMD GPU entries not yet in upstream Mesa libdrm amdgpu.ids
-# Format: DEVICE_ID,	REVISION_ID,	MARKETING_NAME
-74B9,	00,	AMD Instinct MI325X VF
-74BC,	00,	AMD Instinct MI308X HF VF
-75A8,	00,	AMD Instinct MI350P

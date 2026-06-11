@@ -49,9 +49,6 @@ RUN microdnf clean all && \
    fi && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
-# amdgpu.ids: fetched by build_prep_docker.sh via tools/fetch-amdgpu-ids.sh
-ADD ./amdgpu.ids /usr/share/libdrm/amdgpu.ids
-
 RUN mkdir -p /home/amd/bin/ /home/amd/lib/ /home/amd/tools/
 
 # override built libraries

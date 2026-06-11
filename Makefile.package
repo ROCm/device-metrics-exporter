@@ -53,9 +53,7 @@ rpmpkg: rpmpkg-clean
 	# copy to bin folders for tar
 	@mkdir -p ${RPM_PACKAGE_DIR}/bin
 	@mkdir -p ${RPM_PACKAGE_DIR}/lib
-	@mkdir -p ${RPM_PACKAGE_DIR}/data
 	@mkdir -p ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
-	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${RPM_PACKAGE_DIR}/data/amdgpu.ids
 	tar -xf ${ASSETS_PATH}/gpuagent_static.bin.gz -C ${RPM_PACKAGE_DIR}/bin/
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_DIR}/bin/gpuctl
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_DIR}/bin/
@@ -104,9 +102,7 @@ rpmpkg-sriov: rpmpkg-clean
 	# copy to bin folders for tar
 	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/bin
 	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/lib
-	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/data
 	@mkdir -p ${PKG_SRIOV_LUA_PATH}
-	@bash ${TOP_DIR}/tools/fetch-amdgpu-ids.sh ${RPM_PACKAGE_SRIOV_DIR}/data/amdgpu.ids
 	tar -xf ${ASSETS_PATH}/gpuagent_sriov_static.bin.gz -C ${RPM_PACKAGE_SRIOV_DIR}/bin/
 	@mv -vf ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent-sriov
 	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${RPM_PACKAGE_SRIOV_DIR}/bin/metrics-exporter-ts.sh
@@ -148,7 +144,6 @@ rpmpkg-sriov: rpmpkg-clean
 debpkg-clean:
 	rm -rf ${TOP_DIR}/bin/*.deb
 	rm -rf ${PKG_LIB_PATH} ${PKG_PATH}
-	rm -rf ${TOP_DIR}/debian/usr/share/libdrm
 
 debpkg-sriov-clean:
 	rm -rf ${TOP_DIR}/bin/amdgpu-exporter-sriov*.deb
@@ -156,7 +151,6 @@ debpkg-sriov-clean:
 	# wholesale because that path now contains the git-tracked
 	# usr/local/etc/metrics/gpuagent.conf EnvironmentFile.
 	rm -rf ${PKG_SRIOV_PATH} ${PKG_SRIOV_LIB_PATH} ${PKG_SRIOV_LUA_PATH} ${METRICS_SRIOV_CONF_DIR}
-	rm -rf ${TOP_DIR}/debian-sriov/usr/share/libdrm
 
 debpkg-sriov-clean:
 	rm -rf ${TOP_DIR}/bin/amdgpu-exporter-sriov*.deb

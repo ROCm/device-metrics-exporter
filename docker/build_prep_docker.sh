@@ -81,6 +81,3 @@ ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient
 ln -f $TOP_DIR/bin/amdgpuhealth $TOP_DIR/docker/amdgpuhealth
 ln -f $TOP_DIR/tools/techsupport/metrics-exporter-ts.sh $TOP_DIR/docker/metrics-exporter-ts.sh
 cp $TOP_DIR/LICENSE $TOP_DIR/docker/LICENSE
-
-# Fetch amdgpu.ids for GPU marketing name resolution on consumer GPUs
-bash $TOP_DIR/tools/fetch-amdgpu-ids.sh $TOP_DIR/docker/amdgpu.ids
