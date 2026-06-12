@@ -24,12 +24,12 @@ import (
 )
 
 var (
-	Log       *EnhancedLogger // Enhanced logger instance (now the default)
-	logdir    = "/var/log/"
-	logfile   = "exporter.log"
-	logPrefix = "exporter "
+	Log         *EnhancedLogger // Enhanced logger instance (now the default)
+	logdir      = "/var/log/"
+	logfile     = "exporter.log"
+	logPrefix   = "exporter "
 	logFallback bool
-	once      sync.Once
+	once        sync.Once
 )
 
 // SetLogPrefix sets prefix in the log to be exporter or testrunner

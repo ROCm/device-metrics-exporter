@@ -1,23 +1,23 @@
 assets:
   - name    : gpuagent_mock.bin.gz
-    version : 1aec881
+    version : 1b77113
     repo    : ROCm/gpu-agent
-    branch  : main
+    branch  : release-v1.5.0
 
   - name    : gpuagent_static.bin.gz
-    version : 1aec881
+    version : 1b77113
     repo    : ROCm/gpu-agent
-    branch  : main
+    branch  : release-v1.5.0
 
   - name    : gpuctl.gobin
-    version : 1aec881
+    version : 1b77113
     repo    : ROCm/gpu-agent
-    branch  : main
+    branch  : release-v1.5.0
 
   - name    : gpuagent_sriov_static.bin.gz
-    version : 1aec881
+    version : 1b77113
     repo    : ROCm/gpu-agent
-    branch  : main
+    branch  : release-v1.5.0
 
   - name    : amd_smi_lib
     version : 91c1f54

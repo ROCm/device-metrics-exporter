@@ -98,7 +98,7 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 			if debugMode != globals.DebugModeNone {
 				switch debugMode {
 				case globals.DebugModeQP:
-				logger.Log.Printf("Debug (%s) mode enabled via query parameter", debugMode)
+					logger.Log.Printf("Debug (%s) mode enabled via query parameter", debugMode)
 					ctx = globals.WithDebugMode(ctx, debugMode)
 				default:
 					// Continue without setting debug mode
