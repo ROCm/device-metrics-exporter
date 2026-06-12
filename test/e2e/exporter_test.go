@@ -968,31 +968,31 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 			return false
 		}
 
-	// Verify the response contains AFID 35
-	log.Printf("Metrics response: %s", response)
+		// Verify the response contains AFID 35
+		log.Printf("Metrics response: %s", response)
 
-	// Parse the response to get the field value of gpu_afid_errors
-	allgpus, err := testutils.ParsePrometheusMetrics(response)
+		// Parse the response to get the field value of gpu_afid_errors
+		allgpus, err := testutils.ParsePrometheusMetrics(response)
 		if err != nil {
 			log.Printf("Failed to parse metrics: %v", err)
 			return false
 		}
 
-	// Check for AFID 35 in gpu_afid_errors field
-	foundAFID35 := false
-	for gpuId, gpu := range allgpus {
-		afidField, ok := gpu.Fields["gpu_afid_errors"]
-		if !ok {
-			continue
-		}
+		// Check for AFID 35 in gpu_afid_errors field
+		foundAFID35 := false
+		for gpuId, gpu := range allgpus {
+			afidField, ok := gpu.Fields["gpu_afid_errors"]
+			if !ok {
+				continue
+			}
 
-		// Check if afid_index label contains "35"
-		if afidField.Value == "35" {
-			foundAFID35 = true
-			log.Printf("Found AFID 35 in gpu_afid_errors field for GPU[%v]", gpuId)
-			break
+			// Check if afid_index label contains "35"
+			if afidField.Value == "35" {
+				foundAFID35 = true
+				log.Printf("Found AFID 35 in gpu_afid_errors field for GPU[%v]", gpuId)
+				break
+			}
 		}
-	}
 
 		return foundAFID35
 	}, 35*time.Second, 1*time.Second)

@@ -53,6 +53,13 @@ func IsSimEnabled() bool {
 	return os.Getenv("SIMENABLED") == "1"
 }
 
+func IsEventsDisabled() bool {
+	if os.Getenv("GPUAGENT_EVENTS_DISABLE") == "1" {
+		return true
+	}
+	return IsSimEnabled()
+}
+
 func IsDebianInstall() bool {
 	serviceFiles := []string{ServiceFile, SriovServiceFile, NICServiceFile}
 	for _, file := range serviceFiles {

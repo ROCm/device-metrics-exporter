@@ -386,7 +386,7 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 func (ga *GPUAgentGPUClient) cacheCperRead() (*amdgpu.GPUCPERGetResponse, error) {
 	ga.gCache.RLock()
 	defer ga.gCache.RUnlock()
-		return ga.gCache.lastCperResponse, nil
+	return ga.gCache.lastCperResponse, nil
 }
 
 // startCperRefresh keeps the CPER cache warm via a background goroutine.
@@ -406,7 +406,7 @@ func (ga *GPUAgentGPUClient) startCperRefresh(ctx context.Context) {
 			case <-ticker.C:
 				ga.refreshCperCache()
 			}
-	}
+		}
 	}()
 }
 
