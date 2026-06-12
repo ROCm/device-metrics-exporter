@@ -25,7 +25,7 @@ HELM_EXPORTER_IMAGE_TAG ?= $(PROJECT_VERSION)
 # Test runner container environment
 TESTRUNNER_IMAGE_TAG ?= latest
 TESTRUNNER_IMAGE_NAME ?= test-runner
-TEST_RUNNER_RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.5
+TESTRUNNER_RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.6
 
 # External repo builders
 GPUAGENT_BASE_IMAGE ?= ubuntu:22.04
@@ -59,7 +59,7 @@ export TESTRUNNER_IMAGE_NAME
 export TESTRUNNER_IMAGE_TAG
 
 # exporter base container images
-export TEST_RUNNER_RHEL_BASE_IMAGE
+export TESTRUNNER_RHEL_BASE_IMAGE
 export RHEL_BASE_MIN_IMAGE
 export AZURE_BASE_IMAGE
 
