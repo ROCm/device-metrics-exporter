@@ -10,7 +10,8 @@ term() {
     wait
 }
 
-PATH=/usr/local/go/bin:$PATH
+export GOPATH="${GOPATH:-$(/usr/local/go/bin/go env GOPATH)}"
+PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 
 dockerd -s vfs &
 
