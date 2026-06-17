@@ -28,6 +28,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: false
 
+      - name: Create test directories
+        run: sudo mkdir -p /var/run/exporter
+
       - name: Run unit tests
         env:
           LOGDIR: ${{ runner.temp }}/logs
