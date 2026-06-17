@@ -17,6 +17,7 @@
 package metricsutil
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -65,13 +66,13 @@ func setupTest(t *testing.T) func(t *testing.T) {
 	}
 	confFilePath = filePath
 
-	chandler = config.NewConfigHandler(confFilePath, globals.GPUAgentPort)
+	chandler = config.NewConfigHandler(confFilePath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
 
 	mh, err = NewMetrics(chandler)
 	if err != nil {
 		t.Fatalf("metrics handler create failed: %s", err)
 	}
-	mh.InitConfig()
+	mh.InitConfig(context.Background())
 
 	t.Logf("setup completed")
 
