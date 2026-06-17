@@ -1,0 +1,49 @@
+name: CI Build
+
+on:
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev container
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/base-image
+          load: true
+          tags: docker.io/rocm/device-metrics-exporter-build:v1.10
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build inside dev container
+        run: |
+          docker run --rm --privileged \
+            -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
+            -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:/usr/src/github.com/ROCm/device-metrics-exporter" \
+            -w /usr/src/github.com/ROCm/device-metrics-exporter \
+            docker.io/rocm/device-metrics-exporter-build:v1.10 \
+            bash -c "source ~/.bashrc && \
+              git config --global --add safe.directory /usr/src/github.com/ROCm/device-metrics-exporter && \
+              make gen amdexporter amdtestrunner && \
+              make docker TOP_DIR=/usr/src/github.com/ROCm/device-metrics-exporter"
