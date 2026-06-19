@@ -18,6 +18,7 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/
 # (librocm_sysdeps_drm.so.2 etc.). For repo.radeon.com builds it is a no-op.
 ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib:$LD_LIBRARY_PATH
 ENV GPUAGENT_EVENTS_DISABLE=1
+ENV AMD_METRICS_EXPORTER_ENABLE_CPER=1
 
 ADD install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
 RUN chmod +x /usr/local/bin/install-rocm-tarball.sh

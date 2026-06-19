@@ -42,6 +42,7 @@ RUN tdnf clean all && tdnf install -y ca-certificates && \
  
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/
 ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
+ENV AMD_METRICS_EXPORTER_ENABLE_CPER=1
 RUN mkdir -p /home/amd/bin/
 RUN mkdir -p /home/amd/tools/
 
