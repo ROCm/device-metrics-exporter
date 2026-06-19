@@ -45,7 +45,7 @@ type client struct {
 	cancel  context.CancelFunc
 }
 
-// NewSlurmClient - creates a slurm schedler client
+// NewSlurmClient creates a slurm scheduler client; watcher setup failures return an error.
 func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -55,72 +55,71 @@ func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 		cancel:  cancel,
 	}
 
+	if err := os.MkdirAll(path.Dir(globals.SlurmDir), 0644); err != nil {
+		logger.Log.Printf("error creating slurm dir %v err: %v", globals.SlurmDir, err)
+	}
+
+	// Create new watcher.
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("slurm fsnotify watcher init failed: %v. Likely cause: host-wide inotify exhaustion (fs.inotify.max_user_instances).", err)
+	}
+
+	// Add a path.
+	if err := watcher.Add(globals.SlurmDir); err != nil {
+		watcher.Close()
+		cancel()
+		return nil, fmt.Errorf("slurm fsnotify watcher failed to watch %q: %v. Check directory permissions.", globals.SlurmDir, err)
+	}
+
+	// Start listening for events.
 	go func() {
-		if err := os.MkdirAll(path.Dir(globals.SlurmDir), 0644); err != nil {
-			logger.Log.Printf("error creating slurm dir %v err: %v", globals.SlurmDir, err)
-		}
-
-		// Create new watcher.
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			logger.Log.Fatal(err)
-		}
 		defer watcher.Close()
+		for cl.ctx.Err() == nil {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
 
-		// Start listening for events.
-		go func() {
-			for cl.ctx.Err() == nil {
-				select {
-				case event, ok := <-watcher.Events:
-					if !ok {
-						return
-					}
+				if _, err := strconv.Atoi(path.Base(event.Name)); err != nil {
+					logger.Log.Printf("skip event: %+v", event)
+					continue
+				}
+				logger.Log.Printf("event: %+v", event)
 
-					if _, err := strconv.Atoi(path.Base(event.Name)); err != nil {
-						logger.Log.Printf("skip event: %+v", event)
+				if event.Has(fsnotify.Create | fsnotify.Write) {
+					logger.Log.Printf("modified file: %v", event.Name)
+					data, err := os.ReadFile(event.Name)
+					if err != nil {
+						logger.Log.Printf("failed to read %v, %v", event.Name, err)
 						continue
 					}
-					logger.Log.Printf("event: %+v", event)
+					cl.processSlurm(fsnotify.Write, path.Base(event.Name), data)
 
-					if event.Has(fsnotify.Create | fsnotify.Write) {
-						logger.Log.Printf("modified file: %v", event.Name)
-						data, err := os.ReadFile(event.Name)
-						if err != nil {
-							logger.Log.Printf("failed to read %v, %v", event.Name, err)
-							continue
-						}
-						cl.processSlurm(fsnotify.Write, path.Base(event.Name), data)
-
-					} else if event.Has(fsnotify.Remove) {
-						logger.Log.Printf("deleted file: %v", event.Name)
-						cl.processSlurm(fsnotify.Remove, path.Base(event.Name), nil)
-					}
-				case err, ok := <-watcher.Errors:
-					if !ok {
-						return
-					}
-					logger.Log.Printf("error: %v", err)
+				} else if event.Has(fsnotify.Remove) {
+					logger.Log.Printf("deleted file: %v", event.Name)
+					cl.processSlurm(fsnotify.Remove, path.Base(event.Name), nil)
 				}
-			}
-		}()
-
-		// Add a path.
-		err = watcher.Add(globals.SlurmDir)
-		if err != nil {
-			logger.Log.Fatalf("fsnotify watch err: %v", err)
-		}
-
-		// read existing
-		if fds, err := os.ReadDir(globals.SlurmDir); err == nil {
-			for _, f := range fds {
-				watcher.Events <- fsnotify.Event{Name: globals.SlurmDir + "/" + f.Name(), Op: fsnotify.Write}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				logger.Log.Printf("error: %v", err)
+			case <-cl.ctx.Done():
+				logger.Log.Printf("slurm job watcher stopped")
+				return
 			}
 		}
-
-		// Block main goroutine forever.
-		<-cl.ctx.Done()
-		logger.Log.Printf("slurm job watcher stopped")
 	}()
+
+	// read existing
+	if fds, err := os.ReadDir(globals.SlurmDir); err == nil {
+		for _, f := range fds {
+			watcher.Events <- fsnotify.Event{Name: globals.SlurmDir + "/" + f.Name(), Op: fsnotify.Write}
+		}
+	}
 
 	logger.Log.Printf("created slurm scheduler client")
 	return cl, nil

@@ -27,7 +27,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/fsysdevice"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/rocprofiler"
-	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -132,7 +132,7 @@ func NewGPUAgentGPUClient(gpuHandler *GPUAgentClient) (*GPUAgentGPUClient, error
 	}
 	gpuClient.rocpclient = rocprofiler.NewRocProfilerClient("rocpclient")
 	gpuClient.rocpclient.SetEventEmitter(func(ctx context.Context, reason, msg string) {
-		gpuClient.gpuHandler.SendWarningEvent(ctx, k8sclient.ProfilerDisabledReason, msg)
+		events.EmitWarning(ctx, events.ProfilerDisabled, msg)
 	})
 	gpuClient.fsysDeviceHandler = fsysdevice.GetFsysDeviceHandler()
 	gpuClient.healthState = make(map[string]*metricssvc.GPUState)

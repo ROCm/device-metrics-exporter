@@ -38,6 +38,7 @@ import (
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
@@ -574,9 +575,10 @@ func TestExitOnAgentDownExitsAfterConsecutiveFailures(t *testing.T) {
 	ga := getNewAgent(t)
 	ga.exitOnAgentDown = true
 	exitCalled := false
-	ga.exitFn = func(code int) {
+	events.Init(nil, nil, func(int) {
 		exitCalled = true
-	}
+	})
+	defer events.Stop()
 
 	const maxConsecutiveFailures = 3
 	consecutiveFailures := 0
@@ -584,7 +586,7 @@ func TestExitOnAgentDownExitsAfterConsecutiveFailures(t *testing.T) {
 	simulateValidationFailure := func() {
 		consecutiveFailures++
 		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
-			ga.exitFn(1)
+			events.Fatal(events.AgentUnreachable, "consecutive failures")
 		}
 	}
 
@@ -605,9 +607,10 @@ func TestExitOnAgentDownCounterResetsOnSuccess(t *testing.T) {
 	ga := getNewAgent(t)
 	ga.exitOnAgentDown = true
 	exitCalled := false
-	ga.exitFn = func(code int) {
+	events.Init(nil, nil, func(int) {
 		exitCalled = true
-	}
+	})
+	defer events.Stop()
 
 	// Simulate the counter-reset logic directly: 2 failures, then a success tick,
 	// then 2 more failures — total should never reach maxConsecutiveFailures (3).
@@ -617,7 +620,7 @@ func TestExitOnAgentDownCounterResetsOnSuccess(t *testing.T) {
 	reconnectFail := func() {
 		consecutiveFailures++
 		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
-			ga.exitFn(1)
+			events.Fatal(events.AgentUnreachable, "consecutive failures")
 		}
 	}
 	successTick := func() {
@@ -645,16 +648,17 @@ func TestExitOnAgentDownDisabledDoesNotExit(t *testing.T) {
 	ga := getNewAgent(t)
 	ga.exitOnAgentDown = false
 	exitCalled := false
-	ga.exitFn = func(code int) {
+	events.Init(nil, nil, func(int) {
 		exitCalled = true
-	}
+	})
+	defer events.Stop()
 
 	const maxConsecutiveFailures = 3
 	consecutiveFailures := 0
 	for i := 0; i < maxConsecutiveFailures+5; i++ {
 		consecutiveFailures++
 		if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
-			ga.exitFn(1)
+			events.Fatal(events.AgentUnreachable, "consecutive failures")
 		}
 	}
 

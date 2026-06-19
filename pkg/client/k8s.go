@@ -29,6 +29,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,12 +57,6 @@ const (
 	podNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
 
-type K8sEventReason string
-
-const (
-	ProfilerDisabledReason K8sEventReason = "ProfilerDisabled"
-)
-
 type K8sClient struct {
 	sync.Mutex
 	ctx                  context.Context
@@ -75,7 +70,11 @@ type K8sClient struct {
 	podName              string
 	podNamespace         string
 	eventSourceComponent string
+	// disabled after the first RBAC Forbidden on event creation.
+	eventsForbidden bool
 }
+
+var errWatchForbidden = errors.New("watch forbidden by RBAC")
 
 // readFileContent reads a file and returns its trimmed content, or empty string on error.
 func readFileContent(path string) string {
@@ -146,16 +145,18 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 	return nil
 }
 
-func (k *K8sClient) EmitWarningEvent(ctx context.Context, reason K8sEventReason, msg string) {
-	go k.dispatchWarningEvent(ctx, reason, msg)
-}
-
-func (k *K8sClient) dispatchWarningEvent(ctx context.Context, reason K8sEventReason, msg string) {
+// EmitWarningEventDirect emits a Warning event and returns the Create error.
+// Returns nil when pod metadata is missing or RBAC already disabled emission.
+func (k *K8sClient) EmitWarningEventDirect(ctx context.Context, reason string, msg string) error {
 	if k.podName == "" || k.podNamespace == "" {
-		return
+		return nil
 	}
 
 	k.Lock()
+	if k.eventsForbidden {
+		k.Unlock()
+		return nil
+	}
 	component := k.eventSourceComponent
 	k.Unlock()
 
@@ -175,7 +176,7 @@ func (k *K8sClient) dispatchWarningEvent(ctx context.Context, reason K8sEventRea
 			Name:      k.podName,
 		},
 		Type:           v1.EventTypeWarning,
-		Reason:         string(reason),
+		Reason:         reason,
 		Message:        msg,
 		FirstTimestamp: now,
 		LastTimestamp:  now,
@@ -187,11 +188,16 @@ func (k *K8sClient) dispatchWarningEvent(ctx context.Context, reason K8sEventRea
 	}
 
 	if _, err := k.clientset.CoreV1().Events(evt.Namespace).Create(ctx, evt, metav1.CreateOptions{}); err != nil {
-		logger.Log.Printf("dispatchWarningEvent %q: failed: %v", reason, err)
-		return
+		if apierrors.IsForbidden(err) {
+			k.Lock()
+			k.eventsForbidden = true
+			k.Unlock()
+		}
+		return err
 	}
 	logger.Log.Printf("emitted K8s Warning event %q on pod %s/%s: %s",
 		reason, k.podNamespace, k.podName, msg)
+	return nil
 }
 
 func (k *K8sClient) AddNodeLabel(nodeName string, keys []string, val string) error {
@@ -306,9 +312,15 @@ func (k *K8sClient) Watch() error {
 func (k *K8sClient) runWithReconnect() {
 	retryInterval := 5 * time.Second
 	for {
-		if err := k.startWatchers(); err != nil {
+		err := k.startWatchers()
+		switch {
+		case errors.Is(err, errWatchForbidden):
+			logger.Log.Printf("node/pod watch forbidden by RBAC; disabling watchers. " +
+				"Grant the exporter ServiceAccount 'list/watch' on nodes and pods to enable them.")
+			return
+		case err != nil:
 			logger.Log.Printf("Watcher error: %v. Retrying in %s...\n", err, retryInterval)
-		} else {
+		default:
 			logger.Log.Printf("Watchers stopped. Restarting...")
 		}
 
@@ -339,6 +351,20 @@ func (k *K8sClient) startWatchers() error {
 
 	k.nodeInformer = nodeFactory.Core().V1().Nodes().Informer()
 	k.podInformer = podFactory.Core().V1().Pods().Informer()
+
+	forbiddenCh := make(chan struct{}, 1)
+	watchErrHandler := func(_ *cache.Reflector, err error) {
+		if apierrors.IsForbidden(err) {
+			select {
+			case forbiddenCh <- struct{}{}:
+			default:
+			}
+		}
+	}
+	// nolint
+	_ = k.nodeInformer.SetWatchErrorHandler(watchErrHandler)
+	// nolint
+	_ = k.podInformer.SetWatchErrorHandler(watchErrHandler)
 
 	// nolint
 	k.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -385,13 +411,25 @@ func (k *K8sClient) startWatchers() error {
 	go k.nodeInformer.Run(stopCh)
 	go k.podInformer.Run(stopCh)
 
-	if !cache.WaitForCacheSync(stopCh, k.nodeInformer.HasSynced, k.podInformer.HasSynced) {
-		return errors.New("cache sync failed")
+	syncedCh := make(chan bool, 1)
+	go func() {
+		syncedCh <- cache.WaitForCacheSync(stopCh, k.nodeInformer.HasSynced, k.podInformer.HasSynced)
+	}()
+
+	select {
+	case <-forbiddenCh:
+		return errWatchForbidden
+	case synced := <-syncedCh:
+		if !synced {
+			return errors.New("cache sync failed")
+		}
+	case <-k.stopCh:
+		return nil
 	}
 
-	// Block until stop signal received
-	// nolint
 	select {
+	case <-forbiddenCh:
+		return errWatchForbidden
 	case <-k.stopCh:
 		return nil
 	}

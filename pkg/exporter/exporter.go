@@ -35,6 +35,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/nicagent"
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -113,6 +114,7 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// startMetricsServer starts the HTTP metrics server; a listener failure triggers a fatal exit.
 func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 
 	serverPort := c.GetServerPort()
@@ -152,7 +154,9 @@ func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 		logger.Log.Printf("serving requests on %s:%v", bindAddr, serverPort)
 		err := srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			logger.Log.Fatalf("ListenAndServe(): %v", err)
+			msg := fmt.Sprintf("HTTP metrics server failed to start on %s:%v: %v. Port may already be in use.",
+				bindAddr, serverPort, err)
+			events.Fatal(events.HTTPServerFailed, msg)
 		}
 		logger.Log.Printf("server on %s:%v shutdown gracefully", bindAddr, serverPort)
 	}()
@@ -219,7 +223,9 @@ func foreverWatcher(e *Exporter) {
 	// Create new watcher.
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Log.Fatal(err)
+		events.Fatal(events.ConfigWatcherFailed,
+			fmt.Sprintf("fsnotify watcher init failed: %v. Likely cause: host-wide inotify exhaustion. Raise fs.inotify.max_user_instances or check other pods on this node.",
+				err))
 	}
 	defer watcher.Close()
 
@@ -262,7 +268,9 @@ func foreverWatcher(e *Exporter) {
 	// Add a path.
 	err = watcher.Add(directory)
 	if err != nil {
-		logger.Log.Fatal(err)
+		events.Fatal(events.ConfigWatcherFailed,
+			fmt.Sprintf("fsnotify watcher failed to watch config directory %q: %v. Check directory permissions and that the path exists.",
+				directory, err))
 	}
 
 	logger.Log.Printf("starting file watcher for %v", configPath)
@@ -298,11 +306,8 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 		hostname, _ := utils.GetHostName()
 		k8sApiClient, err := k8sclient.NewClient(ctx, "", hostname)
 		if err != nil {
-			logger.Log.Fatalf("failed to create k8s client: %v", err)
-			// if k8s client creation fails, we return nil to indicate that exporter is not ready
-			// this will prevent the exporter from starting and allow the caller to handle the error
-			// gracefully, e.g., by retrying or logging the error.
-			// This is important because the exporter relies on the k8s client for various operations,
+			// No client yet to emit an event; log and return nil instead of log.Fatalf.
+			logger.Log.Printf("failed to create k8s client: %v. Check RBAC permissions and ServiceAccount mount.", err)
 			return nil
 		} else {
 			k8sApiClient.SetEventSourceComponent("amd-gpu-metrics-exporter")
@@ -310,6 +315,10 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 			logger.Log.Printf("k8s client created successfully")
 		}
 	}
+
+	// A nil client makes the event service log-only, so off-cluster, Debian, or
+	// -enable-k8s=false setups degrade gracefully (log, no K8s event emission).
+	events.Init(exporter.k8sApiClient, func() { _ = exporter.Close() }, os.Exit)
 
 	return exporter
 }
@@ -606,5 +615,6 @@ func (e *Exporter) Close() error {
 	}
 
 	cleanupResources(e.enableGPUMonitoring, e.enableNICMonitoring)
+	events.Stop()
 	return nil
 }

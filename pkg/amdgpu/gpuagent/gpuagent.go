@@ -20,12 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
@@ -48,11 +48,10 @@ type GPUAgentClient struct {
 	enabledK8sApi        bool
 	enableSlurmScl       bool
 	enableSriov          bool
-	exitOnAgentDown      bool      // exit DME process when agent is unreachable
-	exitOnRocpctlError   bool      // exit DME process when rocpctl auto-disables on failure
-	exitFn               func(int) // called instead of os.Exit; injectable for tests
-	useSocket            bool      // use socket connection instead of IP:port
-	socketPath           string    // socket path for connection
+	exitOnAgentDown      bool // exit DME process when agent is unreachable
+	exitOnRocpctlError   bool // exit DME process when rocpctl auto-disables on failure
+	useSocket            bool // use socket connection instead of IP:port
+	socketPath           string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -175,7 +174,6 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 		computeNodeHealthState: true,
 		enableGPUMonitoring:    true,
 		enableIFOEMonitoring:   false,
-		exitFn:                 os.Exit,
 	}
 	for _, o := range opts {
 		o(ga)
@@ -225,7 +223,8 @@ func (ga *GPUAgentClient) initalizeScheduler() error {
 	if ga.enableSlurmScl {
 		slurmScl, err := scheduler.NewSlurmClient(ga.ctx)
 		if err != nil {
-			logger.Log.Printf("gpu client init failure err :%v", err)
+			events.EmitWarning(ga.ctx, events.SlurmWatcherFailed,
+				fmt.Sprintf("slurm scheduler init failed: %v; slurm job labels will be unavailable.", err))
 			return err
 		}
 		ga.slurmScheduler = slurmScl
@@ -354,9 +353,9 @@ func (ga *GPUAgentClient) StartMonitor() {
 					logger.Log.Printf("gpuagent connection failed %v (consecutive failures: %d)",
 						err, consecutiveFailures)
 					if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
-						logger.Log.Printf("gpuagent unreachable after %d consecutive failures, exiting",
-							consecutiveFailures)
-						ga.exitFn(1)
+						events.Fatal(events.AgentUnreachable,
+							fmt.Sprintf("gpuagent unreachable after %d consecutive failures (last error: %v); pod will exit. Restart pod or check gpuagent health.",
+								consecutiveFailures, err))
 					}
 					continue
 				}
@@ -369,9 +368,15 @@ func (ga *GPUAgentClient) StartMonitor() {
 						logger.Log.Printf("gpuagent health validation failed %v (consecutive failures: %d)",
 							err, consecutiveFailures)
 						if ga.exitOnAgentDown && consecutiveFailures >= maxConsecutiveFailures {
-							logger.Log.Printf("gpuagent unreachable/zero-GPUs after %d consecutive failures, exiting",
-								consecutiveFailures)
-							ga.exitFn(1)
+							reason := events.HealthValidationFailed
+							desc := "gpuagent health validation failed"
+							if errors.Is(err, ErrZeroGPUs) {
+								reason = events.ZeroGPUsDetected
+								desc = "gpuagent reports zero GPUs"
+							}
+							events.Fatal(reason,
+								fmt.Sprintf("%s after %d consecutive polls (last error: %v); pod will exit. Check amdgpu driver load timing.",
+									desc, consecutiveFailures, err))
 						}
 						// For ErrZeroGPUs the health state was already updated (GPUs
 						// marked unhealthy) before the error was returned, so propagate
@@ -400,9 +405,9 @@ func (ga *GPUAgentClient) StartMonitor() {
 				for _, client := range ga.clients {
 					if gpuClient, ok := client.(*GPUAgentGPUClient); ok {
 						if gpuClient.rocpclient != nil && gpuClient.rocpclient.IsDisabledOnFailure() {
-							logger.Log.Printf("exit-on-rocpctl-error: rocpctl auto-disabled (%s), exiting",
-								gpuClient.rocpclient.GetDisabledReason())
-							ga.exitFn(1)
+							events.Fatal(events.RocpctlFatalExit,
+								fmt.Sprintf("exit-on-rocpctl-error: profiler auto-disabled (%s); pod will exit. Disable profiler or fix rocpctl.",
+									gpuClient.rocpclient.GetDisabledReason()))
 						}
 					}
 				}
