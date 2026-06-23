@@ -36,3 +36,11 @@ test/pytest/*
 CLAUDE.md
 .claude/*
 .copilot/*
+
+# Claude Code: personal/machine-local config only — shared config lives in .claude/settings.json and CLAUDE.md
+.claude/settings.local.json
+CLAUDE.local.md
+# Pending session transcripts captured by capture-session.sh — local-only, processed by /curate-learnings
+docs-internal/knowledge/_pending/
+# gpuagent patch staging dir — generated at build time by docker/build_prep_docker.sh from patch/gpuagent/
+docker/patch-gpuagent/

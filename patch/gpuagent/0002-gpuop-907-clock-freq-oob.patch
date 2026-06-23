@@ -1,0 +1,101 @@
+From 218b21e1d95f429e815b16f8347308d3c07e4d13 Mon Sep 17 00:00:00 2001
+From: Bhanu Kiran Atturu <bhatturu@amd.com>
+Date: Mon, 22 Jun 2026 18:19:26 -0400
+Subject: [PATCH] GPUOP-907: fix gpuagent SIGSEGV on MI350P from clock freq OOB
+ read
+
+smi_fill_clock_status_ indexed freq.frequency[freq.current] without
+bounds-checking. On gfx950 (MI350P) amdsmi returns SUCCESS with a garbage
+freq.current / num_supported for the DF/DCEF/PCIe clock types, so the read
+goes past the fixed-size frequency[] array and SIGSEGVs the grpcpp_sync_ser
+thread (ip 0x116384f) on every `gpuctl show gpu`. MI300/gfx942 returns a
+valid in-bounds index so the bug never fires there.
+
+- add current_frequency_mhz() helper that clamps freq.current to a valid
+  index before indexing frequency[]
+- clamp num_supported to AMDSMI_MAX_NUM_FREQUENCIES in
+  find_low_high_frequency() before constructing the vector
+
+Validated on MI350P: baseline SIGSEGVs at ip 0x116384f; fixed binary no
+longer faults in the clock path (gdb confirms smi_fill_clock_status_ is
+clear).
+---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc    |  6 ++---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_utils.hpp | 23 +++++++++++++++++---
+ 2 files changed, 23 insertions(+), 6 deletions(-)
+
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+index 82fd1734dea..ac3d7ec35cf 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -653,7 +653,7 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+                                 &clock_status->low_frequency,
+                                 &clock_status->high_frequency);
+         clock_status->clock_type = AGA_GPU_CLOCK_TYPE_FABRIC;
+-        clock_status->frequency = freq.frequency[freq.current]/1000000;
++        clock_status->frequency = current_frequency_mhz(&freq);
+         clock_status->deep_sleep =
+             (clock_status->frequency < clock_status->low_frequency);
+         clk_cnt++;
+@@ -671,7 +671,7 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+                                 &clock_status->low_frequency,
+                                 &clock_status->high_frequency);
+         clock_status->clock_type = AGA_GPU_CLOCK_TYPE_DCE;
+-        clock_status->frequency = freq.frequency[freq.current]/1000000;
++        clock_status->frequency = current_frequency_mhz(&freq);
+         clock_status->deep_sleep =
+             (clock_status->frequency < clock_status->low_frequency);
+         clk_cnt++;
+@@ -689,7 +689,7 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+                                 &clock_status->low_frequency,
+                                 &clock_status->high_frequency);
+         clock_status->clock_type = AGA_GPU_CLOCK_TYPE_PCIE;
+-        clock_status->frequency = freq.frequency[freq.current]/1000000;
++        clock_status->frequency = current_frequency_mhz(&freq);
+         clock_status->deep_sleep =
+             (clock_status->frequency < clock_status->low_frequency);
+         clk_cnt++;
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_utils.hpp b/sw/nic/gpuagent/api/smi/amdsmi/smi_utils.hpp
+index 760c8c2171c..418c3df7a14 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_utils.hpp
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_utils.hpp
+@@ -46,9 +46,10 @@ static inline void
+ find_low_high_frequency (amdsmi_frequencies_t *freq,
+                          uint32_t *min, uint32_t *max)
+ {
+-    // create a vector of the valid frequencies
+-    std::vector<uint64_t> f(freq->frequency,
+-                            freq->frequency + freq->num_supported);
++    // clamp num_supported to the array bound before building the vector
++    uint32_t n = (freq->num_supported < AMDSMI_MAX_NUM_FREQUENCIES) ?
++                 freq->num_supported : AMDSMI_MAX_NUM_FREQUENCIES;
++    std::vector<uint64_t> f(freq->frequency, freq->frequency + n);
+ 
+     // sort vector
+     std::sort(f.begin(), f.end());
+@@ -76,6 +77,22 @@ find_low_high_frequency (amdsmi_frequencies_t *freq,
+     return;
+ }
+ 
++/// \brief return current frequency in MHz, clamping an out-of-bounds index
++/// \param[in] freq    frequencies struct from amdsmi
++/// \return    current frequency in MHz; 0 when no supported frequencies,
++///            else the first entry if current is out of range
++static inline uint64_t
++current_frequency_mhz (amdsmi_frequencies_t *freq)
++{
++    if (freq->num_supported == 0) {
++        return 0;
++    }
++    uint32_t n = (freq->num_supported < AMDSMI_MAX_NUM_FREQUENCIES) ?
++                 freq->num_supported : AMDSMI_MAX_NUM_FREQUENCIES;
++    uint32_t idx = (freq->current < n) ? freq->current : 0;
++    return freq->frequency[idx] / 1000000;
++}
++
+ /// \brief convert amdsmi virtualization mode to aga vritualization mode
+ /// \param[in] virt_mode    amdsmi virtualization mode
+ /// \return    aga virtualization mode
+-- 
+2.43.0
+
