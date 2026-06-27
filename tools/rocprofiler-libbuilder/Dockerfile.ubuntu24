@@ -36,5 +36,9 @@ RUN if [ -n "${ROCM_TARBALL_URL}" ]; then \
       apt-get clean && rm -rf /var/lib/apt/lists/*; \
    fi
 
+# libatomic1: librocprofiler-sdk.so runtime dep, for entrypoint.sh to bundle.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  libatomic1 && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ADD tools/rocprofiler-libbuilder/entrypoint.sh /usr/src/github.com/entrypoint.sh
 ENTRYPOINT ["/usr/src/github.com/entrypoint.sh"]

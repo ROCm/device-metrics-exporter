@@ -117,8 +117,8 @@ GIMSMI_COMMIT ?= 8.7.0.K
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 9645999
 
-ROCM_VERSION ?= 7.13.0
-ROCM_TARBALL_URL ?= https://repo.amd.com/rocm/tarball-multi-arch/therock-dist-linux-multiarch-7.13.0.tar.gz
+ROCM_VERSION ?= 7.14.0a20260618
+ROCM_TARBALL_URL ?= https://therock-nightly-tarball.s3.us-east-2.amazonaws.com/v4/tarball/therock-dist-linux-multiarch-7.14.0a20260618.tar.gz
 ROCM_APT_VERSION ?= .apt_7.2.1
 AINIC_VERSION ?= 1.117.5-a-56
 
