@@ -84,6 +84,8 @@ install -p %{SRC_DIR}/bin/config.json  $RPM_BUILD_ROOT%{DEST_CONF}/config.json
 
 # copy libraries
 install -p %{SRC_DIR}/lib/* $RPM_BUILD_ROOT%{DEST_LIB}/
+# gpuagent-sriov has DT_NEEDED libamdsmi.so (the gim lib's soname); provide that filename so the loader resolves it from LD_LIBRARY_PATH
+ln -sf libgim_amd_smi.so $RPM_BUILD_ROOT%{DEST_LIB}/libamdsmi.so
 
 %files
 %defattr(-,root,root, 0755)
