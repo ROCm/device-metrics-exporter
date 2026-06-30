@@ -123,10 +123,29 @@ if [ -d "${ROCM_DIR}/lib/llvm/lib" ]; then
     done
 fi
 
-# rocblas kernel library data (Tensile .dat/.co — testrunner only, RVS gst module)
-if [ "${PROFILE}" = "testrunner" ] && [ -d "${ROCM_DIR}/lib/rocblas" ]; then
-    cp -a "${ROCM_DIR}/lib/rocblas" "${KEEP_DIR}/lib/rocblas"
-fi
+# rocblas and hipblaslt kernel library data (Tensile .dat/.co — testrunner only)
+# Both RVS gst module and AGFHC gfx tests use hipBLASLt which requires its own
+# Tensile library data in addition to rocblas's library data.
+for lib_dir in rocblas hipblaslt; do
+    if [ "${PROFILE}" = "testrunner" ] && [ -d "${ROCM_DIR}/lib/${lib_dir}" ]; then
+        cp -a "${ROCM_DIR}/lib/${lib_dir}" "${KEEP_DIR}/lib/${lib_dir}"
+        # TheRock 7.14+ stores per-arch kernels in subdirs (library/gfx950/, etc.)
+        # but older binaries look for them in the flat library/ dir.
+        # Symlink all files from every arch subdir up to the flat dir.
+        if [ -d "${KEEP_DIR}/lib/${lib_dir}/library" ]; then
+            cd "${KEEP_DIR}/lib/${lib_dir}/library"
+            for arch_dir in */; do
+                arch_dir="${arch_dir%/}"
+                [ -d "$arch_dir" ] || continue
+                for f in "$arch_dir"/*; do
+                    fname=$(basename "$f")
+                    [ ! -e "$fname" ] && ln -sf "$arch_dir/$fname" "$fname"
+                done
+            done
+            cd - > /dev/null
+        fi
+    fi
+done
 
 # Binaries and share
 [ -f "${ROCM_DIR}/bin/amd-smi" ]   && cp -a "${ROCM_DIR}/bin/amd-smi"   "${KEEP_DIR}/bin/" || true
