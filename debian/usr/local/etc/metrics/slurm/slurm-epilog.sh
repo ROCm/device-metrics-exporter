@@ -36,6 +36,9 @@ mod128_array() {
 }
 AMDGPU_DEVICES=$(mod128_array "${CUDA_VISIBLE_DEVICES}")
 AMD_SLURM_GPUS=$(mod128_array "${SLURM_JOB_GPUS}")
+# CUDA_VISIBLE_DEVICES is empty on AMD hardware; fall back to SLURM_JOB_GPUS so
+# the per-GPU job tracking files are cleaned up correctly on job exit.
+[ -z "${AMDGPU_DEVICES}" ] && AMDGPU_DEVICES="${AMD_SLURM_GPUS}"
 MSG=$(
 	cat <<EOF
     {

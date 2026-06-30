@@ -246,6 +246,8 @@ debpkg-sriov: debpkg-sriov-clean
 	@tar -xf ${ASSETS_PATH}/gpuagent_sriov_static.bin.gz -C ${PKG_SRIOV_PATH}/
 	@echo "Copy prebuilt libraries"
 	@cp -rvf ${GPUAGENT_SRIOV_LIBS}/ ${PKG_SRIOV_LIB_PATH}
+	# gpuagent-sriov has DT_NEEDED libamdsmi.so (the gim lib's soname); provide that filename so the loader resolves it from LD_LIBRARY_PATH
+	@ln -sf libgim_amd_smi.so ${PKG_SRIOV_LIB_PATH}/lib/libamdsmi.so
 	@cp -rvf  ${PKG_LUA_PATH}/ ${PKG_SRIOV_LUA_PATH}/../
 	# gpuagent.conf is already in debian-sriov/usr/local/etc/metrics/ (git-tracked, includes AGA_SMI_LAZY_INIT=1)
 	@echo "Copying techsupport tool"

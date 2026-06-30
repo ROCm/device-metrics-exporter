@@ -21,6 +21,8 @@ sudo chmod +x /etc/slurm/epilog.d/exporter-prolog.sh
 sudo chmod +x /etc/slurm/epilog.d/exporter-epilog.sh
 ```
 
+> **Note (AMD hardware):** `CUDA_VISIBLE_DEVICES` is empty on AMD GPUs, so the bundled scripts fall back to `SLURM_JOB_GPUS` (`[ -z "${AMDGPU_DEVICES}" ] && AMDGPU_DEVICES="${AMD_SLURM_GPUS}"`). Keep this fallback if you maintain your own copy, otherwise metrics are not tagged with `job_id`/`job_user`.
+
 - Configure Slurm:
 
 ```bash
@@ -67,8 +69,8 @@ docker run -d \
   --device=/dev/kfd \
   -v ./config:/etc/metrics \
   -v /var/run/exporter/:/var/run/exporter/ \
-  -p 5000:5000 --name exporter \
-  rocm/device-metrics-exporter:v1.3.1
+  -p 5000:5000 --name device-metrics-exporter \
+  rocm/device-metrics-exporter:v1.5.0
 ```
 
 ## Verification
@@ -115,7 +117,10 @@ When Slurm integration is enabled, the following job-specific labels are added t
 4. Check service status:
 
 ```bash
+# Host package (apt):
 systemctl status gpuagent.service amd-metrics-exporter.service
+# Container (Docker):
+docker ps --filter name=device-metrics-exporter
 ```
 
 ### Logs
@@ -129,7 +134,10 @@ sudo tail -f /var/log/slurm/slurmd.log
 View service logs:
 
 ```bash
+# Host package (apt):
 journalctl -u gpuagent.service -u amd-metrics-exporter.service
+# Container (Docker): logs are written to /var/log/exporter.log inside the container
+docker exec device-metrics-exporter tail -f /var/log/exporter.log
 ```
 
 ## Advanced Configuration

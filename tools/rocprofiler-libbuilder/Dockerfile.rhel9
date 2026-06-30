@@ -19,7 +19,7 @@ RUN chmod +x /usr/local/bin/install-rocm-tarball.sh
 
 RUN microdnf clean all && \
    if [ -n "${ROCM_TARBALL_URL}" ]; then \
-      microdnf install -y wget tar gzip && \
+      microdnf install -y wget tar gzip libatomic && \
       /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" /usr/lib64; \
    else \
       echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
@@ -38,7 +38,7 @@ RUN microdnf clean all && \
       echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
       microdnf update -y && \
       microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file \
-         libcap-devel amd-smi-lib libdrm-amdgpu \
+         libcap-devel amd-smi-lib libdrm-amdgpu libatomic \
          hsa-amd-aqlprofile rocprofiler-sdk hip-runtime-amd; \
    fi && \
    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
