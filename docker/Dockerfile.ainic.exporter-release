@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.6
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
 
 FROM ${BASE_IMAGE} AS builder
 ARG AINIC_VERSION
@@ -53,7 +53,7 @@ LABEL name="amd-device-metrics-exporter" \
     version="v1.1.0" \
     release="v1.1.0" \
     ainic_version=${AINIC_VERSION} \
-    OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6" \
+    OS="registry.access.redhat.com/ubi9/ubi-minimal:9.8" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD AINICs." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD AINICs in HPC and AI environments. It provides detailed telemetry including port, lif, rdma, ethtool and QP metrics"
 

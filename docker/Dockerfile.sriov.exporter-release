@@ -1,15 +1,29 @@
-ARG BASE_IMAGE=redhat/ubi9-minimal:9.6
+ARG BASE_IMAGE=redhat/ubi9-minimal:9.8
 
 FROM ${BASE_IMAGE}
 
 LABEL maintainer="AMD Inc"
-LABEL OS="redhat/ubi9-minimal:9.6"
+LABEL OS="redhat/ubi9-minimal:9.8"
 
 ARG ROCM_VERSION=6.4.1
 ARG AMDGPU_VERSION=6.4.1
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 
 RUN microdnf clean all && \
+    echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
+    echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "baseurl=${AMDGPU_REPO_URL}/amdgpu/${AMDGPU_VERSION}/rhel/9.8/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/amdgpu.repo && \
+    echo "[ROCm-${ROCM_VERSION}]" > /etc/yum.repos.d/rocm.repo && \
+    echo "name=ROCm${ROCM_VERSION}" >> /etc/yum.repos.d/rocm.repo && \
+    echo "baseurl=${AMDGPU_REPO_URL}/rocm/rhel9/${AMDGPU_VERSION}/main" >> /etc/yum.repos.d/rocm.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/rocm.repo && \
+    echo "priority=50" >> /etc/yum.repos.d/rocm.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/rocm.repo && \
+    echo "gpgkey=${AMDGPU_REPO_URL}/rocm/rocm.gpg.key" >> /etc/yum.repos.d/rocm.repo && \
     microdnf update -y && \
     microdnf install -y sudo findutils procps elfutils-libelf cmake kmod file tar \
     python3 python3-pip libcap-devel vim net-tools numactl numactl-libs && \

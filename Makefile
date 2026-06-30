@@ -12,9 +12,9 @@ BUILD_CONTAINER ?= $(DOCKER_REGISTRY)/device-metrics-exporter-build:$(DOCKER_BUI
 # Exporter container environment
 EXPORTER_IMAGE_TAG ?= latest
 EXPORTER_IMAGE_NAME ?= device-metrics-exporter
-EXPORTER_SRIOV_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.6
+EXPORTER_SRIOV_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.8
 EXPORTER_SRIOV_IMAGE_NAME ?= device-metrics-exporter-sriov
-RHEL_BASE_MIN_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.6
+RHEL_BASE_MIN_IMAGE ?= registry.access.redhat.com/ubi9/ubi-minimal:9.8
 AZURE_BASE_IMAGE ?= mcr.microsoft.com/azurelinux/base/core:3.0
 EXPORTER_AINIC_IMAGE_NAME ?= device-metrics-exporter-ainic
 
