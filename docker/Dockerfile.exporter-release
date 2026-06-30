@@ -1,3 +1,102 @@
+# Global build args used in FROM lines (must be declared before the first FROM so
+# the legacy/classic docker builder resolves them for every stage).
+ARG GPUAGENT_BUILDER_BASE_IMAGE=registry.access.redhat.com/ubi9/ubi:9.8
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
+
+# ---------------------------------------------------------------------------
+# Stage 1: build gpuagent from source (cloned, not vendored as a submodule).
+# Shallow-clones ROCm/gpu-agent at GPUAGENT_COMMIT + recursive shallow submodules,
+# injects the therock-tarball amdsmi (libamd_smi.so + amdsmi.h), applies repo
+# patches, and compiles. Runtime stage COPYs the resulting binaries.
+# See docs-internal/knowledge/plans/2026-06-16-gpuagent-source-build-in-docker.md
+# ---------------------------------------------------------------------------
+FROM ${GPUAGENT_BUILDER_BASE_IMAGE} AS gpuagent-build
+
+ARG GPUAGENT_REPO=https://github.com/ROCm/gpu-agent.git
+# full 40-char SHA required for shallow fetch-by-SHA
+ARG GPUAGENT_COMMIT=9af0bf5b7c3a0b66c5b13bf4fecd8fb17dc3f388
+# 0 = use pre-staged amdsmi from build context (default, no download)
+# 1 = re-extract amdsmi from the (~10GB) ROCm therock tarball
+ARG AMDSMI_FROM_TARBALL=0
+ARG ROCM_TARBALL_URL=
+ARG GO_VERSION=1.25.11
+ARG GO_SHA256=34f14304e856893f4ba30c2cacfe93906e9de7915c5f6aaaf3a81cdccd7ba30b
+
+# build toolchain (full ubi9 has dnf/yum) + go
+RUN dnf install -y --allowerasing \
+        git gcc gcc-c++ make automake libtool curl unzip which cmake autoconf \
+        glibc-static libstdc++-static wget tar gzip findutils \
+    && dnf clean all
+RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
+    && echo "${GO_SHA256}  go${GO_VERSION}.linux-amd64.tar.gz" | sha256sum -c - \
+    && tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz \
+    && rm -f go${GO_VERSION}.linux-amd64.tar.gz
+ENV PATH=/usr/local/go/bin:/root/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV LD_LIBRARY_PATH=/usr/local/lib
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+
+# gpuagent's build hardcodes ABS_DIR=/usr/src/github.com/ROCm/gpu-agent/sw, so the
+# source MUST live at this exact path for BLD_DIR (=ABS_DIR/nic/build) to resolve.
+ENV GPUAGENT_SRC=/usr/src/github.com/ROCm/gpu-agent
+
+# shallow clone of the pinned commit + recursive shallow submodules over HTTPS
+# (some third-party submodules use git@ URLs -> rewrite to https; no creds needed)
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+    && mkdir -p ${GPUAGENT_SRC} && cd ${GPUAGENT_SRC} && git init -q \
+    && git remote add origin ${GPUAGENT_REPO} \
+    && git fetch --depth 1 origin ${GPUAGENT_COMMIT} \
+    && git checkout -q FETCH_HEAD \
+    && git submodule update --init --recursive --depth 1
+
+# amdsmi for the gpuagent build: default from build context (pre-staged from
+# assets/), optionally refreshed from the therock tarball when AMDSMI_FROM_TARBALL=1
+COPY amdsmi.h /tmp/amdsmi/amdsmi.h
+COPY libamd_smi.so.* /tmp/amdsmi/
+RUN if [ "${AMDSMI_FROM_TARBALL}" = "1" ]; then \
+        echo "Refreshing amdsmi from tarball ${ROCM_TARBALL_URL}"; \
+        mkdir -p /tmp/smi && curl -fSL "${ROCM_TARBALL_URL}" \
+          | tar -xz -C /tmp/smi --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' && \
+        rm -rf /tmp/amdsmi && mkdir -p /tmp/amdsmi && \
+        cp -a /tmp/smi/lib/libamd_smi.so* /tmp/amdsmi/ && \
+        cp -a /tmp/smi/include/amd_smi/amdsmi.h /tmp/amdsmi/amdsmi.h ; \
+    fi
+
+# inject amdsmi into the cloned vendor tree (derive SO version dynamically, fix symlinks)
+RUN set -e; vendor=${GPUAGENT_SRC}/sw/nic/third-party/rocm/amd_smi_lib; \
+    so_full=$(basename $(ls /tmp/amdsmi/libamd_smi.so.*.*.* | head -1)); \
+    so_ver=${so_full#libamd_smi.so.}; so_maj=${so_ver%%.*}; \
+    echo "Injecting amdsmi SO ${so_ver} (major ${so_maj})"; \
+    rm -f $vendor/x86_64/lib/libamd_smi.so*; \
+    cp /tmp/amdsmi/libamd_smi.so.${so_ver} $vendor/x86_64/lib/; \
+    (cd $vendor/x86_64/lib && \
+        ln -sf libamd_smi.so.${so_ver} libamd_smi.so.${so_maj} && \
+        ln -sf libamd_smi.so.${so_maj} libamd_smi.so); \
+    mkdir -p $vendor/include/amd_smi && \
+    cp /tmp/amdsmi/amdsmi.h $vendor/include/amd_smi/amdsmi.h
+
+# apply repo patches (e.g. abseil static-archive link fix for the RHEL9 toolchain)
+COPY patch-gpuagent/ /patches/
+RUN if ls /patches/*.patch >/dev/null 2>&1; then \
+        for p in /patches/*.patch; do echo "applying $p"; git -C ${GPUAGENT_SRC} apply "$p"; done; \
+    fi
+
+# install the go protoc plugins (protoc-gen-gogofast etc.) into $GOPATH/bin,
+# build third-party libs, ranlib the static archives (they ship without a symbol
+# index, which the RHEL9 ld requires), then build the gpuagent binaries.
+# Strip the (unstripped, ~84MB) C++ gpuagent binaries to shed debug symbols
+# before they are COPYed into the runtime image (matches the old asset flow).
+RUN cd ${GPUAGENT_SRC} && make gopkglist \
+    && make -C sw/nic/gpuagent build-libs \
+    && find sw/nic/build -name '*.a' -exec ranlib {} \; \
+    && make -C sw/nic/gpuagent all \
+    && strip sw/nic/build/x86_64/sim/bin/gpuagent \
+             sw/nic/build/x86_64/sim/bin/gpuagent_gim \
+             sw/nic/build/x86_64/sim/bin/gpuagent_mock \
+             sw/nic/build/x86_64/sim/bin/gpuctl
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime image
+# ---------------------------------------------------------------------------
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
 
 FROM ${BASE_IMAGE}
@@ -54,12 +153,23 @@ RUN mkdir -p /home/amd/bin/ /home/amd/lib/ /home/amd/tools/
 
 # override built libraries
 ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
-ADD ./libamd_smi.so.26.4.0 /home/amd/lib/libamd_smi.so.26.4.0
-RUN cd /home/amd/lib/ && ln -sf libamd_smi.so.26.4.0 libamd_smi.so.26
+# stage the versioned amd_smi lib and derive both the SONAME-major symlink (so
+# gpuagent's DT_NEEDED=libamd_smi.so.<maj> resolves) and the unversioned
+# libamd_smi.so symlink (for a version-agnostic LD_PRELOAD). Version is derived
+# from the file, so a future amdsmi bump needs no edits here or in entrypoint.sh.
+ADD ./libamd_smi.so.* /home/amd/lib/
+RUN cd /home/amd/lib/ \
+    && real=$(ls libamd_smi.so.*.*.* | head -1) \
+    && maj=$(echo "${real#libamd_smi.so.}" | cut -d. -f1) \
+    && rm -f libamd_smi.so libamd_smi.so.${maj} \
+    && ln -sf "${real}" "libamd_smi.so.${maj}" \
+    && ln -sf "${real}" libamd_smi.so
 
 ADD ./rocpctl /home/amd/bin/rocpctl
-ADD ./gpuctl /home/amd/bin/gpuctl
-ADD ./gpuagent /home/amd/bin/gpuagent
+# gpuagent + gpuctl are built from source in the gpuagent-build stage
+COPY --from=gpuagent-build /usr/src/github.com/ROCm/gpu-agent/sw/nic/build/x86_64/sim/bin/gpuctl /home/amd/bin/gpuctl
+COPY --from=gpuagent-build /usr/src/github.com/ROCm/gpu-agent/sw/nic/build/x86_64/sim/bin/gpuagent /home/amd/bin/gpuagent
+RUN chmod +x /home/amd/bin/gpuctl /home/amd/bin/gpuagent
 ADD ./amd-metrics-exporter /home/amd/bin/server
 ADD ./metricsclient /home/amd/bin/metricsclient
 ADD ./amdgpuhealth /home/amd/bin/amdgpuhealth

@@ -31,19 +31,24 @@ fi
 if [ "$MOCK" == "1" ]; then
     tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
     ln -f $TOP_DIR/bin/rocpctl-mock $TOP_DIR/docker/rocpctl-mock
+    chmod +x $TOP_DIR/docker/gpuagent
 elif [ "$SRIOV" == "1" ]; then
     echo "Copying sriov gim driver gpuagent to docker"
     tar -xf $TOP_DIR/assets/gpuagent_sriov_static.bin.gz -C $TOP_DIR/docker/
-else
-    if [ -f $TOP_DIR/build/assets/gpuagent ]; then
-        echo "Copying newly built gpuagent to docker"
-        cp -vf $TOP_DIR/build/assets/gpuagent $TOP_DIR/docker/
-    else
-        echo "Copying prebuilt gpuagent to docker"
-        tar -xf $TOP_DIR/assets/gpuagent_static.bin.gz -C $TOP_DIR/docker/
+    chmod +x $TOP_DIR/docker/gpuagent
+fi
+# Note: the default (non-mock, non-sriov) release image builds gpuagent + gpuctl
+# from source in the Dockerfile's gpuagent-build stage; nothing to stage here.
+
+# Stage amdsmi (header + lib) and gpuagent patches for the gpuagent-build stage
+# (release path). The builder stage COPYs these from the docker/ build context.
+if [ "$MOCK" != "1" ] && [ "$SRIOV" != "1" ]; then
+    cp -vf $TOP_DIR/assets/amd_smi_lib/x86_64/$OS/lib/amdsmi.h $TOP_DIR/docker/amdsmi.h
+    rm -rf $TOP_DIR/docker/patch-gpuagent && mkdir -p $TOP_DIR/docker/patch-gpuagent
+    if [ -d $TOP_DIR/patch/gpuagent ]; then
+        cp -vf $TOP_DIR/patch/gpuagent/*.patch $TOP_DIR/docker/patch-gpuagent/ 2>/dev/null || true
     fi
 fi
-chmod +x $TOP_DIR/docker/gpuagent
 if [ "$SRIOV" == "1" ]; then
     echo "Copying sriov gim libs to docker"
     cp -vf $TOP_DIR/assets/gim_smi_lib/x86_64/$OS/lib/libgim_amd_smi.so $TOP_DIR/docker/
@@ -53,12 +58,18 @@ elif [ -d $TOP_DIR/build/assets/$OS/lib ]; then
     # copy built artifacts for the OS else revert to prebuilt files
     echo "Copying newly built amdsmi to docker"
     echo "Note : user to include the built libs on to the container"
-    cp -vf $TOP_DIR/build/assets/$OS/lib/libamd_smi.so.* $TOP_DIR/docker/
+    SMI_LIB_DIR=$TOP_DIR/build/assets/$OS/lib
 else
     # copy built artifacts for the OS else revert to prebuilt files
     echo "Copying pre built amdsmi to docker"
     echo "Note : user to include the built libs on to the container"
-    cp -vf $TOP_DIR/assets/amd_smi_lib/x86_64/$OS/lib/libamd_smi.so.* $TOP_DIR/docker/	
+    SMI_LIB_DIR=$TOP_DIR/assets/amd_smi_lib/x86_64/$OS/lib
+fi
+# stage ONLY the real versioned .so (libamd_smi.so.X.Y.Z); the Dockerfile derives
+# the SONAME-major and unversioned symlinks from it. Avoids ADDing a deref'd
+# duplicate of the .so.<maj> symlink into an image layer.
+if [ -n "$SMI_LIB_DIR" ]; then
+    cp -vfL $SMI_LIB_DIR/libamd_smi.so.*.*.* $TOP_DIR/docker/
 fi
 
 if [ "$SRIOV" != "1" ]; then
@@ -75,7 +86,9 @@ if [ "$SRIOV" != "1" ]; then
 
     chmod +x $TOP_DIR/docker/rocpctl
 fi
-ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
+if [ "$MOCK" == "1" ] || [ "$SRIOV" == "1" ]; then
+    ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
+fi
 ln -f $TOP_DIR/bin/amd-metrics-exporter $TOP_DIR/docker/amd-metrics-exporter
 ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient
 ln -f $TOP_DIR/bin/amdgpuhealth $TOP_DIR/docker/amdgpuhealth

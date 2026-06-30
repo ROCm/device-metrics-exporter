@@ -15,6 +15,10 @@ docker:
 	@TOP_DIR=$(TOP_DIR) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		$(if $(GPUAGENT_BUILDER_BASE_IMAGE),--build-arg GPUAGENT_BUILDER_BASE_IMAGE=$(GPUAGENT_BUILDER_BASE_IMAGE)) \
+		$(if $(GPUAGENT_REPO),--build-arg GPUAGENT_REPO=$(GPUAGENT_REPO)) \
+		$(if $(GPUAGENT_COMMIT),--build-arg GPUAGENT_COMMIT=$(GPUAGENT_COMMIT)) \
+		--build-arg AMDSMI_FROM_TARBALL=$(if $(AMDSMI_FROM_TARBALL),$(AMDSMI_FROM_TARBALL),0) \
 		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
 		-t $(EXPORTER_IMAGE) \
 		. -f Dockerfile.exporter-release
@@ -36,6 +40,10 @@ docker-cicd:
 	@TOP_DIR=$(TOP_DIR) OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
+		$(if $(GPUAGENT_BUILDER_BASE_IMAGE),--build-arg GPUAGENT_BUILDER_BASE_IMAGE=$(GPUAGENT_BUILDER_BASE_IMAGE)) \
+		$(if $(GPUAGENT_REPO),--build-arg GPUAGENT_REPO=$(GPUAGENT_REPO)) \
+		$(if $(GPUAGENT_COMMIT),--build-arg GPUAGENT_COMMIT=$(GPUAGENT_COMMIT)) \
+		--build-arg AMDSMI_FROM_TARBALL=$(if $(AMDSMI_FROM_TARBALL),$(AMDSMI_FROM_TARBALL),0) \
 		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
 		-t $(EXPORTER_IMAGE) \
 		--label HOURLY_TAG=$(HOURLY_TAG_LABEL) \

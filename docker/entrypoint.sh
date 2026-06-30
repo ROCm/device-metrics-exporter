@@ -31,7 +31,9 @@ for arg in "$@"; do
 done
 
 if [ "$MONITOR_GPU" == "true" ]; then
-  LD_PRELOAD=/home/amd/lib/libamd_smi.so.26 /home/amd/bin/gpuagent -s /var/run/gpuagent.sock &
+  # version-agnostic: /home/amd/lib/libamd_smi.so is an unversioned symlink to the
+  # shipped libamd_smi.so.<ver>, so an amdsmi version bump needs no change here.
+  LD_PRELOAD=/home/amd/lib/libamd_smi.so /home/amd/bin/gpuagent -s /var/run/gpuagent.sock &
 
   # sleep before starting exporter
   sleep 10

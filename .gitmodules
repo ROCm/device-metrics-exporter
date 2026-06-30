@@ -1,7 +1,3 @@
-[submodule "gpuagent"]
-	path = gpuagent
-	url = https://github.com/ROCm/gpu-agent.git
-    branch = main
 [submodule "libgimsmi"]
 	path = libgimsmi
 	url = git@github.com:amd/MxGPU-Virtualization.git

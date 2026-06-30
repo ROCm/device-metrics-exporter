@@ -55,59 +55,52 @@ amdsmi-compile-azure:
 	${MAKE} amdsmi-build-azure
 	OS=AZURE3 ${MAKE} amdsmi-compile
 
-# compiles the gpuagent from source
-# gpuagent is a static go binary which is agnostic of platform, so we can
-# build it once with any of the prebuilt libamdsmi library file we support
-# RHEL9 being default. workspace built binary is being used if exists else revert to
-# prebuilt one from repo
-.PHONY: gpuagent-compile
-gpuagent-compile:
-	@docker run --rm -it --privileged \
-		-e "USER_NAME=$(shell whoami)" \
-		-e "USER_UID=$(shell id -u)" \
-		-e "USER_GID=$(shell id -g)" \
-		--name gpuagentbuild -v $(GPUAGENT_SRC_DIR):$(GPUAGENT_CONTAINER_WORKDIR) \
-		-w $(GPUAGENT_CONTAINER_WORKDIR) $(GPUAGENT_BUILDER_IMAGE)
-	@cd $(TOP_DIR)/gpuagent && git checkout sw/nic/third-party/rocm/amd_smi_lib
+# NOTE: gpuagent is no longer a git submodule. It is cloned and built from source
+# inside the exporter docker build (docker/Dockerfile.exporter-release, stage
+# `gpuagent-build`). The former host-side targets gpuagent-compile /
+# gpuagent-build-only / gpuagent-asset-copy / amdsmi-inject-gpuagent and the
+# `make gpuagent-build` builder-image target have been retired. See
+# docs-internal/knowledge/plans/2026-06-16-gpuagent-source-build-in-docker.md
 
-.PHONY: gpuagent-compile-full
-gpuagent-compile-full: 
-	TOP_DIR=$(TOP_DIR) OS=RHEL9 $(ASSET_COPY_SCRIPT) || true
-	${MAKE} gpuagent-compile
-	@if [ $$? -ne 0 ]; then \
-		echo "gpuagent-compile failed"; \
-		exit 1; \
+# ---------------------------------------------------------------------------
+# amdsmi-from-tarball: source libamd_smi.so + amdsmi.h from the ROCm
+# therock tarball (single source of truth for link-time and run-time amdsmi)
+# and build the exporter docker image against it. See
+# docs-internal/knowledge/plans/2026-06-15-docker-from-prebuilt-amdsmi.md
+# ---------------------------------------------------------------------------
+
+# selectively extract just amdsmi.h + libamd_smi.so* from the (10GB+) therock
+# tarball into AMDSMI_TARBALL_STAGE. Cached: skips the stream if the staging
+# dir already holds the lib + header unless AMDSMI_TARBALL_FORCE is set.
+.PHONY: amdsmi-from-tarball
+amdsmi-from-tarball:
+	@if [ -z "$(AMDSMI_TARBALL_FORCE)" ] && \
+	    ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.* >/dev/null 2>&1 && \
+	    [ -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
+		echo "amdsmi already staged at $(AMDSMI_TARBALL_STAGE) (set AMDSMI_TARBALL_FORCE=1 to re-extract)"; \
 	else \
-		echo "Copying gpuagent to assets"; \
-		mkdir -p ${TOP_DIR}/build/assets/ || true; \\
-		cp -vf $(GPUAGENT_OUT_DIR)/gpuagent $(TOP_DIR)/build/assets/gpuagent; \
-		echo "file copied successfully to $(TOP_DIR)/build/assets/gpuagent"; \
+		echo "Extracting amdsmi.h + libamd_smi.so* from $(ROCM_TARBALL_URL)"; \
+		mkdir -p $(AMDSMI_TARBALL_STAGE) && \
+		curl -fSL "$(ROCM_TARBALL_URL)" | \
+			tar -xz -C $(AMDSMI_TARBALL_STAGE) --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*'; \
 	fi
+	@if ! ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.* >/dev/null 2>&1 || \
+	    [ ! -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
+		echo "ERROR: amdsmi.h / libamd_smi.so not found in tarball $(ROCM_TARBALL_URL)"; \
+		exit 1; \
+	fi
+	@echo "amdsmi staged: $$(ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.*)"
 
-.PHONY: gpuagent-asset-copy
-gpuagent-asset-copy:
-	@echo "prereq gpuagent-compile is finished with all binaries created"
-	@for file in gpuagent gpuagent_gim gpuagent_mock gpuctl; do \
-		if [ -f "$(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/$$file" ]; then \
-			echo "Found: $$file"; \
-		else \
-			echo "Missing: $$file"; \
-			exit 1; \
-		fi \
-	done
-	@for file in gpuagent gpuagent_gim gpuagent_mock; do \
-		cp -vf $(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/$$file ${ASSETS_PATH}/gpuagent && \
-		strip ${ASSETS_PATH}/gpuagent && \
-		echo "source file $$file" && \
-		tar_file=$$(echo $$file | sed 's/gpuagent_gim/gpuagent_sriov_static/' | sed 's/gpuagent$$/gpuagent_static/').bin.gz && \
-		cd ${ASSETS_PATH} && tar czf $$tar_file gpuagent && chmod +x $$tar_file gpuagent && \
-		echo "Created tar file: ${ASSETS_PATH}/$$tar_file"; \
-	done
-	@rm -f ${ASSETS_PATH}/gpuagent || true
-	@cp -vf $(GPUAGENT_SRC_DIR)/sw/nic/build/x86_64/sim/bin/gpuctl ${ASSETS_PATH}/gpuctl.gobin
-	@strip ${ASSETS_PATH}/gpuctl.gobin
-	@echo "gpuagent assets copied successfully"
-	@cd ${TOP_DIR}
+# sync the same tarball-staged amdsmi into the committed assets tree so
+# build_prep_docker.sh stages the identical .so the gpuagent linked against.
+.PHONY: amdsmi-sync-assets
+amdsmi-sync-assets: amdsmi-from-tarball
+	@set -e; \
+	dest=$(TOP_DIR)/assets/amd_smi_lib/x86_64/RHEL9/lib ; \
+	mkdir -p $$dest ; \
+	cp -av $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so* $$dest/ ; \
+	cp -av $(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h $$dest/amdsmi.h ; \
+	echo "amdsmi synced to $$dest"
 
 .PHONY: rocprofiler-compile
 rocprofiler-compile:
