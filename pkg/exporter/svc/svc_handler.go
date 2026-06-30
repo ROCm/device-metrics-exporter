@@ -48,6 +48,7 @@ type SvcHandler struct {
 	enableDebugAPI       bool
 	serverWg             sync.WaitGroup
 	errChan              chan error
+	grpcMu               sync.Mutex // guards grpc against concurrent Stop/Run shutdown
 }
 
 // SvcHandlerOption set desired option
@@ -112,12 +113,19 @@ func (s *SvcHandler) RegisterIFOEHealthClient(client nicmetricsserver.HealthInte
 	return s.ifoeHealthSvc.RegisterHealthClient(client)
 }
 
-// Stop stops the gRPC server.
+// Stop stops the gRPC server. It is safe to call concurrently and more than
+// once: the grpc handle is captured and cleared under grpcMu so a second
+// caller (e.g. a SIGTERM arriving after a prior shutdown) never dereferences
+// a nil server.
 func (s *SvcHandler) Stop() {
-	if s.grpc != nil {
+	s.grpcMu.Lock()
+	grpcServer := s.grpc
+	s.grpc = nil
+	s.grpcMu.Unlock()
+
+	if grpcServer != nil {
 		logger.Log.Printf("stopping Health gRPC server")
-		s.grpc.GracefulStop()
-		s.grpc = nil
+		grpcServer.GracefulStop()
 	}
 }
 
@@ -130,18 +138,21 @@ func (s *SvcHandler) Run() error {
 		}
 	}
 
+	s.grpcMu.Lock()
 	if s.grpc == nil {
 		logger.Log.Printf("creating new gRPC server")
 		s.grpc = grpc.NewServer()
 	}
+	grpcServer := s.grpc // capture under the mutex; serving goroutines must not read s.grpc directly
+	s.grpcMu.Unlock()
 
 	// register all the services with the gRPC server
 	// all the services should be registered before starting the server
 	if s.enableGPUMonitoring {
-		metricssvc.RegisterMetricsServiceServer(s.grpc, s.gpuHealthSvc)
+		metricssvc.RegisterMetricsServiceServer(grpcServer, s.gpuHealthSvc)
 	}
 	if s.enableNICMonitoring {
-		nicmetricssvc.RegisterMetricsServiceServer(s.grpc, s.nicHealthSvc)
+		nicmetricssvc.RegisterMetricsServiceServer(grpcServer, s.nicHealthSvc)
 	}
 
 	if s.enableGPUMonitoring {
@@ -151,7 +162,7 @@ func (s *SvcHandler) Run() error {
 			return fmt.Errorf("failed to listen on socket %s: %v", globals.MetricsSocketPath, err)
 		}
 		s.serverWg.Add(1)
-		go s.startAndServeGRPC(gpuLis)
+		go s.startAndServeGRPC(grpcServer, gpuLis)
 	}
 
 	// start listening on the socket for NIC metrics if enabled
@@ -161,7 +172,7 @@ func (s *SvcHandler) Run() error {
 			return fmt.Errorf("failed to listen on socket %s: %v", globals.NICMetricsSocketPath, err)
 		}
 		s.serverWg.Add(1)
-		go s.startAndServeGRPC(nicLis)
+		go s.startAndServeGRPC(grpcServer, nicLis)
 	}
 
 	// Wait for any server to report an error, or for a shutdown signal
@@ -169,14 +180,14 @@ func (s *SvcHandler) Run() error {
 	case err := <-s.errChan:
 		// An error occurred in one of the serving goroutines
 		logger.Log.Printf("gRPC server encountered an error: %v. Initiating graceful shutdown...", err)
-		s.grpc.GracefulStop() // Gracefully stop all serving goroutines
-		s.serverWg.Wait()     // Wait for all goroutines to finish
+		s.Stop()          // guarded GracefulStop, safe if already stopped
+		s.serverWg.Wait() // Wait for all goroutines to finish
 		return err
 	case <-s.setupSignalHandler():
 		// Received a termination signal (e.g., Ctrl+C, SIGTERM)
 		logger.Log.Println("received termination signal. Initiating graceful shutdown...")
-		s.grpc.GracefulStop() // Gracefully stop all serving goroutines
-		s.serverWg.Wait()     // Wait for all goroutines to finish
+		s.Stop()          // guarded GracefulStop, safe if already stopped
+		s.serverWg.Wait() // Wait for all goroutines to finish
 		logger.Log.Println("all gRPC servers stopped gracefully.")
 		return nil
 	}
@@ -216,9 +227,9 @@ func (s *SvcHandler) setupSignalHandler() chan os.Signal {
 }
 
 // startAndServeGRPC starts a gRPC server on a given listener.
-func (s *SvcHandler) startAndServeGRPC(lis net.Listener) {
+func (s *SvcHandler) startAndServeGRPC(grpcServer *grpc.Server, lis net.Listener) {
 	defer s.serverWg.Done()
-	if err := s.grpc.Serve(lis); err != nil {
+	if err := grpcServer.Serve(lis); err != nil {
 		// Send error to the channel, but only if the channel is not full
 		select {
 		case s.errChan <- fmt.Errorf("failed to serve on: %v, err: %v", lis.Addr().String(), err):
