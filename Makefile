@@ -25,7 +25,7 @@ HELM_EXPORTER_IMAGE_TAG ?= $(PROJECT_VERSION)
 # Test runner container environment
 TESTRUNNER_IMAGE_TAG ?= latest
 TESTRUNNER_IMAGE_NAME ?= test-runner
-TESTRUNNER_RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.6
+TESTRUNNER_RHEL_BASE_IMAGE ?= registry.access.redhat.com/ubi9/ubi:9.8
 
 # External repo builders
 GPUAGENT_BASE_IMAGE ?= ubuntu:22.04
@@ -125,6 +125,7 @@ GPUAGENT_COMMIT ?= 9af0bf5b7c3a0b66c5b13bf4fecd8fb17dc3f388
 
 ROCM_VERSION ?= 7.14.0rc0
 ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-7.14.0rc0.tar.gz
+RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.4.24-454-Linux.tar.gz
 ROCM_APT_VERSION ?= .apt_7.2.1
 AINIC_VERSION ?= 1.117.5-a-56
 
@@ -155,6 +156,7 @@ export AINIC_VERSION
 export ROCM_VERSION
 export ROCM_APT_VERSION
 export ROCM_TARBALL_URL
+export RVS_TARBALL_URL
 
 ASSETS_PATH :=${TOP_DIR}/assets
 # 22.04 - jammy
@@ -444,12 +446,17 @@ docker-mock: gen
 
 .PHONY: docker-test-runner
 docker-test-runner: gen-test-runner amdtestrunner
-	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker
+	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker \
+		ROCM_VERSION=$(ROCM_VERSION) \
+		ROCM_TARBALL_URL=$(ROCM_TARBALL_URL) \
+		RVS_TARBALL_URL=$(RVS_TARBALL_URL)
 
-.PHOHY: docker-test-runner-cicd
+.PHONY: docker-test-runner-cicd
 docker-test-runner-cicd: gen-test-runner amdtestrunner
-	echo "Building test runner cicd docker for publish"
-	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-cicd
+	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-cicd \
+		ROCM_VERSION=$(ROCM_VERSION) \
+		ROCM_TARBALL_URL=$(ROCM_TARBALL_URL) \
+		RVS_TARBALL_URL=$(RVS_TARBALL_URL)
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-save
 
 .PHONY: docker-azure

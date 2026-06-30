@@ -89,6 +89,13 @@ const (
 	MI350XAlias = "gfx950-dlc"
 	MI355XAlias = "gfx950"
 
+	// MI350P ships in two TDP variants with separate RVS recipe folders.
+	// When all GPUs on the node report a socket power limit >= this threshold,
+	// the 600W recipe folder is selected; otherwise the 450W folder is used.
+	MI350PHighPowerFolder    = "MI350P-600W"
+	MI350PLowPowerFolder     = "MI350P-450W"
+	MI350PHighPowerThreshold = 600 // watts
+
 	EventSourceComponentName = "amd-test-runner"
 )
 

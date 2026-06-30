@@ -293,6 +293,108 @@ func getGPUModelTestRecipeDir(amdSMIPath string) (string, error) {
 	return parseAMDSMIStaticOutput(output)
 }
 
+// getMI350PRVSFolder reads the socket power limit for all GPUs via amd-smi and
+// returns the appropriate RVS recipe folder for MI350P:
+//   - MI350P-600W if every GPU's socket_power_limit >= MI350PHighPowerThreshold
+//   - MI350P-450W otherwise (including on any amd-smi error, as a safe fallback)
+func getMI350PRVSFolder(amdSMIPath string) string {
+	cmd := exec.Command(amdSMIPath, "static", "--limit", "--json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Log.Printf("MI350P: failed to run amd-smi static --limit --json: %v, falling back to %s", err, globals.MI350PLowPowerFolder)
+		return globals.MI350PLowPowerFolder
+	}
+	allHigh := parseAMDSMILimitOutput(output)
+	if allHigh {
+		logger.Log.Printf("MI350P: all GPUs at >=%dW socket power limit, selecting %s", globals.MI350PHighPowerThreshold, globals.MI350PHighPowerFolder)
+		return globals.MI350PHighPowerFolder
+	}
+	// Only log the low-power selection when parseAMDSMILimitOutput succeeded (no fallback
+	// warning was already emitted inside it for the normal below-threshold case).
+	logger.Log.Printf("MI350P: not all GPUs at >=%dW socket power limit, selecting %s", globals.MI350PHighPowerThreshold, globals.MI350PLowPowerFolder)
+	return globals.MI350PLowPowerFolder
+}
+
+// parseAMDSMILimitOutput parses the JSON output of `amd-smi static --limit --json`
+// and returns true only if every GPU's PPT0 socket_power_limit value (in watts) is
+// >= globals.MI350PHighPowerThreshold.
+// On malformed JSON or missing/empty gpu_data it logs a warning and returns false
+// so the caller always falls back to the lower-power MI350P profile.
+func parseAMDSMILimitOutput(output []byte) bool {
+	var result map[string]interface{}
+	if err := json.Unmarshal(output, &result); err != nil {
+		logger.Log.Printf("MI350P: malformed amd-smi limit JSON, falling back to %s: %v", globals.MI350PLowPowerFolder, err)
+		return false
+	}
+
+	gpuDataIntf, ok := result["gpu_data"]
+	if !ok {
+		logger.Log.Printf("MI350P: gpu_data key not found in amd-smi limit output, falling back to %s", globals.MI350PLowPowerFolder)
+		return false
+	}
+	gpuDataSlice, ok := gpuDataIntf.([]interface{})
+	if !ok || len(gpuDataSlice) == 0 {
+		logger.Log.Printf("MI350P: gpu_data is empty or not a list in amd-smi limit output, falling back to %s", globals.MI350PLowPowerFolder)
+		return false
+	}
+
+	for _, entry := range gpuDataSlice {
+		gpu, ok := entry.(map[string]interface{})
+		if !ok {
+			logger.Log.Printf("MI350P: unexpected gpu_data entry type %T, falling back to %s", entry, globals.MI350PLowPowerFolder)
+			return false
+		}
+		limitWatts, err := extractSocketPowerLimitWatts(gpu)
+		if err != nil {
+			logger.Log.Printf("MI350P: GPU %v: failed to read socket_power_limit (%v), falling back to %s", gpu["gpu"], err, globals.MI350PLowPowerFolder)
+			return false
+		}
+		if limitWatts < globals.MI350PHighPowerThreshold {
+			return false
+		}
+	}
+	return true
+}
+
+// extractSocketPowerLimitWatts digs into one GPU's JSON object and returns the
+// PPT0 socket_power_limit value as an integer number of watts.
+func extractSocketPowerLimitWatts(gpu map[string]interface{}) (int, error) {
+	limitIntf, ok := gpu["limit"]
+	if !ok {
+		return 0, fmt.Errorf("limit key not found")
+	}
+	limitMap, ok := limitIntf.(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("limit is not a map")
+	}
+	ppt0Intf, ok := limitMap["ppt0"]
+	if !ok {
+		return 0, fmt.Errorf("ppt0 key not found in limit")
+	}
+	ppt0, ok := ppt0Intf.(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("ppt0 is not a map")
+	}
+	splIntf, ok := ppt0["socket_power_limit"]
+	if !ok {
+		return 0, fmt.Errorf("socket_power_limit key not found in ppt0")
+	}
+	splMap, ok := splIntf.(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("socket_power_limit is not a map")
+	}
+	valueIntf, ok := splMap["value"]
+	if !ok {
+		return 0, fmt.Errorf("value key not found in socket_power_limit")
+	}
+	// JSON numbers unmarshal as float64
+	valueFloat, ok := valueIntf.(float64)
+	if !ok {
+		return 0, fmt.Errorf("socket_power_limit value is not a number: %T", valueIntf)
+	}
+	return int(valueFloat), nil
+}
+
 func parseAMDSMIStaticOutput(output []byte) (string, error) {
 	// Parse the JSON response
 	var result map[string]interface{}

@@ -44,3 +44,4 @@ CLAUDE.local.md
 docs-internal/knowledge/_pending/
 # gpuagent patch staging dir — generated at build time by docker/build_prep_docker.sh from patch/gpuagent/
 docker/patch-gpuagent/
+docs/superpowers/

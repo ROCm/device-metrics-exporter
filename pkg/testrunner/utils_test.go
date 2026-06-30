@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	testrunnerGen "github.com/ROCm/device-metrics-exporter/pkg/testrunner/gen/testrunner"
 )
 
@@ -432,6 +433,99 @@ func TestParseAMDSMIStaticOutput(t *testing.T) {
 	expectedDeviceID := "MI210"
 	if deviceID != expectedDeviceID {
 		t.Errorf("Expected Device ID %s, got %s", expectedDeviceID, deviceID)
+	}
+}
+
+// limitJSON builds a minimal amd-smi static --limit --json payload with the given
+// per-GPU socket_power_limit values (in watts).
+func limitJSON(wattsPerGPU []int) []byte {
+	type powerVal struct {
+		Value int    `json:"value"`
+		Unit  string `json:"unit"`
+	}
+	type ppt0 struct {
+		SocketPowerLimit powerVal `json:"socket_power_limit"`
+	}
+	type limitBlock struct {
+		PPT0 ppt0 `json:"ppt0"`
+	}
+	type gpuEntry struct {
+		GPU   int        `json:"gpu"`
+		Limit limitBlock `json:"limit"`
+	}
+	type payload struct {
+		GPUData []gpuEntry `json:"gpu_data"`
+	}
+	p := payload{}
+	for i, w := range wattsPerGPU {
+		p.GPUData = append(p.GPUData, gpuEntry{
+			GPU: i,
+			Limit: limitBlock{PPT0: ppt0{
+				SocketPowerLimit: powerVal{Value: w, Unit: "W"},
+			}},
+		})
+	}
+	b, _ := json.Marshal(p)
+	return b
+}
+
+func TestParseAMDSMILimitOutput(t *testing.T) {
+	logger.Init(false)
+	tests := []struct {
+		name     string
+		watts    []int
+		wantHigh bool
+	}{
+		{
+			name:     "all at 600W → high",
+			watts:    []int{600, 600, 600},
+			wantHigh: true,
+		},
+		{
+			name:     "all above threshold → high",
+			watts:    []int{650, 650},
+			wantHigh: true,
+		},
+		{
+			name:     "one GPU at 450W → low",
+			watts:    []int{600, 450, 600},
+			wantHigh: false,
+		},
+		{
+			name:     "all at 450W → low",
+			watts:    []int{450, 450, 450},
+			wantHigh: false,
+		},
+		{
+			name:     "single GPU at 600W → high",
+			watts:    []int{600},
+			wantHigh: true,
+		},
+		{
+			name:     "empty gpu_data → fallback to low",
+			watts:    []int{},
+			wantHigh: false,
+		},
+		{
+			name:     "malformed JSON → fallback to low",
+			watts:    nil, // special: supply raw bad JSON below
+			wantHigh: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var data []byte
+			if tc.watts == nil {
+				data = []byte(`not json`)
+			} else {
+				data = limitJSON(tc.watts)
+			}
+			got := parseAMDSMILimitOutput(data)
+			if got != tc.wantHigh {
+				t.Errorf("got allHigh=%v, want %v", got, tc.wantHigh)
+			}
+		})
 	}
 }
 

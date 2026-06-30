@@ -340,6 +340,11 @@ func (tr *TestRunner) validateCfg() {
 					logger.Log.Printf("failed to find recipe folder for MI355X, trying gfx950 alias")
 					gpuModelSubDir = globals.MI355XAlias
 				}
+			case "MI350P":
+				// MI350P ships in 450W and 600W TDP variants with separate RVS recipe folders.
+				// Read the socket power limit from amd-smi to pick the right one.
+				// Falls back to the lower-power folder on any error.
+				gpuModelSubDir = getMI350PRVSFolder(tr.amdSMIPath)
 			}
 			// Check if the final GPU model folder exists (with case-insensitive matching)
 			if foundFolder := findGPUModelFolder(tr.rvsTestCaseDir, gpuModelSubDir); foundFolder != "" {
@@ -407,6 +412,12 @@ func (tr *TestRunner) initLogger() {
 	logger.SetLogFile(globals.DefaultRunnerLogSubPath)
 	logger.SetLogPrefix(globals.LogPrefix)
 	logger.Init(utils.IsKubernetes())
+	// Tee log output to stdout so docker logs / kubectl logs works.
+	// Skip if logrus already writes to stdout (fallback case) to avoid duplicate lines.
+	// Only the test runner binary does this; the exporter is unaffected.
+	if logger.Log != nil && !utils.IsKubernetes() && logger.Log.Out != os.Stdout {
+		logger.Log.SetOutput(io.MultiWriter(os.Stdout, logger.Log.Out))
+	}
 }
 
 // readCfg try to read user provided customized test runner config from given file
