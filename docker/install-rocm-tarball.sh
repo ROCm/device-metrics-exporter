@@ -65,7 +65,7 @@ ROCM_DIR="/opt/rocm-${ROCM_VERSION}"
 
 echo "=== Pruning unreferenced libs from ${ROCM_DIR} (profile=${PROFILE}) ==="
 KEEP_DIR=$(mktemp -d)
-mkdir -p "${KEEP_DIR}/lib" "${KEEP_DIR}/bin" "${KEEP_DIR}/libexec" "${KEEP_DIR}/share"
+mkdir -p "${KEEP_DIR}/lib" "${KEEP_DIR}/bin" "${KEEP_DIR}/libexec" "${KEEP_DIR}/share" "${KEEP_DIR}/.kpack"
 
 # ── Lib prune list — common to both profiles ──────────────────────────────────
 COMMON_PATTERNS=(
@@ -146,6 +146,16 @@ for lib_dir in rocblas hipblaslt; do
         fi
     fi
 done
+
+# .kpack runtime kernel archives (testrunner only)
+# rocblas and hipblaslt use librocm_kpack.so to extract the correct GPU kernel
+# variant at runtime from these per-arch packed archives. Without the .kpack files
+# minihpl and other GEMM tools fail with hipErrorInvalidKernelFile.
+# The multiarch tarball contains one .kpack per supported GPU arch (gfx950, gfx942, etc.)
+if [ "${PROFILE}" = "testrunner" ] && [ -d "${ROCM_DIR}/.kpack" ]; then
+    mkdir -p "${KEEP_DIR}/.kpack"
+    cp -a "${ROCM_DIR}/.kpack/." "${KEEP_DIR}/.kpack/"
+fi
 
 # Binaries and share
 [ -f "${ROCM_DIR}/bin/amd-smi" ]   && cp -a "${ROCM_DIR}/bin/amd-smi"   "${KEEP_DIR}/bin/" || true
