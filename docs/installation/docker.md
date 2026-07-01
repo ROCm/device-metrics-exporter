@@ -23,7 +23,7 @@ docker run -d \
   -v /sys:/sys:ro \
   -p 5000:5000 \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.5.0
+  rocm/device-metrics-exporter:v1.5.1
 ```
 
 - Confirm metrics are accessible:

@@ -1,5 +1,47 @@
 # Release Notes
 
+## v1.5.1
+
+- **New Platform Support**
+  - MI350P and Radeon AI platforms are now supported
+
+- **Helm Chart: Configurable Exporter Arguments**
+  - The Helm chart now supports passing arbitrary arguments to the exporter at deploy time
+  - New deployment options available:
+    - `--exit-on-rocpctl-error`: Exit instead of auto-disabling profiler metrics after consecutive errors
+    - `--exit-on-agent-down`: Exit when the GPU agent is unreachable or reports a GPU error. **Note:** affects health monitoring continuity during pod restart window
+
+  > The image ships with recommended defaults built in; Helm chart args allow selective overrides per deployment environment.
+
+- **Kubernetes Event on Profiler Auto-Disable**
+  - The exporter now emits a Kubernetes event when it automatically disables profiler metrics as part of failure mitigation, making the state change visible without requiring log inspection
+
+### Issues Fixed
+
+- **CPER-based health detection enabled for MI350P and Radeon AI**
+  - Added null pointer and out-of-bounds guards in the CPER code path; CPER-based health detection is now functional on MI350P and Radeon AI platforms
+
+- **`GPU_AFID_ERRORS` re-enabled for MI350P and Radeon AI**
+  - The `GPU_AFID_ERRORS` field is now functional on MI350P and Radeon AI platforms
+
+- **GPU Agent no longer holds `/dev/kfd` open for its lifetime**
+  - GPU Agent previously kept `/dev/kfd` open permanently, blocking GPU partition changes and driver upgrades without a full service restart. The file descriptor is now released when not in use
+
+- **Fixed immediate exit with "too many open files"**
+  - The exporter no longer exits immediately at startup due to hitting the open file descriptor limit under certain deployment configurations
+
+### Known Issues
+
+- **`gfx_activity` idle uptick on Radeon AI**
+  - On Radeon AI platforms, `gfx_activity` may show a spurious uptick when
+    the GPU is idle. This is a cosmetic issue and does not indicate actual
+    GPU activity
+
+### Platform Support
+
+ROCm 6.2 or later, MI2xx, MI3xx
+ROCm 7.13 or later, MI350P, Radeon AI
+
 ## v1.5.1-beta
 
 - **New Platform Support**
