@@ -84,13 +84,13 @@ Step 3: Install the APT Prerequisites for Metrics Exporter
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.0 jammy main
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.1 jammy main
 
       .. tab-item:: ubuntu 24.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.0 noble main
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.1 noble main
 
 
 3. Update the package list again:
@@ -194,7 +194,7 @@ To change the socket path:
 5. Restart both services:
 
    .. code-block:: bash
-
+      
       sudo systemctl restart gpuagent.service
       sudo systemctl restart amd-metrics-exporter.service
       sudo systemctl daemon-reload

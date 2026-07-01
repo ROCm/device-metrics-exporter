@@ -152,7 +152,7 @@ Deploys DME via its standalone Helm chart and verifies metrics, health, and labe
 bash test/k8s-e2e/run-e2e.sh --dme \
   --kubeconfig /path/to/kubeconfig \
   --registry rocm/device-metrics-exporter \
-  --imagetag v1.5.0-beta.0
+  --imagetag v1.5.1
 ```
 
 ### Running with make (inside the build container)
@@ -162,7 +162,7 @@ From inside the `test/k8s-e2e/` directory, or via the top-level Makefile with `T
 ```bash
 # DME standalone
 make all TOP_DIR=$(pwd) KUBECONFIG=/path/to/kubeconfig \
-  DOCKER_REGISTRY=rocm EXPORTER_IMAGE_NAME=device-metrics-exporter EXPORTER_IMAGE_TAG=v1.5.0-beta.0
+  DOCKER_REGISTRY=rocm EXPORTER_IMAGE_NAME=device-metrics-exporter EXPORTER_IMAGE_TAG=v1.5.1
 ```
 
 ### Running with go test directly
@@ -176,7 +176,7 @@ cd test/k8s-e2e
 go test -mod=vendor -v -failfast \
   -helmchart ../../helm-charts \
   -registry rocm/device-metrics-exporter \
-  -imagetag v1.5.0-beta.0 \
+  -imagetag v1.5.1 \
   -kubeconfig /path/to/kubeconfig \
   -test.timeout 30m
 ```

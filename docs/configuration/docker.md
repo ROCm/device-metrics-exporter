@@ -16,7 +16,7 @@ docker run -d \
   -p 5000:5000 \
   -v ./config:/etc/metrics \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.5.0
+  rocm/device-metrics-exporter:v1.5.1
 ```
 
 **_NOTE:_** If profiler metrics (`gpu_prof_*`) are enabled in the config, add
@@ -33,7 +33,7 @@ docker run -d \
   -v ./config:/etc/metrics \
   --privileged \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.5.0
+  rocm/device-metrics-exporter:v1.5.1
 ```
 
 The exporter polls for configuration changes every minute, so updates take effect without container restarts.
