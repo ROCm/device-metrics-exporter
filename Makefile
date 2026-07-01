@@ -9,6 +9,9 @@ DOCKER_BUILDER_TAG ?= v1.10
 BUILD_BASE_IMAGE ?= ubuntu:22.04
 BUILD_CONTAINER ?= $(DOCKER_REGISTRY)/device-metrics-exporter-build:$(DOCKER_BUILDER_TAG)
 
+# In CI environments (e.g. GitHub Actions, cron jobs) there is no TTY, so omit -it flags.
+DOCKER_IT_FLAGS := $(if $(CI),,-it)
+
 # Exporter container environment
 EXPORTER_IMAGE_TAG ?= latest
 EXPORTER_IMAGE_NAME ?= device-metrics-exporter
@@ -257,7 +260,7 @@ default: build-dev-container ## Quick start to build everything from docker shel
 
 .PHONY: docker-shell
 docker-shell:
-	docker run --rm -it --privileged \
+	docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		--name ${CONTAINER_NAME} \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
@@ -272,7 +275,7 @@ docker-shell:
 
 .PHONY: docker-compile
 docker-compile:
-	docker run --rm -it --privileged \
+	docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		--name ${CONTAINER_NAME} \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
