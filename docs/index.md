@@ -24,8 +24,8 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 
 - Ubuntu 22.04, 24.04
 - Docker (or compatible container runtime)
-- ROCm 6.2.0 or later
-- MI2xx or MI3xx platform
+- MI2xx or MI3xx platform: ROCm 6.2.0 or later
+- MI350P or Radeon AI platform: ROCm 7.13 or later
 
 ### Available Metrics
 
