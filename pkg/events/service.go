@@ -38,6 +38,7 @@ var syncEmitTimeout = 5 * time.Second
 // errCh is non-nil for sync emits; the dispatcher returns the delivery error on it.
 type eventEnvelope struct {
 	ctx    context.Context
+	isInfo bool
 	reason EventReason
 	msg    string
 	errCh  chan error
@@ -46,6 +47,7 @@ type eventEnvelope struct {
 type eventService struct {
 	k8sClient    *k8sclient.K8sClient
 	createFn     func(ctx context.Context, reason, msg string) error
+	createInfoFn func(ctx context.Context, reason, msg string) error
 	queue        chan eventEnvelope
 	stopCh       chan struct{}
 	wg           sync.WaitGroup
@@ -63,6 +65,7 @@ func newEventService(k8sClient *k8sclient.K8sClient) *eventService {
 	}
 	if k8sClient != nil {
 		s.createFn = k8sClient.EmitWarningEventDirect
+		s.createInfoFn = k8sClient.EmitInfoEventDirect
 	}
 	s.wg.Add(1)
 	go s.dispatch()
@@ -90,14 +93,14 @@ func (s *eventService) dispatch() {
 }
 
 func (s *eventService) deliver(env eventEnvelope) {
-	err := s.emitToK8s(env.ctx, env.reason, env.msg)
+	err := s.emitToK8s(env.ctx, env.isInfo, env.reason, env.msg)
 	if env.errCh != nil {
 		env.errCh <- err
 	}
 }
 
 // emitToK8s always logs; creates the K8s event unless off-cluster or RBAC-disabled.
-func (s *eventService) emitToK8s(ctx context.Context, reason EventReason, msg string) error {
+func (s *eventService) emitToK8s(ctx context.Context, isInfo bool, reason EventReason, msg string) error {
 	logger.Log.Printf("event %q: %s", reason, msg)
 
 	if s.k8sClient == nil {
@@ -112,7 +115,11 @@ func (s *eventService) emitToK8s(ctx context.Context, reason EventReason, msg st
 	ctx, cancel := context.WithTimeout(ctx, syncEmitTimeout)
 	defer cancel()
 
-	err := s.createFn(ctx, string(reason), msg)
+	createFn := s.createFn
+	if isInfo {
+		createFn = s.createInfoFn
+	}
+	err := createFn(ctx, string(reason), msg)
 	if err != nil {
 		if apierrors.IsForbidden(err) {
 			if s.rbacDisabled.CompareAndSwap(0, 1) {
@@ -129,6 +136,16 @@ func (s *eventService) emitToK8s(ctx context.Context, reason EventReason, msg st
 // emitWarning queues asynchronously; never blocks (drops on full queue).
 func (s *eventService) emitWarning(ctx context.Context, reason EventReason, msg string) {
 	env := eventEnvelope{ctx: ctx, reason: reason, msg: msg}
+	select {
+	case s.queue <- env:
+	default:
+		logger.Log.Printf("event queue full; dropping async event %q: %s", reason, msg)
+	}
+}
+
+// emitInfo queues an async Normal (Info) event; never blocks (drops on full queue).
+func (s *eventService) emitInfo(ctx context.Context, reason EventReason, msg string) {
+	env := eventEnvelope{ctx: ctx, isInfo: true, reason: reason, msg: msg}
 	select {
 	case s.queue <- env:
 	default:

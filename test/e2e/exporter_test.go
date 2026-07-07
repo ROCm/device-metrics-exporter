@@ -24,6 +24,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +45,7 @@ var (
 	mandatoryLabels  = []string{}
 	testResults      = make(map[string]string) // Track test results: test name -> "PASS", "FAIL", or "SKIP"
 	testOrder        = []string{}              // Track test execution order
+	discoveredGpuIds = []string{}              // GPU_IDs (unquoted, e.g. "0") seen in Test001, used by later tests
 )
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
@@ -59,6 +62,21 @@ func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
 	allgpus, err := testutils.ParsePrometheusMetrics(response)
 	assert.Nil(c, err)
 	maxMockGpuNodes = len(allgpus)
+	// save GPU_IDs discovered here so later tests (e.g. Test017SlurmWorkloadSim)
+	// can build CUDA_VISIBLE_DEVICES/SLURM_JOB_GPUS dynamically instead of
+	// hardcoding a GPU count/range that's fragile if the mock topology differs.
+	discoveredGpuIds = discoveredGpuIds[:0]
+	for gpuId := range allgpus {
+		discoveredGpuIds = append(discoveredGpuIds, strings.Trim(gpuId, "\""))
+	}
+	sort.Slice(discoveredGpuIds, func(i, j int) bool {
+		ni, erri := strconv.Atoi(discoveredGpuIds[i])
+		nj, errj := strconv.Atoi(discoveredGpuIds[j])
+		if erri != nil || errj != nil {
+			return discoveredGpuIds[i] < discoveredGpuIds[j]
+		}
+		return ni < nj
+	})
 	// verify all mandatory labels are present on each metrics
 	for _, gpu := range allgpus {
 		totalMetricCount = totalMetricCount + len(gpu.Fields)
@@ -538,10 +556,16 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 	err := s.SetLabels(labels)
 	assert.Nil(c, err)
 	time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
+
+	// Use the GPU_IDs discovered in Test001FirstDeplymentDefaults instead of a
+	// hardcoded 0-7 range, so this test doesn't break if the mock GPU count differs.
+	assert.NotEmpty(c, discoveredGpuIds, "expecting GPU IDs discovered in Test001FirstDeplymentDefaults")
+	gpuIdList := strings.Join(discoveredGpuIds, ",")
+
 	job_mock := map[string]string{
-		"CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+		"CUDA_VISIBLE_DEVICES": gpuIdList,
 		"SLURM_CLUSTER_NAME":   "aac11",
-		"SLURM_JOB_GPUS":       "0,1,2,3,4,5,6,7",
+		"SLURM_JOB_GPUS":       gpuIdList,
 		"SLURM_JOB_ID":         "742",
 		"SLURM_JOB_PARTITION":  "256C8G1H_MI325X_Ubuntu22",
 		"SLURM_JOB_USER":       "user_7kq",
@@ -579,9 +603,9 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 			"job_user":      "\"user_7kq\"",
 		}
 
-		// Verify job labels are present for all GPU IDs "0" through "7"
-		for i := 0; i <= 7; i++ {
-			gpuId := fmt.Sprintf("\"%d\"", i)
+		// Verify job labels are present for every GPU_ID discovered in Test001
+		for _, id := range discoveredGpuIds {
+			gpuId := fmt.Sprintf("\"%s\"", id)
 			if _, exists := allgpus[gpuId]; !exists {
 				log.Printf("Expected GPU[%v] not found in metrics", gpuId)
 				return false
@@ -596,7 +620,7 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 			}
 		}
 
-		log.Printf("Job labels verified successfully: present on GPUs 0-7")
+		log.Printf("Job labels verified successfully: present on GPUs %v", discoveredGpuIds)
 		return true
 	}, 10*time.Second, 5*time.Second)
 }

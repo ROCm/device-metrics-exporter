@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -397,6 +398,17 @@ func (ga *GPUAgentGPUClient) initProfilerMetrics(config *exportermetrics.GPUMetr
 		}
 	}
 	logger.Log.Printf("profiler metric state set for %v -> %v", curNodeName, ga.enableProfileMetrics)
+
+	events.EmitInfo(ga.GetContext(), events.ProfilerStateChanged,
+		fmt.Sprintf("profiler metrics %s on %s (ProfilerMetrics config)",
+			profilerStateLabel(ga.enableProfileMetrics), curNodeName))
+}
+
+func profilerStateLabel(enabled bool) string {
+	if enabled {
+		return "enabled"
+	}
+	return "disabled"
 }
 
 func (ga *GPUAgentGPUClient) initCustomLabels(config *exportermetrics.GPUMetricConfig) {

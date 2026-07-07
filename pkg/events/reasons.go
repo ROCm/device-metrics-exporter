@@ -25,11 +25,13 @@ const (
 	ZeroGPUsDetected       EventReason = "ZeroGPUsDetected"
 	HealthValidationFailed EventReason = "HealthValidationFailed"
 	ProfilerDisabled       EventReason = "ProfilerDisabled"
+	ProfilerStateChanged   EventReason = "ProfilerStateChanged"
 	RocpctlFatalExit       EventReason = "RocpctlFatalExit"
 
 	// Exporter
-	HTTPServerFailed    EventReason = "HTTPServerFailed"
-	ConfigWatcherFailed EventReason = "ConfigWatcherFailed"
+	HTTPServerFailed       EventReason = "HTTPServerFailed"
+	ConfigWatcherFailed    EventReason = "ConfigWatcherFailed"
+	K8sWatcherStateChanged EventReason = "K8sWatcherStateChanged"
 
 	// Scheduler
 	SlurmWatcherFailed EventReason = "SlurmWatcherFailed"

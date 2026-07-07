@@ -62,10 +62,13 @@ type K8sClient struct {
 	ctx                  context.Context
 	clientset            kubernetes.Interface
 	nodeName             string
-	stopCh               chan struct{}
-	started              bool
+	stopCh               chan struct{} // closed on full client shutdown (Stop)
 	nodeInformer         cache.SharedIndexInformer
 	podInformer          cache.SharedIndexInformer
+	nodeWatcherRunning   bool
+	nodeWatcherStopCh    chan struct{}
+	podWatcherRunning    bool
+	podWatcherStopCh     chan struct{}
 	nodelabellerCfg      utils.NodeHealthLabellerConfig
 	podName              string
 	podNamespace         string
@@ -112,7 +115,6 @@ func NewClient(ctx context.Context, configPath, nodeName string) (*K8sClient, er
 		clientset:    clientset,
 		nodeName:     nodeName,
 		stopCh:       make(chan struct{}),
-		started:      false,
 		podName:      readFileContent(podNameFile),
 		podNamespace: readFileContent(podNamespaceFile),
 	}
@@ -148,6 +150,16 @@ func (k *K8sClient) CreateEvent(evtObj *v1.Event) error {
 // EmitWarningEventDirect emits a Warning event and returns the Create error.
 // Returns nil when pod metadata is missing or RBAC already disabled emission.
 func (k *K8sClient) EmitWarningEventDirect(ctx context.Context, reason string, msg string) error {
+	return k.emitEventDirect(ctx, v1.EventTypeWarning, reason, msg)
+}
+
+// EmitInfoEventDirect emits a Normal (Info) event and returns the Create error.
+// Returns nil when pod metadata is missing or RBAC already disabled emission.
+func (k *K8sClient) EmitInfoEventDirect(ctx context.Context, reason string, msg string) error {
+	return k.emitEventDirect(ctx, v1.EventTypeNormal, reason, msg)
+}
+
+func (k *K8sClient) emitEventDirect(ctx context.Context, eventType, reason, msg string) error {
 	if k.podName == "" || k.podNamespace == "" {
 		return nil
 	}
@@ -175,7 +187,7 @@ func (k *K8sClient) EmitWarningEventDirect(ctx context.Context, reason string, m
 			Namespace: k.podNamespace,
 			Name:      k.podName,
 		},
-		Type:           v1.EventTypeWarning,
+		Type:           eventType,
 		Reason:         reason,
 		Message:        msg,
 		FirstTimestamp: now,
@@ -195,8 +207,8 @@ func (k *K8sClient) EmitWarningEventDirect(ctx context.Context, reason string, m
 		}
 		return err
 	}
-	logger.Log.Printf("emitted K8s Warning event %q on pod %s/%s: %s",
-		reason, k.podNamespace, k.podName, msg)
+	logger.Log.Printf("emitted K8s %s event %q on pod %s/%s: %s",
+		eventType, reason, k.podNamespace, k.podName, msg)
 	return nil
 }
 
@@ -295,65 +307,10 @@ func (k *K8sClient) UpdateHealthLabel(nodelabellerCfg *utils.NodeHealthLabellerC
 	return nil
 }
 
-// Watch starts the label watchers with reconnection support
-func (k *K8sClient) Watch() error {
-	k.Lock()
-	if k.started {
-		k.Unlock()
-		return errors.New("watcher already started")
-	}
-	k.started = true
-	k.Unlock()
-
-	go k.runWithReconnect()
-	return nil
-}
-
-func (k *K8sClient) runWithReconnect() {
-	retryInterval := 5 * time.Second
-	for {
-		err := k.startWatchers()
-		switch {
-		case errors.Is(err, errWatchForbidden):
-			logger.Log.Printf("node/pod watch forbidden by RBAC; disabling watchers. " +
-				"Grant the exporter ServiceAccount 'list/watch' on nodes and pods to enable them.")
-			return
-		case err != nil:
-			logger.Log.Printf("Watcher error: %v. Retrying in %s...\n", err, retryInterval)
-		default:
-			logger.Log.Printf("Watchers stopped. Restarting...")
-		}
-
-		select {
-		case <-time.After(retryInterval):
-			continue
-		case <-k.stopCh:
-			return
-		}
-	}
-}
-
-func (k *K8sClient) startWatchers() error {
-	nodeFactory := informers.NewSharedInformerFactoryWithOptions(
-		k.clientset,
-		0,
-		informers.WithTweakListOptions(func(opt *metav1.ListOptions) {
-			opt.FieldSelector = fields.OneTermEqualSelector("metadata.name", k.nodeName).String()
-		}),
-	)
-	podFactory := informers.NewSharedInformerFactoryWithOptions(
-		k.clientset,
-		0,
-		informers.WithTweakListOptions(func(opt *metav1.ListOptions) {
-			opt.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", k.nodeName).String()
-		}),
-	)
-
-	k.nodeInformer = nodeFactory.Core().V1().Nodes().Informer()
-	k.podInformer = podFactory.Core().V1().Pods().Informer()
-
-	forbiddenCh := make(chan struct{}, 1)
-	watchErrHandler := func(_ *cache.Reflector, err error) {
+// watchErrHandlerFor returns a SharedIndexInformer watch-error handler that
+// signals forbiddenCh on the first RBAC Forbidden response.
+func watchErrHandlerFor(forbiddenCh chan struct{}) func(*cache.Reflector, error) {
+	return func(_ *cache.Reflector, err error) {
 		if apierrors.IsForbidden(err) {
 			select {
 			case forbiddenCh <- struct{}{}:
@@ -361,13 +318,141 @@ func (k *K8sClient) startWatchers() error {
 			}
 		}
 	}
-	// nolint
-	_ = k.nodeInformer.SetWatchErrorHandler(watchErrHandler)
-	// nolint
-	_ = k.podInformer.SetWatchErrorHandler(watchErrHandler)
+}
+
+// SetNodeWatcherEnabled starts or stops the node informer. Idempotent: calling
+// with the same value as the current state is a no-op. Returns true if the
+// watcher's running state changed as a result of this call.
+func (k *K8sClient) SetNodeWatcherEnabled(enabled bool) bool {
+	k.Lock()
+	if enabled == k.nodeWatcherRunning {
+		k.Unlock()
+		logger.Debugf("k8s node watcher state unchanged: running=%v", enabled)
+		return false
+	}
+	if !enabled {
+		k.nodeWatcherRunning = false
+		close(k.nodeWatcherStopCh)
+		k.nodeWatcherStopCh = nil
+		k.nodeInformer = nil
+		k.Unlock()
+		logger.Log.Printf("k8s node watcher stopped (was running=true, now running=false)")
+		return true
+	}
+	k.nodeWatcherRunning = true
+	stopCh := make(chan struct{})
+	k.nodeWatcherStopCh = stopCh
+	k.Unlock()
+
+	logger.Log.Printf("k8s node watcher starting (was running=false, now running=true)")
+	go k.runWatcherWithReconnect("node", stopCh, k.startNodeWatcher, func() {
+		k.Lock()
+		defer k.Unlock()
+		// Only clear state if this goroutine's stopCh is still the active one —
+		// it may have already been superseded by a subsequent Set*WatcherEnabled call.
+		if k.nodeWatcherStopCh == stopCh {
+			k.nodeWatcherRunning = false
+			k.nodeWatcherStopCh = nil
+			k.nodeInformer = nil
+		}
+	})
+	return true
+}
+
+// SetPodWatcherEnabled starts or stops the pod informer. Idempotent: calling
+// with the same value as the current state is a no-op. Returns true if the
+// watcher's running state changed as a result of this call.
+func (k *K8sClient) SetPodWatcherEnabled(enabled bool) bool {
+	k.Lock()
+	if enabled == k.podWatcherRunning {
+		k.Unlock()
+		logger.Debugf("k8s pod watcher state unchanged: running=%v", enabled)
+		return false
+	}
+	if !enabled {
+		k.podWatcherRunning = false
+		close(k.podWatcherStopCh)
+		k.podWatcherStopCh = nil
+		k.podInformer = nil
+		k.Unlock()
+		logger.Log.Printf("k8s pod watcher stopped (was running=true, now running=false)")
+		return true
+	}
+	k.podWatcherRunning = true
+	stopCh := make(chan struct{})
+	k.podWatcherStopCh = stopCh
+	k.Unlock()
+
+	logger.Log.Printf("k8s pod watcher starting (was running=false, now running=true)")
+	go k.runWatcherWithReconnect("pod", stopCh, k.startPodWatcher, func() {
+		k.Lock()
+		defer k.Unlock()
+		// Only clear state if this goroutine's stopCh is still the active one —
+		// it may have already been superseded by a subsequent Set*WatcherEnabled call.
+		if k.podWatcherStopCh == stopCh {
+			k.podWatcherRunning = false
+			k.podWatcherStopCh = nil
+			k.podInformer = nil
+		}
+	})
+	return true
+}
+
+// runWatcherWithReconnect repeatedly (re)starts a watcher via start until
+// stopCh/k.stopCh fires or the watch is forbidden by RBAC. name is used only
+// for logging (e.g. "node", "pod"). onForbidden is called to clear the
+// watcher's running state so a later Set*WatcherEnabled(true) can restart it
+// once RBAC is fixed, instead of silently no-op'ing forever.
+func (k *K8sClient) runWatcherWithReconnect(name string, stopCh chan struct{}, start func(chan struct{}) error, onForbidden func()) {
+	retryInterval := 5 * time.Second
+	for {
+		err := start(stopCh)
+		switch {
+		case errors.Is(err, errWatchForbidden):
+			logger.Log.Printf("%s watch forbidden by RBAC; disabling watcher. "+
+				"Grant the exporter ServiceAccount 'list/watch' on %ss to enable it.", name, name)
+			onForbidden()
+			return
+		case err != nil:
+			logger.Log.Printf("%s watcher error: %v. Retrying in %s...\n", name, err, retryInterval)
+		default:
+			logger.Log.Printf("%s watcher stopped. Restarting...", name)
+		}
+
+		select {
+		case <-time.After(retryInterval):
+			continue
+		case <-stopCh:
+			return
+		case <-k.stopCh:
+			return
+		}
+	}
+}
+
+func (k *K8sClient) startNodeWatcher(stopCh chan struct{}) error {
+	nodeFactory := informers.NewSharedInformerFactoryWithOptions(
+		k.clientset,
+		0,
+		informers.WithTweakListOptions(func(opt *metav1.ListOptions) {
+			opt.FieldSelector = fields.OneTermEqualSelector("metadata.name", k.nodeName).String()
+		}),
+	)
+
+	nodeInformer := nodeFactory.Core().V1().Nodes().Informer()
+	k.Lock()
+	// If nodeWatcherStopCh is set but no longer points to our stopCh, a concurrent
+	// SetNodeWatcherEnabled(false)+SetNodeWatcherEnabled(true) has already replaced us —
+	// bail to avoid overwriting the newer watcher's informer pointer.
+	if k.nodeWatcherStopCh != nil && k.nodeWatcherStopCh != stopCh {
+		k.Unlock()
+		return nil
+	}
+	k.nodeInformer = nodeInformer
+	k.Unlock()
 
 	// nolint
-	k.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if node, ok := obj.(*v1.Node); ok {
 				logger.Log.Printf("node added with labels: %+v", node.Labels)
@@ -381,8 +466,33 @@ func (k *K8sClient) startWatchers() error {
 			}
 		},
 	})
+
+	return k.runInformerAndWait(nodeInformer, stopCh)
+}
+
+func (k *K8sClient) startPodWatcher(stopCh chan struct{}) error {
+	podFactory := informers.NewSharedInformerFactoryWithOptions(
+		k.clientset,
+		0,
+		informers.WithTweakListOptions(func(opt *metav1.ListOptions) {
+			opt.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", k.nodeName).String()
+		}),
+	)
+
+	podInformer := podFactory.Core().V1().Pods().Informer()
+	k.Lock()
+	// If podWatcherStopCh is set but no longer points to our stopCh, a concurrent
+	// SetPodWatcherEnabled(false)+SetPodWatcherEnabled(true) has already replaced us —
+	// bail to avoid overwriting the newer watcher's informer pointer.
+	if k.podWatcherStopCh != nil && k.podWatcherStopCh != stopCh {
+		k.Unlock()
+		return nil
+	}
+	k.podInformer = podInformer
+	k.Unlock()
+
 	// nolint
-	k.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			if pod, ok := obj.(*v1.Pod); ok {
 				logger.Log.Printf("pod[%v-%v] added with labels: %+v",
@@ -404,16 +514,24 @@ func (k *K8sClient) startWatchers() error {
 		},
 	})
 
-	// Start and block until synced
-	stopCh := make(chan struct{})
-	defer close(stopCh)
+	return k.runInformerAndWait(podInformer, stopCh)
+}
 
-	go k.nodeInformer.Run(stopCh)
-	go k.podInformer.Run(stopCh)
+// runInformerAndWait starts informer, waits for its cache to sync, then
+// blocks until stopCh/k.stopCh fires or a watch error handler reports RBAC
+// Forbidden. Shared by startNodeWatcher and startPodWatcher.
+func (k *K8sClient) runInformerAndWait(informer cache.SharedIndexInformer, stopCh chan struct{}) error {
+	forbiddenCh := make(chan struct{}, 1)
+	// nolint
+	_ = informer.SetWatchErrorHandler(watchErrHandlerFor(forbiddenCh))
+
+	runStopCh := make(chan struct{})
+	defer close(runStopCh)
+	go informer.Run(runStopCh)
 
 	syncedCh := make(chan bool, 1)
 	go func() {
-		syncedCh <- cache.WaitForCacheSync(stopCh, k.nodeInformer.HasSynced, k.podInformer.HasSynced)
+		syncedCh <- cache.WaitForCacheSync(runStopCh, informer.HasSynced)
 	}()
 
 	select {
@@ -423,6 +541,8 @@ func (k *K8sClient) startWatchers() error {
 		if !synced {
 			return errors.New("cache sync failed")
 		}
+	case <-stopCh:
+		return nil
 	case <-k.stopCh:
 		return nil
 	}
@@ -430,12 +550,27 @@ func (k *K8sClient) startWatchers() error {
 	select {
 	case <-forbiddenCh:
 		return errWatchForbidden
+	case <-stopCh:
+		return nil
 	case <-k.stopCh:
 		return nil
 	}
 }
 
+// Stop shuts down the client and any running watchers.
 func (k *K8sClient) Stop() {
+	k.Lock()
+	if k.nodeWatcherRunning {
+		k.nodeWatcherRunning = false
+		close(k.nodeWatcherStopCh)
+		k.nodeWatcherStopCh = nil
+	}
+	if k.podWatcherRunning {
+		k.podWatcherRunning = false
+		close(k.podWatcherStopCh)
+		k.podWatcherStopCh = nil
+	}
+	k.Unlock()
 	close(k.stopCh)
 }
 
@@ -490,12 +625,16 @@ func (k *K8sClient) GetAllPods() (map[string]exporterTypes.K8sPodInfo, error) {
 }
 
 func (k *K8sClient) GetNode() (*v1.Node, error) {
-	if k.nodeInformer == nil || !k.nodeInformer.HasSynced() {
+	k.Lock()
+	nodeInformer := k.nodeInformer
+	k.Unlock()
+
+	if nodeInformer == nil || !nodeInformer.HasSynced() {
 		return nil, errors.New("cache not synced or API server unavailable")
 	}
 	// since we are watching only self node, we can safely assume the first
 	// object in the store is the node we are interested in
-	objs := k.nodeInformer.GetStore().List()
+	objs := nodeInformer.GetStore().List()
 	if len(objs) == 0 {
 		return nil, errors.New("node not available in cache")
 	}
@@ -506,11 +645,15 @@ func (k *K8sClient) GetNode() (*v1.Node, error) {
 }
 
 func (k *K8sClient) ListPods() ([]*v1.Pod, error) {
-	if k.podInformer == nil || !k.podInformer.HasSynced() {
+	k.Lock()
+	podInformer := k.podInformer
+	k.Unlock()
+
+	if podInformer == nil || !podInformer.HasSynced() {
 		return nil, errors.New("cache not synced or API server unavailable")
 	}
 	pods := []*v1.Pod{}
-	for _, obj := range k.podInformer.GetStore().List() {
+	for _, obj := range podInformer.GetStore().List() {
 		if pod, ok := obj.(*v1.Pod); ok {
 			pods = append(pods, pod.DeepCopy())
 		}

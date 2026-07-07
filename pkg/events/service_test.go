@@ -54,7 +54,7 @@ func TestEventService_DisablesOnForbidden(t *testing.T) {
 		},
 	}
 
-	if err := s.emitToK8s(context.Background(), AgentUnreachable, "first"); err != nil {
+	if err := s.emitToK8s(context.Background(), false, AgentUnreachable, "first"); err != nil {
 		t.Fatalf("forbidden should be swallowed: want nil, got %v", err)
 	}
 	if s.rbacDisabled.Load() == 0 {
@@ -62,7 +62,7 @@ func TestEventService_DisablesOnForbidden(t *testing.T) {
 	}
 
 	// Latch set: subsequent emits short-circuit before createFn.
-	if err := s.emitToK8s(context.Background(), AgentUnreachable, "second"); err != nil {
+	if err := s.emitToK8s(context.Background(), false, AgentUnreachable, "second"); err != nil {
 		t.Fatalf("post-disable emit: want nil, got %v", err)
 	}
 	if got := calls.Load(); got != 1 {
@@ -127,7 +127,7 @@ func TestEventService_DeliverHonorsTimeout(t *testing.T) {
 	}
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- s.emitToK8s(context.Background(), AgentUnreachable, "wedged") }()
+	go func() { errCh <- s.emitToK8s(context.Background(), false, AgentUnreachable, "wedged") }()
 
 	select {
 	case err := <-errCh:

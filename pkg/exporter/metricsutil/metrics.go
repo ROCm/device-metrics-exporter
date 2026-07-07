@@ -199,6 +199,21 @@ func (mh *MetricsHandler) GetHealthServiceState() bool {
 	return mh.runConf.GetHealthServiceState()
 }
 
+// AnyExtraPodLabelsConfigured returns true if any of GPU, NIC, or IFOE config
+// has ExtraPodLabels set, meaning the k8s pod watcher is needed.
+func (mh *MetricsHandler) AnyExtraPodLabelsConfigured() bool {
+	if len(mh.GetGPUMetricsConfig().GetExtraPodLabels()) > 0 {
+		return true
+	}
+	if len(mh.GetNICMetricsConfig().GetExtraPodLabels()) > 0 {
+		return true
+	}
+	if len(mh.GetIFOEMetricsConfig().GetExtraPodLabels()) > 0 {
+		return true
+	}
+	return false
+}
+
 // GetHealthPollingInterval returns the health polling interval
 func (mh *MetricsHandler) GetHealthPollingInterval() time.Duration {
 	return mh.runConf.GetHealthPollingInterval()

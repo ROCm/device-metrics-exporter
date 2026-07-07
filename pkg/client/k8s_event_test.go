@@ -154,6 +154,24 @@ func TestEmitWarningEventDirect_DisablesOnForbidden(t *testing.T) {
 	}
 }
 
+const testInfoEventReason = "K8sWatcherStateChanged"
+
+func TestEmitInfoEventDirect_EmitsNormal(t *testing.T) {
+	ev := &stubEvents{}
+	k := newTestK8sClient(ev)
+	if err := k.EmitInfoEventDirect(context.Background(), testInfoEventReason, "node watcher started"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if ev.count() != 1 {
+		t.Fatalf("expected 1 event, got %d", ev.count())
+	}
+	e := ev.created[0]
+	if e.Type != v1.EventTypeNormal || e.Reason != testInfoEventReason {
+		t.Fatalf("unexpected event type=%q reason=%q", e.Type, e.Reason)
+	}
+}
+
 func TestEmitWarningEventDirect_CanceledContext(t *testing.T) {
 	ev := &stubEvents{delay: time.Second}
 	k := newTestK8sClient(ev)
