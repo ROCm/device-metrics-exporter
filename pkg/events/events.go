@@ -58,7 +58,9 @@ func Stop() {
 	singleton = nil
 }
 
-// EmitWarning queues a Warning event asynchronously; logs only before Init/after Stop.
+// EmitWarning queues a Warning event asynchronously; always logged. A K8s
+// Warning event is also created unless off-cluster or RBAC-disabled. When
+// called before Init/after Stop the message is logged and no K8s event is created.
 func EmitWarning(ctx context.Context, reason EventReason, msg string) {
 	mu.RLock()
 	s := singleton
@@ -68,6 +70,20 @@ func EmitWarning(ctx context.Context, reason EventReason, msg string) {
 		return
 	}
 	s.emitWarning(ctx, reason, msg)
+}
+
+// EmitInfo queues a Normal (Info) event asynchronously; always logged. A K8s
+// Normal event is also created unless off-cluster or RBAC-disabled. When
+// called before Init/after Stop the message is logged and no K8s event is created.
+func EmitInfo(ctx context.Context, reason EventReason, msg string) {
+	mu.RLock()
+	s := singleton
+	mu.RUnlock()
+	if s == nil {
+		logger.Log.Printf("event %q (no service): %s", reason, msg)
+		return
+	}
+	s.emitInfo(ctx, reason, msg)
 }
 
 // EmitWarningSync emits synchronously (5s timeout) for fatal paths; logs only before Init/after Stop.

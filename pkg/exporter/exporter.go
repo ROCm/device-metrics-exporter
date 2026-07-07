@@ -179,6 +179,7 @@ func foreverWatcher(e *Exporter) {
 	startServer := func() {
 		if !serverRunning() {
 			mh.InitConfig(e.ctx)
+			e.reconcileK8sWatchers()
 			serverPort := runConf.GetServerPort()
 			err := logger.Log.ConfigureFromConfig(runConf.GetLoggerConfig())
 			if err != nil {
@@ -337,17 +338,36 @@ func (e *Exporter) GetK8sApiClient() *k8sclient.K8sClient {
 	return nil
 }
 
-func (e *Exporter) startWatchers() {
+// reconcileK8sWatchers starts/stops the node and pod watchers based on the
+// current runtime config: the node watcher is only needed when the health
+// service is enabled, and the pod watcher only when ExtraPodLabels is
+// configured for GPU, NIC, or IFOE. Safe to call on every config reload.
+func (e *Exporter) reconcileK8sWatchers() {
 	if e.k8sApiClient == nil {
-		logger.Log.Printf("k8sApi client is not initialized, skipping watchers")
 		return
 	}
 
-	if err := e.k8sApiClient.Watch(); err != nil {
-		logger.Log.Printf("failed to start k8s watchers: %v", err)
-	} else {
-		logger.Log.Printf("k8s watchers started successfully")
+	wantNode := runConf.GetHealthServiceState()
+	wantPod := mh.AnyExtraPodLabelsConfigured()
+	logger.Log.Printf("reconciling k8s watchers: node watcher wanted=%v (HealthService.Enable), "+
+		"pod watcher wanted=%v (ExtraPodLabels configured)", wantNode, wantPod)
+
+	if e.k8sApiClient.SetNodeWatcherEnabled(wantNode) {
+		events.EmitInfo(e.ctx, events.K8sWatcherStateChanged,
+			fmt.Sprintf("k8s node watcher %s (HealthService.Enable=%v)", watcherStateLabel(wantNode), wantNode))
 	}
+
+	if e.k8sApiClient.SetPodWatcherEnabled(wantPod) {
+		events.EmitInfo(e.ctx, events.K8sWatcherStateChanged,
+			fmt.Sprintf("k8s pod watcher %s (ExtraPodLabels configured=%v)", watcherStateLabel(wantPod), wantPod))
+	}
+}
+
+func watcherStateLabel(enabled bool) string {
+	if enabled {
+		return "started"
+	}
+	return "stopped"
 }
 
 func WithNICMonitoring(enableNICAgent bool) ExporterOption {
@@ -477,7 +497,7 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 		} else {
 			e.k8sScl = k8sScl
 		}
-		e.startWatchers()
+		e.reconcileK8sWatchers()
 	}
 
 	if e.enableGPUMonitoring {
