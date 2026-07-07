@@ -79,10 +79,10 @@ amdsmi-from-tarball:
 	    [ -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
 		echo "amdsmi already staged at $(AMDSMI_TARBALL_STAGE) (set AMDSMI_TARBALL_FORCE=1 to re-extract)"; \
 	else \
-		echo "Extracting amdsmi.h + libamd_smi.so* from $(ROCM_TARBALL_URL)"; \
+		echo "Extracting amdsmi.h + libamd_smi.so* + librocm_sysdeps_*.so* from $(ROCM_TARBALL_URL)"; \
 		mkdir -p $(AMDSMI_TARBALL_STAGE) && \
 		curl -fSL "$(ROCM_TARBALL_URL)" | \
-			tar -xz -C $(AMDSMI_TARBALL_STAGE) --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*'; \
+			tar -xz -C $(AMDSMI_TARBALL_STAGE) --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*'; \
 	fi
 	@if ! ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.* >/dev/null 2>&1 || \
 	    [ ! -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
@@ -100,6 +100,10 @@ amdsmi-sync-assets: amdsmi-from-tarball
 	mkdir -p $$dest ; \
 	cp -av $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so* $$dest/ ; \
 	cp -av $(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h $$dest/amdsmi.h ; \
+	for f in $$dest/librocm_sysdeps_*.so* ; do \
+		[ -e "$$f" ] && cp -av $(AMDSMI_TARBALL_STAGE)/lib/rocm_sysdeps/lib/$$(basename $$f) $$f || true ; \
+	done ; \
+	echo "therock-$(ROCM_VERSION)" > $(TOP_DIR)/assets/amd_smi_lib/version.txt ; \
 	echo "amdsmi synced to $$dest"
 
 .PHONY: rocprofiler-compile
