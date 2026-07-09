@@ -52,12 +52,15 @@ RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
 # assets/), optionally refreshed from the therock tarball when AMDSMI_FROM_TARBALL=1
 COPY amdsmi.h /tmp/amdsmi/amdsmi.h
 COPY libamd_smi.so.* /tmp/amdsmi/
+COPY librocm_sysdeps_*.so* /tmp/amdsmi/
+# 7.14 amdsmi DT_NEEDEDs the rocm_sysdeps netlink libs; extract them too.
 RUN if [ "${AMDSMI_FROM_TARBALL}" = "1" ]; then \
         echo "Refreshing amdsmi from tarball ${ROCM_TARBALL_URL}"; \
         mkdir -p /tmp/smi && curl -fSL "${ROCM_TARBALL_URL}" \
-          | tar -xz -C /tmp/smi --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' && \
+          | tar -xz -C /tmp/smi --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*' && \
         rm -rf /tmp/amdsmi && mkdir -p /tmp/amdsmi && \
         cp -a /tmp/smi/lib/libamd_smi.so* /tmp/amdsmi/ && \
+        cp -a /tmp/smi/lib/rocm_sysdeps/lib/librocm_sysdeps_*.so* /tmp/amdsmi/ && \
         cp -a /tmp/smi/include/amd_smi/amdsmi.h /tmp/amdsmi/amdsmi.h ; \
     fi
 
@@ -71,6 +74,7 @@ RUN set -e; vendor=${GPUAGENT_SRC}/sw/nic/third-party/rocm/amd_smi_lib; \
     (cd $vendor/x86_64/lib && \
         ln -sf libamd_smi.so.${so_ver} libamd_smi.so.${so_maj} && \
         ln -sf libamd_smi.so.${so_maj} libamd_smi.so); \
+    cp -a /tmp/amdsmi/librocm_sysdeps_*.so* $vendor/x86_64/lib/ 2>/dev/null || true; \
     mkdir -p $vendor/include/amd_smi && \
     cp /tmp/amdsmi/amdsmi.h $vendor/include/amd_smi/amdsmi.h
 
@@ -85,7 +89,10 @@ RUN if ls /patches/*.patch >/dev/null 2>&1; then \
 # index, which the RHEL9 ld requires), then build the gpuagent binaries.
 # Strip the (unstripped, ~84MB) C++ gpuagent binaries to shed debug symbols
 # before they are COPYed into the runtime image (matches the old asset flow).
-RUN cd ${GPUAGENT_SRC} && make gopkglist \
+# LD_LIBRARY_PATH prepend lets ld resolve the rocm_sysdeps netlink DT_NEEDEDs.
+RUN cd ${GPUAGENT_SRC} \
+    && export LD_LIBRARY_PATH=${GPUAGENT_SRC}/sw/nic/third-party/rocm/amd_smi_lib/x86_64/lib:$LD_LIBRARY_PATH \
+    && make gopkglist \
     && make -C sw/nic/gpuagent build-libs \
     && find sw/nic/build -name '*.a' -exec ranlib {} \; \
     && make -C sw/nic/gpuagent all \
@@ -115,7 +122,7 @@ ARG ROCM_TARBALL_URL=""
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/:/opt/rocm/bin/:/opt/nic/bin:/opt/nic/sbin
 # /opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib is needed for therock tarball builds
 # (librocm_sysdeps_drm.so.2 etc.). For repo.radeon.com builds it is a no-op.
-ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/home/amd/lib:/opt/rocm/lib:/opt/rocm-${ROCM_VERSION}/lib/rocm_sysdeps/lib:$LD_LIBRARY_PATH
 ENV GPUAGENT_EVENTS_DISABLE=1
 ENV AMD_METRICS_EXPORTER_ENABLE_CPER=1
 
@@ -158,6 +165,8 @@ ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
 # libamd_smi.so symlink (for a version-agnostic LD_PRELOAD). Version is derived
 # from the file, so a future amdsmi bump needs no edits here or in entrypoint.sh.
 ADD ./libamd_smi.so.* /home/amd/lib/
+# amdsmi 26.5.0 DT_NEEDEDs these rocm_sysdeps netlink libs (LD_PRELOAD path)
+ADD ./librocm_sysdeps_*.so* /home/amd/lib/
 RUN cd /home/amd/lib/ \
     && real=$(ls libamd_smi.so.*.*.* | head -1) \
     && maj=$(echo "${real#libamd_smi.so.}" | cut -d. -f1) \

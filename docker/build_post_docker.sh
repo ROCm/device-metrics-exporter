@@ -22,5 +22,5 @@
 ls -al
 rm -rf gpuagent gpuctl amd-metrics-exporter metricsclient amdgpuhealth LICENSE \
 	libamd_smi.so.24.6 librocpclient.so rocpctl rocpctl-mock \
-	libamd* amdsmi* libgim* metrics-exporter-ts.sh patch-gpuagent
+	libamd* librocm_sysdeps_* amdsmi* libgim* metrics-exporter-ts.sh patch-gpuagent
 

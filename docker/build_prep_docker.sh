@@ -70,6 +70,8 @@ fi
 # duplicate of the .so.<maj> symlink into an image layer.
 if [ -n "$SMI_LIB_DIR" ]; then
     cp -vfL $SMI_LIB_DIR/libamd_smi.so.*.*.* $TOP_DIR/docker/
+    # amdsmi 26.5.0 DT_NEEDEDs the rocm_sysdeps netlink libs; stage them too.
+    cp -vfL $SMI_LIB_DIR/librocm_sysdeps_*.so* $TOP_DIR/docker/ 2>/dev/null || true
 fi
 
 if [ "$SRIOV" != "1" ]; then
