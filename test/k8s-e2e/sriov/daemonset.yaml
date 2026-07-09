@@ -1,0 +1,88 @@
+# SR-IOV / GIM host-side e2e DaemonSet (GPUOP-889, Epic GPUOP-880).
+#
+# Runs the device-metrics-exporter against a real GIM SR-IOV host. Unlike the
+# hardware-independent gim-mock suite (test/k8s-e2e/sriov_gim_mock_test.go,
+# which validates the stream-walker decode path with synthetic carry-values),
+# this DaemonSet scrapes a node with a live GIM driver so the host-side PF+VF
+# metric families are populated from real firmware.
+#
+# It mounts the GIM SR-IOV character device /dev/gim-smi0 explicitly so the
+# pod runs only where the GIM host driver is present (gim node label gates
+# scheduling). Apply with kubectl, then scrape the NodePort and run the
+# PromQL assertions documented in README.md.
+#
+#   kubectl apply -f daemonset.yaml
+#   kubectl -n gpuop880-sriov rollout status ds/dme-sriov-gim-e2e
+#
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpuop880-sriov
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dme-sriov-gim-e2e
+  namespace: gpuop880-sriov
+  labels:
+    app.kubernetes.io/name: dme-sriov-gim-e2e
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dme-sriov-gim-e2e
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dme-sriov-gim-e2e
+    spec:
+      # Schedule only on nodes labelled as GIM SR-IOV hosts. Label the host
+      # with: kubectl label node <gim-host> amd.com/gpu.driver=gim
+      nodeSelector:
+        amd.com/gpu.driver: gim
+      containers:
+        - name: amd-device-metrics-exporter-container
+          image: "docker.io/local/device-metrics-exporter-sriov:gpuop880-phaseA"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          ports:
+            - name: metrics
+              containerPort: 5000
+          env:
+            # Opt-in CPER so the env-gated CPER surface is exercised too.
+            - name: AMD_METRICS_EXPORTER_ENABLE_CPER
+              value: "1"
+          volumeMounts:
+            # GIM SR-IOV management device — the host-side metric source.
+            - mountPath: /dev/gim-smi0
+              name: gim-smi
+            - mountPath: /dev
+              name: dev-volume
+            - mountPath: /sys
+              name: sys-volume
+      volumes:
+        - name: gim-smi
+          hostPath:
+            path: /dev/gim-smi0
+            type: CharDevice
+        - name: dev-volume
+          hostPath:
+            path: /dev
+        - name: sys-volume
+          hostPath:
+            path: /sys
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dme-sriov-gim-e2e
+  namespace: gpuop880-sriov
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: dme-sriov-gim-e2e
+  ports:
+    - name: metrics
+      port: 5000
+      targetPort: 5000
+      nodePort: 32102

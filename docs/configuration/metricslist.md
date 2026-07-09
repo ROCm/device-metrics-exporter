@@ -20,14 +20,14 @@ The following document contains a full list of GPU Metrics that are available us
 - PCIE_NACK_SENT_COUNT
 - PCIE_NACK_RECEIVED_COUNT
 - PCIE_BIDIRECTIONAL_BANDWIDTH
-- GPU_CURRENT_ACCUMULATED_COUNTER
+- GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER
 - GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED
 - GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED
 - GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED
 - GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED
 - GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED
 - GPU_GFX_BUSY_INSTANTANEOUS
-- GPU_VC_BUSY_INSTANTANEOUS
+- GPU_VCN_BUSY_INSTANTANEOUS
 - GPU_JPEG_BUSY_INSTANTANEOUS
 - GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE
 - GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE
@@ -55,6 +55,8 @@ The following document contains a full list of GPU Metrics that are available us
 - PCIE_TX (upcoming feature)
 - GPU_HBM_TEMPERATURE (deprecated from 6.14.14 driver)
 
+**Note**: Under GIM/SR-IOV hypervisor host, `gpu_partition_id` reports a concrete value (e.g. `"0"`) rather than `"NA"`.
+
 ---
 
 ## Cluster Management Metrics
@@ -64,6 +66,7 @@ The following document contains a full list of GPU Metrics that are available us
 | Hypervisor | Baremetal | Metric                           | Description                        |
 |------------|-----------|----------------------------------|------------------------------------|
 | &check;    | &check;   | GPU_NODES_TOTAL `[MI2xx, MI3xx]` | Number of GPU nodes on the machine |
+| &check;    | &check;   | GPU_HEALTH `[MI2xx, MI3xx]`      | Computed GPU health flag           |
 
 ### Temperature Metrics
 
@@ -80,8 +83,8 @@ The following document contains a full list of GPU Metrics that are available us
 | ---------- | --------- | ------ | ----------- |
 | &check; | &check; | GPU_PACKAGE_POWER `[MI3xx]` | Current socket power in Watts; not available on guest VM. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
 | &cross;    | &check;   | GPU_AVERAGE_PACKAGE_POWER `[MI2xx]`  | Average socket power in Watts; not available on guest VM   |
-| &check; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
-| &check; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
+| &cross; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
+| &cross; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
 
 ### Activity Metrics
 
@@ -93,7 +96,7 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross;    | &cross;   | GPU_VCN_ACTIVITY `[Deprecated]`           | List of VCN encode/decode engine utilization per AID - Deprecated from 6.14.14 driver     |
 | &cross;    | &cross;   | GPU_JPEG_ACTIVITY `[Deprecated]`          | List of JPEG engine activity in percentage (0 - 100) - Deprecated from 6.14.14 driver     |
 | &cross;    | &check;   | GPU_GFX_BUSY_INSTANTANEOUS `[MI3xx]`      | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
-| &cross;    | &check;   | GPU_VC_BUSY_INSTANTANEOUS `[MI3xx]`       | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
+| &cross; | &check; | GPU_VCN_BUSY_INSTANTANEOUS `[MI3xx]` | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core |
 | &cross;    | &check;   | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]`     | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core       |
 | &check;    | &check;   | GPU_PROCESS_CU_OCCUPANCY `[MI2xx, MI3xx]` | Compute Unit occupancy for a process in percentage (0 - 100)                              |
 
@@ -134,20 +137,20 @@ The following document contains a full list of GPU Metrics that are available us
 | Hypervisor | Baremetal | Metric                                  | Description                               |
 | ---------- | --------- | ------ | ----------- |
 | &check;    | &check;   | GPU_TOTAL_VRAM `[MI2xx, MI3xx]`         | Total VRAM available in MB                |
-| &cross;    | &check;   | GPU_USED_VRAM `[MI2xx, MI3xx]`          | Total VRAM memory used in MB              |
-| &cross;    | &check;   | GPU_FREE_VRAM `[MI2xx, MI3xx]`          | Total VRAM memory free in MB              |
-| &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx]` | Total VRAM memory used in MB |
+| &check; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx]` | Total VRAM memory free in MB |
+| &check; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI2xx, MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
 
 ### GTT Memory Metrics
 
 | Hypervisor | Baremetal | Metric                         | Description                     |
 | ---------- | --------- | ------ | ----------- |
-| &cross; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx]` | Total GTT memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_USED_GTT `[MI2xx, MI3xx]` | Current GTT memory usage in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx]` | Free GTT memory available in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx]` | Total GTT memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_USED_GTT `[MI2xx, MI3xx]` | Current GTT memory usage in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx]` | Free GTT memory available in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 
 ### ECC Error Metrics
 
@@ -239,7 +242,7 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &cross; | &check; | GPU_CURRENT_ACCUMULATED_COUNTER `[MI3xx]` | Current Accumulated Violation Counter |
+| &cross; | &check; | GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER `[MI3xx]` | Current Accumulated Violation Counter |
 | &cross; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED `[MI3xx]` | Process Hot Residency Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED `[MI3xx]` | Package Power Tracking Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Socket Thermal accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |

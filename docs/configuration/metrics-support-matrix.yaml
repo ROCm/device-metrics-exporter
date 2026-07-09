@@ -1,0 +1,1172 @@
+# metrics-support-matrix.yaml -- single source of truth for GPU metric support
+# Gap classes: C=correct, D=doc-wrong-actually-works, N=genuinely-unsupported
+# Metric names match exporterconfig.proto GPUMetricField enum exactly.
+# Excludes GPU_PROF_* (profiler metrics disabled on SR-IOV by design).
+# hypervisor_guest is out of scope for GPUOP-880 (false for all).
+version: 1
+metrics:
+  # -- System --
+  - name: GPU_NODES_TOTAL
+    category: system
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_HEALTH
+    category: system
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "computed health flag"
+
+  # -- Temperature --
+  - name: GPU_EDGE_TEMPERATURE
+    category: temperature
+    platforms: [MI2xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI2xx only"
+  - name: GPU_JUNCTION_TEMPERATURE
+    category: temperature
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: GPU_MEMORY_TEMPERATURE
+    category: temperature
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_HBM_TEMPERATURE
+    category: temperature
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: N
+    notes: "deprecated from 6.14.14 driver; not emitted on hypervisor"
+
+  # -- Power --
+  - name: GPU_PACKAGE_POWER
+    category: power
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: GPU_AVERAGE_PACKAGE_POWER
+    category: power
+    platforms: [MI2xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: N
+    notes: "MI2xx only; not emitted on hypervisor (verified leto)"
+  - name: GPU_POWER_USAGE
+    category: power
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: N
+    notes: "not emitted on hypervisor (verified leto)"
+  - name: GPU_ENERGY_CONSUMED
+    category: power
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: N
+    notes: "not emitted on hypervisor (verified leto)"
+
+  # -- Activity --
+  - name: GPU_GFX_ACTIVITY
+    category: activity
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_UMC_ACTIVITY
+    category: activity
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_MMA_ACTIVITY
+    category: activity
+    platforms: []
+    baremetal: false
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated from 6.14.14 driver"
+  - name: GPU_VCN_ACTIVITY
+    category: activity
+    platforms: []
+    baremetal: false
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated from 6.14.14 driver"
+  - name: GPU_JPEG_ACTIVITY
+    category: activity
+    platforms: []
+    baremetal: false
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated from 6.14.14 driver"
+  - name: GPU_GFX_BUSY_INSTANTANEOUS
+    category: activity
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: GPU_VCN_BUSY_INSTANTANEOUS
+    category: activity
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: GPU_JPEG_BUSY_INSTANTANEOUS
+    category: activity
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: GPU_PROCESS_CU_OCCUPANCY
+    category: process
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- Voltage (deprecated) --
+  - name: GPU_VOLTAGE
+    category: activity
+    platforms: []
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated on all platforms"
+  - name: GPU_GFX_VOLTAGE
+    category: activity
+    platforms: []
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated on all platforms"
+  - name: GPU_MEMORY_VOLTAGE
+    category: activity
+    platforms: []
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "deprecated on all platforms"
+
+  # -- PCIe --
+  - name: PCIE_SPEED
+    category: pcie
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: PCIE_MAX_SPEED
+    category: pcie
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: PCIE_BANDWIDTH
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_REPLAY_COUNT
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_RECOVERY_COUNT
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_REPLAY_ROLLOVER_COUNT
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_NACK_SENT_COUNT
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_NACK_RECEIVED_COUNT
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+  - name: PCIE_RX
+    category: pcie
+    platforms: []
+    baremetal: false
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "upcoming feature"
+  - name: PCIE_TX
+    category: pcie
+    platforms: []
+    baremetal: false
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "upcoming feature"
+  - name: PCIE_BIDIRECTIONAL_BANDWIDTH
+    category: pcie
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "MI3xx only"
+
+  # -- Clock --
+  - name: GPU_CLOCK
+    category: clock
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_MAX_CLOCK
+    category: clock
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_MIN_CLOCK
+    category: clock
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- Memory (VRAM) --
+  - name: GPU_TOTAL_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_USED_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7"
+  - name: GPU_FREE_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7"
+  - name: GPU_TOTAL_VISIBLE_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+  - name: GPU_USED_VISIBLE_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+  - name: GPU_FREE_VISIBLE_VRAM
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+  - name: GPU_VRAM_MAX_BANDWIDTH
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- GTT Memory --
+  - name: GPU_TOTAL_GTT
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+  - name: GPU_USED_GTT
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+  - name: GPU_FREE_GTT
+    category: memory
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: D
+    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+
+  # -- ECC (Correctable) --
+  - name: GPU_ECC_CORRECT_TOTAL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_SDMA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_GFX
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_MMHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_ATHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_BIF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_HDP
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_XGMI_WAFL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_DF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_SMN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_SEM
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_MP0
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_MP1
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_FUSE
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_UMC
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_MCA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_VCN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_JPEG
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_IH
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_CORRECT_MPIO
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- ECC (Uncorrectable) --
+  - name: GPU_ECC_UNCORRECT_TOTAL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_SDMA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_GFX
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_MMHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_ATHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_BIF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_HDP
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_XGMI_WAFL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_DF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_SMN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_SEM
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_MP0
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_MP1
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_FUSE
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_UMC
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_MCA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_VCN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_JPEG
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_IH
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_UNCORRECT_MPIO
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- ECC (Deferred) --
+  - name: GPU_ECC_DEFERRED_TOTAL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_SDMA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_GFX
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_MMHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_ATHUB
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_BIF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_HDP
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_XGMI_WAFL
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_DF
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_SMN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_SEM
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_MP0
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_MP1
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_FUSE
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_UMC
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: true
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_MCA
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_VCN
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_JPEG
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_IH
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_ECC_DEFERRED_MPIO
+    category: ecc
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- XGMI --
+  - name: GPU_XGMI_NBR_0_NOP_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_0_REQ_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_0_RESP_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_0_BEATS_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_1_NOP_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_1_REQ_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_1_RESP_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_1_BEATS_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_0_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_1_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_2_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_3_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_4_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_NBR_5_TX_THRPUT
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_LINK_RX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_XGMI_LINK_TX
+    category: xgmi
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- Throttle / Violation (MI3xx only) --
+  - name: GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+  - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE
+    category: throttle
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""
+
+  # -- RAS --
+  - name: GPU_AFID_ERRORS
+    category: ras
+    platforms: [MI2xx, MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: ""

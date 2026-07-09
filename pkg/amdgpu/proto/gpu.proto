@@ -791,6 +791,10 @@ message GPUStats {
   uint64                     IHDeferredErrors            = 87;
   // MPIO deferred errors
   uint64                     MPIODeferredErrors          = 88;
+  // UBB node power (in Watts), MI350X+
+  uint64                     UbbPower                    = 89;
+  // UBB node power threshold (in Watts), MI350X+
+  uint64                     UbbPowerCap                 = 90;
 }
 
 // GPU captures config, operational status and stat of GPU object

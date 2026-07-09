@@ -125,6 +125,47 @@ func ParsePrometheusMetrics(payload string) (map[string]*GPUMetric, error) {
 	return metrics, nil
 }
 
+// MetricSeries represents a single Prometheus time series line.
+type MetricSeries struct {
+	Name   string
+	Labels map[string]string
+	Value  string
+}
+
+// ParseAllMetricSeries parses all Prometheus text lines into a flat slice,
+// preserving multiple series with the same metric name (e.g. per-index VCN/JPEG).
+func ParseAllMetricSeries(payload string) []MetricSeries {
+	re := regexp.MustCompile(`^(\w+)\{([^}]+)\}\s+(\S+)$`)
+	var result []MetricSeries
+	for _, line := range strings.Split(strings.ReplaceAll(payload, "\r\n", "\n"), "\n") {
+		matches := re.FindStringSubmatch(line)
+		if len(matches) != 4 {
+			continue
+		}
+		labels, err := parseKeyValueStrings(matches[2])
+		if err != nil {
+			continue
+		}
+		result = append(result, MetricSeries{
+			Name:   matches[1],
+			Labels: labels,
+			Value:  matches[3],
+		})
+	}
+	return result
+}
+
+// FilterSeries returns all series matching the given metric name.
+func FilterSeries(series []MetricSeries, name string) []MetricSeries {
+	var out []MetricSeries
+	for _, s := range series {
+		if s.Name == name {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func GetUncorrectableErrorFields() []string {
 	return []string{
 		"GPU_ECC_UNCORRECT_SDMA",
