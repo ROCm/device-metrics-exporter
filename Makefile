@@ -114,8 +114,8 @@ HTML_DIR := $(BUILD_DIR)/html
 
 # library branch to build amdsmi libraries for gpuagent
 AMDSMI_REPO   ?= https://github.com/ROCm/rocm-systems.git
-AMDSMI_BRANCH ?= therock-7.13
-AMDSMI_COMMIT ?= 79e85e1468f96a867108043c953e9547c13b4c5e
+AMDSMI_BRANCH ?= release/therock-7.14
+AMDSMI_COMMIT ?= 53a7a4f3fe6019a551506285f9f2bb86dfddf9b4
 AMDSMI_SUBDIR ?= projects/amdsmi
 GIMSMI_BRANCH ?= release/8.7.0.K-rc
 GIMSMI_COMMIT ?= 8.7.0.K
@@ -126,8 +126,8 @@ GPUAGENT_REPO ?= https://github.com/ROCm/gpu-agent.git
 GPUAGENT_BRANCH ?= main
 GPUAGENT_COMMIT ?= 9af0bf5b7c3a0b66c5b13bf4fecd8fb17dc3f388
 
-ROCM_VERSION ?= 7.14.0rc1
-ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-7.14.0rc1.tar.gz
+ROCM_VERSION ?= 7.14.0rc2
+ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-7.14.0rc2.tar.gz
 RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.4.24-454-Linux.tar.gz
 ROCM_APT_VERSION ?= .apt_7.2.1
 AINIC_VERSION ?= 1.117.5-a-56
@@ -173,7 +173,7 @@ UBUNTU_LIBDIR = UBUNTU24
 endif
 
 # set version and run `make update-version` to all docs
-PROJECT_VERSION ?= v1.5.0
+PROJECT_VERSION ?= v1.5.1
 HELM_CHARTS_VERSION ?= $(PROJECT_VERSION)
 NIC_BUILD ?= 0
 ifeq ($(NIC_BUILD),1)
