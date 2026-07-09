@@ -27,14 +27,15 @@ RUN echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://downlo
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 
 RUN apt-get update && apt-get install -y \
-  docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+  docker-ce=5:24.0.4-1~ubuntu.22.04~jammy docker-ce-cli=5:24.0.4-1~ubuntu.22.04~jammy containerd.io=1.7.29-1~ubuntu.22.04~jammy docker-buildx-plugin docker-compose-plugin \
   make python3 python3-sphinx python3-pip aspell aspell-en nodejs \
   git && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# download go1.25.10
-RUN wget https://go.dev/dl/go1.25.10.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go1.25.10.linux-amd64.tar.gz && \
-    rm go1.25.10.linux-amd64.tar.gz
+# download go1.25.11
+ENV DOCKER_BUILDKIT=0
+RUN wget https://go.dev/dl/go1.25.11.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.25.11.linux-amd64.tar.gz && \
+    rm go1.25.11.linux-amd64.tar.gz
 
 # download and install kubectl 
 RUN curl -o /usr/local/bin/kubectl -LO 'https://dl.k8s.io/release/v1.30.4/bin/linux/amd64/kubectl' && \
