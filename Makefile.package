@@ -116,6 +116,9 @@ rpmpkg-sriov: rpmpkg-clean
 	# copy libraries
 	@echo "Copy prebuilt libraries"
 	@cp -rvf ${GPUAGENT_SRIOV_LIBS_RHEL9}/ ${RPM_PACKAGE_SRIOV_DIR}/
+	# gpuagent's NEEDED/SONAME is libamdsmi.so; ship the loader alias to the
+	# libgim_amd_smi.so file so gpuagent-sriov starts from the rpm.
+	@ln -sf libgim_amd_smi.so ${RPM_PACKAGE_SRIOV_DIR}/lib/libamdsmi.so
 	#copy default config
 	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${RPM_PACKAGE_SRIOV_DIR}/bin/config.json
 	@cat ${RPM_PACKAGE_SRIOV_DIR}/bin/config.json

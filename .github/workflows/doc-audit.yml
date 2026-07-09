@@ -1,0 +1,25 @@
+name: doc-audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - docs/configuration/metricslist.md
+      - docs/configuration/metrics-support-matrix.yaml
+      - tools/scripts/doc-audit.sh
+      - pkg/exporter/proto/exporterconfig.proto
+
+permissions:
+  contents: read
+
+jobs:
+  doc-audit:
+    name: Metrics doc audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Run doc-audit
+        run: make doc-audit

@@ -528,6 +528,10 @@ docs-lint: ## Run docs Markdown lint + spelling (full ROCm-style docs lint).
 	${MAKE} docs-lint-markdown
 	${MAKE} docs-lint-spelling
 
+.PHONY: doc-audit
+doc-audit: ## Verify metricslist.md matches metrics-support-matrix.yaml (CI gate).
+	@bash tools/scripts/doc-audit.sh
+
 .PHONY: base-image
 base-image:
 	${MAKE} -C tools/base-image
@@ -548,6 +552,15 @@ e2e-test:
 e2e:
 	$(MAKE) docker-mock
 	$(MAKE) e2e-test
+
+# Real-GIM SR-IOV e2e. Builds the sriov image (real libgim_amd_smi.so) and
+# runs the hardware-bound TestSRIOVRealGIM on a live GIM host. The test skips
+# unless SRIOV_EXPORTER_IMAGE points at the built image.
+.PHONY: e2e-sriov
+e2e-sriov:
+	$(MAKE) docker-sriov
+	SRIOV_EXPORTER_IMAGE=$(DOCKER_REGISTRY)/$(EXPORTER_SRIOV_IMAGE_NAME):$(EXPORTER_IMAGE_TAG) \
+		go test ./test/e2e/ -run TestSRIOVRealGIM -v -count=1
 
 .PHOHY: k8s-e2e
 k8s-e2e:
