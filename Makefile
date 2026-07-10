@@ -124,7 +124,7 @@ GIMSMI_COMMIT ?= 8.7.0.K
 # requires a full SHA (abbreviated SHAs are rejected by the remote).
 GPUAGENT_REPO ?= https://github.com/ROCm/gpu-agent.git
 GPUAGENT_BRANCH ?= main
-GPUAGENT_COMMIT ?= 9af0bf5b7c3a0b66c5b13bf4fecd8fb17dc3f388
+GPUAGENT_COMMIT ?= ad0f7f10efb31119fba9fecfefd54e787536b7e7
 
 ROCM_VERSION ?= 7.14.0rc2
 ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-7.14.0rc2.tar.gz
