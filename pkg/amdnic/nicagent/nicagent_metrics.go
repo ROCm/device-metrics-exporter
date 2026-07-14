@@ -49,7 +49,6 @@ var (
 	fetchEthtoolMetrics  bool
 	fetchPortMetrics     bool
 	fetchPortRateMetrics bool
-	fetchPortStatus      bool
 	fetchLifMetrics      bool
 	fetchQPMetrics       bool
 	fetchLIFAggQPMetrics bool
@@ -611,7 +610,6 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	fetchEthtoolMetrics = false
 	fetchPortMetrics = false
 	fetchPortRateMetrics = false
-	fetchPortStatus = false
 	fetchLifMetrics = false
 	fetchQPMetrics = false
 	fetchLIFAggQPMetrics = false
@@ -621,7 +619,6 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 		fetchEthtoolMetrics = true
 		fetchPortMetrics = true
 		fetchPortRateMetrics = true
-		fetchPortStatus = true
 		fetchLifMetrics = true
 		fetchLIFAggQPMetrics = true
 		fetchQPMetrics = false
@@ -647,8 +644,6 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			strings.HasPrefix(fieldName, "NIC_PORT_STATS_RX_BPS"):
 			fetchPortRateMetrics = true
 			fetchPortMetrics = true // Rate metrics also need Port to be enabled
-		case strings.HasPrefix(fieldName, "NIC_PORT_STATUS_"):
-			fetchPortStatus = true
 		case strings.HasPrefix(fieldName, "NIC_PORT_"):
 			fetchPortMetrics = true
 		case strings.HasPrefix(fieldName, "NIC_LIF_"):

@@ -126,9 +126,16 @@ message PortSpec {
     string ID                       = 1 [(go.field).tags = 'json:"id,omitempty"'];
 }
 
+// PortStatus represents the operational status fields of a port, as returned
+// alongside "statistics" in nicctl's port JSON output.
+message PortStatus {
+    string NUMBER_OF_LINK_DOWN_EVENTS = 1 [(go.field).tags = 'json:"number_of_link_down_events,omitempty"'];
+}
+
 message Port {
     PortStats Statistics = 1 [(go.field).tags = 'json:"statistics,omitempty"'];
     PortSpec Spec        = 2 [(go.field).tags = 'json:"spec,omitempty"'];
+    PortStatus Status    = 3 [(go.field).tags = 'json:"status,omitempty"'];
 }
 
 // NICPortStats represents a collection of port statistics grouped by NIC ID.

@@ -71,7 +71,6 @@ func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string
 
 	fn_ptrs := []func(context.Context, map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
-		nc.UpdatePortStatus,
 		nc.UpdateLifStats,
 		nc.UpdateQPStats}
 
@@ -207,6 +206,9 @@ func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[strin
 			nc.na.m.nicPortStatsRsfecCorrectableWord.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CORRECTABLE_WORD)))
 			nc.na.m.nicPortStatsRsfecUncorrectableWord.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_UNCORRECTABLE_WORD)))
 			nc.na.m.nicPortStatsRsfecChSymbolErrCnt.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CH_SYMBOL_ERR_CNT)))
+			if port.Status != nil {
+				nc.na.m.nicPortStatusLinkDownCount.With(labels).Set(float64(utils.StringToUint64(port.Status.NUMBER_OF_LINK_DOWN_EVENTS)))
+			}
 
 			// Add rate statistics if available
 			if rateStatsAvailable && port.Spec != nil {
@@ -216,54 +218,6 @@ func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[strin
 					nc.na.m.nicPortStatsRxPps.With(labels).Set(parseRateValue(ratePort.Statistics.RX_PPS))
 					nc.na.m.nicPortStatsRxBps.With(labels).Set(parseRateValue(ratePort.Statistics.RX_BPS))
 				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// UpdatePortStatus fetches per-port link status (e.g. link down/flap events) for each
-// NIC. This data lives under "status" in nicctl's port output, a separate command from
-// the "statistics" fetched by UpdatePortStats, so it is polled independently.
-func (nc *NICCtlClient) UpdatePortStatus(ctx context.Context, workloads map[string]scheduler.Workload) error {
-	if !fetchPortStatus {
-		return nil
-	}
-
-	type portStatusResponse struct {
-		NIC []struct {
-			ID   string `json:"id"`
-			Port []struct {
-				Status struct {
-					NumberOfLinkDownEvents string `json:"number_of_link_down_events"`
-				} `json:"status"`
-			} `json:"port"`
-		} `json:"nic"`
-	}
-
-	for nicID := range nc.na.nics {
-		cmd := fmt.Sprintf("nicctl show port --card %s -j", nicID)
-		out, err := ExecWithContext(cmd, nc.na.cmdExec)
-		if err != nil {
-			logger.Log.Printf("NIC: %s, failed to get port status, err: %+v", nicID, err)
-			continue
-		}
-
-		var resp portStatusResponse
-		if err := json.Unmarshal(out, &resp); err != nil {
-			logger.Log.Printf("NIC: %s, error unmarshaling port status data: %v", nicID, err)
-			continue
-		}
-
-		labels := nc.na.populateLabelsFromNIC(nicID)
-		labels[LabelPortName] = nc.na.nics[nicID].GetPortName()
-		labels[LabelPortID] = nc.na.nics[nicID].GetPortIndex()
-		labels[LabelPcieBusId] = nc.na.nics[nicID].GetPortPcieAddr()
-
-		for _, nic := range resp.NIC {
-			for _, port := range nic.Port {
-				nc.na.m.nicPortStatusLinkDownCount.With(labels).Set(float64(utils.StringToUint64(port.Status.NumberOfLinkDownEvents)))
 			}
 		}
 	}
