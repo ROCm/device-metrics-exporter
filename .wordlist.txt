@@ -323,3 +323,6 @@ CPER
 args
 GIM
 IOV
+CVE
+CVSS
+CWE
