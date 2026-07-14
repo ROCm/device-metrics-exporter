@@ -159,7 +159,10 @@ ROCm 6.2 or later, MI2xx, MI3xx
 
 ### Issues Fixed
 
-- **Security Vulnerability Fix**
+- **Security Vulnerability Fix (CVE-2026-0481, AMD-SB-6031)**
+  - CVE ID: CVE-2026-0481
+  - CVSS 3.1 Base Score: 9.2 (Critical)
+  - CWE-1327: Binding to an Unrestricted IP Address
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
   - The internal service is now only hosted on localhost and is configurable through service files. More details can be found at [Installation section](installation/deb-package.rst)
 
@@ -192,7 +195,10 @@ ROCm 7.1.1 MI2xx, MI3xx; Kubernetes 1.34+ (required only for DRA beta feature)
 
 ### Issues Fixed
 
-- **Security Vulnerability Fix**
+- **Security Vulnerability Fix (CVE-2026-0481, AMD-SB-6031)**
+  - CVE ID: CVE-2026-0481
+  - CVSS 3.1 Base Score: 9.2 (Critical)
+  - CWE-1327: Binding to an Unrestricted IP Address
   - `gpuagent.service` internal service port was hosted on all interfaces instead of only localhost
   - The internal service is now only hosted on localhost and is configurable through service files. More details can be found at [Installation section](installation/deb-package.rst)
 
