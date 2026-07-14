@@ -32,7 +32,10 @@ var (
 // IsCperEnabled reports whether CPER fetching is enabled.
 // CPER is OFF by default; opt in by setting AMD_METRICS_EXPORTER_ENABLE_CPER
 // to 1, true, yes, or on. The env var is resolved once on first call.
-func IsCperEnabled() bool {
+//
+// It is a function variable so callers depend on the behavior, not a concrete
+// implementation; tests inject their own value by reassigning it.
+var IsCperEnabled = func() bool {
 	cperEnabledOnce.Do(func() {
 		switch strings.ToLower(strings.TrimSpace(os.Getenv(cperEnableEnvVar))) {
 		case "1", "true", "yes", "on":

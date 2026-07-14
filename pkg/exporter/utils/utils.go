@@ -122,8 +122,16 @@ func StringToUint64(str string) uint64 {
 func convertFloatToUint(val interface{}) interface{} {
 	switch v := val.(type) {
 	case float64:
+		// clamp: an out-of-range float->uint cast is implementation-defined
+		if v >= float64(math.MaxUint64) {
+			return uint64(math.MaxUint64)
+		}
 		return uint64(v)
 	case float32:
+		// float32 rounds UINT32_MAX up to 2^32; clamp so it stays NA, not 0
+		if float64(v) >= float64(math.MaxUint32) {
+			return uint32(math.MaxUint32)
+		}
 		return uint32(v)
 	default:
 		return val
@@ -167,17 +175,18 @@ func IsNonZeroValue(val interface{}) bool {
 // IsValueApplicable checks if the value is applicable for metrics export.
 // It checks if the value is not equal to the maximum value for its type, which indicates NA (not applicable).
 // The function returns true if the value is applicable and false if it is NA.
+// MaxInt32 is also NA: the GIM smi-lib reports some unsupported fields (e.g. mm_activity) with that sentinel.
 func IsValueApplicable(val interface{}) bool {
 
 	x := convertFloatToUint(val)
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
 			return false
 		}
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
 			return false
 		}
 	case uint16:
@@ -203,12 +212,12 @@ func NormalizeUint64(val interface{}) float64 {
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
 			return 0
 		}
 		return float64(x)
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
 			return 0
 		}
 		return float64(x)

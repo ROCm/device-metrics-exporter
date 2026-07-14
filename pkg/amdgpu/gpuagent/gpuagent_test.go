@@ -41,6 +41,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 )
 
 func TestGpuAgent(t *testing.T) {
@@ -958,6 +959,15 @@ func newCPERTestMocks(t *testing.T, cperErr error) (gpuSvc *mock_gen.MockGPUSvcC
 	return gpuSvc, evtSvc, ctrl.Finish
 }
 
+// setCperEnabled overrides utils.IsCperEnabled for the duration of a test and
+// returns a restore func. Kept in the test package so the functional file has
+// no test-only hooks.
+func setCperEnabled(v bool) func() {
+	prev := utils.IsCperEnabled
+	utils.IsCperEnabled = func() bool { return v }
+	return func() { utils.IsCperEnabled = prev }
+}
+
 // TestCPERDeadlineExceededDoesNotTriggerExit verifies that a DeadlineExceeded error
 // from the CPER RPC in processHealthValidation does NOT return ErrAgentUnreachable.
 // Older drivers without inband-RAS support will always timeout on this call; treating
@@ -966,6 +976,7 @@ func newCPERTestMocks(t *testing.T, cperErr error) (gpuSvc *mock_gen.MockGPUSvcC
 func TestCPERDeadlineExceededDoesNotTriggerExit(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
+	defer setCperEnabled(true)()
 
 	gpuSvc, evtSvc, finish := newCPERTestMocks(t, status.Error(codes.DeadlineExceeded, "deadline exceeded"))
 	defer finish()
@@ -995,6 +1006,7 @@ func TestCPERDeadlineExceededDoesNotTriggerExit(t *testing.T) {
 func TestCPERNonFatalErrorDoesNotTriggerExit(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
+	defer setCperEnabled(true)()
 
 	gpuSvc, evtSvc, finish := newCPERTestMocks(t, status.Error(codes.Unimplemented, "not supported"))
 	defer finish()
@@ -1023,6 +1035,7 @@ func TestCPERNonFatalErrorDoesNotTriggerExit(t *testing.T) {
 func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
+	defer setCperEnabled(true)()
 
 	gpuIDBytes := cperTestGPUIDBytes()
 
@@ -1092,6 +1105,7 @@ func TestCPERFatalSeveritySetsGPUUnhealthy(t *testing.T) {
 func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
+	defer setCperEnabled(true)()
 
 	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
 
@@ -1151,6 +1165,7 @@ func TestCPERStaleFatalDoesNotSetUnhealthy(t *testing.T) {
 func TestCPERLatestNonFatalOverridesOlderFatal(t *testing.T) {
 	teardownSuite := setupTest(t)
 	defer teardownSuite(t)
+	defer setCperEnabled(true)()
 
 	gpuIDBytes := []byte("72ff740f-0000-1000-804c-3b58bf67050e")
 
