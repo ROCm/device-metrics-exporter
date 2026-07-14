@@ -192,6 +192,74 @@ func TestNormalize(t *testing.T) {
 		})
 	}
 }
+
+// TestFloatSentinel covers the float32/float64 NA-sentinel path in
+// convertFloatToUint. A GIM float NA sentinel (e.g. edge_temperature =
+// UINT32_MAX) must be treated as NA, not cast to a bogus 0 (float32 rounds
+// UINT32_MAX up to 2^32, which wraps to 0 on a plain uint32 cast).
+func TestFloatSentinel(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          interface{}
+		wantApplicable bool
+		wantNormalized float64
+	}{
+		{
+			name:           "float32 UINT32_MAX sentinel - NA",
+			input:          float32(math.MaxUint32),
+			wantApplicable: false,
+			wantNormalized: 0,
+		},
+		{
+			name:           "float64 UINT64_MAX sentinel - NA",
+			input:          float64(math.MaxUint64),
+			wantApplicable: false,
+			wantNormalized: 0,
+		},
+		{
+			name:           "uint32 INT32_MAX sentinel (GIM mm_activity) - NA",
+			input:          uint32(math.MaxInt32),
+			wantApplicable: false,
+			wantNormalized: 0,
+		},
+		{
+			name:           "uint64 INT32_MAX sentinel - NA",
+			input:          uint64(math.MaxInt32),
+			wantApplicable: false,
+			wantNormalized: 0,
+		},
+		{
+			name:           "float32 valid temperature",
+			input:          float32(43),
+			wantApplicable: true,
+			wantNormalized: 43,
+		},
+		{
+			name:           "float64 valid value",
+			input:          float64(1234),
+			wantApplicable: true,
+			wantNormalized: 1234,
+		},
+		{
+			name:           "float32 zero",
+			input:          float32(0),
+			wantApplicable: true,
+			wantNormalized: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsValueApplicable(tt.input); got != tt.wantApplicable {
+				t.Errorf("IsValueApplicable(%v) = %v; want %v", tt.input, got, tt.wantApplicable)
+			}
+			if got := NormalizeUint64(tt.input); got != tt.wantNormalized {
+				t.Errorf("NormalizeUint64(%v) = %v; want %v", tt.input, got, tt.wantNormalized)
+			}
+		})
+	}
+}
+
 func TestNormalizePercent(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -293,7 +293,7 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		gpuUUIDMap[gpuuid] = gpuid
 	}
 
-	// disable events when SR-IOV is enabled or when events are disabled via configuration/env (utils.IsEventsDisabled)
+	// events have no notification stream under SR-IOV/GIM or sim; baremetal-only
 	if !(ga.gpuHandler.enableSriov || utils.IsSimEnabled()) {
 		if !utils.IsEventsDisabled() {
 			evtData, err = ga.getEvents(amdgpu.EventSeverity_EVENT_SEVERITY_CRITICAL)
@@ -307,6 +307,12 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 				}
 			}
 		}
+	}
+
+	// CPER runs on baremetal and SR-IOV/GIM alike, but only when enabled; when
+	// disabled the refresh goroutine never starts, so the cache stays nil and
+	// running the checks would log a spurious error on every health poll.
+	if utils.IsCperEnabled() {
 		gpuCper, err = ga.cacheCperRead()
 		ga.applyCPERHealthChecks(gpuUUIDMap, newGPUState, gpuCper, err)
 	}

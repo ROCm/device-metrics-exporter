@@ -428,7 +428,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -444,7 +444,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -460,7 +460,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -468,7 +468,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -476,7 +476,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -484,7 +484,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -492,7 +492,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -500,7 +500,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -516,7 +516,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -524,7 +524,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -532,7 +532,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -540,7 +540,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -548,7 +548,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -590,7 +590,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -606,7 +606,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -622,7 +622,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -630,7 +630,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -638,7 +638,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -646,7 +646,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -654,7 +654,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -662,7 +662,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -678,7 +678,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -686,7 +686,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -694,7 +694,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -702,7 +702,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -710,7 +710,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -752,7 +752,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -768,7 +768,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -784,7 +784,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -792,7 +792,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -800,7 +800,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -808,7 +808,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -816,7 +816,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -824,7 +824,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -840,7 +840,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -848,7 +848,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -856,7 +856,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -864,7 +864,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
@@ -872,7 +872,7 @@ metrics:
     category: ecc
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
     class: C
     notes: ""
