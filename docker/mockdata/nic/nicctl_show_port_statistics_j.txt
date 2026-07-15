@@ -101,6 +101,9 @@
                         "rsfec_correctable_word": "0",
                         "rsfec_uncorrectable_word": "0",
                         "rsfec_ch_symbol_err_cnt": "7"
+                    },
+                    "status": {
+                        "number_of_link_down_events": "11"
                     }
                 }
             ]
@@ -205,6 +208,9 @@
                         "rsfec_correctable_word": "0",
                         "rsfec_uncorrectable_word": "0",
                         "rsfec_ch_symbol_err_cnt": "0"
+                    },
+                    "status": {
+                        "number_of_link_down_events": "11"
                     }
                 }
             ]
