@@ -117,8 +117,8 @@ AMDSMI_REPO   ?= https://github.com/ROCm/rocm-systems.git
 AMDSMI_BRANCH ?= release/therock-7.14
 AMDSMI_COMMIT ?= 53a7a4f3fe6019a551506285f9f2bb86dfddf9b4
 AMDSMI_SUBDIR ?= projects/amdsmi
-GIMSMI_BRANCH ?= release/8.7.0.K-rc
-GIMSMI_COMMIT ?= 8.7.0.K
+GIMSMI_BRANCH ?= release/9.1.x.K-rc
+GIMSMI_COMMIT ?= 9.1.0.K
 # gpuagent is cloned (not a submodule) and built inside the exporter docker build.
 # COMMIT must be the full 40-char SHA: the in-docker shallow `git fetch --depth 1 <sha>`
 # requires a full SHA (abbreviated SHAs are rejected by the remote).

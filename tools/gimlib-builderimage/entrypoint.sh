@@ -13,7 +13,16 @@ if [ -z $COMMIT ]; then
     git reset --hard $COMMIT
 fi
 cd smi-lib
-rm -rf build 2>&1 || true
+rm -rf build nic/build 2>&1 || true
+# 9.1.0.K+ smi-lib links against the NIC static libs (libamdsminic.a + nl/build/libnl.a);
+# build the nic target first so the main .so link resolves them.
+make -C nic
+
+if [ $? -ne 0 ]; then
+    echo "Build error (nic)"
+    exit 1
+fi
+
 make
 
 if [ $? -ne 0 ]; then
