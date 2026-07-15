@@ -1,4 +1,4 @@
 [submodule "libgimsmi"]
 	path = libgimsmi
 	url = git@github.com:amd/MxGPU-Virtualization.git
-	branch = release/8.7.0.K-rc
+	branch = release/9.1.x.K-rc
