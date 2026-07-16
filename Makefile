@@ -128,7 +128,7 @@ GPUAGENT_COMMIT ?= 81c7c4bbd90fe08f6b7effb8dfb4912d71b94570
 
 ROCM_VERSION ?= 7.14.0
 ROCM_TARBALL_URL ?= https://repo.amd.com/rocm/tarball-multi-arch/therock-dist-linux-multiarch-7.14.0.tar.gz
-RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.4.24-454-Linux.tar.gz
+RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
 ROCM_APT_VERSION ?= .apt_7.2.1
 AINIC_VERSION ?= 1.117.5-a-56
 
