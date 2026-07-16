@@ -4,7 +4,7 @@
 # Usage: install-rvs-tarball.sh <RVS_TARBALL_URL>
 #
 #   RVS_TARBALL_URL — full URL to the RVS .tar.gz
-#                     e.g. https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.4.24-454-Linux.tar.gz
+#                     e.g. https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
 #
 # Tarball layout (top-level, no wrapper dir):
 #   bin/rvs
