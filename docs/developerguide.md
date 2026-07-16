@@ -203,7 +203,7 @@ make helm-charts
 
 ## GPU Agent Integration
 
-The AMD Device Metrics Exporter relies on [GPU Agent](https://github.com/ROCm/gpu-agent.git), which provides programmable APIs to configure and monitor AMD Instinct GPUs. GPU Agent enables low-level interactions with the GPUs, facilitating the collection and reporting of device-specific metrics.
+The AMD Device Metrics Exporter relies on [GPU Agent](https://github.com/ROCm/gpu-agent.git), which provides programmable APIs to configure and monitor AMD Instinct and Radeon AI GPUs. GPU Agent enables low-level interactions with the GPUs, facilitating the collection and reporting of device-specific metrics.
 
 ### Building GPU Agent
 

@@ -5,6 +5,9 @@
 - **New Platform Support**
   - MI350P and Radeon AI platforms are now supported
 
+- **SR-IOV Exporter Image**
+  - New docker-only image `device-metrics-exporter-sriov`, tag `1.0.0`, for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
+
 - **Helm Chart: Configurable Exporter Arguments**
   - The Helm chart now supports passing arbitrary arguments to the exporter at deploy time
   - New deployment options available:
@@ -27,8 +30,11 @@
 - **GPU Agent no longer holds `/dev/kfd` open for its lifetime**
   - GPU Agent previously kept `/dev/kfd` open permanently, blocking GPU partition changes and driver upgrades without a full service restart. The file descriptor is now released when not in use
 
-- **Fixed immediate exit with "too many open files"**
-  - The exporter no longer exits immediately at startup due to hitting the open file descriptor limit under certain deployment configurations
+- **Kubernetes watchers no longer start unconditionally**
+  - Node and pod watchers previously started at boot regardless of whether they were needed. They now start lazily based on `HealthService.Enable` and `ExtraPodLabels` configuration, and their state changes are now visible via Kubernetes Events
+
+- **`GPU_CPER_MAX_AGE` added to filter stale CPER records**
+  - A new `HealthThresholds` field lets deployments ignore fatal CPER records older than a configured age when determining GPU health, avoiding stale records marking a healthy GPU as unhealthy. See [Kubernetes configuration](configuration/configmap.md)
 
 ### Known Issues
 
