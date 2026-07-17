@@ -2,6 +2,8 @@
 Standalone Debian Package Install
 =================================
 
+For SR-IOV/GIM hypervisor hosts, see :doc:`deb-package-sriov` instead.
+
 System Requirements
 ===================
 

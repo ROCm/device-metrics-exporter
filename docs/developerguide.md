@@ -4,7 +4,11 @@ This document provides build instructions and guidance for developers working on
 
 ## Git submodule setup
 
-Make sure to update the submodules on every pull from the repository.
+`libgimsmi` (the GIM SR-IOV SMI library) is the only remaining git submodule
+— `gpuagent` and `libamdsmi` are no longer submodules; they are cloned or
+staged at build time instead (see [GPU Agent Integration](#gpu-agent-integration)
+and [Build AMD SMI](#build-amd-smi)). Make sure to update the submodule on
+every pull from the repository.
 
 ```bash
 git submodule update --init --recursive
@@ -38,14 +42,15 @@ The default target creates a docker build container that packages the developer 
 
 ## Building Components
 
-Each components have prebuilt in assets-build directory. If any changes or
-done to respective components, then the component needs to be rebuilt
-accordingly. Exporter container built after any component built will pack the newly built components.
+Each component has prebuilt assets committed under `assets/`. If any changes
+are made to a respective component, the component needs to be rebuilt
+accordingly. `make docker` (or `make pkg`) built after any component rebuild
+will pack the newly built assets.
 
 | Component | Directory | Compilation Target |
 | ----------------- | ------------------------- | ---------------------------------- |
 | amd-smi | $(TOP_DIR)/libamdsmi | `make amdsmi-compile-all` |
-| gpuagent | $(TOP_DIR)/gpuagent | `make gpuagent-compile-full` |
+| gpuagent | (cloned in-image, not a submodule — see [GPU Agent Integration](#gpu-agent-integration)) | built automatically by `make docker` |
 | rocprofilerclient | $(TOP_DIR)/rocprofilerclient | `make rocprofiler-compile` |
 
 ### Build and Launch Docker Build Container Shell
@@ -207,19 +212,15 @@ The AMD Device Metrics Exporter relies on [GPU Agent](https://github.com/ROCm/gp
 
 ### Building GPU Agent
 
-Developers can make changes directly in the GPU Agent repository, build the GPU Agent binary, and then integrate the built binaries into the Device Metrics Exporter project. Copy over the static binary into the `assets` folder in the AMD Device Metrics Exporter and follow these steps:
+GPU Agent is **not** a git submodule. It is cloned at a pinned commit and
+compiled from source inside the exporter's multi-stage Docker build
+(`docker/Dockerfile.exporter-release`) — there is no standalone host-side
+build step. `make docker` (or `make pkg`) handles cloning and compiling GPU
+Agent automatically as part of the image/package build.
 
-#### Build Container (one time)
-
-```bash
-make gpuagent-build
-```
-
-#### Compile GPU Agent
-
-```bash
-make gpuagent-compile
-```
+To advance the pinned GPU Agent commit, update `GPUAGENT_COMMIT` in the
+top-level `Makefile` (must be a full 40-character SHA) and re-run `make
+docker`.
 
 ## Build ROC Profiler Module
 
@@ -234,19 +235,22 @@ ROCM_VERSION=6.4.1 make rocprofiler-compile
 
 ## Build AMD SMI
 
-This is a built out of [AMD SMI Lib](git@github.com:ROCm/amdsmi.git), to
-access AMD GPU hardware driver
+This is built out of [AMD SMI Lib](https://github.com/ROCm/rocm-systems.git)
+(`projects/amdsmi` subdirectory), to access the AMD GPU hardware driver.
 
-### Build Container (one time)
+Each target below builds the builder image (if needed) and compiles for that
+OS in one step:
 
 ```bash
-make amdsmi-build
+make amdsmi-compile-rhel
+make amdsmi-compile-ub22
+make amdsmi-compile-ub24
 ```
 
-### Compile AMDSMI
+Or build for all supported OSes at once:
 
 ```bash
-make amdsmi-compile
+make amdsmi-compile-all
 ```
 
 ## Build Rocprofiler Library

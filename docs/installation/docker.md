@@ -1,6 +1,7 @@
 # Docker installation
 
 This page explains how to install AMD Device Metrics Exporter using Docker.
+For SR-IOV/GIM hypervisor hosts, see [SR-IOV Docker installation](docker-sriov.md) instead.
 
 ## System requirements
 
@@ -18,6 +19,7 @@ The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-me
 
 ```bash
 docker run -d \
+  --privileged \
   --device=/dev/dri \
   --device=/dev/kfd \
   -v /sys:/sys:ro \

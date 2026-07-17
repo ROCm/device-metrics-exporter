@@ -327,3 +327,7 @@ CVE
 CVSS
 CWE
 MxGPU
+sriov
+journalctl
+subdirectory
+xu
