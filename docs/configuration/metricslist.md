@@ -13,6 +13,7 @@ The following document contains a full list of GPU Metrics that are available us
 
 - GPU_PACKAGE_POWER
 - GPU_JUNCTION_TEMPERATURE
+- GPU_VRAM_MAX_BANDWIDTH
 - PCIE_BANDWIDTH
 - PCIE_REPLAY_COUNT
 - PCIE_RECOVERY_COUNT
@@ -142,7 +143,7 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI2xx, MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
+| &cross; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
 
 ### GTT Memory Metrics
 
