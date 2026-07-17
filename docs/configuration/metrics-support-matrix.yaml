@@ -320,10 +320,10 @@ metrics:
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7"
+    class: N
+    notes: "host-side per-VF usage not exposed by GIM; guest sees real value"
   - name: GPU_FREE_VRAM
     category: memory
     platforms: [MI2xx, MI3xx]
@@ -336,26 +336,26 @@ metrics:
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "visible-VRAM not exposed on GIM host"
   - name: GPU_USED_VISIBLE_VRAM
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "visible-VRAM not exposed on GIM host"
   - name: GPU_FREE_VISIBLE_VRAM
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "visible-VRAM not exposed on GIM host"
   - name: GPU_VRAM_MAX_BANDWIDTH
     category: memory
     platforms: [MI2xx, MI3xx]
@@ -370,26 +370,26 @@ metrics:
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "GTT not exposed on GIM host"
   - name: GPU_USED_GTT
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "GTT not exposed on GIM host"
   - name: GPU_FREE_GTT
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7 (value=0 on MI210)"
+    class: N
+    notes: "GTT not exposed on GIM host"
 
   # -- ECC (Correctable) --
   - name: GPU_ECC_CORRECT_TOTAL

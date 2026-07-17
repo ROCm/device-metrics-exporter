@@ -137,20 +137,20 @@ The following document contains a full list of GPU Metrics that are available us
 | Hypervisor | Baremetal | Metric                                  | Description                               |
 | ---------- | --------- | ------ | ----------- |
 | &check;    | &check;   | GPU_TOTAL_VRAM `[MI2xx, MI3xx]`         | Total VRAM available in MB                |
-| &check; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx]` | Total VRAM memory used in MB |
+| &cross; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx]` | Total VRAM memory used in MB. Not exposed on the GIM/SR-IOV hypervisor host (per-VF usage not visible to host) |
 | &check; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx]` | Total VRAM memory free in MB |
-| &check; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &check; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &check; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI2xx, MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
 
 ### GTT Memory Metrics
 
 | Hypervisor | Baremetal | Metric                         | Description                     |
 | ---------- | --------- | ------ | ----------- |
-| &check; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx]` | Total GTT memory in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &check; | &check; | GPU_USED_GTT `[MI2xx, MI3xx]` | Current GTT memory usage in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &check; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx]` | Free GTT memory available in MB. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx]` | Total GTT memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_USED_GTT `[MI2xx, MI3xx]` | Current GTT memory usage in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx]` | Free GTT memory available in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 
 ### ECC Error Metrics
 
