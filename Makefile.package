@@ -1,5 +1,6 @@
 DEBIAN_CONTROL = ${TOP_DIR}/debian/DEBIAN/control
 BUILD_VER_ENV = ${DEBIAN_VERSION}~$(UBUNTU_VERSION_NUMBER)
+BUILD_SRIOV_VER_ENV = ${DEBIAN_SRIOV_VERSION}~$(UBUNTU_VERSION_NUMBER)
 GPUAGENT_LIBS := ${ASSETS_PATH}/amd_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
 GPUAGENT_LIBS_RHEL9 := ${ASSETS_PATH}/amd_smi_lib/x86_64/RHEL9/lib
 PROFILER_DEB_LIBS := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/profilerlibs/
@@ -19,7 +20,7 @@ GPUAGENT_BUILT_BIN := ${TOP_DIR}/build/assets/gpuagent
 BUILT_LIB_PATH := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/exporterout/
 BUILT_LIB_RHEL9_PATH := ${TOP_DIR}/build/assets/RHEL9/exporterout/lib
 RPM_DIR_NAME := amdgpu-exporter-$(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL)
-RPM_SRIOV_DIR_NAME := amdgpu-exporter-sriov-$(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL)
+RPM_SRIOV_DIR_NAME := amdgpu-exporter-sriov-$(RPM_SRIOV_BUILD_VERSION)-$(RPM_SRIOV_RELEASE_LABEL)
 RPM_PACKAGE_DIR := ${TOP_DIR}/${RPM_DIR_NAME}
 RPM_PACKAGE_SRIOV_DIR := ${TOP_DIR}/${RPM_SRIOV_DIR_NAME}
 
@@ -97,7 +98,7 @@ rpmpkg: rpmpkg-clean
 	@mv -v ${TOP_DIR}/RPMS/x86_64/amdgpu-exporter*.x86_64.rpm ${TOP_DIR}/bin/amdgpu-exporter-rhel9.x86_64.rpm
 
 rpmpkg-sriov: rpmpkg-clean
-	@echo "build rpm sriov package for $(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL)"
+	@echo "build rpm sriov package for $(RPM_SRIOV_BUILD_VERSION)-$(RPM_SRIOV_RELEASE_LABEL)"
 	${MAKE} amdexporter
 	# copy to bin folders for tar
 	@mkdir -p ${RPM_PACKAGE_SRIOV_DIR}/bin
@@ -129,11 +130,11 @@ rpmpkg-sriov: rpmpkg-clean
 	@mkdir -p ${RPM_PATH}
 	@tar czvf ${RPM_SRIOV_DIR_NAME}.tar.gz ${RPM_SRIOV_DIR_NAME}
 	@mv -vf ${RPM_SRIOV_DIR_NAME}.tar.gz ${RPM_PATH}/
-	@tar czf amdgpu-exporter-sriov-$(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL).tar.gz ${RPM_SRIOV_DIR_NAME}
-	@mv amdgpu-exporter-sriov-$(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL).tar.gz ${RPM_PATH}
+	@tar czf amdgpu-exporter-sriov-$(RPM_SRIOV_BUILD_VERSION)-$(RPM_SRIOV_RELEASE_LABEL).tar.gz ${RPM_SRIOV_DIR_NAME}
+	@mv amdgpu-exporter-sriov-$(RPM_SRIOV_BUILD_VERSION)-$(RPM_SRIOV_RELEASE_LABEL).tar.gz ${RPM_PATH}
 	# set the version in the spec file
-	@sed -i "s/RPM_BUILD_VERSION/$(RPM_BUILD_VERSION)/g" rpmbuild/amdgpu-exporter-sriov.spec
-	@sed -i "s/RPM_RELEASE_LABEL/$(RPM_RELEASE_LABEL)/g" rpmbuild/amdgpu-exporter-sriov.spec
+	@sed -i "s/RPM_BUILD_VERSION/$(RPM_SRIOV_BUILD_VERSION)/g" rpmbuild/amdgpu-exporter-sriov.spec
+	@sed -i "s/RPM_RELEASE_LABEL/$(RPM_SRIOV_RELEASE_LABEL)/g" rpmbuild/amdgpu-exporter-sriov.spec
 	@rpmbuild -ba --define "_topdir `pwd`" -v --buildroot `pwd`/BUILDROOT/ \
 		--undefine dist rpmbuild/amdgpu-exporter-sriov.spec
 	# revert the dynamic version set file
@@ -238,7 +239,7 @@ debpkg: debpkg-clean
 
 debpkg-sriov: debpkg-sriov-clean
 	${MAKE} amdexporter
-	@echo "Building sriov debian for $(BUILD_VER_ENV)"
+	@echo "Building sriov debian for $(BUILD_SRIOV_VER_ENV)"
 	@mkdir -p ${PKG_SRIOV_LIB_PATH}
 	@mkdir -p ${METRICS_SRIOV_CONF_PATH}
 	@mkdir -p ${PKG_SRIOV_PATH}
@@ -277,7 +278,7 @@ debpkg-sriov: debpkg-sriov-clean
 	@cp -vf $(CURDIR)/bin/metricsclient ${PKG_SRIOV_PATH}/
 	@cp -vf $(CURDIR)/bin/amdgpuhealth ${PKG_SRIOV_PATH}/
 	@cd ${TOP_DIR}
-	@sed -i "s/BUILD_VER_ENV/$(BUILD_VER_ENV)/g" $(DEBIAN_SRIOV_CONTROL)
+	@sed -i "s/BUILD_VER_ENV/$(BUILD_SRIOV_VER_ENV)/g" $(DEBIAN_SRIOV_CONTROL)
 	@dpkg-deb -Zxz --build debian-sriov ${TOP_DIR}/bin
 	#remove copied files
 	@rm -rf ${PKG_SRIOV_PATH}

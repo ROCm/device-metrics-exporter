@@ -200,6 +200,11 @@ else
 DEBIAN_VERSION := "1.5.0"
 endif
 
+# SR-IOV debian package is versioned independently (pinned to 1.0.0-X), only
+# the release label suffix (e.g. "-3" from v1.5.1-3 or exporter-0.0.1-3) is
+# carried over from DEBIAN_VERSION.
+DEBIAN_SRIOV_VERSION := $(shell echo "$(DEBIAN_VERSION)" | sed -E 's/^[0-9]+\.[0-9]+\.[0-9]+/1.0.0/')
+
 # Remove 'v' from PROJECT_VERSION to get PACKAGE_VERSION
 PACKAGE_VERSION := $(subst v,,$(PROJECT_VERSION))
 
@@ -208,17 +213,26 @@ RPM_BUILD_VERSION := $(word 1,$(subst -, ,$(DEBIAN_VERSION)))
 RPM_RELEASE_LABEL_TMP := $(word 2,$(subst -, ,$(DEBIAN_VERSION)))
 RPM_RELEASE_LABEL := $(if $(RPM_RELEASE_LABEL_TMP),$(RPM_RELEASE_LABEL_TMP),0)
 
+# Same split, but for the independently-versioned SR-IOV package
+RPM_SRIOV_BUILD_VERSION := $(word 1,$(subst -, ,$(DEBIAN_SRIOV_VERSION)))
+RPM_SRIOV_RELEASE_LABEL_TMP := $(word 2,$(subst -, ,$(DEBIAN_SRIOV_VERSION)))
+RPM_SRIOV_RELEASE_LABEL := $(if $(RPM_SRIOV_RELEASE_LABEL_TMP),$(RPM_SRIOV_RELEASE_LABEL_TMP),0)
+
 DOCS_DIR := $(TOP_DIR)/docs
 DOCS_CONFIG_DIR := $(DOCS_DIR)/configuration/
 DOCS_INSTALLATION_DIR := $(DOCS_DIR)/installation/
 DOCS_INTEGRATION_DIR := $(DOCS_DIR)/integrations/
 
 UPDATE_VERSION_TARGET_DIRS := $(DOCS_DIR)/configuration/ $(DOCS_DIR)/installation/ $(DOCS_DIR)/integrations/
+
 REL_IMAGE_TAG := $(PROJECT_VERSION)
 HELM_INSTALL_URL := https://github.com/ROCm/device-metrics-exporter/releases/download/${REL_IMAGE_TAG}/device-metrics-exporter-charts-${REL_IMAGE_TAG}\.tgz
 
 export ${DEBIAN_VERSION}
+export ${DEBIAN_SRIOV_VERSION}
 export ${RPM_BUILD_VERSION}
+export ${RPM_SRIOV_BUILD_VERSION}
+export ${RPM_SRIOV_RELEASE_LABEL}
 export ${RPM_RELEASE_LABEL}
 
 .PHONY: update-version

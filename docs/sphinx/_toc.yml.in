@@ -9,6 +9,8 @@ subtrees:
       - file: installation/kubernetes-helm
       - file: installation/gpu-operator
       - file: installation/deb-package
+      - file: installation/docker-sriov
+      - file: installation/deb-package-sriov
       - file: installation/nic-debian-package
       - file: installation/singularity.md
   - caption: Release Notes
@@ -23,8 +25,9 @@ subtrees:
       title: Known Issues
   - caption: Configuration
     entries:
-      - file: configuration/configuration-settings   
+      - file: configuration/configuration-settings
       - file: configuration/docker
+      - file: configuration/docker-sriov
       - file: configuration/network-exporter-docker
       - file: configuration/configmap
       - file: configuration/troubleshooting 
