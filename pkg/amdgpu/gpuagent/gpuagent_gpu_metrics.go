@@ -2605,14 +2605,19 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	if vramStatus != nil {
 		totalVRAM = utils.NormalizeUint64(vramStatus.Size)
 	}
-	if vramUsage != nil {
+	// check raw value before NormalizeUint64 folds the NA sentinel to 0
+	usedVRAMValid := vramUsage != nil && utils.IsValueApplicable(vramUsage.UsedVRAM)
+	if usedVRAMValid {
 		usedVRAM = utils.NormalizeUint64(vramUsage.UsedVRAM)
 	}
 	freeVRAM = totalVRAM - usedVRAM
 	if totalVRAM != 0 {
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuTotalVram, exportermetrics.GPUMetricField_GPU_TOTAL_VRAM.String(), labels, totalVRAM)
-		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuUsedVram, exportermetrics.GPUMetricField_GPU_USED_VRAM.String(), labels, usedVRAM)
-		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuFreeVram, exportermetrics.GPUMetricField_GPU_FREE_VRAM.String(), labels, freeVRAM)
+		// suppress used and derived free together when used is the NA sentinel
+		if usedVRAMValid {
+			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuUsedVram, exportermetrics.GPUMetricField_GPU_USED_VRAM.String(), labels, usedVRAM)
+			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuFreeVram, exportermetrics.GPUMetricField_GPU_FREE_VRAM.String(), labels, freeVRAM)
+		}
 	}
 	xgmiStats := stats.XGMILinkStats
 	if xgmiStats != nil {
