@@ -492,8 +492,11 @@ enum NICMetricField {
     NIC_PORT_STATS_RX_PPS                    = 53;
     NIC_PORT_STATS_RX_BPS                    = 54;
     NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD  = 55;
+    // count of link down (flap) events reported by the port's link state
+    // machine, a good indicator of link flapping
+    NIC_PORT_STATUS_LINK_DOWN_COUNT           = 56;
 
-    // Lif stats 
+    // Lif stats
     NIC_LIF_STATS_RX_UNICAST_PACKETS         = 100;
     NIC_LIF_STATS_RX_UNICAST_DROP_PACKETS    = 101;
     NIC_LIF_STATS_RX_MULTICAST_DROP_PACKETS  = 102;

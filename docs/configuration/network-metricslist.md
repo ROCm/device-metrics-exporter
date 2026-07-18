@@ -83,6 +83,7 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD            | Total number of RS-FEC correctable words received or transmitted            |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD          | Total number of RS-FEC uncorrectable words received or transmitted          |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT           | Total count of channel symbol errors detected by the RS-FEC mechanism       |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATUS_LINK_DOWN_COUNT                  | Count of link down (flap) events reported by the port's link state machine  |
 |            |           |            |                                                  |                                                                             |
 |            |           |            | --- LIF (PF/VF) stats ---                        |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_LIF_STATS_RX_UNICAST_PACKETS                 | Total number of unicast packets received by the LIF                         |

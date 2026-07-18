@@ -206,6 +206,9 @@ func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[strin
 			nc.na.m.nicPortStatsRsfecCorrectableWord.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CORRECTABLE_WORD)))
 			nc.na.m.nicPortStatsRsfecUncorrectableWord.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_UNCORRECTABLE_WORD)))
 			nc.na.m.nicPortStatsRsfecChSymbolErrCnt.With(labels).Set(float64(utils.StringToUint64(port.Statistics.RSFEC_CH_SYMBOL_ERR_CNT)))
+			if port.Status != nil {
+				nc.na.m.nicPortStatusLinkDownCount.With(labels).Set(float64(utils.StringToUint64(port.Status.NUMBER_OF_LINK_DOWN_EVENTS)))
+			}
 
 			// Add rate statistics if available
 			if rateStatsAvailable && port.Spec != nil {

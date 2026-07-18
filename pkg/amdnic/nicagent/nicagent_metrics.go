@@ -118,6 +118,7 @@ type metrics struct {
 	nicPortStatsTxBps                  prometheus.GaugeVec
 	nicPortStatsRxPps                  prometheus.GaugeVec
 	nicPortStatsRxBps                  prometheus.GaugeVec
+	nicPortStatusLinkDownCount         prometheus.GaugeVec
 
 	//RDMA Stats
 	rdmaTxUcastPkts prometheus.GaugeVec
@@ -725,6 +726,7 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 		exportermetrics.NICMetricField_NIC_PORT_STATS_TX_BPS.String():                   {Metric: na.m.nicPortStatsTxBps},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RX_PPS.String():                   {Metric: na.m.nicPortStatsRxPps},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_RX_BPS.String():                   {Metric: na.m.nicPortStatsRxBps},
+		exportermetrics.NICMetricField_NIC_PORT_STATUS_LINK_DOWN_COUNT.String():         {Metric: na.m.nicPortStatusLinkDownCount},
 		exportermetrics.NICMetricField_RDMA_TX_UCAST_PKTS.String():                      {Metric: na.m.rdmaTxUcastPkts},
 		exportermetrics.NICMetricField_RDMA_TX_CNP_PKTS.String():                        {Metric: na.m.rdmaTxCnpPkts},
 		exportermetrics.NICMetricField_RDMA_RX_UCAST_PKTS.String():                      {Metric: na.m.rdmaRxUcastPkts},
@@ -1229,6 +1231,11 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 		nicPortStatsRxBps: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATS_RX_BPS.String()),
 			Help: "Port receive rate in bits per second",
+		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
+
+		nicPortStatusLinkDownCount: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_PORT_STATUS_LINK_DOWN_COUNT.String()),
+			Help: "Count of link down (flap) events reported by the port's link state machine, a good indicator of link flapping",
 		}, append([]string{LabelPortName, LabelPortID, LabelPcieBusId}, labels...)),
 
 		/* RDMA stats */
