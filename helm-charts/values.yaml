@@ -42,7 +42,7 @@ image:
   # -- repository URL for the metrics exporter image
   repository: docker.io/rocm/device-metrics-exporter
   # -- metrics exporter image tag
-  tag: v1.5.0
+  tag: v1.5.1
   # -- metrics exporter image pullPolicy
   pullPolicy: Always
   # -- metrics exporter image pullSecret name

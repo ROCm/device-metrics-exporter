@@ -190,8 +190,8 @@ RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 LABEL name="amd-device-metrics-exporter" \
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v1.5.0" \
-    release="v1.5.0" \
+    version="v1.5.1" \
+    release="v1.5.1" \
     ROCM_VERSION="${ROCM_VERSION}" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Kubernetes." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."
