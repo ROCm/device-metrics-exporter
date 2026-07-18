@@ -1,8 +1,0 @@
----
-# Required by Auto Cherry Picker automation
-# Defines the list of branches into which the changes would need cherry-picking
-cherry_pick_branches:
-  - main
-  - rocm/device-metrics-exporter:release-v1.5.1
-inherit-pr-description: True
-ai-conflict-resolution: True
