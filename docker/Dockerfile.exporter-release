@@ -14,7 +14,7 @@ FROM ${GPUAGENT_BUILDER_BASE_IMAGE} AS gpuagent-build
 
 ARG GPUAGENT_REPO=https://github.com/ROCm/gpu-agent.git
 # full 40-char SHA required for shallow fetch-by-SHA
-ARG GPUAGENT_COMMIT=81c7c4bbd90fe08f6b7effb8dfb4912d71b94570
+ARG GPUAGENT_COMMIT=875d87be5797f4b3d899d5d685fa4862fe8379b5
 # 0 = use pre-staged amdsmi from build context (default, no download)
 # 1 = re-extract amdsmi from the (~10GB) ROCm therock tarball
 ARG AMDSMI_FROM_TARBALL=0

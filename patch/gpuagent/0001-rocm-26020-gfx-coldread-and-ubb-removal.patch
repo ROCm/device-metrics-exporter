@@ -1,0 +1,211 @@
+diff --git a/sw/nic/gpuagent/api/gpu.cc b/sw/nic/gpuagent/api/gpu.cc
+index b76da8ec6ea..b605c6462f5 100644
+--- a/sw/nic/gpuagent/api/gpu.cc
++++ b/sw/nic/gpuagent/api/gpu.cc
+@@ -144,8 +144,28 @@ gpu_entry::update_handler(api_params_base *api_params) {
+     if (unlikely(ret != SDK_RET_OK)) {
+         return ret;
+     }
+-    // update the stashed spec if the gpu update goes through
+-    memcpy(spec, &spec_, sizeof(aga_gpu_spec_t));
++    // spec fields are read once at create; write back what this set changed
++    if (upd_mask & AGA_GPU_UPD_ADMIN_STATE) {
++        spec_.admin_state = spec->admin_state;
++    }
++    if (upd_mask & AGA_GPU_UPD_OVERDRIVE_LEVEL) {
++        spec_.overdrive_level = spec->overdrive_level;
++    }
++    if (upd_mask & AGA_GPU_UPD_POWER_CAP) {
++        spec_.num_gpu_power_cap = spec->num_gpu_power_cap;
++        memcpy(spec_.gpu_power_cap, spec->gpu_power_cap,
++               sizeof(aga_gpu_power_cap_t) * spec->num_gpu_power_cap);
++    }
++    if (upd_mask & AGA_GPU_UPD_PERF_LEVEL) {
++        spec_.perf_level = spec->perf_level;
++    }
++    if (upd_mask & AGA_GPU_UPD_CLOCK_FREQ_RANGE) {
++        memcpy(spec_.clock_freq, spec->clock_freq,
++               sizeof(aga_gpu_clock_freq_range_t) * AGA_GPU_CLOCK_TYPE_MAX);
++    }
++    if (upd_mask & AGA_GPU_UPD_FAN_SPEED) {
++        spec_.fan_speed = spec->fan_speed;
++    }
+     return ret;
+ }
+ 
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+index 2cac4dad408..7f540127f0b 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -138,13 +138,8 @@ smi_gpu_fill_spec (aga_gpu_handle_t gpu_handle,
+                    const aga_obj_key_t *gpu_key,
+                    aga_gpu_spec_t *spec)
+ {
+-    uint32_t value_32;
+     amdsmi_status_t amdsmi_ret;
+-    amdsmi_dev_perf_level_t perf_level = {};
+     amdsmi_gpu_metrics_t metrics_info = { 0 };
+-    amdsmi_power_cap_info_t power_cap_info = {};
+-    uint32_t sensor_idx[AGA_GPU_MAX_POWER_CAP_SENSOR];
+-    amdsmi_power_cap_type_t sensor_types[AGA_GPU_MAX_POWER_CAP_SENSOR];
+ 
+     // re-fetch gpu metrics for this GPU handle
+     amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &metrics_info);
+@@ -159,6 +154,25 @@ smi_gpu_fill_spec (aga_gpu_handle_t gpu_handle,
+             g_gpu_metrics[gpu_handle] = metrics_info;
+         }
+     }
++    // overdrive/perf/power-cap read once at create (smi_gpu_fill_static_config_)
++    // TODO: get admin_state
++    // TODO: get RAS spec
++    return SDK_RET_OK;
++}
++
++// static config read once at create; keeps the per-GpuGet path off the render node
++static void
++smi_gpu_fill_static_config_ (aga_gpu_handle_t gpu_handle, aga_gpu_spec_t *spec,
++                             aga_gpu_status_t *status)
++{
++    uint32_t value_32;
++    amdsmi_status_t amdsmi_ret;
++    amdsmi_dev_perf_level_t perf_level = {};
++    amdsmi_od_volt_freq_data_t vc_data = {};
++    amdsmi_power_cap_info_t power_cap_info = {};
++    uint32_t sensor_idx[AGA_GPU_MAX_POWER_CAP_SENSOR];
++    amdsmi_power_cap_type_t sensor_types[AGA_GPU_MAX_POWER_CAP_SENSOR];
++
+     // fill the overdrive level
+     amdsmi_ret = amdsmi_get_gpu_overdrive_level(gpu_handle, &value_32);
+     if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
+@@ -205,9 +219,22 @@ smi_gpu_fill_spec (aga_gpu_handle_t gpu_handle,
+         }
+         spec->num_gpu_power_cap = value_32;
+     }
+-    // TODO: get admin_state
+-    // TODO: get RAS spec
+-    return SDK_RET_OK;
++    // fill the voltage curve points
++    amdsmi_ret = amdsmi_get_gpu_od_volt_info(gpu_handle, &vc_data);
++    if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
++        AGA_TRACE_ERR("Failed to get voltage curve points for GPU {}, err {}",
++                      gpu_handle, amdsmi_ret);
++    } else {
++        for (uint32_t i = 0;
++             (i < AGA_GPU_MAX_VOLTAGE_CURVE_POINT) &&
++             (i < AMDSMI_NUM_VOLTAGE_CURVE_POINTS); i++) {
++            status->voltage_curve_point[i].point = i;
++            status->voltage_curve_point[i].frequency =
++                vc_data.curve.vc_points[i].frequency/1000000;
++            status->voltage_curve_point[i].voltage =
++                vc_data.curve.vc_points[i].voltage;
++        }
++    }
+ }
+ 
+ /// \brief     function to get name for amdsmi firmware block enum
+@@ -799,7 +826,6 @@ smi_gpu_fill_status (aga_gpu_handle_t gpu_handle,
+ {
+     amdsmi_status_t amdsmi_ret;
+     amdsmi_xgmi_status_t xgmi_st;
+-    amdsmi_od_volt_freq_data_t vc_data;
+     amdsmi_gpu_metrics_t metrics_info = { 0 };
+ 
+     {
+@@ -836,24 +862,8 @@ smi_gpu_fill_status (aga_gpu_handle_t gpu_handle,
+     } else {
+         status->xgmi_status.error_status = smi_to_aga_gpu_xgmi_error(xgmi_st);
+     }
+-    // fill the voltage curve points
+-    amdsmi_ret = amdsmi_get_gpu_od_volt_info(gpu_handle, &vc_data);
+-    if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
+-        AGA_TRACE_ERR("Failed to get voltage curve points for GPU {}, err {}",
+-                      gpu_handle, amdsmi_ret);
+-    } else {
+-        for (uint32_t i = 0;
+-             (i < AGA_GPU_MAX_VOLTAGE_CURVE_POINT) &&
+-             (i < AMDSMI_NUM_VOLTAGE_CURVE_POINTS); i++) {
+-            status->voltage_curve_point[i].point = i;
+-            status->voltage_curve_point[i].frequency =
+-                vc_data.curve.vc_points[i].frequency/1000000;
+-            status->voltage_curve_point[i].voltage =
+-                vc_data.curve.vc_points[i].voltage;
+-        }
+-    }
++    // voltage curve + enumeration ids read once at create; pid list is live
+     smi_fill_gpu_kfd_pid_status_(gpu_handle, gpu_id, status);
+-    smi_fill_gpu_enumeration_id_status_(gpu_handle, status);
+     // TODO: oper status
+     // TODO: RAS status
+     return SDK_RET_OK;
+@@ -1270,9 +1280,6 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+                     aga_gpu_stats_t *stats)
+ {
+     amdsmi_status_t amdsmi_ret;
+-    amdsmi_npm_info_t npm_info = {};
+-    amdsmi_power_info_t power_info = {};
+-    amdsmi_node_handle node_handle = {};
+     uint64_t sent, received, max_pkt_size;
+     amdsmi_gpu_metrics_t metrics_info = {};
+     amdsmi_gpu_metrics_t cached_metrics = {};
+@@ -1286,18 +1293,6 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+ 
+     // fill VRAM usage
+     smi_fill_vram_usage_(gpu_handle, &stats->vram_usage);
+-    // UBB node power + cap (MI350X+); decodes to 0 where unsupported
+-    amdsmi_ret = amdsmi_get_power_info(gpu_handle, &power_info);
+-    if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-        stats->ubb_power = power_info.ubb_power;
+-    }
+-    amdsmi_ret = amdsmi_get_node_handle(gpu_handle, &node_handle);
+-    if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-        amdsmi_ret = amdsmi_get_npm_info(node_handle, &npm_info);
+-        if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-            stats->ubb_power_cap = npm_info.ubb_power_threshold;
+-        }
+-    }
+     // fill additional statistics from gpu metrics
+     {
+         std::lock_guard<std::mutex> lock(g_gpu_metrics_mutex);
+@@ -2250,6 +2245,10 @@ smi_gpu_init_immutable_attrs (aga_gpu_handle_t gpu_handle,
+             g_energy_counter_resolution = AMDSMI_COUNTER_RESOLUTION;
+         }
+     }
++    // enumeration/kfd identity ids
++    smi_fill_gpu_enumeration_id_status_(gpu_handle, status);
++    // overdrive/perf/power-cap/voltage-curve config (kept current by smi_gpu_update)
++    smi_gpu_fill_static_config_(gpu_handle, spec, status);
+     return SDK_RET_OK;
+ }
+ 
+diff --git a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
+index 9f5b0db1b38..a1a1e28b569 100644
+--- a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
+@@ -1088,10 +1088,8 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle_in,
+     sdk_ret_t ret;
+     int64_t temperature;
+     amdsmi_status_t amdsmi_ret;
+-    amdsmi_npm_info_t npm_info = {};
+     amdsmi_pcie_info_t pcie_info = {};
+     amdsmi_power_info_t power_info = {};
+-    amdsmi_node_handle node_handle = {};
+     amdsmi_engine_usage_t usage_info = {};
+ 
+     AGA_SMI_SESSION_GUARD(gpu_key, gpu_handle_in);
+@@ -1106,16 +1104,6 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle_in,
+         stats->voltage.voltage = power_info.soc_voltage;
+         stats->voltage.gfx_voltage = power_info.gfx_voltage;
+         stats->voltage.memory_voltage = power_info.mem_voltage;
+-        // UBB node power (MI350X+, GIM 9.1.0.K+); 0 where unsupported
+-        stats->ubb_power = power_info.ubb_power;
+-    }
+-    // UBB node power cap = node-level power threshold (npm); 0 where unsupported
+-    amdsmi_ret = amdsmi_get_node_handle(gpu_handle, &node_handle);
+-    if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-        amdsmi_ret = amdsmi_get_npm_info(node_handle, &npm_info);
+-        if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-            stats->ubb_power_cap = npm_info.ubb_power_threshold;
+-        }
+     }
+     // fill the GPU usage
+     amdsmi_ret = amdsmi_get_gpu_activity(gpu_handle, &usage_info);
