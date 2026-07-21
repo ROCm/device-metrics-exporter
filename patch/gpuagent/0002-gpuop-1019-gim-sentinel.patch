@@ -1,0 +1,21 @@
+diff --git a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
+index 9f5b0db1b38..662730e21de 100644
+--- a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc
+@@ -1096,6 +1096,16 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle_in,
+ 
+     AGA_SMI_SESSION_GUARD(gpu_key, gpu_handle_in);
+ 
++    // host-unsupported fields: sentinel-init so DME reports NA, not a bogus 0
++    memset(&stats->usage, 0xff, sizeof(aga_gpu_usage_t));
++    memset(&stats->pcie_stats, 0xff, sizeof(aga_gpu_pcie_stats_t));
++    memset(&stats->xgmi_link_stats, 0xff,
++           sizeof(aga_gpu_xgmi_link_stats_t) * AGA_GPU_MAX_XGMI_LINKS);
++    // per-VF VRAM/GTT usage is not exposed to the host over SR-IOV; init to the
++    // sentinel so unsupported fields report NA (total_vram is filled separately
++    // from vram_status). Mirrors the baremetal per-struct sentinel-init idiom.
++    memset(&stats->vram_usage, 0xff, sizeof(stats->vram_usage));
++
+     // fill the power and voltage info
+     amdsmi_ret = amdsmi_get_power_info(gpu_handle, &power_info);
+     if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
