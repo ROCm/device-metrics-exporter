@@ -6,7 +6,6 @@ The following document contains a full list of GPU Metrics that are available us
 
 ### MI2xx-Only Metrics
 
-- GPU_AVERAGE_PACKAGE_POWER
 - GPU_EDGE_TEMPERATURE
 
 ### MI3xx-Only Metrics
@@ -83,7 +82,7 @@ The following document contains a full list of GPU Metrics that are available us
 | Hypervisor | Baremetal | Metric                               | Description                                                |
 | ---------- | --------- | ------ | ----------- |
 | &check; | &check; | GPU_PACKAGE_POWER `[MI3xx]` | Current socket power in Watts; not available on guest VM. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
-| &cross;    | &check;   | GPU_AVERAGE_PACKAGE_POWER `[MI2xx]`  | Average socket power in Watts; not available on guest VM   |
+| &cross; | &check; | GPU_AVERAGE_PACKAGE_POWER `[MI2xx, Radeon]` | Average socket power in Watts; not available on guest VM |
 | &cross; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
 | &cross; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
 
@@ -344,8 +343,8 @@ startup by gpu-agent and are not exported on Radeon.
 
 ### Memory & Data Transfer Metrics
 
-**_Radeon_**: not supported. `GPU_PROF_FETCH_SIZE` is exported but always
-returns `0`; `GPU_PROF_WRITE_SIZE` is not exported.
+**_Radeon_**: not supported. `GPU_PROF_FETCH_SIZE` and `GPU_PROF_WRITE_SIZE` are
+both exported but always return `0` on Radeon (e.g. W7900).
 
 | Metric              | Description                                                                                                                                   |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
