@@ -68,12 +68,12 @@ metrics:
     notes: "MI3xx only"
   - name: GPU_AVERAGE_PACKAGE_POWER
     category: power
-    platforms: [MI2xx]
+    platforms: [MI2xx, Radeon]
     baremetal: true
     hypervisor_host: false
     hypervisor_guest: false
-    class: N
-    notes: "MI2xx only; not emitted on hypervisor (verified leto)"
+    class: C
+    notes: "not emitted on hypervisor (verified leto)"
   - name: GPU_POWER_USAGE
     category: power
     platforms: [MI2xx, MI3xx]
