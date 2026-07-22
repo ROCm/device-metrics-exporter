@@ -17,7 +17,7 @@ docker run -d \
   -p 5000:5000 \
   -v ./config:/etc/metrics \
   --name device-metrics-exporter-sriov \
-  rocm/device-metrics-exporter-sriov:1.0.0
+  rocm/device-metrics-exporter-sriov:v1.0.0
 ```
 
 `GPUConfig.ExtraPodLabels`, `GPUConfig.Fields`, `GPUConfig.ProfilerMetrics`,

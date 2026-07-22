@@ -35,7 +35,7 @@ docker run -d \
   -v /sys:/sys:ro \
   -p 5000:5000 \
   --name device-metrics-exporter-sriov \
-  rocm/device-metrics-exporter-sriov:1.0.0
+  rocm/device-metrics-exporter-sriov:v1.0.0
 ```
 
 - Confirm metrics are accessible:
