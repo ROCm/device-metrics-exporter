@@ -36,12 +36,8 @@
 - **`GPU_CPER_MAX_AGE` added to filter stale CPER records**
   - A new `HealthThresholds` field lets deployments ignore fatal CPER records older than a configured age when determining GPU health, avoiding stale records marking a healthy GPU as unhealthy. See [Kubernetes configuration](configuration/configmap.md)
 
-### Known Issues
-
-- **`gfx_activity` idle uptick on Radeon AI**
-  - On Radeon AI platforms, `gfx_activity` may show a spurious uptick when
-    the GPU is idle. This is a cosmetic issue and does not indicate actual
-    GPU activity
+- **`gfx_activity` idle uptick on Radeon AI resolved**
+  - On Radeon AI platforms, `gfx_activity` now shows true idle values.
 
 ### Platform Support
 
