@@ -18,7 +18,8 @@ variant. For the baremetal container, see [Docker installation](docker.md).
 ## Installation
 
 The SR-IOV Device Metrics Exporter container is hosted on Docker Hub at
-[rocm/device-metrics-exporter-sriov](https://hub.docker.com/r/rocm/device-metrics-exporter-sriov).
+[rocm/device-metrics-exporter](https://hub.docker.com/r/rocm/device-metrics-exporter),
+tagged `sriov-v1.0.0`.
 
 The container runs both `gpuagent` (SR-IOV/GIM build) and the exporter
 together, and requires access to the GIM SR-IOV management device.
@@ -35,7 +36,7 @@ docker run -d \
   -v /sys:/sys:ro \
   -p 5000:5000 \
   --name device-metrics-exporter-sriov \
-  rocm/device-metrics-exporter-sriov:v1.0.0
+  rocm/device-metrics-exporter:sriov-v1.0.0
 ```
 
 - Confirm metrics are accessible:
