@@ -6,7 +6,7 @@
   - MI350P and Radeon AI platforms are now supported
 
 - **SR-IOV Exporter Image**
-  - New docker-only image `device-metrics-exporter-sriov`, tag `v1.0.0`, for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
+  - New docker-only image `device-metrics-exporter`, tag `sriov-v1.0.0`, for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
 
 - **Helm Chart: Configurable Exporter Arguments**
   - The Helm chart now supports passing arbitrary arguments to the exporter at deploy time
