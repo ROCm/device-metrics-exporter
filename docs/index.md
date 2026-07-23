@@ -27,7 +27,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - MI2xx or MI3xx platform: ROCm 6.2.0 or later
 - MI350P or Radeon AI platform: ROCm 7.13 or later
 
-**Note:** The SR-IOV exporter variant (docker-only image `device-metrics-exporter-sriov`, tag `1.0.0`) is released only for MI-series platforms. See the [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases) for SR-IOV/GIM host packages, and the [GPU Metrics List](./configuration/metricslist.md) for the full list of metrics supported under hypervisor/guest deployment.
+**Note:** The SR-IOV exporter variant (docker-only image `device-metrics-exporter-sriov`, tag `v1.0.0`) is released only for MI-series platforms. See the [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases) for SR-IOV/GIM host packages, and the [GPU Metrics List](./configuration/metricslist.md) for the full list of metrics supported under hypervisor/guest deployment.
 
 ### Available Metrics
 
