@@ -126,6 +126,7 @@ CustomLabels
 GPUConfig
 ServerPort
 gapped
+Gbps
 Keypoints
 IFOE
 PTL
