@@ -32,6 +32,7 @@ The following table contains a full list of AINIC Metrics that are available usi
 | Baremetal  | Hypervisor| Guest VM   | Metric                                           | Description                                                                 |
 |------------|-----------|------------|--------------------------------------------------|-----------------------------------------------------------------------------|
 | &check;    | &check;   | &cross;    | NIC_TOTAL                                        | Number of NIC nodes on the host                                             |
+| &check;    | &check;   | &cross;    | NIC_MAX_SPEED                                    | Maximum NIC speed in Gbps                                                   |
 |            |           |            | --- Port stats ---                               |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_OK                      | Total number of valid network frames that were successfully received        |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_ALL                     | Total number of all frames received by the device                           |
@@ -83,6 +84,12 @@ The following table contains a full list of AINIC Metrics that are available usi
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CORRECTABLE_WORD            | Total number of RS-FEC correctable words received or transmitted            |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_UNCORRECTABLE_WORD          | Total number of RS-FEC uncorrectable words received or transmitted          |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_RSFEC_CH_SYMBOL_ERR_CNT           | Total count of channel symbol errors detected by the RS-FEC mechanism       |
+|            |           |            | --- Port rate stats ---                          |                                                                             |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATS_TX_PPS                            | Port transmit rate in packets per second                                    |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATS_TX_BPS                            | Port transmit rate in bits per second                                       |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATS_RX_PPS                            | Port receive rate in packets per second                                     |
+| &check;    | &check;   | &cross;    | NIC_PORT_STATS_RX_BPS                            | Port receive rate in bits per second                                        |
+|            |           |            | --- Port status ---                              |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATUS_LINK_DOWN_COUNT                  | Count of link down (flap) events reported by the port's link state machine  |
 |            |           |            |                                                  |                                                                             |
 |            |           |            | --- LIF (PF/VF) stats ---                        |                                                                             |
