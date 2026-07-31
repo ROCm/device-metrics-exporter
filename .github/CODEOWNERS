@@ -1,5 +1,6 @@
 * @ROCm/device-metrics-exporter
-@spraveenio @yansun1996 @rchirakk @bhatnitish
+@spraveenio @yansun1996 @rchirakk @bhatnitish @bhatturu
+# prshanmug@amd.com   Yan.Sun3@amd.com   rchirakk@amd.com   nitish.bhat@amd.com   bhatturu@amd.com
 
 # Documentation files
 docs/ @ROCm/device-metrics-exporter
