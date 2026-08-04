@@ -225,7 +225,7 @@ func TestGetGPUsPartitionFilter(t *testing.T) {
 	gpuclient.gpuclient = gpuMockCl
 	gpuclient.evtclient = eventMockCl
 
-	resp, _, err := gpuclient.getGPUs()
+	resp, _, err := gpuclient.getGPUs(nil, &gpuclient.gCache.metricsCache)
 	assert.Assert(t, err == nil, "getGPUs should not error: %v", err)
 	assert.Equal(t, len(resp.Response), 2, "both GPUs must be returned regardless of GPUPartition field")
 }

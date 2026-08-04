@@ -1787,7 +1787,16 @@ func (ga *GPUAgentGPUClient) InitConfigs() error {
 	ga.initGPUSelectorConfig(filedConfigs)
 	ga.initPrometheusMetrics()
 	ga.initProfilerMetricsField()
+	ga.initGPUGetFilter()
 	return ga.initFieldRegistration()
+}
+
+// initGPUGetFilter derives the GPUGet filter once from the loaded config and
+// caches it for reuse by cacheRead.
+func (ga *GPUAgentGPUClient) initGPUGetFilter() {
+	ga.gCache.Lock()
+	ga.gCache.gpuGetFilter = ga.buildGPUGetFilter()
+	ga.gCache.Unlock()
 }
 
 func getGPURenderId(gpu *amdgpu.GPU) string {
@@ -1838,7 +1847,7 @@ func getGPUUUID(gpu *amdgpu.GPU) string {
 
 func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 	// send the req to gpuclient
-	resp, partitionMap, err := ga.getGPUs()
+	resp, partitionMap, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
 	if err != nil {
 		return err
 	}
@@ -1884,9 +1893,8 @@ func (ga *GPUAgentGPUClient) UpdateMetricsStats(ctx context.Context) error {
 }
 
 func (ga *GPUAgentGPUClient) QueryMetrics() (interface{}, error) {
-	var resp *amdgpu.GPUGetResponse
-	var err error
-	resp, _, err = ga.getGPUs()
+	// NPD reads the full GPU object but always skips the process list.
+	resp, _, err := ga.getGPUs(&amdgpu.GPUGetFilter{SkipProcessStatus: true}, &ga.gCache.npdCache)
 	if err != nil {
 		logger.Log.Printf("querymetrics - get gpus returned error:%v", err)
 		return nil, err

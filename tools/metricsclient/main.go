@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -35,11 +34,20 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/gofrs/uuid"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/kubelet/pkg/apis/podresources/v1"
+)
+
+// Global flags
+var (
+	jsonOutput  bool
+	socketPath  string
+	kubeConfig  string
+	eccFilePath string
 )
 
 // printLabels prints labels in key=value format, sorted by key
@@ -185,9 +193,15 @@ func setError(socketPath, filepath string) error {
 	return nil
 }
 
-func getGpuAgent(port string, isJson bool) {
+func getGpuAgent(port, socketPath string, isJson bool, filter *amdgpu.GPUGetFilter) {
+	addrString := ""
+	if socketPath != "" {
+		addrString = fmt.Sprintf("unix://%s", socketPath)
+	} else {
+		addrString = fmt.Sprintf("localhost:%s", port)
+	}
 	conn, err := grpc.NewClient(
-		fmt.Sprintf("localhost:%s", port),
+		addrString,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -200,7 +214,7 @@ func getGpuAgent(port string, isJson bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := client.GPUGet(ctx, &amdgpu.GPUGetRequest{})
+	resp, err := client.GPUGet(ctx, &amdgpu.GPUGetRequest{Filter: filter})
 	if err != nil {
 		fmt.Printf("GPUGet call failed: %v\n", err)
 		return
@@ -240,6 +254,33 @@ func getGpuAgent(port string, isJson bool) {
 	}
 }
 
+// determineGPUAgentConnection determines whether to connect to gpuagent via port or socket
+// based on provided flags and socket file existence. Returns portStr, socketStr.
+func determineGPUAgentConnection(port, socket string) (portStr, socketStr string) {
+	if port != "" {
+		portStr = port
+		socketStr = ""
+	} else {
+		// Check if default socket file exists when no explicit option provided
+		if socket == globals.GPUAgentDefaultSocketPath {
+			if _, err := os.Stat(globals.GPUAgentDefaultSocketPath); err == nil {
+				// Socket file exists, use socket-based connection
+				portStr = ""
+				socketStr = socket
+			} else {
+				// Socket file doesn't exist, default to IP:port
+				portStr = fmt.Sprintf("%d", globals.GPUAgentPort)
+				socketStr = ""
+			}
+		} else {
+			// Explicit socket path provided, use it
+			portStr = ""
+			socketStr = socket
+		}
+	}
+	return portStr, socketStr
+}
+
 func getDeviceMap() {
 	devices, err := fsysdevice.FindAMDGPUDevices()
 	if err != nil {
@@ -248,7 +289,7 @@ func getDeviceMap() {
 	}
 	fmt.Printf("Logical Device Map \n")
 	for k, v := range devices {
-		fmt.Printf("GPU ID[%v] -> Device Name [%v]\n", k, v)
+		fmt.Printf("Render ID [%v] -> Device Name [%v]\n", k, v)
 	}
 }
 
@@ -381,10 +422,18 @@ type MockInbandError struct {
 }
 
 // setupMockInbandRAS creates the mock inband RAS error_list file
-func setupMockInbandRAS(port string) error {
+func setupMockInbandRAS(port, socketPath string) error {
+	// Determine connection method: socket is default unless port is specified
+	addrString := ""
+	if port != "" {
+		addrString = fmt.Sprintf("localhost:%s", port)
+	} else {
+		addrString = fmt.Sprintf("unix://%s", socketPath)
+	}
+
 	// Connect to gpuctl to get GPU UUIDs
 	conn, err := grpc.NewClient(
-		fmt.Sprintf("localhost:%s", port),
+		addrString,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -439,75 +488,194 @@ func setupMockInbandRAS(port string) error {
 	return nil
 }
 
-var jout = flag.Bool("json", false, "output in json format")
-
-func main() {
-	var (
-		socketPath      = flag.String("socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "metrics grpc socket path")
-		getOpt          = flag.Bool("get", false, "get health status of gpu")
-		setId           = flag.String("id", "1", "gpu id")
-		nodeLabel       = flag.Bool("label", false, "get k8s node label")
-		podRes          = flag.Bool("pod", false, "get node resource info")
-		nodePod         = flag.Bool("npod", false, "get pod labels from node")
-		devMap          = flag.Bool("gpu", false, "show logical gpu device map")
-		eccFile         = flag.String("ecc-file-path", "", "json ecc err file")
-		kubeConfig      = flag.String("kube-config", "", "kubernetes config file")
-		gpuctl          = flag.Bool("gpuctl", false, "enable gpu control operations")
-		gpuctlPort      = flag.String("gpuctl-port", "50061", "port for gpuctl operations")
-		setupMockInband = flag.Bool("setup-mock-inbandras", false, "setup mock inband RAS error_list file")
-	)
-	flag.Parse()
-
-	if *podRes {
-		getPodResources()
-		return
-	}
-
-	if *nodePod {
-		getNodePods(*kubeConfig)
-		return
-	}
-
-	if *devMap {
-		getDeviceMap()
-		return
-	}
-
-	if *nodeLabel {
-		getNodeLabel(*kubeConfig)
-		return
-	}
-
-	if *setupMockInband {
-		if err := setupMockInbandRAS(*gpuctlPort); err != nil {
-			fmt.Printf("Error setting up mock inband RAS: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-
-	if *gpuctl {
-		getGpuAgent(*gpuctlPort, *jout)
-		return
-	}
-
-	if *eccFile != "" {
-		if err := setError(*socketPath, *eccFile); err != nil {
-			fmt.Printf("err: %+v", err)
+// Root command
+var rootCmd = &cobra.Command{
+	Use:   "metricsclient",
+	Short: "A CLI tool for querying GPU metrics and managing device resources",
+	Long: `metricsclient is a command-line interface for interacting with GPU metrics service,
+GPU agents, and Kubernetes resources related to AMD GPUs.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// If ecc-file-path is provided, set error instead of listing
+		if eccFilePath != "" {
+			if err := setError(socketPath, eccFilePath); err != nil {
+				log.Fatalf("failed to set error: %v", err)
+			}
 			return
 		}
-	}
-
-	if *getOpt {
-		err := get(*socketPath, *setId)
-		if err != nil {
-			log.Fatalf("request failed :%v", err)
+		// Default behavior: list all GPUs
+		if err := send(socketPath); err != nil {
+			log.Fatalf("request failed: %v", err)
 		}
-	} else {
-		err := send(*socketPath)
-		if err != nil {
-			log.Fatalf("request failed :%v", err)
-		}
-	}
+	},
+}
 
+// List command
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all GPU states from metrics service",
+	Long:  `Query the metrics service and list all GPU states with their health status and associated workloads.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := send(socketPath); err != nil {
+			log.Fatalf("request failed: %v", err)
+		}
+	},
+}
+
+// Get command
+var getCmd = &cobra.Command{
+	Use:   "get",
+	Short: "Get health status of a specific GPU",
+	Long:  `Query the metrics service for the health status of a specific GPU by ID.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		gpuID, _ := cmd.Flags().GetString("id")
+		if err := get(socketPath, gpuID); err != nil {
+			log.Fatalf("request failed: %v", err)
+		}
+	},
+}
+
+// GPUctl command
+var gpuctlCmd = &cobra.Command{
+	Use:   "gpuctl",
+	Short: "Query GPU agent directly",
+	Long:  `Connect directly to the GPU agent via socket or IP:port and retrieve GPU information.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		port, _ := cmd.Flags().GetString("port")
+		socket, _ := cmd.Flags().GetString("socket")
+		jsonOut, _ := cmd.Flags().GetBool("json")
+
+		portStr, socketStr := determineGPUAgentConnection(port, socket)
+		getGpuAgent(portStr, socketStr, jsonOut, gpuGetFilterFromFlags(cmd))
+	},
+}
+
+// gpuGetFilterFromFlags builds a GPUGetFilter from the --skip-* flags, or nil
+// when none are set (fetch everything).
+func gpuGetFilterFromFlags(cmd *cobra.Command) *amdgpu.GPUGetFilter {
+	b := func(name string) bool { v, _ := cmd.Flags().GetBool(name); return v }
+	f := &amdgpu.GPUGetFilter{
+		SkipClockStatus:    b("skip-clock-status"),
+		SkipPCIeStatus:     b("skip-pcie-status"),
+		SkipXGMIStatus:     b("skip-xgmi-status"),
+		SkipProcessStatus:  b("skip-process-status"),
+		SkipUALinkStatus:   b("skip-ualink-status"),
+		SkipVRAMUsageStats: b("skip-vram-usage-stats"),
+		SkipECCStats:       b("skip-ecc-stats"),
+		SkipViolationStats: b("skip-violation-stats"),
+		SkipPCIeStats:      b("skip-pcie-stats"),
+		SkipXGMIStats:      b("skip-xgmi-stats"),
+		SkipActivityStats:  b("skip-activity-stats"),
+	}
+	if !f.SkipClockStatus && !f.SkipPCIeStatus && !f.SkipXGMIStatus &&
+		!f.SkipProcessStatus && !f.SkipUALinkStatus && !f.SkipVRAMUsageStats &&
+		!f.SkipECCStats && !f.SkipViolationStats && !f.SkipPCIeStats &&
+		!f.SkipXGMIStats && !f.SkipActivityStats {
+		return nil
+	}
+	return f
+}
+
+// Device map command
+var deviceMapCmd = &cobra.Command{
+	Use:   "device-map",
+	Short: "Show logical GPU device map",
+	Long:  `Display the mapping between render IDs and device names for AMD GPUs.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		getDeviceMap()
+	},
+}
+
+// Pod resources command
+var podResourcesCmd = &cobra.Command{
+	Use:   "pod-resources",
+	Short: "Get node resource information",
+	Long:  `Query the kubelet for pod resource information including GPU allocations.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		getPodResources()
+	},
+}
+
+// Node pods command
+var nodePodsCmd = &cobra.Command{
+	Use:   "node-pods",
+	Short: "Get pod labels from the current node",
+	Long:  `List all pods scheduled on the current Kubernetes node with their labels.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		getNodePods(kubeConfig)
+	},
+}
+
+// Node labels command
+var nodeLabelsCmd = &cobra.Command{
+	Use:   "node-labels",
+	Short: "Get Kubernetes node labels",
+	Long:  `Retrieve and display all labels for the current Kubernetes node.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		getNodeLabel(kubeConfig)
+	},
+}
+
+// Setup mock inband RAS command
+var setupMockInbandCmd = &cobra.Command{
+	Use:   "setup-mock-inbandras",
+	Short: "Setup mock inband RAS error_list file",
+	Long:  `Create a mock inband RAS error_list file with GPU UUIDs from the GPU agent.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		port, _ := cmd.Flags().GetString("port")
+		socket, _ := cmd.Flags().GetString("socket")
+
+		portStr, socketStr := determineGPUAgentConnection(port, socket)
+		if err := setupMockInbandRAS(portStr, socketStr); err != nil {
+			log.Fatalf("error setting up mock inband RAS: %v", err)
+		}
+	},
+}
+
+func init() {
+	// Global persistent flags
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+	rootCmd.PersistentFlags().StringVar(&socketPath, "socket", fmt.Sprintf("unix://%v", globals.MetricsSocketPath), "Metrics gRPC socket path")
+	rootCmd.PersistentFlags().StringVar(&kubeConfig, "kube-config", "", "Kubernetes config file path")
+	rootCmd.PersistentFlags().StringVar(&eccFilePath, "ecc-file-path", "", "Path to JSON error configuration file")
+
+	// Get command flags
+	getCmd.Flags().String("id", "1", "GPU ID to query")
+
+	// GPUctl command flags
+	gpuctlCmd.Flags().String("port", "", "gRPC port for gpuagent (use this for IP:port connection)")
+	gpuctlCmd.Flags().String("socket", globals.GPUAgentDefaultSocketPath, "Socket path for gpuagent connection")
+	gpuctlCmd.Flags().Bool("json", false, "Output in JSON format")
+	// GPUGetFilter skip flags; any set flag makes gpuagent skip that collector.
+	gpuctlCmd.Flags().Bool("skip-clock-status", false, "skip clock status")
+	gpuctlCmd.Flags().Bool("skip-pcie-status", false, "skip PCIe status")
+	gpuctlCmd.Flags().Bool("skip-xgmi-status", false, "skip XGMI error status")
+	gpuctlCmd.Flags().Bool("skip-process-status", false, "skip process list")
+	gpuctlCmd.Flags().Bool("skip-ualink-status", false, "skip UALink state")
+	gpuctlCmd.Flags().Bool("skip-vram-usage-stats", false, "skip VRAM usage")
+	gpuctlCmd.Flags().Bool("skip-ecc-stats", false, "skip ECC error counts")
+	gpuctlCmd.Flags().Bool("skip-violation-stats", false, "skip violation stats")
+	gpuctlCmd.Flags().Bool("skip-pcie-stats", false, "skip PCIe stats")
+	gpuctlCmd.Flags().Bool("skip-xgmi-stats", false, "skip XGMI counters")
+	gpuctlCmd.Flags().Bool("skip-activity-stats", false, "skip GPU activity and usage")
+
+	// Setup mock inband RAS command flags
+	setupMockInbandCmd.Flags().String("port", "", "gRPC port for gpuagent (use this for IP:port connection)")
+	setupMockInbandCmd.Flags().String("socket", globals.GPUAgentDefaultSocketPath, "Socket path for gpuagent connection")
+
+	// Add all commands to root
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(gpuctlCmd)
+	rootCmd.AddCommand(deviceMapCmd)
+	rootCmd.AddCommand(podResourcesCmd)
+	rootCmd.AddCommand(nodePodsCmd)
+	rootCmd.AddCommand(nodeLabelsCmd)
+	rootCmd.AddCommand(setupMockInbandCmd)
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
