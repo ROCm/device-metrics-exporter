@@ -689,15 +689,24 @@ func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
 	// nolint: gosec
 	_, _ = s.exporter.CopyFileTo(eccFile, "/tmp/ecc_errors.json")
 
+	// Error injection is gated by CommonConfig.Debug.EnableAPI. Enable it before
+	// injecting and give the 3s config auto-reload time to take effect.
+	err = s.SetDebugEnableAPI(true)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second)
+
 	// Inject ECC errors using metricsclient
 	injectCmd := "docker exec -t test_exporter metricsclient --ecc-file-path /tmp/ecc_errors.json"
 	output := s.tu.LocalCommandOutput(injectCmd)
 	log.Printf("ECC injection output: %s", output)
+	// SetError is rejected with "invalid function error" when the debug API is
+	// disabled; injection must succeed here.
+	assert.NotContains(c, output, "invalid function error")
 
-	// force health service to update
+	// force health service to update (keep Debug.EnableAPI enabled)
 	err = s.SetFields(fields)
 	assert.Nil(c, err)
-	err = s.RemoveCommonConfig() // Re-enable health service to restore config
+	err = s.SetDebugEnableAPI(true)
 	assert.Nil(c, err)
 	time.Sleep(5 * time.Second) // Wait for config update to take effect
 
@@ -725,11 +734,14 @@ func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
 			"0": gpu0,
 		}
 
-		verifyHealth(healthPayload, "0")
+		if err := verifyHealth(healthPayload, "0"); err != nil {
+			log.Printf("GPU 0 not yet unhealthy: %v", err)
+			return false
+		}
 
 		log.Printf("ECC health state verified successfully for GPU 0")
 		return true
-	}, 10*time.Second, 1*time.Second)
+	}, 30*time.Second, 1*time.Second)
 
 	// Clear ECC errors by setting all counts to 0
 	clearPayload := map[string]interface{}{
@@ -755,15 +767,16 @@ func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
 	// nolint: gosec
 	_, _ = s.exporter.CopyFileTo(clearFile, "/tmp/clear_ecc_errors.json")
 
-	// Clear ECC errors using metricsclient
+	// Clear ECC errors using metricsclient (injection API still gated by EnableAPI)
 	clearCmd := "docker exec -t test_exporter metricsclient --ecc-file-path /tmp/clear_ecc_errors.json"
 	clearOutput := s.tu.LocalCommandOutput(clearCmd)
 	log.Printf("ECC clear output: %s", clearOutput)
+	assert.NotContains(c, clearOutput, "invalid function error")
 
-	// force health service to update
+	// force health service to update (keep Debug.EnableAPI enabled)
 	err = s.SetFields(fields)
 	assert.Nil(c, err)
-	err = s.RemoveCommonConfig() // Re-enable health service to restore config
+	err = s.SetDebugEnableAPI(true)
 	assert.Nil(c, err)
 	time.Sleep(5 * time.Second) // Wait for config update to take effect
 
@@ -791,11 +804,88 @@ func (s *E2ESuite) Test019ECCErrorInjection(c *C) {
 		}
 
 		// check for healthy state
-		verifyHealth(healthPayload, "1")
+		if err := verifyHealth(healthPayload, "1"); err != nil {
+			log.Printf("GPU 0 not yet healthy: %v", err)
+			return false
+		}
 
 		log.Printf("ECC health state successfully cleared for GPU 0")
 		return true
-	}, 10*time.Second, 1*time.Second)
+	}, 30*time.Second, 1*time.Second)
+}
+
+// Test019bECCInjectionGatedByDebugAPI verifies the negative case: with
+// CommonConfig.Debug.EnableAPI disabled (the default), the SetError injection
+// gRPC API is rejected and the GPU health state is unaffected.
+func (s *E2ESuite) Test019bECCInjectionGatedByDebugAPI(c *C) {
+	log.Print("Testing ECC injection is rejected when Debug.EnableAPI is disabled")
+
+	fields := []string{
+		"gpu_ecc_uncorrect_fuse",
+		"gpu_ecc_uncorrect_df",
+		"gpu_health",
+	}
+
+	// ECC injection payload for GPU 0.
+	eccPayload := map[string]interface{}{
+		"ID": "0",
+		"Fields": []string{
+			"GPU_ECC_UNCORRECT_FUSE",
+			"GPU_ECC_UNCORRECT_DF",
+		},
+		"Counts": []int{10, 0},
+	}
+	jsonBytes, err := json.MarshalIndent(eccPayload, "", "  ")
+	assert.Nil(c, err)
+	eccFile := "ecc_errors_gated.json"
+	err = os.WriteFile(eccFile, jsonBytes, 0644)
+	assert.Nil(c, err)
+	defer os.Remove(eccFile)
+	// nolint: gosec
+	_, _ = s.exporter.CopyFileTo(eccFile, "/tmp/ecc_errors_gated.json")
+
+	// Explicitly disable the debug API and let the config reload.
+	err = s.SetDebugEnableAPI(false)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second)
+
+	// Attempt injection: metricsclient exits non-zero (SetError -> "invalid
+	// function error"), so LocalCommandOutput returns an empty string.
+	injectCmd := "docker exec -t test_exporter metricsclient --ecc-file-path /tmp/ecc_errors_gated.json"
+	output := s.tu.LocalCommandOutput(injectCmd)
+	log.Printf("ECC injection (gated) output: %q", output)
+	assert.Empty(c, output, "injection should be rejected when Debug.EnableAPI is disabled")
+
+	// Force a health refresh, keeping the debug API disabled.
+	err = s.SetFields(fields)
+	assert.Nil(c, err)
+	err = s.SetDebugEnableAPI(false)
+	assert.Nil(c, err)
+	time.Sleep(5 * time.Second)
+
+	// GPU 0 must remain healthy since nothing was injected.
+	assert.Eventually(c, func() bool {
+		response, err := s.getExporterResponse()
+		if err != nil || response == "" {
+			return false
+		}
+		allgpus, err := testutils.ParsePrometheusMetrics(response)
+		if err != nil {
+			return false
+		}
+		gpu0, exists := allgpus["\"0\""]
+		if !exists {
+			log.Printf("GPU 0 not found in metrics")
+			return false
+		}
+		healthPayload := map[string]*utils.GPUMetric{"0": gpu0}
+		if err := verifyHealth(healthPayload, "1"); err != nil {
+			log.Printf("GPU 0 unexpectedly not healthy: %v", err)
+			return false
+		}
+		log.Printf("GPU 0 remained healthy; injection correctly rejected")
+		return true
+	}, 30*time.Second, 1*time.Second)
 }
 
 func (s *E2ESuite) Test020ProfilerFailureHandling(c *C) {

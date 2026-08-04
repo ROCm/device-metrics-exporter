@@ -27,15 +27,13 @@ import (
 
 type MetricsSvcImpl struct {
 	sync.Mutex
-	enableDebugAPI bool
 	nicmetricssvc.UnimplementedMetricsServiceServer
 	clients []HealthInterface
 }
 
-func NewMetricsServer(enableDebugAPI bool) *MetricsSvcImpl {
+func NewMetricsServer() *MetricsSvcImpl {
 	msrv := &MetricsSvcImpl{
-		enableDebugAPI: enableDebugAPI,
-		clients:        []HealthInterface{},
+		clients: []HealthInterface{},
 	}
 	return msrv
 }

@@ -37,14 +37,13 @@ func (m *MockHealthInterface) GetNICHealthStates() (map[string]interface{}, erro
 }
 
 func TestNewMetricsServer(t *testing.T) {
-	server := NewMetricsServer(true)
+	server := NewMetricsServer()
 	assert.Assert(t, server != nil, "expected server to be created")
-	assert.Assert(t, server.enableDebugAPI, "expected enableDebugAPI to be true")
 	assert.Equal(t, 0, len(server.clients), "expected no clients registered initially")
 }
 
 func TestRegisterHealthClient(t *testing.T) {
-	server := NewMetricsServer(false)
+	server := NewMetricsServer()
 	mockClient := &MockHealthInterface{}
 	err := server.RegisterHealthClient(mockClient)
 	assert.Assert(t, err == nil, "expected no error when registering client")
@@ -53,7 +52,7 @@ func TestRegisterHealthClient(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	server := NewMetricsServer(false)
+	server := NewMetricsServer()
 	// mock client with valid NIC health states
 	mockClient := &MockHealthInterface{
 		nicHealthStateMap: map[string]interface{}{

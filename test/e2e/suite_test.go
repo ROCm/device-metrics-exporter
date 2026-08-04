@@ -137,6 +137,19 @@ func (s *E2ESuite) SetCommonConfigHealth(enable bool) error {
 	return s.WriteConfig(config)
 }
 
+// SetDebugEnableAPI toggles CommonConfig.Debug.EnableAPI, which gates the
+// error-injection (SetError) gRPC API used by the ECC injection tests.
+func (s *E2ESuite) SetDebugEnableAPI(enable bool) error {
+	config := s.ReadConfig()
+	if config.GetCommonConfig() == nil {
+		config.CommonConfig = &exportermetrics.CommonConfig{}
+	}
+	config.CommonConfig.Debug = &exportermetrics.DebugConfig{
+		EnableAPI: enable,
+	}
+	return s.WriteConfig(config)
+}
+
 func (s *E2ESuite) CheckExporterLogForString(str string) bool {
 	// Copy the log file from container to local temp file
 	tempFile, err := os.CreateTemp("", "exporter-log-*.log")

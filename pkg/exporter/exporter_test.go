@@ -40,7 +40,8 @@ const (
 	testConfigTemplate = `{
 		"ServerPort": %d,
 		"CommonConfig": {
-			"MetricsFieldPrefix": "amd_"
+			"MetricsFieldPrefix": "amd_",
+			"Debug": { "EnableAPI": true }
 		},
 		"GPUConfig": {
 			"Fields": [
@@ -373,6 +374,68 @@ func TestExporterHTTPEndpoints(t *testing.T) {
 				assert.Assert(t, tc.contentCheck(content), "Content check should pass for %s", tc.endpoint)
 			}
 		})
+	}
+}
+
+// TestExporterDebugAPIDisabled verifies that pprof/expvar endpoints are not
+// registered when Debug.EnableAPI is false (the default),
+// while /metrics stays reachable.
+func TestExporterDebugAPIDisabled(t *testing.T) {
+	logger.Init(false)
+
+	// Config with no Debug block -> EnableAPI defaults to false.
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	disabledConfig := `{
+		"ServerPort": 9097,
+		"CommonConfig": { "MetricsFieldPrefix": "amd_" },
+		"GPUConfig": { "Fields": ["GPU_PACKAGE_POWER"], "CustomLabels": { "CLUSTER_NAME": "test-cluster" } }
+	}`
+	err := os.WriteFile(configPath, []byte(disabledConfig), 0644)
+	assert.NilError(t, err)
+
+	runConf = config.NewConfigHandler(configPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
+	mh, err = metricsutil.NewMetrics(runConf)
+	assert.NilError(t, err)
+	mh.InitConfig(context.Background())
+
+	srv := startMetricsServer(runConf, "127.0.0.1")
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		srv.Shutdown(ctx)
+		cancel()
+	}()
+
+	baseURL := "http://127.0.0.1:9097"
+	serverReady := waitForServer(baseURL+"/metrics", 10*time.Second)
+	assert.Assert(t, serverReady, "Server should start")
+
+	// /metrics must still be served.
+	resp, err := makeHTTPRequest(baseURL+"/metrics", 5*time.Second)
+	assert.NilError(t, err)
+	assert.Equal(t, resp.StatusCode, 200, "/metrics should be reachable")
+	resp.Body.Close()
+
+	// Debug endpoints must be absent (404) when the debug API is disabled.
+	debugEndpoints := []string{
+		"/debug/vars",
+		"/debug/pprof/",
+		"/debug/pprof/cmdline",
+		"/debug/pprof/profile",
+		"/debug/pprof/symbol",
+		"/debug/pprof/trace",
+		"/debug/pprof/allocs",
+		"/debug/pprof/block",
+		"/debug/pprof/heap",
+		"/debug/pprof/mutex",
+		"/debug/pprof/goroutine",
+		"/debug/pprof/threadcreate",
+	}
+	for _, endpoint := range debugEndpoints {
+		resp, err := makeHTTPRequest(baseURL+endpoint, 5*time.Second)
+		assert.NilError(t, err, "Request to %s should not error", endpoint)
+		assert.Equal(t, resp.StatusCode, 404, "%s should be 404 when debug API disabled", endpoint)
+		resp.Body.Close()
 	}
 }
 

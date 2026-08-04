@@ -128,19 +128,24 @@ func startMetricsServer(c *config.ConfigHandler, bindAddr string) *http.Server {
 	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUHandlerPrefix, mh.HandleGPUMetricsQuery)
 	// new route for querying inband ras errors
 	router.Methods("GET").Subrouter().HandleFunc(globals.AMDGPUInbandRASHandlerPrefix, mh.HandleInbandRASErrorsQuery)
-	// pprof
-	router.Methods("GET").Subrouter().Handle("/debug/vars", expvar.Handler())
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/", pprof.Index)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/profile", pprof.Profile)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/trace", pprof.Trace)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/allocs", pprof.Handler("allocs").ServeHTTP)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/block", pprof.Handler("block").ServeHTTP)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/heap", pprof.Handler("heap").ServeHTTP)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/mutex", pprof.Handler("mutex").ServeHTTP)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
-	router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
+	// pprof/expvar profiling endpoints are gated behind CommonConfig.Debug.EnableAPI:
+	// they expose process internals and are disabled by default.
+	// The config auto-reloads and the server is restarted on change, so this is
+	// re-evaluated on every reload.
+	if c.GetEnableAPI() {
+		router.Methods("GET").Subrouter().Handle("/debug/vars", expvar.Handler())
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/", pprof.Index)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/profile", pprof.Profile)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/trace", pprof.Trace)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/allocs", pprof.Handler("allocs").ServeHTTP)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/block", pprof.Handler("block").ServeHTTP)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/heap", pprof.Handler("heap").ServeHTTP)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/mutex", pprof.Handler("mutex").ServeHTTP)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
+		router.Methods("GET").Subrouter().HandleFunc("/debug/pprof/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
+	}
 
 	// enforce some timeouts
 	srv := &http.Server{
@@ -473,7 +478,7 @@ func WithExitOnRocpctlError(exit bool) ExporterOption {
 }
 
 // StartMain - doesn't return it exits only on failure
-func (e *Exporter) StartMain(enableDebugAPI bool) {
+func (e *Exporter) StartMain() {
 	defer e.Close()
 	logger.Init(utils.IsKubernetes())
 
@@ -483,7 +488,6 @@ func (e *Exporter) StartMain(enableDebugAPI bool) {
 	mh.InitConfig(e.ctx)
 
 	e.svcHandler = metricsserver.InitSvcs(mh,
-		metricsserver.WithDebugAPIOption(enableDebugAPI),
 		metricsserver.WithNICMonitoring(e.enableNICMonitoring),
 		metricsserver.WithGPUMonitoring(e.enableGPUMonitoring),
 		metricsserver.WithIFOEMonitoring(e.enableIFOEMonitoring),

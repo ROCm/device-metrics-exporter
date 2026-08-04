@@ -11,6 +11,9 @@
           "MaxFileSizeMB": 10,
           "MaxBackups": 3,
           "MaxAgeDays": 7
+      },
+      "Debug": {
+          "EnableAPI": false
       }
   },
   "GPUConfig": {

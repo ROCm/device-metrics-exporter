@@ -35,7 +35,6 @@ var (
 	Version   string
 	BuildDate string
 	GitCommit string
-	Publish   string
 )
 
 func main() {
@@ -151,14 +150,6 @@ func main() {
 
 	exporterHandler := exporter.NewExporter(grpcPort, *metricsConfig, exporterOpts...)
 
-	enableDebugAPI := true // default
-	if len(Publish) != 0 {
-		enableDebugAPI = false
-	}
-
-	if enableDebugAPI {
-		logger.Log.Printf("Debug APIs enabled")
-	}
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -183,6 +174,6 @@ func main() {
 		}
 	}()
 
-	exporterHandler.StartMain(enableDebugAPI)
+	exporterHandler.StartMain()
 
 }

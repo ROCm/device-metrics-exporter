@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type MetricsSvcImpl struct {
 	sync.Mutex
-	enableDebugAPI bool
+	configHandler *config.ConfigHandler
 	metricssvc.UnimplementedMetricsServiceServer
 	clients []HealthInterface
 }
@@ -74,10 +75,12 @@ func (m *MetricsSvcImpl) List(ctx context.Context, e *emptypb.Empty) (*metricssv
 	return resp, nil
 }
 
-// SetError is a debug API to set GPU error state
+// SetError is the GPU error-injection debug API, gated by
+// CommonConfig.Debug.EnableAPI. The config is read live so the gate tracks
+// config reloads.
 func (m *MetricsSvcImpl) SetError(ctx context.Context, req *metricssvc.GPUErrorRequest) (*metricssvc.GPUErrorResponse, error) {
 
-	if !m.enableDebugAPI {
+	if m.configHandler == nil || !m.configHandler.GetEnableAPI() {
 		return nil, fmt.Errorf("invalid function error")
 	}
 
@@ -99,11 +102,12 @@ func (m *MetricsSvcImpl) SetError(ctx context.Context, req *metricssvc.GPUErrorR
 // nolint:unused // mustEmbedUnimplementedMetricsServiceServer is kept for future use
 func (m *MetricsSvcImpl) mustEmbedUnimplementedMetricsServiceServer() {}
 
-// NewMetricsServer creates a new instance of MetricsSvcImpl
-func NewMetricsServer(enableDebugAPI bool) *MetricsSvcImpl {
+// NewMetricsServer creates a new instance of MetricsSvcImpl. The config handler
+// is used to gate the error-injection API on CommonConfig.Debug.EnableAPI.
+func NewMetricsServer(configHandler *config.ConfigHandler) *MetricsSvcImpl {
 	msrv := &MetricsSvcImpl{
-		enableDebugAPI: enableDebugAPI,
-		clients:        []HealthInterface{},
+		configHandler: configHandler,
+		clients:       []HealthInterface{},
 	}
 	return msrv
 }
