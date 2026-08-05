@@ -67,7 +67,7 @@ func printLabels(labels map[string]string) {
 }
 
 func prettyPrintGPUState(resp *metricssvc.GPUStateResponse) {
-	if *jout {
+	if jsonOutput {
 		jsonData, err := json.Marshal(resp)
 		if err != nil {
 			fmt.Println("Error:", err)
