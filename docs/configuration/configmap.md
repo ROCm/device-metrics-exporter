@@ -28,6 +28,8 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `ProfilerConfig`: Configuration for Profiler metrics.
     - `SamplingInterval`: Specifies the duration, in microseconds, of the sampling window used by the profiler to collect metrics for each query request. The default value is 1000 µs (1 millisecond), which is also the minimum allowed value. Excessively high values may result in delayed or timeout errors during metric collection.
     - `PtlDelay` : Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` ms no delay. This setting is useful for platform supporting Peaks Top Limiter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
+  - `Debug`: Configuration for optional debug interfaces.
+    - `EnableAPI`: Boolean flag to expose the debug interfaces (the pprof/expvar profiling endpoints on the metrics port and the error-injection gRPC API). Default is `false`, meaning these interfaces are disabled. The value is read at runtime and applied on config reload.
 
 ## CLI flags
 

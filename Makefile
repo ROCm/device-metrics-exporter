@@ -398,8 +398,7 @@ amdexporter: metricsclient amdgpuhealth
 		$(if $(GO_BUILD_TAGS),-tags $(GO_BUILD_TAGS)) \
 		-ldflags "-X main.Version=${VERSION} \
 		          -X main.GitCommit=${GIT_COMMIT} \
-		          -X main.BuildDate=${BUILD_DATE} \
-		          -X main.Publish=${DISABLE_DEBUG}" \
+		          -X main.BuildDate=${BUILD_DATE}" \
 		-o $(CURDIR)/bin/amd-metrics-exporter
 
 amdtestrunner:

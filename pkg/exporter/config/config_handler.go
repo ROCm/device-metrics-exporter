@@ -88,6 +88,21 @@ func (c *ConfigHandler) GetHealthServiceState() bool {
 	return true
 }
 
+// GetEnableAPI reports whether the debug APIs (pprof/expvar endpoints and the
+// error-injection SetError gRPC API) are enabled. Default false.
+func (c *ConfigHandler) GetEnableAPI() bool {
+	c.Lock()
+	defer c.Unlock()
+	cfg := c.runningConfig.GetConfig()
+	if cfg != nil && cfg.GetCommonConfig() != nil {
+		debugCfg := cfg.GetCommonConfig().GetDebug()
+		if debugCfg != nil {
+			return debugCfg.GetEnableAPI()
+		}
+	}
+	return false
+}
+
 // GetHealthPollingInterval returns the health polling interval
 // Default: 5 minutes, Min: 30 seconds, Max: 24 hours
 func (c *ConfigHandler) GetHealthPollingInterval() time.Duration {

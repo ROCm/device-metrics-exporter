@@ -427,6 +427,16 @@ message CommonConfig {
 
     // Logging config
     LoggingConfig Logging = 3;
+
+    // Debug config
+    DebugConfig Debug = 4;
+}
+
+message DebugConfig {
+    // EnableAPI exposes the debug surfaces: the pprof/expvar profiling endpoints
+    // on the metrics port and the error-injection (SetError) gRPC API. Default
+    // false: both are disabled unless explicitly enabled here.
+    bool EnableAPI = 1;
 }
 
 enum NICMetricField {
