@@ -807,10 +807,38 @@ message GPU {
   GPUStats  Stats  = 3;
 }
 
+// filter to control which GPU attributes GPUGet fetches
+message GPUGetFilter {
+  // skip clock status
+  bool  SkipClockStatus    = 1;
+  // skip PCIe status
+  bool  SkipPCIeStatus     = 2;
+  // skip XGMI error status
+  bool  SkipXGMIStatus     = 3;
+  // skip process list
+  bool  SkipProcessStatus  = 4;
+  // skip UALink state
+  bool  SkipUALinkStatus   = 5;
+  // skip VRAM usage
+  bool  SkipVRAMUsageStats = 6;
+  // skip ECC error counts
+  bool  SkipECCStats       = 7;
+  // skip violation stats
+  bool  SkipViolationStats = 8;
+  // skip PCIe stats
+  bool  SkipPCIeStats      = 9;
+  // skip XGMI counters
+  bool  SkipXGMIStats      = 10;
+  // skip GPU activity and usage
+  bool  SkipActivityStats  = 11;
+}
+
 // GPU get request message
 message GPUGetRequest {
   // list of GPU uuids
   repeated bytes Id = 1;
+  // filter of attributes to skip; unset means fetch all
+  GPUGetFilter   Filter = 2;
 }
 
 // response to GPU get request

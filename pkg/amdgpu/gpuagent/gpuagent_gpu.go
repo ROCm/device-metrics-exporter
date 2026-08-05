@@ -47,6 +47,56 @@ const (
 	cperTimestampLayout = "2006-01-02 15:04:05"
 )
 
+// gpuGetFilterGroups maps each skippable attribute group to the fields sourced
+// from it; a group is safe to skip only when none of its fields are enabled.
+// ECC, PCIeStatus and UALinkStatus are absent because they are never skipped
+// (health validation consumes the first two). Fields from ungated collectors
+// (temperature, power, GPU_TOTAL_VRAM, etc.) are always fetched and not listed.
+var gpuGetFilterGroups = map[string][]exportermetrics.GPUMetricField{
+	"clock": {
+		exportermetrics.GPUMetricField_GPU_CLOCK,
+		exportermetrics.GPUMetricField_GPU_MIN_CLOCK,
+		exportermetrics.GPUMetricField_GPU_MAX_CLOCK,
+	},
+	"pcieStats": {
+		exportermetrics.GPUMetricField_PCIE_REPLAY_COUNT,
+		exportermetrics.GPUMetricField_PCIE_RECOVERY_COUNT,
+		exportermetrics.GPUMetricField_PCIE_REPLAY_ROLLOVER_COUNT,
+		exportermetrics.GPUMetricField_PCIE_NACK_SENT_COUNT,
+		exportermetrics.GPUMetricField_PCIE_NACK_RECEIVED_COUNT,
+		exportermetrics.GPUMetricField_PCIE_RX,
+		exportermetrics.GPUMetricField_PCIE_TX,
+		exportermetrics.GPUMetricField_PCIE_BIDIRECTIONAL_BANDWIDTH,
+	},
+	"vramUsage": {
+		exportermetrics.GPUMetricField_GPU_TOTAL_VISIBLE_VRAM,
+		exportermetrics.GPUMetricField_GPU_USED_VISIBLE_VRAM,
+		exportermetrics.GPUMetricField_GPU_FREE_VISIBLE_VRAM,
+		exportermetrics.GPUMetricField_GPU_TOTAL_GTT,
+		exportermetrics.GPUMetricField_GPU_USED_GTT,
+		exportermetrics.GPUMetricField_GPU_FREE_GTT,
+		exportermetrics.GPUMetricField_GPU_USED_VRAM,
+		exportermetrics.GPUMetricField_GPU_FREE_VRAM,
+	},
+	"activity": {
+		exportermetrics.GPUMetricField_GPU_GFX_ACTIVITY,
+		exportermetrics.GPUMetricField_GPU_UMC_ACTIVITY,
+		exportermetrics.GPUMetricField_GPU_MMA_ACTIVITY,
+		exportermetrics.GPUMetricField_GPU_VCN_ACTIVITY,
+		exportermetrics.GPUMetricField_GPU_JPEG_ACTIVITY,
+		exportermetrics.GPUMetricField_GPU_GFX_BUSY_INSTANTANEOUS,
+		exportermetrics.GPUMetricField_GPU_VCN_BUSY_INSTANTANEOUS,
+		exportermetrics.GPUMetricField_GPU_JPEG_BUSY_INSTANTANEOUS,
+	},
+}
+
+// gpuGetFilterGroupPrefixes maps groups whose fields share a name prefix. GPU_XGMI_*
+// covers both the XGMI error status and the XGMI link counters.
+var gpuGetFilterGroupPrefixes = map[string][]string{
+	"violation": {"GPU_VIOLATION_"},
+	"xgmi":      {"GPU_XGMI_"},
+}
+
 // cperRefreshInterval is 2s in sim mode, 30s in production.
 var cperRefreshInterval = func() time.Duration {
 	if utils.IsSimEnabled() {
@@ -55,13 +105,20 @@ var cperRefreshInterval = func() time.Duration {
 	return 30 * time.Second
 }()
 
+type responseCache struct {
+	resp *amdgpu.GPUGetResponse
+	ts   time.Time
+}
+
 // Cache fields for GPUAgentClient
 type gpuCache struct {
 	sync.RWMutex
-	lastResponse      *amdgpu.GPUGetResponse
 	lastCperResponse  *amdgpu.GPUCPERGetResponse
-	lastTimestamp     time.Time
 	lastCperTimestamp time.Time
+	// metricsCache: config-filtered read; npdCache: /gpumetrics read (process skipped)
+	metricsCache responseCache
+	npdCache     responseCache
+	gpuGetFilter *amdgpu.GPUGetFilter
 }
 
 // cper cache entry
@@ -279,7 +336,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	}()
 
 	// send the req to gpuclient
-	resp, partitionMap, err := ga.getGPUs()
+	resp, partitionMap, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
 	if err != nil {
 		return err
 	}
@@ -301,6 +358,12 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	case <-ctx.Done():
 		logger.Log.Printf("profiler fetch cancelled by context: %v", ctx.Err())
 		return ctx.Err()
+	}
+	// select picks randomly when both cases are ready, so re-check the context
+	// to return promptly on cancellation instead of proceeding with the result.
+	if err := ctx.Err(); err != nil {
+		logger.Log.Printf("profiler fetch cancelled by context: %v", err)
+		return err
 	}
 	pmetrics := profResult.metrics
 
@@ -355,17 +418,15 @@ func (ga *GPUAgentGPUClient) GetContext() context.Context {
 	return ctx
 }
 
-// cacheRead reads from cache if the last read was successful and within the cacheTimer
-// otherwise it reads from hardware
-// this ensures that we don't read from hardware too frequently as more clients are added
-// and the number of reads increases
-func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
+// cacheRead serves the given slot within cacheTimer, else issues a GPUGet with
+// the given filter and refreshes that slot.
+func (ga *GPUAgentGPUClient) cacheRead(filter *amdgpu.GPUGetFilter, c *responseCache) (*amdgpu.GPUGetResponse, error) {
 	now := time.Now()
 
 	// First try fast path with RLock
 	ga.gCache.RLock()
-	if ga.gCache.lastResponse != nil && now.Sub(ga.gCache.lastTimestamp) < cacheTimer {
-		res := ga.gCache.lastResponse
+	if c.resp != nil && now.Sub(c.ts) < cacheTimer {
+		res := c.resp
 		ga.gCache.RUnlock()
 		logger.Debug("returning metrics from cache")
 		return res, nil
@@ -377,23 +438,60 @@ func (ga *GPUAgentGPUClient) cacheRead() (*amdgpu.GPUGetResponse, error) {
 	defer ga.gCache.Unlock()
 
 	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
-	if ga.gCache.lastResponse != nil && time.Since(ga.gCache.lastTimestamp) < cacheTimer {
+	if c.resp != nil && time.Since(c.ts) < cacheTimer {
 		logger.Debug("returning metrics from cache (after double-check)")
-		return ga.gCache.lastResponse, nil
+		return c.resp, nil
 	}
 
 	// Perform query and update cache
 	ctx, cancel := context.WithTimeout(ga.GetContext(), queryTimeout)
 	defer cancel()
 
-	res, err := ga.gpuclient.GPUGet(ctx, &amdgpu.GPUGetRequest{})
-	ga.gCache.lastTimestamp = time.Now()
+	res, err := ga.gpuclient.GPUGet(ctx, &amdgpu.GPUGetRequest{Filter: filter})
+	c.ts = time.Now()
 	if err == nil {
-		ga.gCache.lastResponse = res
+		c.resp = res
 	} else {
-		ga.gCache.lastResponse = nil
+		c.resp = nil
 	}
 	return res, err
+}
+
+// anyGroupFieldEnabled reports whether any field in the named group is enabled.
+func (ga *GPUAgentGPUClient) anyGroupFieldEnabled(group string) bool {
+	for _, f := range gpuGetFilterGroups[group] {
+		if ga.getExporterFieldState(f.String()) {
+			return true
+		}
+	}
+	for _, prefix := range gpuGetFilterGroupPrefixes[group] {
+		for name, enabled := range ga.exportFieldMap {
+			if enabled && strings.HasPrefix(name, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// buildGPUGetFilter derives a GPUGetFilter from the enabled config so gpuagent
+// skips server-side collectors no configured metric needs. ECC and PCIe status
+// are never skipped because health validation consumes them. Computed once per
+// config reload (InitConfigs) and cached, not rebuilt on every GPUGet.
+func (ga *GPUAgentGPUClient) buildGPUGetFilter() *amdgpu.GPUGetFilter {
+	processNeeded := ga.exportLabels[exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String()] ||
+		ga.getExporterFieldState(exportermetrics.GPUMetricField_GPU_PROCESS_CU_OCCUPANCY.String())
+	xgmiNeeded := ga.anyGroupFieldEnabled("xgmi")
+	return &amdgpu.GPUGetFilter{
+		SkipClockStatus:    !ga.anyGroupFieldEnabled("clock"),
+		SkipXGMIStatus:     !xgmiNeeded,
+		SkipProcessStatus:  !processNeeded,
+		SkipVRAMUsageStats: !ga.anyGroupFieldEnabled("vramUsage"),
+		SkipViolationStats: !ga.anyGroupFieldEnabled("violation"),
+		SkipPCIeStats:      !ga.anyGroupFieldEnabled("pcieStats"),
+		SkipXGMIStats:      !xgmiNeeded,
+		SkipActivityStats:  !ga.anyGroupFieldEnabled("activity"),
+	}
 }
 
 // cacheCperRead returns cached CPER data, or nil if the background refresh
@@ -512,8 +610,10 @@ func (ga *GPUAgentGPUClient) getLatestCPER() (map[string]*amdgpu.CPEREntry, erro
 	return latestCPERPerGPU(gpuCpers), nil
 }
 
-func (ga *GPUAgentGPUClient) getGPUs() (*amdgpu.GPUGetResponse, map[string]*amdgpu.GPU, error) {
-	res, err := ga.cacheRead()
+// getGPUs issues a GPUGet with the given filter (cached in the given slot) and
+// returns the response plus a map of partitioned-GPU parents.
+func (ga *GPUAgentGPUClient) getGPUs(filter *amdgpu.GPUGetFilter, c *responseCache) (*amdgpu.GPUGetResponse, map[string]*amdgpu.GPU, error) {
+	res, err := ga.cacheRead(filter, c)
 	if err != nil {
 		return nil, nil, err
 	}

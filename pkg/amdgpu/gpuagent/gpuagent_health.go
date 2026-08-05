@@ -268,7 +268,7 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 			}
 		}
 	}
-	gpumetrics, _, err = ga.getGPUs()
+	gpumetrics, _, err = ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
 	if err != nil || (gpumetrics != nil && gpumetrics.ApiStatus != 0) {
 		errOccured = true
 		logger.Log.Printf("gpuagent get metrics failed %v", err)
