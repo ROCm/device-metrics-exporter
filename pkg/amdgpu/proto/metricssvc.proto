@@ -24,9 +24,9 @@ limitations under the License.
 
 
 syntax = "proto3";
-option go_package = "gen/gpumetricssvc"; 
+option go_package = "gen/metricssvc"; 
 
-package gpumetricssvc;
+package metricssvc;
 
 import "google/protobuf/empty.proto";
 

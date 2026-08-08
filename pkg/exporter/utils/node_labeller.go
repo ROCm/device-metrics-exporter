@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/gpumetricssvc"
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/gen/nicmetricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
@@ -68,7 +68,7 @@ func (cfg *NodeHealthLabellerConfig) RemoveNodeHealthLabel(nodeLabels map[string
 // AddNodeHealthLabel adds all health labels to node labels from a map.
 func (cfg *NodeHealthLabellerConfig) AddNodeHealthLabel(nodeLabels map[string]string, healthMap map[string]string) {
 	for deviceID, state := range healthMap {
-		if deviceID == "" || state == strings.ToLower(nicmetricssvc.Health_HEALTHY.String()) || state == strings.ToLower(gpumetricssvc.GPUHealth_HEALTHY.String()) {
+		if deviceID == "" || state == strings.ToLower(nicmetricssvc.Health_HEALTHY.String()) || state == strings.ToLower(metricssvc.GPUHealth_HEALTHY.String()) {
 			continue
 		}
 		labelKey := fmt.Sprintf("%s.%s.state", cfg.LabelPrefix, deviceID)
