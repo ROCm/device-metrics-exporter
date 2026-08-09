@@ -19,8 +19,8 @@ ARG GPUAGENT_COMMIT=84bc85f69e41c9b386dd82afa842987b3e549b00
 # 1 = re-extract amdsmi from the (~10GB) ROCm therock tarball
 ARG AMDSMI_FROM_TARBALL=0
 ARG ROCM_TARBALL_URL=
-ARG GO_VERSION=1.25.11
-ARG GO_SHA256=34f14304e856893f4ba30c2cacfe93906e9de7915c5f6aaaf3a81cdccd7ba30b
+ARG GO_VERSION=1.25.12
+ARG GO_SHA256=234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1
 
 # build toolchain (full ubi9 has dnf/yum) + go
 RUN dnf install -y --allowerasing \
