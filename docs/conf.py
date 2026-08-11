@@ -17,6 +17,7 @@ copyright = "Copyright (c) 2024 Advanced Micro Devices, Inc. All rights reserved
 html_theme = "rocm_docs_theme"
 html_theme_options = {
     "flavor": "instinct",
+    "use_download_button": True,
     "repository_url": "https://github.com/rocm/device-metrics-exporter",
     # Add any additional theme options here
     "announcement": (
@@ -34,6 +35,11 @@ extensions = [
 external_toc_path = "./sphinx/_toc.yml"
 
 exclude_patterns = ['.venv']
+
+# Generate llms.txt and llms-full.txt after each build (the llms.txt standard,
+# https://llmstxt.org/). See the rocm-docs-core guide:
+# https://rocm.docs.amd.com/projects/rocm-docs-core/en/latest/user_guide/llms.html
+rocm_docs_generate_llms = True
 
 # Supported linux version numbers
 ubuntu_version_numbers = [('24.04', 'noble'), ('22.04', 'jammy')]
