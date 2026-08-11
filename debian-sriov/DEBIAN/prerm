@@ -1,0 +1,6 @@
+#!/bin/bash
+systemctl stop amd-metrics-exporter-sriov.service
+systemctl stop gpuagent-sriov.service
+
+systemctl disable gpuagent-sriov.service
+systemctl disable amd-metrics-exporter-sriov.service

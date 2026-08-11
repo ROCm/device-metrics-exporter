@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Global build args used in FROM lines (must be declared before the first FROM so
 # the legacy/classic docker builder resolves them for every stage).
 ARG GPUAGENT_BUILDER_BASE_IMAGE=registry.access.redhat.com/ubi9/ubi:9.8
@@ -53,11 +54,24 @@ RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
 COPY amdsmi.h /tmp/amdsmi/amdsmi.h
 COPY libamd_smi.so.* /tmp/amdsmi/
 COPY librocm_sysdeps_*.so* /tmp/amdsmi/
-# 7.14 amdsmi DT_NEEDEDs the rocm_sysdeps netlink libs; extract them too.
-RUN if [ "${AMDSMI_FROM_TARBALL}" = "1" ]; then \
-        echo "Refreshing amdsmi from tarball ${ROCM_TARBALL_URL}"; \
-        mkdir -p /tmp/smi && curl -fSL "${ROCM_TARBALL_URL}" \
-          | tar -xz -C /tmp/smi --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*' && \
+# the release/therock-10.0 nightly (10.0.0a20260730) ships amdsmi at
+# SO major 27 (libamd_smi.so.27.0.0) but STILL bundles the namespaced
+# librocm_sysdeps_* netlink libs (librocm_sysdeps_nl_3.so.200,
+# librocm_sysdeps_mnl.so.0, etc.) under lib/rocm_sysdeps/lib/ — verified by
+# streaming the tarball listing on 2026-08-06. amdsmi DT_NEEDEDs those namespaced
+# sysdeps libs (NOT the system libnl-3/libmnl), so these COPY/extract steps are
+# kept as-is. The SO 26->27 drop of librocm_sysdeps_* was on the develop/10.1 line
+# (collab-2.0.0 221643289); it does NOT apply to this 10.0 build. Do not switch to
+# dnf-installing system libnl-3/libmnl for this tarball. The from-source stage below
+# derives so_ver/so_maj dynamically, so SO 27 needs no hardcode.
+# the ROCm tarball is downloaded once on the host and bind-mounted via
+# the `rocm-tarball` build context (no in-image download). Extract amdsmi from the
+# mounted local file instead of curl-ing the URL.
+RUN --mount=type=bind,from=rocm-tarball,source=therock.tar.gz,target=/tmp/rocm.tar.gz \
+    if [ "${AMDSMI_FROM_TARBALL}" = "1" ]; then \
+        echo "Extracting amdsmi from mounted ROCm tarball"; \
+        mkdir -p /tmp/smi && tar -xz -f /tmp/rocm.tar.gz \
+          -C /tmp/smi --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*' && \
         rm -rf /tmp/amdsmi && mkdir -p /tmp/amdsmi && \
         cp -a /tmp/smi/lib/libamd_smi.so* /tmp/amdsmi/ && \
         cp -a /tmp/smi/lib/rocm_sysdeps/lib/librocm_sysdeps_*.so* /tmp/amdsmi/ && \
@@ -102,6 +116,20 @@ RUN cd ${GPUAGENT_SRC} \
              sw/nic/build/x86_64/sim/bin/gpuctl
 
 # ---------------------------------------------------------------------------
+# Stage 1b: strip the host-built Go client binaries.
+# These are stripped in a stage that already has binutils, then COPYed into the
+# runtime image — the minimal runtime installs full ROCm (which owns
+# binutils-gold), so `microdnf install binutils` there conflicts. server
+# (amd-metrics-exporter) and amd-test-runner are intentionally NOT stripped
+# (field-triage backtraces).
+# ---------------------------------------------------------------------------
+FROM ${GPUAGENT_BUILDER_BASE_IMAGE} AS gostrip
+RUN dnf install -y binutils && dnf clean all
+COPY metricsclient /strip/metricsclient
+COPY amdgpuhealth /strip/amdgpuhealth
+RUN strip /strip/metricsclient /strip/amdgpuhealth
+
+# ---------------------------------------------------------------------------
 # Stage 2: runtime image
 # ---------------------------------------------------------------------------
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
@@ -129,15 +157,19 @@ ENV AMD_METRICS_EXPORTER_ENABLE_CPER=1
 ADD install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
 RUN chmod +x /usr/local/bin/install-rocm-tarball.sh
 
-RUN microdnf clean all && \
+# ROCM_TARBALL_URL is now only a MODE SELECTOR (non-empty = tarball
+# mode); the tarball data comes from the bind-mounted `rocm-tarball` context, so
+# install-rocm-tarball.sh reads a local file and no wget is needed.
+RUN --mount=type=bind,from=rocm-tarball,source=therock.tar.gz,target=/tmp/rocm.tar.gz \
+   microdnf clean all && \
    if [ -n "${ROCM_TARBALL_URL}" ]; then \
-      microdnf install -y wget tar gzip sudo findutils procps elfutils-libelf cmake kmod file \
+      microdnf install -y tar gzip sudo findutils procps elfutils-libelf cmake kmod file \
          libcap-devel vim numactl numactl-libs jq libatomic python3 && \
-      /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" /usr/lib64; \
+      /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" /tmp/rocm.tar.gz /usr/lib64; \
    else \
       echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
       echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \
-      echo "baseurl=${AMDGPU_REPO_URL}/graphics/${AMDGPU_VERSION}/rhel/9.8/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
+      echo "baseurl=${AMDGPU_REPO_URL}/graphics/${AMDGPU_VERSION}/rhel/9.6/main/x86_64/" >> /etc/yum.repos.d/amdgpu.repo && \
       echo "enabled=1" >> /etc/yum.repos.d/amdgpu.repo && \
       echo "priority=50" >> /etc/yum.repos.d/amdgpu.repo && \
       echo "gpgcheck=1" >> /etc/yum.repos.d/amdgpu.repo && \
@@ -165,7 +197,8 @@ ADD ./librocpclient.so /opt/rocm/lib/librocpclient.so
 # libamd_smi.so symlink (for a version-agnostic LD_PRELOAD). Version is derived
 # from the file, so a future amdsmi bump needs no edits here or in entrypoint.sh.
 ADD ./libamd_smi.so.* /home/amd/lib/
-# amdsmi 26.5.0 DT_NEEDEDs these rocm_sysdeps netlink libs (LD_PRELOAD path)
+# amdsmi DT_NEEDEDs these namespaced rocm_sysdeps netlink libs (LD_PRELOAD path).
+# still shipped by the 10.0.0a20260730 (SO 27) tarball — kept as-is.
 ADD ./librocm_sysdeps_*.so* /home/amd/lib/
 RUN cd /home/amd/lib/ \
     && real=$(ls libamd_smi.so.*.*.* | head -1) \
@@ -174,15 +207,36 @@ RUN cd /home/amd/lib/ \
     && ln -sf "${real}" "libamd_smi.so.${maj}" \
     && ln -sf "${real}" libamd_smi.so
 
+# In tarball mode, override /home/amd/lib with the tarball amd_smi so the runtime
+# LD_PRELOAD matches the version gpuagent was built against.
+RUN if [ -n "${ROCM_TARBALL_URL}" ]; then \
+        src=/opt/rocm-${ROCM_VERSION}/share/amd_smi/amdsmi/libamd_smi.so; \
+        soname=$(grep -ao 'libamd_smi\.so\.[0-9]\+' "$src" | head -1); \
+        rm -f /home/amd/lib/libamd_smi.so*; \
+        cp -a "$src" /home/amd/lib/"$soname"; \
+        (cd /home/amd/lib && ln -sf "$soname" libamd_smi.so); \
+    fi
+
 ADD ./rocpctl /home/amd/bin/rocpctl
-# gpuagent + gpuctl are built from source in the gpuagent-build stage
-COPY --from=gpuagent-build /usr/src/github.com/ROCm/gpu-agent/sw/nic/build/x86_64/sim/bin/gpuctl /home/amd/bin/gpuctl
-COPY --from=gpuagent-build /usr/src/github.com/ROCm/gpu-agent/sw/nic/build/x86_64/sim/bin/gpuagent /home/amd/bin/gpuagent
+# gpuagent + gpuctl are staged into the build context by build_prep_docker.sh:
+# from the shared source producer (build/gpuagent/, GPUAGENT_FROM_SOURCE=1, the
+# default) or from the committed assets/gpuagent_static.bin.gz + gpuctl.gobin
+# blobs (GPUAGENT_FROM_SOURCE=0). The gpuagent-build stage above is invoked
+# standalone by `make gpuagent-build` (docker build --target gpuagent-build);
+# on the default path buildkit prunes it from this runtime build since it is no
+# longer referenced here.
+ADD ./gpuagent /home/amd/bin/gpuagent
+ADD ./gpuctl /home/amd/bin/gpuctl
 RUN chmod +x /home/amd/bin/gpuctl /home/amd/bin/gpuagent
 ADD ./amd-metrics-exporter /home/amd/bin/server
-ADD ./metricsclient /home/amd/bin/metricsclient
-ADD ./amdgpuhealth /home/amd/bin/amdgpuhealth
+# strip policy: metricsclient + amdgpuhealth come pre-stripped from the
+# gostrip stage (stage 1b) — no binutils in this minimal runtime (avoids the
+# binutils-gold conflict with ROCm). gpuagent + gpuctl were stripped in stage 1.
+# server (amd-metrics-exporter) + amd-test-runner keep symbols (field backtraces).
+COPY --from=gostrip /strip/metricsclient /home/amd/bin/metricsclient
+COPY --from=gostrip /strip/amdgpuhealth /home/amd/bin/amdgpuhealth
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+ADD ./LICENSE /licenses/LICENSE
 RUN chmod +x /home/amd/tools/entrypoint.sh
 ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
 RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
@@ -190,8 +244,8 @@ RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 LABEL name="amd-device-metrics-exporter" \
     maintainer="praveenkumar.shanmugam@amd.com,nitish.bhat@amd.com,yan.sun3@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v1.5.0" \
-    release="v1.5.0" \
+    version="v1.5.1" \
+    release="v1.5.1" \
     ROCM_VERSION="${ROCM_VERSION}" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Kubernetes." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."

@@ -1,9 +1,10 @@
-ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.6
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
 
 FROM ${BASE_IMAGE}
 
 LABEL maintainer="AMD Inc"
-LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.6"
+LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.8"
 LABEL ROCM_VERSION="7.2"
 
 
@@ -17,10 +18,13 @@ ARG ROCM_TARBALL_URL=""
 ADD docker/install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
 RUN chmod +x /usr/local/bin/install-rocm-tarball.sh
 
-RUN microdnf clean all && \
+# ROCM_TARBALL_URL is a mode selector; tarball data is bind-mounted from
+# the `rocm-tarball` context (downloaded once on host). No wget in-image.
+RUN --mount=type=bind,from=rocm-tarball,source=therock.tar.gz,target=/tmp/rocm.tar.gz \
+   microdnf clean all && \
    if [ -n "${ROCM_TARBALL_URL}" ]; then \
-      microdnf install -y wget tar gzip libatomic && \
-      /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" /usr/lib64; \
+      microdnf install -y tar gzip libatomic && \
+      /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" /tmp/rocm.tar.gz /usr/lib64; \
    else \
       echo "[amdgpu]" > /etc/yum.repos.d/amdgpu.repo && \
       echo "name=AMDGPU repository" >> /etc/yum.repos.d/amdgpu.repo && \

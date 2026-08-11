@@ -27,18 +27,52 @@ if [ "$AINIC" = "1" ]; then
     exit 0
 fi
 
-# copy all artifacts and set proper file permissions
+# gpuagent source model: with GPUAGENT_FROM_SOURCE=1 (default) all
+# targets consume the shared producer's binaries from GPUAGENT_BUILD_DIR
+# (build/gpuagent/, built once per make invocation via `make gpuagent-build`).
+# With GPUAGENT_FROM_SOURCE=0 each target falls back to its committed
+# assets/gpuagent_*.bin.gz prebuilt blob (escape hatch).
+GPUAGENT_FROM_SOURCE="${GPUAGENT_FROM_SOURCE:-1}"
+GPUAGENT_BUILD_DIR="${GPUAGENT_BUILD_DIR:-$TOP_DIR/build/gpuagent}"
+
+# copy all artificats and set proper file permissions
 if [ "$MOCK" == "1" ]; then
-    tar -xf $TOP_DIR/assets/gpuagent_mock.bin.gz -C $TOP_DIR/docker/
+    if [ "$GPUAGENT_FROM_SOURCE" == "1" ]; then
+        echo "Staging gpuagent_mock from source producer ($GPUAGENT_BUILD_DIR)"
+        cp -vf "$GPUAGENT_BUILD_DIR/gpuagent_mock" "$TOP_DIR/docker/gpuagent"
+    else
+        echo "Staging gpuagent_mock from prebuilt asset blob"
+        tar -xf "$TOP_DIR/assets/gpuagent_mock.bin.gz" -C "$TOP_DIR/docker/"
+    fi
     ln -f $TOP_DIR/bin/rocpctl-mock $TOP_DIR/docker/rocpctl-mock
     chmod +x $TOP_DIR/docker/gpuagent
 elif [ "$SRIOV" == "1" ]; then
-    echo "Copying sriov gim driver gpuagent to docker"
-    tar -xf $TOP_DIR/assets/gpuagent_sriov_static.bin.gz -C $TOP_DIR/docker/
+    if [ "$GPUAGENT_FROM_SOURCE" == "1" ]; then
+        # SR-IOV consumes gpuagent_gim from the shared producer.
+        # TODO: verify gpuagent_gim is functionally equivalent to
+        # today's assets/gpuagent_sriov_static.bin.gz before this becomes the
+        # sole SR-IOV path (design "gpuagent_gim equivalence check"). Until then
+        # GPUAGENT_FROM_SOURCE=0 restores the proven prebuilt sriov blob.
+        echo "Staging gpuagent_gim from source producer ($GPUAGENT_BUILD_DIR)"
+        cp -vf "$GPUAGENT_BUILD_DIR/gpuagent_gim" "$TOP_DIR/docker/gpuagent"
+    else
+        echo "Staging sriov gim driver gpuagent from prebuilt asset blob"
+        tar -xf "$TOP_DIR/assets/gpuagent_sriov_static.bin.gz" -C "$TOP_DIR/docker/"
+    fi
     chmod +x $TOP_DIR/docker/gpuagent
+else
+    # default (non-mock, non-sriov) release image
+    if [ "$GPUAGENT_FROM_SOURCE" == "1" ]; then
+        echo "Staging gpuagent + gpuctl from source producer ($GPUAGENT_BUILD_DIR)"
+        cp -vf "$GPUAGENT_BUILD_DIR/gpuagent" "$TOP_DIR/docker/gpuagent"
+        cp -vf "$GPUAGENT_BUILD_DIR/gpuctl" "$TOP_DIR/docker/gpuctl"
+    else
+        echo "Staging gpuagent from prebuilt asset blob; gpuctl from gpuctl.gobin"
+        tar -xf "$TOP_DIR/assets/gpuagent_static.bin.gz" -C "$TOP_DIR/docker/"
+        ln -f "$TOP_DIR/assets/gpuctl.gobin" "$TOP_DIR/docker/gpuctl"
+    fi
+    chmod +x $TOP_DIR/docker/gpuagent $TOP_DIR/docker/gpuctl
 fi
-# Note: the default (non-mock, non-sriov) release image builds gpuagent + gpuctl
-# from source in the Dockerfile's gpuagent-build stage; nothing to stage here.
 
 # Stage amdsmi (header + lib) and gpuagent patches for the gpuagent-build stage
 # (release path). The builder stage COPYs these from the docker/ build context.
