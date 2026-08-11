@@ -14,7 +14,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     permissions:
       contents: read
 
@@ -37,8 +37,10 @@ jobs:
       - name: Build inside dev container
         run: |
           docker run --rm --privileged \
+            -e CI=true \
             -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
             -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -e "HOST_TOP_DIR=${{ github.workspace }}" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "${{ github.workspace }}:/usr/src/github.com/ROCm/device-metrics-exporter" \
             -w /usr/src/github.com/ROCm/device-metrics-exporter \

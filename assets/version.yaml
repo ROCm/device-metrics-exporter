@@ -20,12 +20,12 @@ assets:
     branch  : main
 
   - name    : amd_smi_lib
-    version : "7.13.0"
-    branch  : release/therock-7.13
+    version : "10.0.0a20260730"
+    branch  : release/therock-10.0
 
   - name    : rocprofiler
-    version : 7.13
-    branch  : release/therock-7.13
+    version : "10.0.0a20260730"
+    branch  : release/therock-10.0
 
   - name    : profiler_lib
-    version : 7.13
+    version : "10.0.0a20260730"

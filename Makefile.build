@@ -3,11 +3,13 @@
 WORK_DIR := /usr/src/github.com/ROCm/device-metrics-exporter/
 SMILIB_CONTAINER_WORKDIR := ${WORK_DIR}
 AMDMSMI_SRC_DIR := $(TOP_DIR)/
+AMDMSMI_HOST_SRC_DIR := $(HOST_TOP_DIR)/
 AMDSMI_BUILD_DIR := $(TOP_DIR)/tools/smilib-builderimage/
 GIMSMI_BUILD_DIR := $(TOP_DIR)/tools/gimlib-builderimage/
 ROCPROFILER_CONTAINER_WORKDIR := ${WORK_DIR}/rocprofilerclient
 ROCPROFILER_BUILD_DIR := $(TOP_DIR)/tools/rocprofiler-builderimage/
 ROCPROFILER_SRC_DIR := $(TOP_DIR)/rocprofilerclient/
+ROCPROFILER_HOST_SRC_DIR := $(HOST_TOP_DIR)/rocprofilerclient/
 ROCPROFILER_ASSET_BLD_DIR := $(ROCPROFILER_SRC_DIR)/build/
 ROCPROFILER_ASSET_DIR := $(ASSETS_PATH)/rocprofiler/
 

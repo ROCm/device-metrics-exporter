@@ -1,0 +1,8 @@
+Package: amdgpu-exporter-sriov
+Priority: optional
+Section: utils
+Maintainer: AMD Inc.
+Architecture: amd64
+Description: AMD GPU Metrics Exporter for Ubuntu, SRIOV Hypervisor
+Version: BUILD_VER_ENV
+

@@ -19,7 +19,7 @@ Release:        RPM_RELEASE_LABEL
 Summary:        AMD GPU Metrics Exporter for RHEL
 Vendor:         AMD
 License:        Apache License Version 2.0
-Source0:        %{name}-%{version}.tar.gz
+Source0:        %{name}-%{version}-%{release}.tar.gz
 BuildArch:      x86_64
 URL:            https://instinct.docs.amd.com/projects/device-metrics-exporter
 Requires:       systemd
@@ -42,7 +42,7 @@ VCS:            tag=%{vcs_tag};sha=%{vcs_sha};
 %define __spec_install_port /usr/lib/rpm/brp-compress
 
 # Define source and destination paths
-%define SRC_DIR    ./%{name}-%{version}/
+%define SRC_DIR    ./%{name}-%{version}-%{release}/
 
 %define DEST_BIN   /usr/local/bin/
 %define DEST_SLURM /usr/local/etc/metrics/slurm/
@@ -54,7 +54,7 @@ VCS:            tag=%{vcs_tag};sha=%{vcs_sha};
 
 
 %prep
-%autosetup -c -n %{name}-%{version}
+%autosetup -c -n %{name}-%{version}-%{release}
 
 %install
 rm -rf $RPM_BUILD_ROOT

@@ -15,7 +15,7 @@ else
 	$(error unsupported os)
 endif
 	@echo "Building amdsmi library for $(BUILD_IMAGE_OS)"
-	@docker run --rm -it --privileged \
+	@docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		--network host \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
@@ -24,7 +24,7 @@ endif
 		-e "COMMIT=$(AMDSMI_COMMIT)" \
 		-e "REPO=$(AMDSMI_REPO)" \
 		-e "SUBDIR=$(AMDSMI_SUBDIR)" \
-	    --name smibuild -v $(AMDMSMI_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
+	    --name smibuild -v $(AMDMSMI_HOST_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
 		-w $(SMILIB_CONTAINER_WORKDIR) $(BUILD_IMAGE_OS)
 	@echo 'Copying amdsmi assets to ${TOP_DIR}/build/assets/${OS}'
 	@rm -rf  ${TOP_DIR}/build/assets/${OS} || true
@@ -55,13 +55,6 @@ amdsmi-compile-azure:
 	${MAKE} amdsmi-build-azure
 	OS=AZURE3 ${MAKE} amdsmi-compile
 
-# NOTE: gpuagent is no longer a git submodule. It is cloned and built from source
-# inside the exporter docker build (docker/Dockerfile.exporter-release, stage
-# `gpuagent-build`). The former host-side targets gpuagent-compile /
-# gpuagent-build-only / gpuagent-asset-copy / amdsmi-inject-gpuagent and the
-# `make gpuagent-build` builder-image target have been retired. See
-# docs-internal/knowledge/plans/2026-06-16-gpuagent-source-build-in-docker.md
-
 # ---------------------------------------------------------------------------
 # amdsmi-from-tarball: source libamd_smi.so + amdsmi.h from the ROCm
 # therock tarball (single source of truth for link-time and run-time amdsmi)
@@ -72,24 +65,44 @@ amdsmi-compile-azure:
 # selectively extract just amdsmi.h + libamd_smi.so* from the (10GB+) therock
 # tarball into AMDSMI_TARBALL_STAGE. Cached: skips the stream if the staging
 # dir already holds the lib + header unless AMDSMI_TARBALL_FORCE is set.
+# extract amdsmi from the once-downloaded local tarball
+# ($(ROCM_TARBALL_PATH), fetched by the root Makefile's rocm-tarball-fetch) instead
+# of a separate curl. Depends on $(ROCM_TARBALL_DEP) so the single download happens first.
 .PHONY: amdsmi-from-tarball
-amdsmi-from-tarball:
+amdsmi-from-tarball: $(ROCM_TARBALL_DEP)
 	@if [ -z "$(AMDSMI_TARBALL_FORCE)" ] && \
 	    ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.* >/dev/null 2>&1 && \
 	    [ -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
 		echo "amdsmi already staged at $(AMDSMI_TARBALL_STAGE) (set AMDSMI_TARBALL_FORCE=1 to re-extract)"; \
 	else \
-		echo "Extracting amdsmi.h + libamd_smi.so* + librocm_sysdeps_*.so* from $(ROCM_TARBALL_URL)"; \
+		echo "Extracting amdsmi.h + libamd_smi.so* + librocm_sysdeps_*.so* from $(ROCM_TARBALL_PATH)"; \
 		mkdir -p $(AMDSMI_TARBALL_STAGE) && \
-		curl -fSL "$(ROCM_TARBALL_URL)" | \
-			tar -xz -C $(AMDSMI_TARBALL_STAGE) --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*'; \
+		tar -xz -f $(ROCM_TARBALL_PATH) \
+			-C $(AMDSMI_TARBALL_STAGE) --wildcards --no-anchored 'amdsmi.h' 'libamd_smi.so*' 'librocm_sysdeps_*.so*'; \
 	fi
 	@if ! ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.* >/dev/null 2>&1 || \
 	    [ ! -f "$(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h" ]; then \
-		echo "ERROR: amdsmi.h / libamd_smi.so not found in tarball $(ROCM_TARBALL_URL)"; \
+		echo "ERROR: amdsmi.h / libamd_smi.so not found in tarball $(ROCM_TARBALL_PATH)"; \
 		exit 1; \
 	fi
 	@echo "amdsmi staged: $$(ls $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so.*.*.*)"
+	# assemble a FLAT, package-ready lib dir (pkglib/) matching the shape
+	# deb/rpm copy from assets/amd_smi_lib/<OS>/lib: amdsmi.h + libamd_smi.so* +
+	# the rocm_sysdeps netlink libs amd_smi DT_NEEDEDs. The tarball nests these
+	# (lib/, lib/rocm_sysdeps/lib/, include/amd_smi/); flatten them here.
+	@set -e; pkg=$(AMDSMI_TARBALL_STAGE)/pkglib ; \
+	rm -rf $$pkg ; mkdir -p $$pkg ; \
+	cp -av $(AMDSMI_TARBALL_STAGE)/lib/libamd_smi.so* $$pkg/ ; \
+	cp -av $(AMDSMI_TARBALL_STAGE)/include/amd_smi/amdsmi.h $$pkg/amdsmi.h ; \
+	if [ -d $(AMDSMI_TARBALL_STAGE)/lib/rocm_sysdeps/lib ]; then \
+		for so in librocm_sysdeps_drm.so.2 librocm_sysdeps_drm_amdgpu.so.1 \
+		          librocm_sysdeps_mnl.so.0 librocm_sysdeps_nl_3.so.200 \
+		          librocm_sysdeps_nl_genl_3.so.200 ; do \
+			[ -e $(AMDSMI_TARBALL_STAGE)/lib/rocm_sysdeps/lib/$$so ] && \
+				cp -av $(AMDSMI_TARBALL_STAGE)/lib/rocm_sysdeps/lib/$$so $$pkg/ || true ; \
+		done ; \
+	fi ; \
+	echo "amdsmi pkglib assembled at $$pkg:" ; ls -1 $$pkg
 
 # sync the same tarball-staged amdsmi into the committed assets tree so
 # build_prep_docker.sh stages the identical .so the gpuagent linked against.
@@ -109,12 +122,12 @@ amdsmi-sync-assets: amdsmi-from-tarball
 .PHONY: rocprofiler-compile
 rocprofiler-compile:
 	${MAKE} rocprofiler-build
-	@docker run --rm -it --privileged \
+	@docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
 		-e "ROCM_VERSION=$(ROCM_VERSION)" \
-		--name rocprofilerbuild -v $(ROCPROFILER_SRC_DIR):$(ROCPROFILER_CONTAINER_WORKDIR) \
+		--name rocprofilerbuild -v $(ROCPROFILER_HOST_SRC_DIR):$(ROCPROFILER_CONTAINER_WORKDIR) \
 		-w $(ROCPROFILER_CONTAINER_WORKDIR) $(ROCPROFILER_BUILDER_IMAGE)
 	@echo "Copy newly built assets"
 	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/librocpclient.so $(ROCPROFILER_ASSET_DIR)/
@@ -122,7 +135,7 @@ rocprofiler-compile:
 
 LIBBUILDER_DIR := $(TOP_DIR)/tools/rocprofiler-libbuilder/
 .PHONY: libcopy-assets
-libcopy-assets:
+libcopy-assets: $(ROCM_TARBALL_DEP)
 ifeq ($(OS), UBUNTU22)
 	$(eval BUILDER_IMAGE="proflib-ub22")
 	$(eval BASE_IMAGE=${AMDSMI_BASE_UBUNTU22})
@@ -145,17 +158,26 @@ endif
 	@echo "Building profiler dependency libraries for $(BUILD_IMAGE_OS), repo ver $(REPOPKGVERSION)"
 
 	@docker image rm $(BUILDER_IMAGE) || true
-	@docker build --build-arg BUILD_BASE_IMAGE=${BASE_IMAGE} \
+	# bind-mount the once-downloaded ROCm tarball via the `rocm-tarball`
+	# build context (tarball mode only); the libbuilder reads the local file, no wget.
+	# DOCKER_BUILDKIT=1 required for --build-context / RUN --mount; overrides CI's =0.
+	# BuildKit's integrated resolver ignores daemon.json insecure-registries for
+	# FROM metadata; pre-pull the base with the classic client ONLY when it lives on
+	# the insecure registry (Ubuntu paths). RHEL9's base is the local amdsmi-builder
+	# image, so the guard correctly skips it (a pull would fail on a local-only tag).
+	$(if $(and $(INSECURE_REGISTRY),$(findstring $(INSECURE_REGISTRY),$(BASE_IMAGE))),docker pull $(BASE_IMAGE))
+	@DOCKER_BUILDKIT=1 docker build --build-arg BUILD_BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg ROCM_VERSION=${REPOPKGVERSION} \
 		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
+		$(if $(filter 1,$(AMDSMI_FROM_TARBALL)),--build-context rocm-tarball=$(ROCM_TARBALL_DIR)) \
 		-t $(BUILDER_IMAGE) . -f $(DOCKERFILE)
-	@docker run --rm -it --privileged \
+	@docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
 		-e "BRANCH=$(AMDSMI_BRANCH)" \
 		-e "COMMIT=$(AMDSMI_COMMIT)" \
-	    --name libdebbuild -v $(TOP_DIR):$(WORK_DIR) \
+	    --name libdebbuild -v $(HOST_TOP_DIR):$(WORK_DIR) \
 		-w $(WORK_DIR) $(BUILDER_IMAGE)
 	@echo 'Copying profiler lib assets to ${TOP_DIR}/build/assets/${OS}/profilerlibs/'
 	@rm -rf  ${TOP_DIR}/build/assets/${OS}/profilerlibs/ || true
@@ -193,14 +215,14 @@ else
 	$(error unsupported os)
 endif
 	@echo "Building gimsmi library for $(BUILD_IMAGE_OS)"
-	@docker run --rm -it --privileged \
+	@docker run --rm $(DOCKER_IT_FLAGS) --privileged \
 		--network host \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
 		-e "BRANCH=$(GIMSMI_BRANCH)" \
 		-e "COMMIT=$(GIMSMI_COMMIT)" \
-	    --name gimbuild -v $(AMDMSMI_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
+	    --name gimbuild -v $(AMDMSMI_HOST_SRC_DIR):$(SMILIB_CONTAINER_WORKDIR) \
 		-w $(SMILIB_CONTAINER_WORKDIR) $(BUILD_IMAGE_OS)
 	@echo 'Copying gimsmi assets to ${TOP_DIR}/build/assets/${OS}'
 	@rm -rf  ${TOP_DIR}/build/assets/${OS} || true
