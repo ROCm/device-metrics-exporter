@@ -95,10 +95,10 @@ The following document contains a full list of GPU Metrics that are available us
 | &cross;    | &cross;   | GPU_MMA_ACTIVITY `[Deprecated]`           | Average multimedia engine usages in percentage (0 - 100) - Deprecated from 6.14.14 driver |
 | &cross;    | &cross;   | GPU_VCN_ACTIVITY `[Deprecated]`           | List of VCN encode/decode engine utilization per AID - Deprecated from 6.14.14 driver     |
 | &cross;    | &cross;   | GPU_JPEG_ACTIVITY `[Deprecated]`          | List of JPEG engine activity in percentage (0 - 100) - Deprecated from 6.14.14 driver     |
-| &cross;    | &check;   | GPU_GFX_BUSY_INSTANTANEOUS `[MI3xx]`      | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core        |
-| &cross; | &check; | GPU_VCN_BUSY_INSTANTANEOUS `[MI3xx]` | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core |
-| &cross;    | &check;   | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]`     | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core       |
-| &check;    | &check;   | GPU_PROCESS_CU_OCCUPANCY `[MI2xx, MI3xx]` | Compute Unit occupancy for a process in percentage (0 - 100)                              |
+| &check; | &check; | GPU_GFX_BUSY_INSTANTANEOUS `[MI3xx]` | GFX Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core |
+| &check; | &check; | GPU_VCN_BUSY_INSTANTANEOUS `[MI3xx]` | VCN Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core |
+| &check; | &check; | GPU_JPEG_BUSY_INSTANTANEOUS `[MI3xx]` | JPEG Busy Instantaneous Activity Per Accelerator Compute Processor Per Compute Core |
+| &cross; | &check; | GPU_PROCESS_CU_OCCUPANCY `[MI2xx, MI3xx]` | Compute Unit occupancy for a process in percentage (0 - 100) |
 
 ### Voltage Metrics (Deprecated)
 
@@ -129,8 +129,8 @@ The following document contains a full list of GPU Metrics that are available us
 | Hypervisor | Baremetal | Metric                         | Description                                                                  |
 | ---------- | --------- | ------ | ----------- |
 | &check; | &check; | GPU_CLOCK `[MI2xx, MI3xx]` | Clock measure of the GPU in Mhz* ([See note below](#gpu_clock-measurements)). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU clocks) |
-| &cross; | &check; | GPU_MIN_CLOCK `[MI2xx, MI3xx]` | Minimum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_MAX_CLOCK `[MI2xx, MI3xx]` | Maximum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_MIN_CLOCK `[MI2xx, MI3xx]` | Minimum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_MAX_CLOCK `[MI2xx, MI3xx]` | Maximum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 
 ### Memory (VRAM) Metrics
 
@@ -138,11 +138,11 @@ The following document contains a full list of GPU Metrics that are available us
 | ---------- | --------- | ------ | ----------- |
 | &check;    | &check;   | GPU_TOTAL_VRAM `[MI2xx, MI3xx]`         | Total VRAM available in MB                |
 | &cross; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx]` | Total VRAM memory used in MB. Not exposed on the GIM/SR-IOV hypervisor host (per-VF usage not visible to host) |
-| &check; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx]` | Total VRAM memory free in MB |
+| &cross; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx]` | Total VRAM memory free in MB |
 | &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 | &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
+| &check; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
 
 ### GTT Memory Metrics
 
@@ -223,20 +223,20 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric                                    | Description                                                                                                                      |
 |------------|-----------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| &cross;    | &check;   | GPU_XGMI_NBR_0_NOP_TX `[MI2xx, MI3xx]`    | NOPs sent to neighbor 0                                                                                                          |
-| &cross;    | &check;   | GPU_XGMI_NBR_0_REQ_TX `[MI2xx, MI3xx]`    | Outgoing requests to neighbor 0                                                                                                  |
-| &cross;    | &check;   | GPU_XGMI_NBR_0_RESP_TX `[MI2xx, MI3xx]`   | Outgoing responses to neighbor 0                                                                                                 |
-| &cross;    | &check;   | GPU_XGMI_NBR_0_BEATS_TX `[MI2xx, MI3xx]`  | Data beats sent to neighbor 0; Each beat represents 32 bytes                                                                     |
-| &cross;    | &check;   | GPU_XGMI_NBR_1_NOP_TX `[MI2xx, MI3xx]`    | NOPs sent to neighbor 1                                                                                                          |
-| &cross;    | &check;   | GPU_XGMI_NBR_1_REQ_TX `[MI2xx, MI3xx]`    | Outgoing requests to neighbor 1                                                                                                  |
-| &cross;    | &check;   | GPU_XGMI_NBR_1_RESP_TX `[MI2xx, MI3xx]`   | Outgoing responses to neighbor 1                                                                                                 |
-| &cross;    | &check;   | GPU_XGMI_NBR_1_BEATS_TX `[MI2xx, MI3xx]`  | Data beats sent to neighbor 1; Each beat represents 32 bytes                                                                     |
-| &cross;    | &check;   | GPU_XGMI_NBR_0_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 0; Throughput = BEATS/time_running * 10^9 bytes/sec |
-| &cross;    | &check;   | GPU_XGMI_NBR_1_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 1                                                   |
-| &cross;    | &check;   | GPU_XGMI_NBR_2_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 2                                                   |
-| &cross;    | &check;   | GPU_XGMI_NBR_3_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 3                                                   |
-| &cross;    | &check;   | GPU_XGMI_NBR_4_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 4                                                   |
-| &cross;    | &check;   | GPU_XGMI_NBR_5_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 5                                                   |
+| &check;    | &check;   | GPU_XGMI_NBR_0_NOP_TX `[MI2xx, MI3xx]`    | NOPs sent to neighbor 0                                                                                                          |
+| &check;    | &check;   | GPU_XGMI_NBR_0_REQ_TX `[MI2xx, MI3xx]`    | Outgoing requests to neighbor 0                                                                                                  |
+| &check;    | &check;   | GPU_XGMI_NBR_0_RESP_TX `[MI2xx, MI3xx]`   | Outgoing responses to neighbor 0                                                                                                 |
+| &check;    | &check;   | GPU_XGMI_NBR_0_BEATS_TX `[MI2xx, MI3xx]`  | Data beats sent to neighbor 0; Each beat represents 32 bytes                                                                     |
+| &check;    | &check;   | GPU_XGMI_NBR_1_NOP_TX `[MI2xx, MI3xx]`    | NOPs sent to neighbor 1                                                                                                          |
+| &check;    | &check;   | GPU_XGMI_NBR_1_REQ_TX `[MI2xx, MI3xx]`    | Outgoing requests to neighbor 1                                                                                                  |
+| &check;    | &check;   | GPU_XGMI_NBR_1_RESP_TX `[MI2xx, MI3xx]`   | Outgoing responses to neighbor 1                                                                                                 |
+| &check;    | &check;   | GPU_XGMI_NBR_1_BEATS_TX `[MI2xx, MI3xx]`  | Data beats sent to neighbor 1; Each beat represents 32 bytes                                                                     |
+| &check;    | &check;   | GPU_XGMI_NBR_0_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 0; Throughput = BEATS/time_running * 10^9 bytes/sec |
+| &check;    | &check;   | GPU_XGMI_NBR_1_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 1                                                   |
+| &check;    | &check;   | GPU_XGMI_NBR_2_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 2                                                   |
+| &check;    | &check;   | GPU_XGMI_NBR_3_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 3                                                   |
+| &check;    | &check;   | GPU_XGMI_NBR_4_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 4                                                   |
+| &check;    | &check;   | GPU_XGMI_NBR_5_TX_THRPUT `[MI2xx, MI3xx]` | Represents the number of outbound beats (each representing 32 bytes) on link 5                                                   |
 | &cross;    | &check;   | GPU_XGMI_LINK_RX `[MI2xx, MI3xx]`         | Accumulated XGMI Link Data Read in KB**                                                                                          |
 | &cross;    | &check;   | GPU_XGMI_LINK_TX `[MI2xx, MI3xx]`         | Accumulated XGMI Link Data Write in KB**                                                                                         |
 
@@ -244,24 +244,24 @@ The following document contains a full list of GPU Metrics that are available us
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &cross; | &check; | GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER `[MI3xx]` | Current Accumulated Violation Counter |
-| &cross; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED `[MI3xx]` | Process Hot Residency Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED `[MI3xx]` | Package Power Tracking Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Socket Thermal accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Voltage Rail accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | HBM Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER `[MI3xx]` | Current Accumulated Violation Counter |
+| &check; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED `[MI3xx]` | Process Hot Residency Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED `[MI3xx]` | Package Power Tracking Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Socket Thermal accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | Voltage Rail accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED `[MI3xx]` | HBM Accumulated Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE `[MI3xx]` | Process Hot Residency Percentage Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_PPT_RESIDENCY_PERCENTAGE `[MI3xx]` | Package Power Tracking Percentage Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | Socket Thermal Percentage Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_VR_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | Voltage Rail Percentage Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 | &cross; | &check; | GPU_VIOLATION_HBM_THERMAL_RESIDENCY_PERCENTAGE `[MI3xx]` | HBM Percentage Violation Counter. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
+| &check; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Power Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
 | &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Power Percentage Violation Counter Per Compute Core. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Thermal Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
+| &check; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Thermal Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
 | &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Thermal Percentage Violation Counter Per Compute Core. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED `[MI3xx]` | GPU Low Utilization Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
+| &check; | &check; | GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED `[MI3xx]` | GPU Low Utilization Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
 | &cross; | &check; | GPU_VIOLATION_LOW_UTILIZATION_PERCENTAGE `[MI3xx]` | GPU Low Utilization Percentage Violation Counter Per Compute Core. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Total Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
+| &check; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED `[MI3xx]` | GFX Clock Below Host Limit Total Accumulated Violation Counter Per Compute Core. Emitted for all partitions in partitioned mode |
 | &cross; | &check; | GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_PERCENTAGE `[MI3xx]` | GFX Clock Below Host Limit Total Percentage Violation Counter Per Compute Core. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 
 ### RAS & Error Reporting
