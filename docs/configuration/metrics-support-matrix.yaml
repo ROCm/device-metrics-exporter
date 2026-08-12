@@ -136,34 +136,34 @@ metrics:
     category: activity
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: "MI3xx only"
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VCN_BUSY_INSTANTANEOUS
     category: activity
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: "MI3xx only"
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_JPEG_BUSY_INSTANTANEOUS
     category: activity
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: "MI3xx only"
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_PROCESS_CU_OCCUPANCY
     category: process
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: N
+    notes: "not reported on GIM/SR-IOV hypervisor host"
 
   # -- Voltage (deprecated) --
   - name: GPU_VOLTAGE
@@ -294,18 +294,18 @@ metrics:
     category: clock
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_MIN_CLOCK
     category: clock
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
 
   # -- Memory (VRAM) --
   - name: GPU_TOTAL_VRAM
@@ -328,10 +328,10 @@ metrics:
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: true
+    hypervisor_host: false
     hypervisor_guest: false
-    class: D
-    notes: "doc said unsupported but emitted on leto GIM 8.7"
+    class: N
+    notes: "not reported on GIM/SR-IOV hypervisor host"
   - name: GPU_TOTAL_VISIBLE_VRAM
     category: memory
     platforms: [MI2xx, MI3xx]
@@ -360,10 +360,10 @@ metrics:
     category: memory
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
 
   # -- GTT Memory --
   - name: GPU_TOTAL_GTT
@@ -882,114 +882,114 @@ metrics:
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_0_REQ_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_0_RESP_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_0_BEATS_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_1_NOP_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_1_REQ_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_1_RESP_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_1_BEATS_TX
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_0_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_1_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_2_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_3_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_4_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_NBR_5_TX_THRPUT
     category: xgmi
     platforms: [MI2xx, MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_XGMI_LINK_RX
     category: xgmi
     platforms: [MI2xx, MI3xx]
@@ -1012,50 +1012,50 @@ metrics:
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_PERCENTAGE
     category: throttle
     platforms: [MI3xx]
@@ -1100,34 +1100,34 @@ metrics:
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_THERMAL_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_TOTAL_ACCUMULATED
     category: throttle
     platforms: [MI3xx]
     baremetal: true
-    hypervisor_host: false
+    hypervisor_host: true
     hypervisor_guest: false
-    class: C
-    notes: ""
+    class: D
+    notes: "reported on GIM/SR-IOV hypervisor host"
   - name: GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_POWER_PERCENTAGE
     category: throttle
     platforms: [MI3xx]
