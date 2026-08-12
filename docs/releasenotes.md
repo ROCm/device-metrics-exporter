@@ -10,7 +10,7 @@
   - The AMD GPU Operator is listed as **SUSE Ready** for SLES 15 and SLES 16 in the [SUSE Partner Software Catalog](https://www.suse.com/pcsc/viewVersionPage?versionID=26965).
 
 - **SR-IOV Exporter Image**
-  - New docker-only image `device-metrics-exporter`, tag `sriov-v1.0.0`, for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
+  - New image `device-metrics-exporter`, tag `sriov-v1.0.0` (also available as a Debian package), for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
 
 - **Helm Chart: Configurable Exporter Arguments**
   - The Helm chart now supports passing arbitrary arguments to the exporter at deploy time

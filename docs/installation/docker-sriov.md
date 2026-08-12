@@ -1,9 +1,10 @@
 # SR-IOV Docker installation
 
 This page explains how to install AMD Device Metrics Exporter using Docker on
-an SR-IOV/GIM hypervisor host for MI-series platforms. This image is
-docker-only — there is no Helm chart or GPU Operator support for the SR-IOV
-variant. For the baremetal container, see [Docker installation](docker.md).
+an SR-IOV/GIM hypervisor host for MI-series platforms. The SR-IOV variant is
+also available as a Debian package (see [SR-IOV Debian Package
+Install](deb-package-sriov.rst)); it has no Helm chart or GPU Operator support.
+For the baremetal container, see [Docker installation](docker.md).
 
 ## System requirements
 
