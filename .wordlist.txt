@@ -332,3 +332,5 @@ sriov
 journalctl
 subdirectory
 xu
+SLES
+SUSE
