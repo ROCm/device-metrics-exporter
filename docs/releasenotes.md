@@ -5,6 +5,10 @@
 - **New Platform Support**
   - MI350P and Radeon AI platforms are now supported
 
+- **SUSE Linux Enterprise Server (SLES) Support**
+  - Device Metrics Exporter now supports deployment on SLES 15 and SLES 16 GPU worker nodes on vanilla Kubernetes.
+  - The AMD GPU Operator is listed as **SUSE Ready** for SLES 15 and SLES 16 in the [SUSE Partner Software Catalog](https://www.suse.com/pcsc/viewVersionPage?versionID=26965).
+
 - **SR-IOV Exporter Image**
   - New docker-only image `device-metrics-exporter-sriov`, tag `v1.0.0`, for MI-series SR-IOV/GIM hypervisor hosts. See [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases)
 
