@@ -151,24 +151,11 @@ func (s *E2ESuite) SetDebugEnableAPI(enable bool) error {
 }
 
 func (s *E2ESuite) CheckExporterLogForString(str string) bool {
-	// Copy the log file from container to local temp file
-	tempFile, err := os.CreateTemp("", "exporter-log-*.log")
-	if err != nil {
-		log.Printf("Failed to create temp file: %v", err)
-		return false
-	}
-	defer tempFile.Close()
+	// include rotated backups (exporter.log.<ts>[.gz]) so a line isn't missed after rotation
+	catCmd := "docker exec test_exporter sh -c " +
+		"'for f in /var/log/exporter.log*; do case \"$f\" in *.gz) zcat \"$f\";; *) cat \"$f\";; esac; done'"
+	logStr := s.tu.LocalCommandOutput(catCmd)
 
-	copyCmd := fmt.Sprintf("docker cp test_exporter:/var/log/exporter.log %s", tempFile.Name())
-	s.tu.LocalCommandOutput(copyCmd)
-
-	// Read the log file and search for the string
-	logContent, err := os.ReadFile(tempFile.Name())
-	if err != nil {
-		log.Printf("Failed to read temp file: %v", err)
-		return false
-	}
-	logStr := string(logContent)
 	if logStr != "" && strings.Contains(logStr, str) {
 		log.Printf("String '%s' found in exporter log", str)
 		return true
