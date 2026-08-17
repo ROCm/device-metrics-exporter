@@ -18,7 +18,7 @@ docker run -d \
   -p 5000:5000 \
   -v ./config:/etc/metrics \
   --name device-metrics-exporter \
-  rocm/device-metrics-exporter:v1.5.1
+  rocm/device-metrics-exporter:v1.5.2
 ```
 
 **_NOTE:_** `--privileged` is required. If profiler metrics (`gpu_prof_*`) are

@@ -70,8 +70,8 @@ ENV LD_LIBRARY_PATH=/opt/rocm/lib:/opt/rocm/lib/rvs:/opt/rocm/lib/rocm_sysdeps/l
 LABEL name="amd-device-test-runner" \
     maintainer="yan.sun3@amd.com,udaybhaskar.biluri@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v1.5.0" \
-    release="v1.5.0" \
+    version="v1.5.2" \
+    release="v1.5.2" \
     summary="AMD Device Test Runner performs troubleshooting and benchmarking tests on AMD GPUs across Kubernetes clusters." \
     description="AMD Device Test Runner ensures that GPUs are functioning correctly and efficiently by running a series of diagnostic tests and performance benchmarks. It helps identify issues, optimize GPU performance, and validate the readiness of GPU resources by running Rocm Validation Suite (RVS) tests."
 
