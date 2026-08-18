@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.5.2
+
+- **New Features**
+
+### Issues Fixed
+
+### Known Issues
+
 ## v1.5.1
 
 - **New Platform Support**
