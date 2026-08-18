@@ -15,13 +15,13 @@ FROM ${GPUAGENT_BUILDER_BASE_IMAGE} AS gpuagent-build
 
 ARG GPUAGENT_REPO=https://github.com/ROCm/gpu-agent.git
 # full 40-char SHA required for shallow fetch-by-SHA
-ARG GPUAGENT_COMMIT=22f92dc12f464f70d47ccf9ee87dadf577cf9574
+ARG GPUAGENT_COMMIT=9cee401919f8f25f7465d778fb0e4274408dc438
 # 0 = use pre-staged amdsmi from build context (default, no download)
 # 1 = re-extract amdsmi from the (~10GB) ROCm therock tarball
 ARG AMDSMI_FROM_TARBALL=0
 ARG ROCM_TARBALL_URL=
-ARG GO_VERSION=1.25.12
-ARG GO_SHA256=234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1
+ARG GO_VERSION=1.25.13
+ARG GO_SHA256=39042a078ea9ceebe3ecda4a7188f0f5b96e14a071d27923ba7f40b456e85ae3
 
 # build toolchain (full ubi9 has dnf/yum) + go
 RUN dnf install -y --allowerasing \
