@@ -156,7 +156,8 @@ ROCM_TARBALL_PATH := $(ROCM_TARBALL_DIR)/$(ROCM_TARBALL_FILE)
 AMDSMI_FROM_TARBALL ?= 1
 GPUAGENT_FROM_SOURCE ?= 1
 ROCM_APT_VERSION ?= .apt_7.2.1
-AINIC_VERSION ?= 1.117.5-a-56
+AINIC_VERSIONS ?= 1.117.5-a-77,1.117.5-a-147
+BOOTSTRAP_VERSION ?= 1.117.5-a-147
 
 # staging dir for amdsmi (libamd_smi.so + amdsmi.h) selectively extracted from the
 # ROCm therock tarball by `make amdsmi-from-tarball`; `amdsmi-sync-assets` copies
@@ -181,7 +182,8 @@ export ${GIMSMI_COMMIT}
 export GPUAGENT_REPO
 export ${GPUAGENT_BRANCH}
 export ${GPUAGENT_COMMIT}
-export AINIC_VERSION
+export AINIC_VERSIONS
+export BOOTSTRAP_VERSION
 export ROCM_VERSION
 export ROCM_APT_VERSION
 export ROCM_TARBALL_URL

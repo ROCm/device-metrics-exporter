@@ -1,30 +1,59 @@
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal:9.8
+ARG AINIC_VERSIONS
+ARG BOOTSTRAP_VERSION=""
+# If BOOTSTRAP_VERSION is empty, defaults to the last version in AINIC_VERSIONS
 
-FROM ${BASE_IMAGE} AS builder
-ARG AINIC_VERSION
-
-RUN echo "${AINIC_VERSION}" > /etc/dnf/vars/amdainicver
+# --- nicctl build stage ---
+FROM ${BASE_IMAGE} AS nicctlbuilder
+ARG AINIC_VERSIONS
+ARG BOOTSTRAP_VERSION
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DIST=el9
-RUN curl -o /etc/yum.repos.d/amdainic.repo \
-    https://repo.radeon.com/amdainic/pensando/${DIST}/amdainic-${DIST}.repo
-RUN curl -L -o /tmp/dtc.rpm https://download.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/d/dtc-1.6.0-7.el9.x86_64.rpm && \
-    rpm -ivh --nodeps /tmp/dtc.rpm && \
-    rm -f /tmp/dtc.rpm
-RUN microdnf update -y && \
-    microdnf install -y nicctl util-linux binutils && \
-    rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
-# Export binaries and needed libs
-RUN mkdir -p /export/bin /export/lib64
-RUN cp -v /usr/sbin/nicctl /export/bin/
-# Strip debug symbols to reduce binary size from ~526MB to ~103MB
-RUN strip --strip-debug /export/bin/nicctl
-RUN cp -v /lib64/libpci* /export/lib64/
+RUN mkdir -p /export/bin /export/lib64 /export/nicctl-versions && \
+    IFS=',' read -ra VERSIONS <<< "${AINIC_VERSIONS}" && \
+    COUNT="${#VERSIONS[@]}" && \
+    if [[ "$COUNT" -eq 0 ]]; then echo "ERROR: AINIC_VERSIONS empty" && exit 1; fi && \
+    if [[ "$COUNT" -gt 5 ]]; then echo "ERROR: Max 5 versions, got ${COUNT}" && exit 1; fi && \
+    BOOTSTRAP="${BOOTSTRAP_VERSION:-${VERSIONS[-1]}}" && \
+    if [[ -n "$BOOTSTRAP_VERSION" ]]; then \
+        FOUND=false; for v in "${VERSIONS[@]}"; do [[ "$v" == "$BOOTSTRAP" ]] && FOUND=true; done; \
+        if [[ "$FOUND" != "true" ]]; then echo "ERROR: BOOTSTRAP_VERSION '$BOOTSTRAP' not in AINIC_VERSIONS" && exit 1; fi; \
+    fi && \
+    echo "$BOOTSTRAP" > /etc/dnf/vars/amdainicver && \
+    curl -sSL -o /etc/yum.repos.d/amdainic.repo "https://repo.radeon.com/amdainic/pensando/${DIST}/amdainic-${DIST}.repo" && \
+    curl -L -o /tmp/dtc.rpm https://download.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/Packages/d/dtc-1.6.0-7.el9.x86_64.rpm && \
+    rpm -ivh --nodeps /tmp/dtc.rpm && rm -f /tmp/dtc.rpm && \
+    microdnf update -y && \
+    microdnf install -y util-linux binutils xz && microdnf clean all && \
+    echo "$BOOTSTRAP" > /export/bootstrap-version.txt && \
+    if [[ "$COUNT" -eq 1 ]]; then \
+        echo "Single version: ${BOOTSTRAP}"; \
+        microdnf install -y "nicctl-${BOOTSTRAP//-/.}" && \
+        strip /usr/sbin/nicctl -o /export/bin/nicctl; \
+    else \
+        echo "Multi-version build (bootstrap: $BOOTSTRAP)"; \
+        microdnf install -y "nicctl-${BOOTSTRAP//-/.}" && \
+        strip /usr/sbin/nicctl -o /export/bin/nicctl-bootstrap && \
+        microdnf remove -y "nicctl-${BOOTSTRAP//-/.}"; \
+        for ver in "${VERSIONS[@]}"; do \
+            [[ "$ver" == "$BOOTSTRAP" ]] && continue; \
+            echo "Compressing: ${ver}"; \
+            echo "$ver" > /etc/dnf/vars/amdainicver && \
+            microdnf install -y "nicctl-${ver//-/.}" && \
+            strip /usr/sbin/nicctl -o /tmp/nicctl && \
+            xz -9 -c /tmp/nicctl > "/export/nicctl-versions/nicctl-${ver}.xz" && \
+            microdnf remove -y "nicctl-${ver//-/.}"; \
+        done; \
+    fi && \
+    cp /lib64/libpci* /export/lib64/ && \
+    cp /usr/bin/nsenter /export/bin/nsenter && \
+    microdnf clean all && rm -rf /var/cache/yum /var/cache/dnf
 
 ###########
 
 FROM ${BASE_IMAGE}
-ARG AINIC_VERSION
+ARG AINIC_VERSIONS
 
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/amd/bin/
 ENV LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
@@ -34,27 +63,31 @@ RUN mkdir -p /home/amd/tools/
 ADD ./LICENSE /licenses/LICENSE
 ADD ./amd-metrics-exporter /home/amd/bin/server
 ADD ./entrypoint.sh /home/amd/tools/entrypoint.sh
+ADD ./nicctl-setup.sh /home/amd/tools/nicctl-setup.sh
 ADD ./metrics-exporter-ts.sh /home/amd/bin/metrics-exporter-ts.sh
 RUN chmod +x /home/amd/tools/entrypoint.sh
+RUN chmod +x /home/amd/tools/nicctl-setup.sh
 RUN chmod +x /home/amd/bin/metrics-exporter-ts.sh
 
-COPY --from=builder /export/bin/nicctl /usr/sbin/nicctl
-COPY --from=builder /export/lib64/libpci* /lib64/
-COPY --from=builder /usr/bin/nsenter /usr/bin/nsenter
+COPY --from=nicctlbuilder /export/bin/nicctl* /usr/sbin/
+COPY --from=nicctlbuilder /export/nicctl-versions /opt/nicctl-versions
+COPY --from=nicctlbuilder /export/bootstrap-version.txt /opt/
+COPY --from=nicctlbuilder /export/lib64/libpci* /lib64/
+COPY --from=nicctlbuilder /export/bin/nsenter /usr/bin/nsenter
 
 # Minimal runtime deps
 RUN microdnf update -y && \
-    microdnf install -y pciutils kmod iproute ethtool jq && \
+    microdnf install -y pciutils kmod iproute ethtool jq xz && \
     rm -rf /var/cache/yum && rm -rf /var/cache/dnf && microdnf clean all
 
 LABEL name="amd-device-metrics-exporter" \
     maintainer="sundaramurthy.gurunathan@amd.com,yuvarani.shankar@amd.com,praveenkumar.shanmugam@amd.com,shrey.ajmera@amd.com" \
     vendor="Advanced Micro Devices, Inc." \
-    version="v1.1.0" \
-    release="v1.1.0" \
-    ainic_version=${AINIC_VERSION} \
+    version="v1.2.1" \
+    release="v1.2.1" \
+    ainic_bundled_versions="${AINIC_VERSIONS}" \
     OS="registry.access.redhat.com/ubi9/ubi-minimal:9.8" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD AINICs." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD AINICs in HPC and AI environments. It provides detailed telemetry including port, lif, rdma, ethtool and QP metrics"
 
-ENTRYPOINT ["/home/amd/tools/entrypoint.sh"]
+ENTRYPOINT ["/home/amd/tools/nicctl-setup.sh"]

@@ -102,14 +102,15 @@ docker-sriov-save: ## save the container
 
 .PHONY: docker-ainic
 docker-ainic:
-	@echo "building AMD AINIC exporter container with ainic-version: $(AINIC_VERSION)"
+	@echo "building AMD AINIC exporter container with ainic-versions: $(AINIC_VERSIONS)"
 	# AINIC=1 makes build_prep_docker.sh take its early-exit path (exporter-only
 	# staging); AINIC does not use gpuagent, so it must not hit the shared source
 	# producer staging (build/gpuagent/ is not built for this target).
 	@TOP_DIR=$(TOP_DIR) MOCK=$(MOCK) AINIC=1 OS=RHEL9 ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(RHEL_BASE_MIN_IMAGE) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
-		--build-arg AINIC_VERSION=$(AINIC_VERSION) \
+		--build-arg AINIC_VERSIONS=$(AINIC_VERSIONS) \
+		$(if $(BOOTSTRAP_VERSION),--build-arg BOOTSTRAP_VERSION=$(BOOTSTRAP_VERSION)) \
 		-t $(EXPORTER_AINIC_IMAGE) \
 		. -f Dockerfile.ainic.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
