@@ -334,3 +334,4 @@ subdirectory
 xu
 SLES
 SUSE
+sysfs
