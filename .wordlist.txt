@@ -335,3 +335,4 @@ xu
 xz
 SLES
 SUSE
+sysfs
