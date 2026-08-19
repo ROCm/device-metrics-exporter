@@ -1,5 +1,12 @@
 # NIC Exporter Release Notes
 
+## nic-v1.2.1
+
+### New Features
+
+- **Multi-Version nicctl Bundling**: Container images now support bundling up to 5 nicctl versions with automatic firmware detection at startup. A single image can support clusters with mixed AINIC firmware versions, eliminating the need for separate images per firmware version. Each additional version adds only ~8.4 MB (xz-compressed).
+- **Link Down Count Metric**: Added `NIC_PORT_STATUS_LINK_DOWN_COUNT` metric for detecting link flapping on AINIC ports. Surfaces `number_of_link_down_events` from nicctl port status.
+
 ## nic-v1.2.0
 
 ### New Features

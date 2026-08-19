@@ -158,7 +158,7 @@ kubectl get pods -l app.kubernetes.io/name=metrics-exporter -n kube-amd-network 
 
 You can customize the installation using one of two methods:
 
-**Note:** Ensure the Metrics Exporter image `image.tag` matches the AINIC firmware version installed on your nodes. Refer to the [NIC Compatibility Matrix](../index.md#nic-metrics) for the correct image version and configure the correct `image.tag` value in the values file.
+**Note:** Starting with `nic-v1.2.1`, the image auto-detects NIC firmware and selects the matching bundled nicctl version. For older images, ensure the `image.tag` matches the AINIC firmware version. Refer to the [NIC Compatibility Matrix](../index.md#nic-metrics) for details.
 
 ##### Option 1: Using --set flags
 
