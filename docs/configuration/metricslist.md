@@ -53,7 +53,6 @@ The following document contains a full list of GPU Metrics that are available us
 - GPU_MEMORY_VOLTAGE
 - PCIE_RX (upcoming feature)
 - PCIE_TX (upcoming feature)
-- GPU_HBM_TEMPERATURE (deprecated from 6.14.14 driver)
 
 **Note**: Under GIM/SR-IOV hypervisor host, `gpu_partition_id` reports a concrete value (e.g. `"0"`) rather than `"NA"`.
 
@@ -75,7 +74,7 @@ The following document contains a full list of GPU Metrics that are available us
 | &check;    | &check;   | GPU_EDGE_TEMPERATURE `[MI2xx]`          | Edge temperature value in Celsius (MI2XX platforms only)             |
 | &check; | &check; | GPU_JUNCTION_TEMPERATURE `[MI3xx]` | Hotspot (aka junction) temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
 | &check; | &check; | GPU_MEMORY_TEMPERATURE `[MI2xx, MI3xx]` | Memory temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
-| &cross;    | &check;   | GPU_HBM_TEMPERATURE `[Deprecated]`      | List of hbm temperatures in Celsius (Deprecated from 6.14.14 driver) |
+| &cross; | &check; | GPU_HBM_TEMPERATURE `[MI2xx]` | List of per-stack HBM temperatures in Celsius. |
 
 ### Power Metrics
 
