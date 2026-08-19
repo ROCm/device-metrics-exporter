@@ -2,11 +2,34 @@
 
 ## v1.5.2
 
-- **New Features**
+- **ROCm 10 Libraries**
+  - Device Metrics Exporter is now based on ROCm 10 libraries
+
+- **Configurable Metric Collection Filter (Performance)**
+  - GPU Agent now derives a server-side collection filter from the enabled metric configuration, skipping collectors that no configured metric or label requires (clock, XGMI status/stats, process, VRAM usage, violation, PCIe stats, activity). This reduces per-scrape collection cost on nodes that enable only a subset of metrics.
+  - ECC and PCIe status are always collected because GPU health validation depends on them. The filter is re-derived on the 3-second config auto-reload.
+
+- **Runtime Toggle for Debug Endpoints (`CommonConfig.Debug.EnableAPI`)**
+  - A new `CommonConfig.Debug.EnableAPI` config option (default **false**) gates the debug surfaces: the pprof/expvar profiling endpoints on the metrics HTTP port and the error-injection (`SetError`) gRPC API.
 
 ### Issues Fixed
 
+- **CVE remediation**
+
 ### Known Issues
+
+- **PCIe bandwidth metric adds ~1s per GPU to scrape latency on MI250**
+  - On MI250 nodes, reading PCIe bandwidth takes about 1 second per GPU because the
+    kernel `pcie_bw` sysfs sampler blocks for ~1s per read. On multi-GPU nodes this
+    serialized cost can dominate scrape latency and, in dense configurations, lead to
+    empty or delayed metric responses.
+  - **Workaround**: Disable the PCIe bandwidth metric in the ConfigMap on affected
+    MI250 nodes if scrape latency is a concern.
+
+### Platform Support
+
+ROCm 6.2 or later, MI2xx, MI3xx
+ROCm 7.13 or later, MI350P, Radeon AI
 
 ## v1.5.1
 
