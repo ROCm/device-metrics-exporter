@@ -1,0 +1,57 @@
+From 357dfb5d96152f8482da60212fd91f85827f4c9b Mon Sep 17 00:00:00 2001
+From: Bhanu Kiran Atturu <bhatturu@amd.com>
+Date: Tue, 18 Aug 2026 19:34:02 -0400
+Subject: [PATCH] [GPUOP-1033] gpuagent: sentinel for unsupported video/data
+ clock min/max
+
+amdsmi_get_clock_info returns NOT_SUPPORTED for VCLK0/DCLK0 min/max on
+MI210. The error branch previously left the zero-initialized clock_spec
+lo/hi at 0, which the exporter treats as a real value and emits. Set
+AMDSMI_INVALID_UINT32 on error so the exporter's IsValueApplicable gate
+suppresses the metric instead of exporting a misleading 0. Guard
+deep_sleep against the sentinel min frequency.
+---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+index 155084b661f..c7b2c784a8f 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -111,6 +111,8 @@ smi_fill_gpu_clock_frequency_spec_ (aga_gpu_handle_t gpu_handle,
+     if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
+         AGA_TRACE_ERR("Failed to get video clock information for GPU {}, "
+                       "err {}", gpu_handle, amdsmi_ret);
++        clock_spec->lo = AMDSMI_INVALID_UINT32;
++        clock_spec->hi = AMDSMI_INVALID_UINT32;
+     } else {
+         clock_spec->lo = clock_info.min_clk;
+         clock_spec->hi = clock_info.max_clk;
+@@ -124,6 +126,8 @@ smi_fill_gpu_clock_frequency_spec_ (aga_gpu_handle_t gpu_handle,
+     if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
+         AGA_TRACE_ERR("Failed to get data clock information for GPU {}, err {}",
+                       gpu_handle, amdsmi_ret);
++        clock_spec->lo = AMDSMI_INVALID_UINT32;
++        clock_spec->hi = AMDSMI_INVALID_UINT32;
+     } else {
+         clock_spec->lo = clock_info.min_clk;
+         clock_spec->hi = clock_info.max_clk;
+@@ -643,6 +647,7 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+             clock_status->high_frequency = video_clock_spec->hi;
+             // locked is N/A for video clocks
+             clock_status->deep_sleep =
++                (clock_status->low_frequency != AMDSMI_INVALID_UINT32) &&
+                 (clock_status->frequency < clock_status->low_frequency);
+         }
+         clk_cnt++;
+@@ -657,6 +662,7 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+             clock_status->high_frequency = data_clock_spec->hi;
+             // locked is N/A for data clocks
+             clock_status->deep_sleep =
++                (clock_status->low_frequency != AMDSMI_INVALID_UINT32) &&
+                 (clock_status->frequency < clock_status->low_frequency);
+         }
+         clk_cnt++;
+-- 
+2.54.0
+
