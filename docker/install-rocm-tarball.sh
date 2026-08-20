@@ -7,9 +7,11 @@
 #   ROCM_TARBALL_URL   — full URL to the .tar.gz tarball
 #   LIBDRM_SYMLINK_DIR — directory to create libdrm_amdgpu.so symlinks in
 #                        (default: /opt/rocm/lib for exporter, /usr/lib64 for testrunner)
-#   --profile          — lib prune profile: exporter (default) or testrunner
+#   --profile          — lib prune profile: exporter (default), testrunner, or rvs
 #                        exporter:    minimal set for the metrics exporter runtime
-#                        testrunner:  extended set for RVS + AGFHC tools
+#                        testrunner:  extended set for RVS + AGFHC tools (incl .kpack)
+#                        rvs:         same as testrunner but WITHOUT .kpack
+#                                     (RVS-only image; minihpl/AGFHC not present)
 #
 # After install:
 #   /opt/rocm-<version>/  — extracted and pruned tarball
@@ -100,8 +102,13 @@ TESTRUNNER_PATTERNS=(
     "librocsolver.*"
 )
 
+# testrunner and rvs profiles share the same lib/library set; they differ only in
+# .kpack (kept for testrunner/AGFHC minihpl, dropped for the RVS-only image).
+IS_TESTRUNNER_CLASS=0
+[ "${PROFILE}" = "testrunner" ] || [ "${PROFILE}" = "rvs" ] && IS_TESTRUNNER_CLASS=1
+
 PATTERNS=("${COMMON_PATTERNS[@]}")
-if [ "${PROFILE}" = "testrunner" ]; then
+if [ "${IS_TESTRUNNER_CLASS}" = "1" ]; then
     PATTERNS+=("${TESTRUNNER_PATTERNS[@]}")
 fi
 
@@ -122,7 +129,7 @@ done
 if [ -d "${ROCM_DIR}/lib/llvm/lib" ]; then
     mkdir -p "${KEEP_DIR}/lib/llvm/lib"
     LLVM_PATS=("libclang-cpp.so*" "libLLVM.so*" "libLLVM-*.so*")
-    if [ "${PROFILE}" = "testrunner" ]; then
+    if [ "${IS_TESTRUNNER_CLASS}" = "1" ]; then
         LLVM_PATS=("libomp.so*" "${LLVM_PATS[@]}")
     fi
     for pat in "${LLVM_PATS[@]}"; do
@@ -136,7 +143,7 @@ fi
 # Both RVS gst module and AGFHC gfx tests use hipBLASLt which requires its own
 # Tensile library data in addition to rocblas's library data.
 for lib_dir in rocblas hipblaslt; do
-    if [ "${PROFILE}" = "testrunner" ] && [ -d "${ROCM_DIR}/lib/${lib_dir}" ]; then
+    if [ "${IS_TESTRUNNER_CLASS}" = "1" ] && [ -d "${ROCM_DIR}/lib/${lib_dir}" ]; then
         cp -a "${ROCM_DIR}/lib/${lib_dir}" "${KEEP_DIR}/lib/${lib_dir}"
         # TheRock 7.14+ stores per-arch kernels in subdirs (library/gfx950/, etc.)
         # but older binaries look for them in the flat library/ dir.
@@ -156,11 +163,12 @@ for lib_dir in rocblas hipblaslt; do
     fi
 done
 
-# .kpack runtime kernel archives (testrunner only)
-# rocblas and hipblaslt use librocm_kpack.so to extract the correct GPU kernel
-# variant at runtime from these per-arch packed archives. Without the .kpack files
-# minihpl and other GEMM tools fail with hipErrorInvalidKernelFile.
-# The multiarch tarball contains one .kpack per supported GPU arch (gfx950, gfx942, etc.)
+# .kpack runtime kernel archives (testrunner/AGFHC profile only — ~2.2 GB)
+# minihpl and other AGFHC GEMM tools use librocm_kpack.so to extract the correct
+# GPU kernel variant at runtime from these per-arch packed archives; without them
+# they fail with hipErrorInvalidKernelFile. RVS does not use .kpack (its gst/iet/
+# tst/pebb/pbqt/babel modules read rocblas/hipblaslt library/<arch>/ directly), so
+# the rvs profile omits .kpack to keep the RVS-only image smaller.
 if [ "${PROFILE}" = "testrunner" ] && [ -d "${ROCM_DIR}/.kpack" ]; then
     mkdir -p "${KEEP_DIR}/.kpack"
     cp -a "${ROCM_DIR}/.kpack/." "${KEEP_DIR}/.kpack/"
