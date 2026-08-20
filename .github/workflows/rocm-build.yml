@@ -1,0 +1,527 @@
+name: DME Build
+
+# Builds DME + test-runner images and .deb packages against a ROCm tarball.
+# Job graph: resolve → pre-build → [container-builds || debian-builds] → summary
+# Triggers: nightly (cron), PR (path-filtered), release (workflow_dispatch)
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - '.github/workflows/rocm-build.yml'
+      - 'docker/**'
+      - 'tools/base-image/**'
+      - 'Makefile'
+      - 'Makefile.build'
+      - 'Makefile.compile'
+      - 'Makefile.package'
+
+  workflow_dispatch:
+    inputs:
+      rocm_tarball_url:
+        description: 'ROCm tarball URL (leave blank to auto-detect)'
+        required: false
+        type: string
+        default: ''
+      image_tag:
+        description: 'Docker image tag (e.g. 10.1.0a20260817). Auto-derived if blank.'
+        required: false
+        type: string
+        default: ''
+      skip_upload:
+        description: 'Skip S3 upload — build only'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: dme-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write   # OIDC → AWS
+  actions:  write   # GHA cache write
+
+env:
+  DEV_IMAGE_TAG: docker.io/rocm/device-metrics-exporter-build:v1.10
+  WORKSPACE:     /usr/src/github.com/ROCm/device-metrics-exporter
+  S3_BUCKET:     ${{ vars.THEROCK_BUCKET_NAME }}
+
+jobs:
+
+  # Detects trigger mode and resolves tarball URL, image tag, S3 prefix, and DME version.
+  # Reads ROCM_TARBALL_URL and PROJECT_VERSION directly from the Makefile to stay in sync.
+  resolve:
+    name: Resolve tarball + image tag
+    runs-on: ubuntu-24.04
+    outputs:
+      rocm_tarball_url: ${{ steps.resolve.outputs.rocm_tarball_url }}
+      image_tag:        ${{ steps.resolve.outputs.image_tag }}
+      s3_prefix:        ${{ steps.resolve.outputs.s3_prefix }}
+      skip_upload:      ${{ steps.resolve.outputs.skip_upload }}
+      dme_version:      ${{ steps.resolve.outputs.dme_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve trigger inputs
+        id: resolve
+        env:
+          INPUT_URL:       ${{ inputs.rocm_tarball_url }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          INPUT_SKIP:      ${{ inputs.skip_upload }}
+        run: |
+          set -euo pipefail
+
+          NIGHTLY_CDN_BASE="https://rocm.prereleases.amd.com/tarball-multi-arch"
+          PR_FALLBACK_URL=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')
+          DME_VERSION=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')
+
+          case "${GITHUB_EVENT_NAME}" in
+
+            schedule)
+              # Pick the latest nightly tarball from the CDN index by date suffix
+              TARBALL_NAME=$(
+                curl -fsSL "${NIGHTLY_CDN_BASE}/" 2>/dev/null \
+                  | grep -oP 'therock-dist-linux-multiarch-\d+\.\d+\.\d+a\d{8}\.tar\.gz' \
+                  | sort -t'a' -k2 -rn \
+                  | head -1
+              )
+              if [ -z "${TARBALL_NAME}" ]; then
+                echo "::error::Could not detect latest nightly tarball from CDN index"
+                exit 1
+              fi
+              TARBALL_URL="${NIGHTLY_CDN_BASE}/${TARBALL_NAME}"
+              IMAGE_TAG=$(echo "${TARBALL_NAME}" \
+                | sed 's/therock-dist-linux-multiarch-//;s/\.tar\.gz//')
+              S3_PREFIX="device-metrics-exporter/nightly"
+              SKIP_UPLOAD="false"
+              ;;
+
+            pull_request)
+              TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
+              IMAGE_TAG="${DME_VERSION}"
+              S3_PREFIX="device-metrics-exporter/pr"
+              SKIP_UPLOAD="false"
+              ;;
+
+            workflow_dispatch)
+              # For release: provide rocm_tarball_url + image_tag
+              # For testing: leave inputs blank, set skip_upload=true
+              TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
+              BASENAME=$(basename "${TARBALL_URL}" .tar.gz)
+              IMAGE_TAG="${INPUT_IMAGE_TAG:-${BASENAME#therock-dist-linux-multiarch-}}"
+              S3_PREFIX="device-metrics-exporter/release/${IMAGE_TAG}"
+              SKIP_UPLOAD="${INPUT_SKIP:-true}"
+              ;;
+
+            *)
+              echo "::error::Unknown event: ${GITHUB_EVENT_NAME}"
+              exit 1
+              ;;
+          esac
+
+          echo "rocm_tarball_url=${TARBALL_URL}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${IMAGE_TAG}"           >> "$GITHUB_OUTPUT"
+          echo "s3_prefix=${S3_PREFIX}"           >> "$GITHUB_OUTPUT"
+          echo "skip_upload=${SKIP_UPLOAD}"       >> "$GITHUB_OUTPUT"
+          echo "dme_version=${DME_VERSION}"       >> "$GITHUB_OUTPUT"
+
+          echo "ROCm tarball : ${TARBALL_URL}"
+          echo "Image tag    : ${IMAGE_TAG}"
+          echo "S3 prefix    : ${S3_PREFIX}"
+          echo "Skip upload  : ${SKIP_UPLOAD}"
+          echo "DME version  : ${DME_VERSION}"
+
+  # Compiles gpuagent and extracts amdsmi from the tarball ONCE, then uploads
+  # build/gpuagent/ and build/amdsmi-from-tarball/ as a GHA artifact.
+  # Both parallel jobs download this artifact to skip the expensive recompile.
+  pre-build:
+    name: Build gpuagent + extract amdsmi
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space
+        run: |
+          echo "Disk before cleanup:"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          sudo rm -rf \
+            /usr/share/swift /usr/local/share/powershell /usr/lib/mono \
+            /usr/local/julia* /opt/az /usr/share/google-cloud-sdk \
+            /usr/lib/jvm /usr/local/share/chromium /usr/share/miniconda || true
+          sudo apt-get remove -y 'llvm-*' 'clang-*' 'mono-*' \
+            azure-cli google-cloud-cli 2>/dev/null || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true
+          sudo docker image prune --all --force || true
+          echo "Disk after cleanup:"
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download ROCm tarball
+        env:
+          ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/rocm-tarball
+          echo "Downloading: ${ROCM_TARBALL_URL}"
+          curl -fSL --retry 3 "${ROCM_TARBALL_URL}" -o build/rocm-tarball/therock.tar.gz
+          echo "Downloaded: $(du -sh build/rocm-tarball/therock.tar.gz)"
+
+      - name: Build gpuagent + extract amdsmi
+        run: |
+          set -euo pipefail
+          make gpuagent-build amdsmi-from-tarball TOP_DIR="$(pwd)"
+          echo "gpuagent binaries:"
+          ls -lh build/gpuagent/
+          echo "amdsmi pkglib:"
+          ls -lh build/amdsmi-from-tarball/pkglib/
+
+      - name: Upload pre-built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuilt-${{ needs.resolve.outputs.image_tag }}
+          retention-days: 1
+          path: |
+            build/gpuagent/
+            build/amdsmi-from-tarball/
+
+  # Builds DME container image and test-runner image (runs in parallel with debian-builds).
+  # Re-downloads the tarball because the release Dockerfile needs it as --build-context.
+  container-builds:
+    name: Build DME + test-runner images
+    needs: [resolve, pre-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          sudo rm -rf \
+            /usr/share/swift /usr/local/share/powershell /usr/lib/mono \
+            /usr/local/julia* /opt/az /usr/share/google-cloud-sdk \
+            /usr/lib/jvm /usr/local/share/chromium /usr/share/miniconda || true
+          sudo apt-get remove -y 'llvm-*' 'clang-*' 'mono-*' \
+            azure-cli google-cloud-cli 2>/dev/null || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true
+          sudo docker image prune --all --force || true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev container
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/base-image
+          load: true
+          tags: ${{ env.DEV_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download ROCm tarball
+        # Downloaded before artifact restore so tarball mtime is older than the stamp
+        env:
+          ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/rocm-tarball
+          echo "Downloading: ${ROCM_TARBALL_URL}"
+          curl -fSL --retry 3 "${ROCM_TARBALL_URL}" -o build/rocm-tarball/therock.tar.gz
+          echo "Downloaded: $(du -sh build/rocm-tarball/therock.tar.gz)"
+
+      - name: Download pre-built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: prebuilt-${{ needs.resolve.outputs.image_tag }}
+          path: .
+
+      - name: Restore gpuagent stamp
+        # Stamp mtime must be newer than tarball so Make skips gpuagent rebuild
+        run: touch build/gpuagent/.stamp
+
+      - name: Build DME + test-runner images inside dev container
+        env:
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+        run: |
+          docker run --rm --privileged \
+            -e CI=true \
+            -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
+            -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -e "HOST_TOP_DIR=${{ github.workspace }}" \
+            -e "EXPORTER_IMAGE_TAG=${IMAGE_TAG}" \
+            -e "TESTRUNNER_IMAGE_TAG=${IMAGE_TAG}" \
+            -e "AMDSMI_FROM_TARBALL=1" \
+            -e "GPUAGENT_FROM_SOURCE=1" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:${WORKSPACE}" \
+            -w "${WORKSPACE}" \
+            "${DEV_IMAGE_TAG}" \
+            bash -c "source ~/.bashrc && \
+              git config --global --add safe.directory ${WORKSPACE} && \
+              make docker-image TOP_DIR=${WORKSPACE} && \
+              make docker-test-runner-cicd TOP_DIR=${WORKSPACE}"
+
+      - name: Upload container tarballs
+        run: cp docker/testrunner/test-runner-*.tar.gz docker/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-images-${{ needs.resolve.outputs.image_tag }}
+          retention-days: 3
+          path: docker/*.tar.gz
+
+  # Builds .deb packages for Ubuntu 22.04 + 24.04 (runs in parallel with container-builds).
+  # Uses pre-extracted amdsmi pkglib from artifact — no tarball download needed.
+  # A 0-byte stub at the tarball path satisfies Make's file prerequisite check.
+  debian-builds:
+    name: Build .deb packages (22.04 + 24.04)
+    needs: [resolve, pre-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          sudo apt-get remove -y 'llvm-*' 'clang-*' 'mono-*' \
+            azure-cli google-cloud-cli 2>/dev/null || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean || true
+          sudo docker image prune --all --force || true
+
+      - name: Download pre-built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: prebuilt-${{ needs.resolve.outputs.image_tag }}
+          path: .
+
+      - name: Restore stamps + stub tarball path
+        # Stub touched first (older mtime), stamp second — Make skips gpuagent rebuild
+        run: |
+          mkdir -p build/rocm-tarball
+          touch build/rocm-tarball/therock.tar.gz
+          touch build/gpuagent/.stamp
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev container
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/base-image
+          load: true
+          tags: ${{ env.DEV_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build .deb packages inside dev container
+        env:
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+        run: |
+          docker run --rm --privileged \
+            -e CI=true \
+            -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
+            -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -e "HOST_TOP_DIR=${{ github.workspace }}" \
+            -e "EXPORTER_IMAGE_TAG=${IMAGE_TAG}" \
+            -e "AMDSMI_FROM_TARBALL=1" \
+            -e "GPUAGENT_FROM_SOURCE=1" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:${WORKSPACE}" \
+            -w "${WORKSPACE}" \
+            "${DEV_IMAGE_TAG}" \
+            bash -c "source ~/.bashrc && \
+              git config --global --add safe.directory ${WORKSPACE} && \
+              make docker-pkgs TOP_DIR=${WORKSPACE}"
+
+      - name: Upload .deb packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-packages-${{ needs.resolve.outputs.image_tag }}
+          retention-days: 3
+          path: bin/amdgpu-exporter_*.deb
+
+  # Waits for both parallel jobs, uploads all artifacts to S3, and dispatches
+  # to the orchestrator. Upload and dispatch are gated on AWS_ROLE_ARN being set.
+  summary:
+    name: Summary + upload + dispatch
+    needs: [resolve, pre-build, container-builds, debian-builds]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check upstream job results
+        env:
+          PRE_RESULT: ${{ needs.pre-build.result }}
+          A_RESULT:   ${{ needs.container-builds.result }}
+          B_RESULT:   ${{ needs.debian-builds.result }}
+        run: |
+          echo "pre-build        : ${PRE_RESULT}"
+          echo "container-builds : ${A_RESULT}"
+          echo "debian-builds    : ${B_RESULT}"
+          if [ "${A_RESULT}" != "success" ] || [ "${B_RESULT}" != "success" ]; then
+            echo "::error::One or more build jobs failed — skipping upload and dispatch"
+            exit 1
+          fi
+
+      - name: Download container image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: container-images-${{ needs.resolve.outputs.image_tag }}
+          path: artifacts/images
+
+      - name: Download .deb package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-packages-${{ needs.resolve.outputs.image_tag }}
+          path: artifacts/debs
+
+      - name: Rename all artifacts with dme-version + identifier
+        env:
+          IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
+          DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            SUFFIX=$(echo "${GITHUB_SHA}" | cut -c1-8)
+          else
+            SUFFIX="${IMAGE_TAG}"
+          fi
+          # Container images
+          mv "artifacts/images/device-metrics-exporter-${IMAGE_TAG}.tar.gz" \
+             "artifacts/images/device-metrics-exporter-${DME_VERSION}-${SUFFIX}.tar.gz"
+          mv "artifacts/images/test-runner-${IMAGE_TAG}.tar.gz" \
+             "artifacts/images/test-runner-${DME_VERSION}-${SUFFIX}.tar.gz"
+          # Debian packages
+          for f in artifacts/debs/amdgpu-exporter_*_amd64.deb; do
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+')
+            mv "$f" "artifacts/debs/amdgpu-exporter-${DME_VERSION}-${SUFFIX}_${UBUNTU_VER}_amd64.deb"
+          done
+          echo "Renamed artifacts:"
+          ls artifacts/images/ artifacts/debs/
+
+      - name: Validate upload prerequisites
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
+        env:
+          HAS_ARN: ${{ secrets.AWS_ROLE_ARN != '' }}
+        run: |
+          if [ "${HAS_ARN}" != "true" ]; then
+            echo "::error::skip_upload=false but AWS_ROLE_ARN secret is not set"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Upload artifacts to S3
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
+        env:
+          S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
+        run: |
+          set -euo pipefail
+
+          upload_file() {
+            local src="$1" dest="$2"
+            if [ ! -f "${src}" ]; then
+              echo "::error::Artifact not found: ${src}"
+              exit 1
+            fi
+            echo "Uploading: ${src} → s3://${S3_BUCKET}/${dest}"
+            aws s3 cp "${src}" "s3://${S3_BUCKET}/${dest}" --no-progress
+          }
+
+          upload_file artifacts/images/device-metrics-exporter-*.tar.gz \
+            "${S3_PREFIX}/exporter/$(basename artifacts/images/device-metrics-exporter-*.tar.gz)"
+          upload_file artifacts/images/test-runner-*.tar.gz \
+            "${S3_PREFIX}/test-runner/$(basename artifacts/images/test-runner-*.tar.gz)"
+          for f in artifacts/debs/amdgpu-exporter-*_amd64.deb; do
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+')
+            upload_file "${f}" "${S3_PREFIX}/debian-${UBUNTU_VER}/$(basename "${f}")"
+          done
+
+          echo "All artifacts uploaded to s3://${S3_BUCKET}/${S3_PREFIX}/"
+          aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --human-readable || true
+
+      - name: Dispatch to orchestrator
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
+        env:
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
+        run: |
+          set -euo pipefail
+
+          SCENARIO="${GITHUB_EVENT_NAME}"
+          [ "${GITHUB_EVENT_NAME}" = "schedule" ]          && SCENARIO="nightly"
+          [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && SCENARIO="release"
+
+          curl -fsSL \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.ORCHESTRATOR_PAT }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/ROCm/common-infra-operator/dispatches" \
+            -d "{
+              \"event_type\": \"dme-build-complete\",
+              \"client_payload\": {
+                \"component\": \"dme\",
+                \"scenario\": \"${SCENARIO}\",
+                \"image_tag\": \"${IMAGE_TAG}\",
+                \"dme_version\": \"${{ needs.resolve.outputs.dme_version }}\",
+                \"s3_prefix\": \"${S3_PREFIX}\",
+                \"s3_bucket\": \"${S3_BUCKET}\"
+              }
+            }"
+          echo "Dispatched to orchestrator (fire-and-forget)"
+
+      - name: Generate build summary
+        if: always()
+        env:
+          IMAGE_TAG:        ${{ needs.resolve.outputs.image_tag }}
+          ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
+          S3_PREFIX:        ${{ needs.resolve.outputs.s3_prefix }}
+          SKIP_UPLOAD:      ${{ needs.resolve.outputs.skip_upload }}
+          PRE_RESULT:       ${{ needs.pre-build.result }}
+          A_RESULT:         ${{ needs.container-builds.result }}
+          B_RESULT:         ${{ needs.debian-builds.result }}
+        run: |
+          {
+            echo "## DME Build — \`${IMAGE_TAG}\`"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Trigger | \`${{ github.event_name }}\` |"
+            echo "| ROCm tarball | \`${ROCM_TARBALL_URL}\` |"
+            echo "| Image tag | \`${IMAGE_TAG}\` |"
+            echo "| pre-build | ${PRE_RESULT} |"
+            echo "| container-builds | ${A_RESULT} |"
+            echo "| debian-builds | ${B_RESULT} |"
+            echo "| S3 prefix | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
+            echo "| Upload skipped | \`${SKIP_UPLOAD}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
