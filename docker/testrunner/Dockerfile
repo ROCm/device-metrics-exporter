@@ -30,7 +30,7 @@ RUN chmod +x /usr/local/bin/install-rocm-tarball.sh /usr/local/bin/install-rvs-t
 RUN dnf clean all && \
     if [ -n "${ROCM_TARBALL_URL}" ] && [ -n "${RVS_TARBALL_URL}" ]; then \
         dnf install -y wget tar gzip pciutils && \
-        /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" --profile testrunner && \
+        /usr/local/bin/install-rocm-tarball.sh "${ROCM_VERSION}" "${ROCM_TARBALL_URL}" --profile rvs && \
         /usr/local/bin/install-rvs-tarball.sh "${RVS_TARBALL_URL}"; \
     else \
         dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
