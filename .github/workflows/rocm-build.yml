@@ -6,7 +6,7 @@ name: DME Build
 
 on:
   schedule:
-    - cron: '17 2 * * *'
+    - cron: '15 * * * *'
 
   pull_request:
     branches:
@@ -108,12 +108,12 @@ jobs:
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               IMAGE_TAG="${DME_VERSION}"
               S3_PREFIX="device-metrics-exporter/pr"
-              SKIP_UPLOAD="false"
+              SKIP_UPLOAD="true"
               ;;
 
             workflow_dispatch)
-              # For release: provide rocm_tarball_url + image_tag
-              # For testing: leave inputs blank, set skip_upload=true
+              # Uploads by default. Set skip_upload=true to build without uploading.
+              # For release: provide rocm_tarball_url + image_tag.
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               BASENAME=$(basename "${TARBALL_URL}" .tar.gz)
               IMAGE_TAG="${INPUT_IMAGE_TAG:-${BASENAME#therock-dist-linux-multiarch-}}"
