@@ -136,8 +136,8 @@ GPUAGENT_COMMIT ?= 9cee401919f8f25f7465d778fb0e4274408dc438
 # authoritative ROCm tarball defaults (not overridden in dev.env).
 # ROCM_VERSION must match the tarball's version string (extracts to
 # /opt/rocm-${ROCM_VERSION}/). Keep URL version in sync; HTTP-200-verify on bump.
-ROCM_VERSION ?= 10.0.0rc3
-ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-10.0.0rc3.tar.gz
+ROCM_VERSION ?= 10.0.0rc4
+ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-10.0.0rc4.tar.gz
 RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
 
 # download the ~9 GB ROCm tarball ONCE to the host, then bind-mount it
