@@ -6,7 +6,7 @@ name: DME Build
 
 on:
   schedule:
-    - cron: '15 * * * *'
+    - cron: '0 13 * * *'
 
   pull_request:
     branches:
@@ -38,9 +38,10 @@ on:
         type: boolean
         default: false
 
+
 concurrency:
-  group: dme-build-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'schedule' && 'dme-nightly' || github.event_name == 'pull_request' && format('dme-pr-{0}', github.event.pull_request.number) || format('dme-{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'schedule' || github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -79,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          NIGHTLY_CDN_BASE="https://rocm.prereleases.amd.com/tarball-multi-arch"
+          NIGHTLY_CDN_BASE="https://rocm.nightlies.amd.com/tarball-multi-arch"
           PR_FALLBACK_URL=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')
           DME_VERSION=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')
 
@@ -149,6 +150,20 @@ jobs:
         with:
           key: build-ok-${{ github.sha }}-${{ steps.resolve.outputs.image_tag }}
           path: .build-marker
+
+  # Runs only when dedup skips the build — writes a summary explaining why.
+  skipped:
+    name: Already built — skipped
+    needs: resolve
+    if: needs.resolve.outputs.build_needed == 'false'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Generate skip summary
+        run: |
+          {
+            echo "## DME Build — Skipped"
+            echo "Build already succeeded for SHA \`${{ github.sha }}\` + tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Builds all 4 artifacts in a single job: DME image, test-runner image,
   # and .deb packages (22.04 + 24.04). make docker produces the exporter
@@ -225,7 +240,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ needs.resolve.outputs.image_tag }}
-          retention-days: 3
+          retention-days: 1
           path: staging/
 
       - name: Mark build as successful
@@ -255,12 +270,14 @@ jobs:
           fi
 
       - name: Download build artifacts
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         uses: actions/download-artifact@v4
         with:
           name: build-${{ needs.resolve.outputs.image_tag }}
           path: artifacts
 
       - name: Rename artifacts with dme-version + identifier
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         env:
           IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
