@@ -38,7 +38,7 @@ on:
         type: boolean
         default: false
       force_rebuild:
-        description: 'Force rebuild even if already built for this SHA + tarball'
+        description: 'Force rebuild even if already built for this SHA + image tag'
         required: false
         type: boolean
         default: false
@@ -356,7 +356,7 @@ jobs:
           aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --human-readable || true
 
       - name: Login to Docker Hub
-        if: ${{ always() && needs.resolve.outputs.skip_upload == 'false' }}
+        if: ${{ !cancelled() && needs.build.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -364,7 +364,7 @@ jobs:
 
       - name: Push images to amdpsdo registry
         id: registry-push
-        if: ${{ always() && needs.resolve.outputs.skip_upload == 'false' }}
+        if: ${{ !cancelled() && needs.build.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
         env:
           IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
@@ -405,7 +405,12 @@ jobs:
             echo "| ROCm tarball | \`${ROCM_TARBALL_URL}\` |"
             echo "| Image tag | \`${IMAGE_TAG}\` |"
             echo "| Build | ${BUILD_RESULT} |"
-            echo "| S3 upload | ${S3_RESULT:-skipped} |"
-            echo "| Registry push | ${REGISTRY_RESULT:-skipped} |"
+            if [ "${SKIP_UPLOAD}" = "true" ]; then
+              echo "| S3 upload | skipped (upload disabled) |"
+              echo "| Registry push | skipped (upload disabled) |"
+            else
+              echo "| S3 upload | ${S3_RESULT:-failure} |"
+              echo "| Registry push | ${REGISTRY_RESULT:-skipped} |"
+            fi
             echo "| S3 prefix | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
           } >> "$GITHUB_STEP_SUMMARY"
