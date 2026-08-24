@@ -39,10 +39,14 @@ BOOTSTRAP_VERSION=$(cat /opt/bootstrap-version.txt)
 log "Multi-version build (bootstrap: $BOOTSTRAP_VERSION)"
 
 # Detect firmware version from NIC hardware
+# nicctl may return non-zero if some NICs fail, but still output valid info for others
 FIRMWARE_VER=""
-if FIRMWARE_OUTPUT=$(/usr/sbin/nicctl-bootstrap show firmware 2>/dev/null); then
+FIRMWARE_OUTPUT=$(/usr/sbin/nicctl-bootstrap show firmware 2>/dev/null) || true
+if [ -n "$FIRMWARE_OUTPUT" ]; then
     FIRMWARE_VER=$(echo "$FIRMWARE_OUTPUT" | grep -E "^Firmware-[AB]" | awk '{print $3}' | head -1)
-    log "Detected firmware: $FIRMWARE_VER"
+    if [ -n "$FIRMWARE_VER" ]; then
+        log "Detected firmware: $FIRMWARE_VER"
+    fi
 fi
 
 if [ -z "$FIRMWARE_VER" ]; then
