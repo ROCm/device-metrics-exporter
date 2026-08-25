@@ -1,0 +1,126 @@
+From 5178fde3c28c408db5086558238316a4dd91d578 Mon Sep 17 00:00:00 2001
+From: Bhanu Kiran Atturu <bhatturu@amd.com>
+Date: Fri, 21 Aug 2026 17:10:06 -0400
+Subject: [PATCH] gpuagent: refresh GFX max clock on the get path for RDNA only
+ (GPUOP-985)
+
+GFX high_frequency (max clock) was filled once in smi_gpu_init_immutable_attrs
+and only copied thereafter. On RDNA the boost ceiling is mutable and rises under
+load, so the init snapshot goes stale versus the live amd-smi value, failing the
+GPU_MAX_CLOCK accuracy check. CDNA has a fixed DPM range so it never drifts.
+
+Record the RDNA GPUs at init (target_graphics_version top nibble == 1) and, only
+for those, re-read amdsmi_get_clock_info(GFX) in smi_fill_clock_status_ at most
+once per 5s per GPU, caching hi/lo and re-applying it onto the per-get spec copy.
+CDNA GPUs skip the refresh entirely, keeping the MI get path unchanged. The
+amdsmi call runs outside g_gfx_maxclk_mutex so one GPU's refresh never blocks
+the others' clock-status fills.
+---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc | 68 +++++++++++++++++++++++
+ 1 file changed, 68 insertions(+)
+
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+index 155084b661f..e47ea203d33 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -23,6 +23,8 @@ limitations under the License.
+ #include <sstream>
+ #include <iomanip>
+ #include <mutex>
++#include <chrono>
++#include <unordered_set>
+ extern "C" {
+ #include "nic/third-party/rocm/amd_smi_lib/include/amd_smi/amdsmi.h"
+ }
+@@ -52,6 +54,18 @@ namespace aga {
+ /// status and statistics
+ std::mutex g_gpu_metrics_mutex;
+ std::unordered_map<aga_gpu_handle_t, amdsmi_gpu_metrics_t> g_gpu_metrics;
++/// RDNA GFX max clock drifts under load; refresh per-TTL. CDNA is fixed
++#define AMDSMI_GFX_MAXCLK_REFRESH_TTL_MS 5000
++typedef struct gfx_maxclk_cache_s {
++    uint32_t lo;
++    uint32_t hi;
++    std::chrono::steady_clock::time_point ts;
++} gfx_maxclk_cache_t;
++std::mutex g_gfx_maxclk_mutex;
++std::unordered_map<aga_gpu_handle_t, gfx_maxclk_cache_t> g_gfx_maxclk;
++/// RDNA GPU handles (gfx10/11/12), recorded at init to gate the refresh
++std::mutex g_rdna_gpus_mutex;
++std::unordered_set<aga_gpu_handle_t> g_rdna_gpus;
+ /// counter resolution in uJ; this is a constant value that we get once during
+ /// init time and use whenever we want to calculate energy accumalated
+ float g_energy_counter_resolution;
+@@ -75,8 +89,17 @@ smi_fill_gpu_clock_frequency_spec_ (aga_gpu_handle_t gpu_handle,
+     amdsmi_status_t amdsmi_ret;
+     amdsmi_frequencies_t freq = {};
+     amdsmi_clk_info_t clock_info = {};
++    amdsmi_asic_info_t asic_info = {};
+     aga_gpu_clock_freq_range_t *clock_spec;
+ 
++    // RDNA = gfx target version top nibble 1 (gfx10/11/12); runs once at init
++    amdsmi_ret = amdsmi_get_gpu_asic_info(gpu_handle, &asic_info);
++    if (likely(amdsmi_ret == AMDSMI_STATUS_SUCCESS) &&
++        ((asic_info.target_graphics_version >> 12) == 1)) {
++        std::lock_guard<std::mutex> lock(g_rdna_gpus_mutex);
++        g_rdna_gpus.insert(gpu_handle);
++    }
++
+     // gfx clock
+     clock_spec = &spec->clock_freq[clk_cnt];
+     clock_spec->clock_type = smi_to_aga_gpu_clock_type(AMDSMI_CLK_TYPE_GFX);
+@@ -587,6 +610,51 @@ smi_fill_clock_status_ (aga_gpu_handle_t gpu_handle,
+             break;
+         }
+     }
++    // RDNA only: refresh cached ceiling per-TTL and re-apply (fill_spec_ memcpys
++    // the stale init spec each get). CDNA is fixed, skip.
++    bool is_rdna;
++    {
++        std::lock_guard<std::mutex> lock(g_rdna_gpus_mutex);
++        is_rdna = (g_rdna_gpus.count(gpu_handle) != 0);
++    }
++    if (gfx_clock_spec && is_rdna) {
++        auto now = std::chrono::steady_clock::now();
++        bool stale, have_cached = false;
++        uint32_t cached_lo = 0, cached_hi = 0;
++        {
++            std::lock_guard<std::mutex> lock(g_gfx_maxclk_mutex);
++            auto it = g_gfx_maxclk.find(gpu_handle);
++            have_cached = (it != g_gfx_maxclk.end());
++            if (have_cached) {
++                cached_lo = it->second.lo;
++                cached_hi = it->second.hi;
++            }
++            stale = !have_cached ||
++                (std::chrono::duration_cast<std::chrono::milliseconds>(
++                    now - it->second.ts).count() >=
++                 AMDSMI_GFX_MAXCLK_REFRESH_TTL_MS);
++        }
++        // amdsmi call outside the lock so one GPU's refresh doesn't block others
++        if (stale) {
++            amdsmi_clk_info_t gfx_clk_info = {};
++            amdsmi_ret = amdsmi_get_clock_info(gpu_handle, AMDSMI_CLK_TYPE_GFX,
++                                               &gfx_clk_info);
++            if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
++                AGA_TRACE_ERR("Failed to refresh GFX max clock for GPU {}, "
++                              "err {}", gpu_handle, amdsmi_ret);
++            } else {
++                cached_lo = gfx_clk_info.min_clk;
++                cached_hi = gfx_clk_info.max_clk;
++                have_cached = true;
++                std::lock_guard<std::mutex> lock(g_gfx_maxclk_mutex);
++                g_gfx_maxclk[gpu_handle] = { cached_lo, cached_hi, now };
++            }
++        }
++        if (have_cached) {
++            gfx_clock_spec->lo = cached_lo;
++            gfx_clock_spec->hi = cached_hi;
++        }
++    }
+     for (uint32_t i = 0; i < spec->num_clock_freqs; i++) {
+         if (spec->clock_freq[i].clock_type == AGA_GPU_CLOCK_TYPE_MEMORY) {
+             mem_clock_spec = &spec->clock_freq[i];
+-- 
+2.54.0
+
