@@ -2,7 +2,7 @@ name: DME Build
 
 # Builds DME + test-runner images and .deb packages against a ROCm tarball.
 # Job graph: resolve → build → summary
-# Triggers: nightly (cron), PR (path-filtered), release (workflow_dispatch)
+# Triggers: nightly (cron), PR (path-filtered), pre-release (workflow_dispatch)
 
 on:
   schedule:
@@ -51,7 +51,7 @@ concurrency:
 permissions:
   contents: read
   id-token: write   # OIDC → AWS
-  actions:  write   # GHA cache write
+  actions:  write   # GHA artifact upload/download
 
 env:
   DEV_IMAGE_TAG: docker.io/rocm/device-metrics-exporter-build:v1.10
@@ -72,7 +72,7 @@ jobs:
       skip_upload:      ${{ steps.resolve.outputs.skip_upload }}
       dme_version:      ${{ steps.resolve.outputs.dme_version }}
       suffix:           ${{ steps.resolve.outputs.suffix }}
-      build_needed:    ${{ steps.dedup.outputs.cache-hit != 'true' || inputs.force_rebuild == true }}
+      build_needed:     ${{ steps.s3-dedup.outputs.cache-hit != 'true' || inputs.force_rebuild == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -156,12 +156,25 @@ jobs:
           echo "Skip upload  : ${SKIP_UPLOAD}"
           echo "DME version  : ${DME_VERSION}"
 
-      - name: Check for existing successful build
-        id: dedup
-        uses: actions/cache/restore@v4
+      - name: Configure AWS credentials for dedup check
+        if: github.event_name == 'schedule'
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          key: build-ok-${{ github.sha }}-${{ steps.resolve.outputs.image_tag }}
-          path: .build-marker
+          role-to-assume: ${{ secrets.ROCK_CI_S3_SECRET }}
+          aws-region: us-east-1
+
+      - name: Check S3 build marker
+        id: s3-dedup
+        if: github.event_name == 'schedule'
+        env:
+          S3_PREFIX: ${{ steps.resolve.outputs.s3_prefix }}
+        run: |
+          if aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok" 2>/dev/null; then
+            echo "Already built ${S3_PREFIX} — skipping"
+            echo "cache-hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cache-hit=false" >> "$GITHUB_OUTPUT"
+          fi
 
   # Runs only when dedup skips the build — writes a summary explaining why.
   skipped:
@@ -174,7 +187,11 @@ jobs:
         run: |
           {
             echo "## DME Build — Skipped"
-            echo "Build already succeeded for SHA \`${{ github.sha }}\` + tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "Build already succeeded for tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
+            else
+              echo "Build already succeeded for SHA \`${{ github.sha }}\` + tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Builds DME image, SR-IOV image, test-runner image, and .deb packages
@@ -258,12 +275,6 @@ jobs:
           retention-days: 1
           path: staging/
 
-      - name: Mark build as successful
-        run: echo "ok" > .build-marker
-      - uses: actions/cache/save@v4
-        with:
-          key: build-ok-${{ github.sha }}-${{ needs.resolve.outputs.image_tag }}
-          path: .build-marker
 
   # Downloads build artifacts, renames with dme-version + identifier, uploads to S3 and Docker Hub.
   summary:
@@ -309,12 +320,12 @@ jobs:
              "artifacts/test-runner-${DME_VERSION}-${SUFFIX}.tar.gz"
           for f in artifacts/amdgpu-exporter_*_amd64.deb; do
             [ -f "${f}" ] || continue
-            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+')
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+(?=_amd64)')
             mv "$f" "artifacts/amdgpu-exporter-${DME_VERSION}-${SUFFIX}~${UBUNTU_VER}_amd64.deb"
           done
           for f in artifacts/amdgpu-exporter-sriov_*_amd64.deb; do
             [ -f "${f}" ] || continue
-            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+')
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+(?=_amd64)')
             mv "$f" "artifacts/amdgpu-exporter-sriov-${DME_VERSION}-${SUFFIX}~${UBUNTU_VER}_amd64.deb"
           done
           echo "Renamed artifacts:"
@@ -360,14 +371,17 @@ jobs:
           }
 
           # Upload all artifacts flat into the S3 prefix folder
+          shopt -s nullglob
           for f in artifacts/device-metrics-exporter-*.tar.gz \
                    artifacts/test-runner-*.tar.gz \
                    artifacts/amdgpu-exporter-*_amd64.deb; do
-            [ -f "${f}" ] && upload_file "${f}" "${S3_PREFIX}/$(basename "${f}")"
+            upload_file "${f}" "${S3_PREFIX}/$(basename "${f}")"
           done
+          shopt -u nullglob
 
           echo "All artifacts uploaded to s3://${S3_BUCKET}/${S3_PREFIX}/"
           aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --human-readable || true
+          echo "ok" | aws s3 cp - "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok"
 
       - name: Login to Docker Hub
         if: ${{ !cancelled() && needs.build.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
@@ -411,7 +425,7 @@ jobs:
           echo "Pushed docker.io/amdpsdo/test-runner:${PUSH_TAG}"
 
       - name: Generate orchestrator dispatch token
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' && secrets.APP_ID != '' }}
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' && secrets.APP_ID != '' && steps.s3-upload.outcome == 'success' }}
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
@@ -421,16 +435,15 @@ jobs:
           repositories: common-infra-operator
 
       - name: Dispatch to orchestrator
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' && secrets.APP_ID != '' }}
+        if: ${{ needs.resolve.outputs.skip_upload == 'false' && secrets.APP_ID != '' && steps.s3-upload.outcome == 'success' }}
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
           S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
         run: |
           set -euo pipefail
 
           SCENARIO="${GITHUB_EVENT_NAME}"
           [ "${GITHUB_EVENT_NAME}" = "schedule" ]          && SCENARIO="nightly"
-          [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && SCENARIO="release"
+          [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && SCENARIO="pre-release"
 
           curl -fsSL \
             -X POST \
@@ -443,7 +456,6 @@ jobs:
               \"client_payload\": {
                 \"component\": \"dme\",
                 \"scenario\": \"${SCENARIO}\",
-                \"image_tag\": \"${IMAGE_TAG}\",
                 \"s3_prefix\": \"${S3_PREFIX}\",
                 \"s3_bucket\": \"${S3_BUCKET}\"
               }
