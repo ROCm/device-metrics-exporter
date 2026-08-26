@@ -177,9 +177,8 @@ jobs:
             echo "Build already succeeded for SHA \`${{ github.sha }}\` + tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Builds all 4 artifacts in a single job: DME image, test-runner image,
-  # and .deb packages (22.04 + 24.04). make docker produces the exporter
-  # image + all debs in one call; test-runner is built separately.
+  # Builds DME image, SR-IOV image, test-runner image, and .deb packages
+  # (22.04 + 24.04) in a single job.
   build:
     name: Build
     needs: resolve
@@ -266,8 +265,7 @@ jobs:
           key: build-ok-${{ github.sha }}-${{ needs.resolve.outputs.image_tag }}
           path: .build-marker
 
-  # Downloads build artifacts, renames with dme-version, uploads to S3,
-  # Dispatch to orchestrator will be added when auth is configured.
+  # Downloads build artifacts, renames with dme-version + identifier, uploads to S3 and Docker Hub.
   summary:
     name: Summary + upload
     needs: [resolve, build]
@@ -302,7 +300,7 @@ jobs:
           set -euo pipefail
           mv "artifacts/device-metrics-exporter-${IMAGE_TAG}.tar.gz" \
              "artifacts/device-metrics-exporter-${DME_VERSION}-${SUFFIX}.tar.gz"
-          # SR-IOV (optional — built as side effect of make docker)
+          # SR-IOV image
           if [ -f "artifacts/device-metrics-exporter-sriov-${IMAGE_TAG}.tar.gz" ]; then
             mv "artifacts/device-metrics-exporter-sriov-${IMAGE_TAG}.tar.gz" \
                "artifacts/device-metrics-exporter-sriov-${DME_VERSION}-${SUFFIX}.tar.gz"
@@ -394,7 +392,7 @@ jobs:
                      "docker.io/amdpsdo/device-metrics-exporter:${PUSH_TAG}"
           docker push "docker.io/amdpsdo/device-metrics-exporter:${PUSH_TAG}"
 
-          # SR-IOV image (optional — only if built)
+          # SR-IOV image
           SRIOV_FILE="artifacts/device-metrics-exporter-sriov-${PUSH_TAG}.tar.gz"
           if [ -f "${SRIOV_FILE}" ]; then
             docker load < "${SRIOV_FILE}"
