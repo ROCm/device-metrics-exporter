@@ -32,9 +32,10 @@ import (
 )
 
 var (
-	Version   string
-	BuildDate string
-	GitCommit string
+	Version    string
+	BuildDate  string
+	GitCommit  string
+	ROCmCommit string
 )
 
 func main() {
@@ -94,6 +95,7 @@ func main() {
 		fmt.Printf("Version : %v\n", Version)
 		fmt.Printf("BuildDate: %v\n", BuildDate)
 		fmt.Printf("GitCommit: %v\n", GitCommit)
+		fmt.Printf("ROCmCommit: %v\n", ROCmCommit)
 		fmt.Printf("Deployment: %v\n", deploymentType)
 		os.Exit(0)
 	}
@@ -116,6 +118,7 @@ func main() {
 	logger.Log.Printf("Version : %v", Version)
 	logger.Log.Printf("BuildDate: %v", BuildDate)
 	logger.Log.Printf("GitCommit: %v", GitCommit)
+	logger.Log.Printf("ROCmCommit: %v", ROCmCommit)
 	logger.Log.Printf("Deployment: %v", deploymentType)
 
 	// Build exporter options

@@ -136,8 +136,10 @@ GPUAGENT_COMMIT ?= 9cee401919f8f25f7465d778fb0e4274408dc438
 # authoritative ROCm tarball defaults (not overridden in dev.env).
 # ROCM_VERSION must match the tarball's version string (extracts to
 # /opt/rocm-${ROCM_VERSION}/). Keep URL version in sync; HTTP-200-verify on bump.
-ROCM_VERSION ?= 10.0.0rc4
-ROCM_TARBALL_URL ?= https://rocm.prereleases.amd.com/tarball-multi-arch/therock-dist-linux-multiarch-10.0.0rc4.tar.gz
+ROCM_VERSION ?= 10.0.0
+ROCM_TARBALL_URL ?= https://stable.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-10.0.0.tar.gz
+# amdsmi commit auto-extracted from the fetched tarball; empty until fetched.
+ROCM_COMMIT = $(shell cat "$(ROCM_COMMIT_FILE)" 2>/dev/null)
 RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
 
 # download the ~9 GB ROCm tarball ONCE to the host, then bind-mount it
@@ -149,6 +151,7 @@ RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-57
 ROCM_TARBALL_DIR := $(TOP_DIR)/build/rocm-tarball
 ROCM_TARBALL_FILE := therock.tar.gz
 ROCM_TARBALL_PATH := $(ROCM_TARBALL_DIR)/$(ROCM_TARBALL_FILE)
+ROCM_COMMIT_FILE := $(ROCM_TARBALL_DIR)/rocm-commit.txt
 
 # Two-knob source model. Defaults live in dev.env; these `?=`
 # fallbacks keep the build robust if dev.env is not sourced. See dev.env for the
@@ -183,6 +186,7 @@ export ${GPUAGENT_BRANCH}
 export ${GPUAGENT_COMMIT}
 export AINIC_VERSION
 export ROCM_VERSION
+export ROCM_COMMIT
 export ROCM_APT_VERSION
 export ROCM_TARBALL_URL
 export RVS_TARBALL_URL
@@ -348,7 +352,7 @@ ROCM_TARBALL_DEP :=
 endif
 
 .PHONY: rocm-tarball-fetch
-rocm-tarball-fetch: $(ROCM_TARBALL_PATH)
+rocm-tarball-fetch: $(ROCM_TARBALL_PATH) $(ROCM_COMMIT_FILE)
 
 $(ROCM_TARBALL_PATH):
 	@if [ -n "$(ROCM_TARBALL_FORCE)" ] || [ ! -s "$(ROCM_TARBALL_PATH)" ]; then \
@@ -358,6 +362,16 @@ $(ROCM_TARBALL_PATH):
 		mv -f $(ROCM_TARBALL_PATH).tmp $(ROCM_TARBALL_PATH); \
 	else \
 		echo "ROCm tarball already present: $(ROCM_TARBALL_PATH) (set ROCM_TARBALL_FORCE=1 to re-download)"; \
+	fi
+
+$(ROCM_COMMIT_FILE): $(ROCM_TARBALL_PATH)
+	@sha=$$(tar xzO -f "$(ROCM_TARBALL_PATH)" ./libexec/amdsmi_cli/_version.py 2>/dev/null \
+		| sed -n 's/.*+\([0-9a-f]\{7,40\}\).*/\1/p' | head -1); \
+	if [ -n "$$sha" ]; then \
+		echo "$$sha" > "$@"; \
+		echo "ROCm (amdsmi) commit extracted: $$sha -> $@"; \
+	else \
+		echo "WARN: could not extract amdsmi commit from tarball"; \
 	fi
 
 .PHONY: gpuagent-build
@@ -541,7 +555,8 @@ amdexporter: metricsclient amdgpuhealth
 		$(if $(GO_BUILD_TAGS),-tags $(GO_BUILD_TAGS)) \
 		-ldflags "-X main.Version=${VERSION} \
 		          -X main.GitCommit=${GIT_COMMIT} \
-		          -X main.BuildDate=${BUILD_DATE}" \
+		          -X main.BuildDate=${BUILD_DATE} \
+		          -X main.ROCmCommit=${ROCM_COMMIT}" \
 		-o $(CURDIR)/bin/amd-metrics-exporter
 
 amdtestrunner:
