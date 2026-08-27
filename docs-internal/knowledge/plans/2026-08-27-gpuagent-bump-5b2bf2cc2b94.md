@@ -1,0 +1,49 @@
+# Automated gpuagent bump to ROCm/gpu-agent main @5b2bf2cc2b94
+
+- **Date:** 2026-08-27
+- **Author:** github-actions[bot] (gpuagent-bump-check workflow)
+- **Related PR(s):** (this PR)
+- **Related issue(s) / JIRA:** N/A — automated dependency bump
+
+## Context
+
+The `gpuagent-bump-check` workflow (`.github/workflows/gpuagent-bump-check.yml`)
+runs daily and diffs the pinned `GPUAGENT_COMMIT` against
+[ROCm/gpu-agent](https://github.com/ROCm/gpu-agent) `main` HEAD. A new commit
+was found, so this PR was opened automatically.
+
+## Approach
+
+- Bump `GPUAGENT_COMMIT` from `9cee401919f8f25f7465d778fb0e4274408dc438` to
+  `5b2bf2cc2b94eeb98462b8ea0f7f3f1f4fd64f7f` in both pin locations:
+  - `Makefile`
+  - `docker/Dockerfile.exporter-release`
+- No change: gpu-agent's `go.mod` still pins go1.25.13, matching the current `GO_VERSION` pin.
+
+### Alternatives considered
+
+N/A — mechanical dependency bump, no design choice involved.
+
+## Scope
+
+- **In scope:** `GPUAGENT_COMMIT` pin (+ `GO_VERSION`/`GO_SHA256` if gpu-agent's
+  go.mod changed).
+- **Out of scope:** any other asset (amdsmi, ROCm version, patches). If the new
+  gpuagent commit needs a vendor patch refresh or breaks the build, a human must
+  follow up — this workflow only updates version pins.
+
+## Validation
+
+- **Automated:** none — this PR is opened as a draft specifically so CI/build and
+  a human reviewer validate the bump before merge (matches the manual gpuagent-bump
+  precedent in `docs-internal/knowledge/plans/`).
+- **Required before merge:** `make docker` (or the `/builder` skill) builds clean
+  at the new commit, and a smoke test confirms gpuagent/gpuctl still function.
+
+## Risks and rollback
+
+- **Known risks:** a gpuagent commit bump can change metric behavior, add new
+  dependencies, or require a vendor patch refresh (see prior bumps in
+  `docs-internal/knowledge/plans/`). Do not merge without a successful build.
+- **Rollback:** revert this PR; `GPUAGENT_COMMIT` (and `GO_VERSION`/`GO_SHA256`
+  if touched) return to the prior pinned values.
