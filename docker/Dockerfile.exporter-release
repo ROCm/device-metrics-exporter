@@ -141,6 +141,7 @@ LABEL OS="registry.access.redhat.com/ubi9/ubi-minimal:9.8"
 
 
 ARG ROCM_VERSION=7.2
+ARG ROCM_COMMIT=
 ARG AMDGPU_VERSION=7.2
 ARG AMDGPU_REPO_URL=https://repo.radeon.com
 # S3 therock nightly tarball (optional). Set ROCM_TARBALL_URL to install ROCm
@@ -247,6 +248,7 @@ LABEL name="amd-device-metrics-exporter" \
     version="v1.5.2" \
     release="v1.5.2" \
     ROCM_VERSION="${ROCM_VERSION}" \
+    ROCM_COMMIT="${ROCM_COMMIT}" \
     summary="AMD Device Metrics Exporter enables out-of-the-box metrics collection for AMD GPUs on Kubernetes." \
     description="AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs in HPC and AI environments. It provides detailed telemetry including temperature, utilization, memory usage, and power consumption."
 
