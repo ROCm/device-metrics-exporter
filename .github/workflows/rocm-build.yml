@@ -109,7 +109,7 @@ jobs:
               TARBALL_URL="${NIGHTLY_CDN_BASE}/${TARBALL_NAME}"
               IMAGE_TAG=$(echo "${TARBALL_NAME}" \
                 | sed 's/therock-dist-linux-multiarch-//;s/\.tar\.gz//')
-              DATE=$(echo "${IMAGE_TAG}" | grep -oP '\d{8}')
+              DATE=$(echo "${IMAGE_TAG}" | grep -oP '(?<=a)\d{8}')
               SUFFIX="${IMAGE_TAG}"
               S3_PREFIX="device-metrics-exporter/nightly/${DATE}"
               SKIP_UPLOAD="false"
@@ -387,7 +387,6 @@ jobs:
 
           echo "All artifacts uploaded to s3://${S3_BUCKET}/${S3_PREFIX}/"
           aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --human-readable || true
-          echo "ok" | aws s3 cp - "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok"
 
       - name: Login to Docker Hub
         if: ${{ !cancelled() && needs.build.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
@@ -429,6 +428,12 @@ jobs:
 
           echo "Pushed docker.io/amdpsdo/device-metrics-exporter:${PUSH_TAG}"
           echo "Pushed docker.io/amdpsdo/test-runner:${PUSH_TAG}"
+
+      - name: Mark build as successful
+        if: ${{ steps.s3-upload.outcome == 'success' && steps.registry-push.outcome == 'success' }}
+        env:
+          S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
+        run: echo "ok" | aws s3 cp - "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok"
 
       - name: Generate build summary
         if: always()
