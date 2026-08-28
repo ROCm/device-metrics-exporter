@@ -15,7 +15,7 @@ FROM ${GPUAGENT_BUILDER_BASE_IMAGE} AS gpuagent-build
 
 ARG GPUAGENT_REPO=https://github.com/ROCm/gpu-agent.git
 # full 40-char SHA required for shallow fetch-by-SHA
-ARG GPUAGENT_COMMIT=5b2bf2cc2b94eeb98462b8ea0f7f3f1f4fd64f7f
+ARG GPUAGENT_COMMIT=1d816bfe2b42c4e8d46eee2d85c6a97f86de6640
 # 0 = use pre-staged amdsmi from build context (default, no download)
 # 1 = re-extract amdsmi from the (~10GB) ROCm therock tarball
 ARG AMDSMI_FROM_TARBALL=0
@@ -109,7 +109,7 @@ RUN cd ${GPUAGENT_SRC} \
     && make gopkglist \
     && make -C sw/nic/gpuagent build-libs \
     && find sw/nic/build -name '*.a' -exec ranlib {} \; \
-    && make -C sw/nic/gpuagent all \
+    && make -j$(nproc) -C sw/nic/gpuagent all \
     && strip sw/nic/build/x86_64/sim/bin/gpuagent \
              sw/nic/build/x86_64/sim/bin/gpuagent_gim \
              sw/nic/build/x86_64/sim/bin/gpuagent_mock \
