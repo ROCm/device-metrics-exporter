@@ -168,7 +168,13 @@ else
 	@mv -vf ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuagent-sriov
 endif
 	@cp -vaf ${TOP_DIR}/tools/techsupport/metrics-exporter-ts.sh ${RPM_PACKAGE_SRIOV_DIR}/bin/metrics-exporter-ts.sh
+	# gpuctl source: shared producer build/gpuagent/ when GPUAGENT_FROM_SOURCE=1
+	# (default), else the committed prebuilt blob (matches deb-sriov gating).
+ifeq ($(GPUAGENT_FROM_SOURCE),1)
+	@cp -vf ${GPUAGENT_BUILD_DIR}/gpuctl ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuctl
+else
 	@cp -vf ${ASSETS_PATH}/gpuctl.gobin ${RPM_PACKAGE_SRIOV_DIR}/bin/gpuctl
+endif
 	@cp -vf $(CURDIR)/bin/amd-metrics-exporter ${RPM_PACKAGE_SRIOV_DIR}/bin/amd-metrics-exporter-sriov
 	@cp -vf $(CURDIR)/bin/metricsclient ${RPM_PACKAGE_SRIOV_DIR}/bin/
 	@cp -vf $(CURDIR)/bin/amdgpuhealth ${RPM_PACKAGE_SRIOV_DIR}/bin/

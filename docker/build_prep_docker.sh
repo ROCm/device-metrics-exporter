@@ -122,8 +122,22 @@ if [ "$SRIOV" != "1" ]; then
 
     chmod +x $TOP_DIR/docker/rocpctl
 fi
-if [ "$MOCK" == "1" ] || [ "$SRIOV" == "1" ]; then
-    ln -f $TOP_DIR/assets/gpuctl.gobin $TOP_DIR/docker/gpuctl
+if [ "$SRIOV" == "1" ]; then
+    # sriov gpuctl follows the shared producer when GPUAGENT_FROM_SOURCE=1
+    # (default); the committed blob is the =0 fallback only.
+    if [ "$GPUAGENT_FROM_SOURCE" == "1" ]; then
+        echo "Staging sriov gpuctl from source producer ($GPUAGENT_BUILD_DIR)"
+        cp -vf "$GPUAGENT_BUILD_DIR/gpuctl" "$TOP_DIR/docker/gpuctl"
+    else
+        ln -f "$TOP_DIR/assets/gpuctl.gobin" "$TOP_DIR/docker/gpuctl"
+    fi
+    chmod +x "$TOP_DIR/docker/gpuctl"
+elif [ "$MOCK" == "1" ]; then
+    # mock skips the ROCm tarball (MOCK_GPUAGENT_FROM_SOURCE=0) and does not
+    # exercise gpuctl; reuse the staged mock gpuagent so the Dockerfile's gpuctl
+    # ADD resolves without shipping a real gpuctl blob.
+    cp -vf "$TOP_DIR/docker/gpuagent" "$TOP_DIR/docker/gpuctl"
+    chmod +x "$TOP_DIR/docker/gpuctl"
 fi
 ln -f $TOP_DIR/bin/amd-metrics-exporter $TOP_DIR/docker/amd-metrics-exporter
 ln -f $TOP_DIR/bin/metricsclient $TOP_DIR/docker/metricsclient

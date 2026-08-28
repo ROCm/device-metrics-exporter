@@ -635,13 +635,12 @@ docker-ainic: gen amdexporter
 	${MAKE} -C docker docker-ainic TOP_DIR=$(CURDIR)
 	${MAKE} -C docker docker-save  TOP_DIR=$(CURDIR) AINIC=1
 
-# for development we use ubuntu based. Pinned to the prebuilt sriov blob
-# (GPUAGENT_FROM_SOURCE=0) to preserve its current behavior without wiring the
-# shared source producer.
+# for development we use ubuntu based. Builds gpuagent_gim + gpuctl from the
+# shared source producer (GPUAGENT_FROM_SOURCE=1 default), like docker-sriov.
 .PHONY: docker-sriov-ub22
-docker-sriov-ub22: gen amdexporter
+docker-sriov-ub22: gen amdexporter $(GPUAGENT_PRODUCER_DEP)
 	echo "Building docker for sriov driver ub22"
-	${MAKE} -C docker docker-sriov-ub22 TOP_DIR=$(CURDIR) GPUAGENT_FROM_SOURCE=0
+	${MAKE} -C docker docker-sriov-ub22 TOP_DIR=$(CURDIR) GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR)
 	${MAKE} -C docker docker-sriov-save TOP_DIR=$(CURDIR)
 
 .PHONY: docker-mock

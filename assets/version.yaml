@@ -9,11 +9,6 @@ assets:
     repo    : ROCm/gpu-agent
     branch  : main
 
-  - name    : gpuctl.gobin
-    version : 9645999
-    repo    : ROCm/gpu-agent
-    branch  : main
-
   - name    : gpuagent_sriov_static.bin.gz
     version : 9645999
     repo    : ROCm/gpu-agent
