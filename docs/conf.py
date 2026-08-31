@@ -16,7 +16,7 @@ copyright = "Copyright (c) 2024 Advanced Micro Devices, Inc. All rights reserved
 # Required settings
 html_theme = "rocm_docs_theme"
 html_theme_options = {
-    "flavor": "instinct",
+    "flavor": "instinct-design",
     "use_download_button": True,
     "repository_url": "https://github.com/rocm/device-metrics-exporter",
     # Add any additional theme options here
