@@ -210,11 +210,23 @@ RUN cd /home/amd/lib/ \
 
 # In tarball mode, override /home/amd/lib with the tarball amd_smi so the runtime
 # LD_PRELOAD matches the version gpuagent was built against.
+# ROCm relocates libamd_smi.so across releases (share/amd_smi/amdsmi/ in 10.0,
+# lib/ in 10.1); locate it dynamically instead of hardcoding a path. Search lib/
+# then share/ then the whole tree so an unforeseen future move still resolves;
+# within each candidate set take the highest-versioned real file (.so.N.N.N) so
+# cp -aL dereferences to a concrete lib rather than a bare symlink.
 RUN if [ -n "${ROCM_TARBALL_URL}" ]; then \
-        src=/opt/rocm-${ROCM_VERSION}/share/amd_smi/amdsmi/libamd_smi.so; \
+        base=/opt/rocm-${ROCM_VERSION}; \
+        for d in "$base/lib" "$base/share" "$base"; do \
+            src=$(find "$d" -name 'libamd_smi.so.[0-9]*' 2>/dev/null | sort -V | tail -1); \
+            [ -z "$src" ] && src=$(find "$d" -name 'libamd_smi.so' 2>/dev/null | head -1); \
+            [ -n "$src" ] && break; \
+        done; \
+        [ -n "$src" ] || { echo "ERROR: libamd_smi.so* not found anywhere under $base"; exit 1; }; \
+        echo "resolved libamd_smi from: $src"; \
         soname=$(grep -ao 'libamd_smi\.so\.[0-9]\+' "$src" | head -1); \
         rm -f /home/amd/lib/libamd_smi.so*; \
-        cp -a "$src" /home/amd/lib/"$soname"; \
+        cp -aL "$src" /home/amd/lib/"$soname"; \
         (cd /home/amd/lib && ln -sf "$soname" libamd_smi.so); \
     fi
 

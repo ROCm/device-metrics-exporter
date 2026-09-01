@@ -79,7 +79,9 @@ KEEP_DIR=$(mktemp -d)
 mkdir -p "${KEEP_DIR}/lib" "${KEEP_DIR}/bin" "${KEEP_DIR}/libexec" "${KEEP_DIR}/share" "${KEEP_DIR}/.kpack"
 
 # ── Lib prune list — common to both profiles ──────────────────────────────────
+# libamd_smi kept for all profiles: ROCm 10.1 ships it in lib/, needed post-prune.
 COMMON_PATTERNS=(
+    "libamd_smi.*"
     "libamdhip64.*"
     "librocm_kpack.*"
     "librocprofiler-sdk.*" "librocprofiler-sdk-roctx.*"
@@ -91,7 +93,6 @@ COMMON_PATTERNS=(
 
 # ── Additional libs for testrunner profile (RVS + AGFHC runtime deps) ─────────
 TESTRUNNER_PATTERNS=(
-    "libamd_smi.*"
     "librocblas.*"
     "librocm-core.*"
     "libhipblaslt.*"
