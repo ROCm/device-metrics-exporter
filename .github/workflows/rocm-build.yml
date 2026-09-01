@@ -130,7 +130,7 @@ jobs:
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               BASENAME=$(basename "${TARBALL_URL}" .tar.gz)
               IMAGE_TAG="${INPUT_IMAGE_TAG:-${BASENAME#therock-dist-linux-multiarch-}}"
-              SUFFIX="${IMAGE_TAG}-$(date +%Y%m%d%H%M)"
+              SUFFIX="${GITHUB_RUN_NUMBER}"
               S3_PREFIX="device-metrics-exporter/pre-release/${DME_VERSION}-${SUFFIX}"
               SKIP_UPLOAD="${INPUT_SKIP:-true}"
               SCENARIO="pre-release"
