@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          NIGHTLY_CDN_BASE="https://rocm.nightlies.amd.com/tarball-multi-arch"
+          NIGHTLY_CDN_BASE="https://nightly.repo.amd.com/rocm/core/tarball"
           PR_FALLBACK_URL=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')
           DME_VERSION=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')
 
