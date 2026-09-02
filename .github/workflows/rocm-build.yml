@@ -32,11 +32,6 @@ on:
         required: false
         type: string
         default: ''
-      skip_upload:
-        description: 'Skip S3 upload — build only'
-        required: false
-        type: boolean
-        default: false
       force_rebuild:
         description: 'Force rebuild even if already built for this SHA + image tag'
         required: false
@@ -69,11 +64,10 @@ jobs:
       rocm_tarball_url: ${{ steps.resolve.outputs.rocm_tarball_url }}
       image_tag:        ${{ steps.resolve.outputs.image_tag }}
       s3_prefix:        ${{ steps.resolve.outputs.s3_prefix }}
-      skip_upload:      ${{ steps.resolve.outputs.skip_upload }}
       dme_version:      ${{ steps.resolve.outputs.dme_version }}
       suffix:           ${{ steps.resolve.outputs.suffix }}
       scenario:         ${{ steps.resolve.outputs.scenario }}
-      build_needed:     ${{ steps.s3-dedup.outputs.cache-hit != 'true' || inputs.force_rebuild == true }}
+      build_needed:     ${{ steps.dedup.outputs.cache-hit != 'true' || inputs.force_rebuild == true }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -83,7 +77,6 @@ jobs:
         env:
           INPUT_URL:       ${{ inputs.rocm_tarball_url }}
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
-          INPUT_SKIP:      ${{ inputs.skip_upload }}
         run: |
           set -euo pipefail
 
@@ -112,7 +105,6 @@ jobs:
               DATE=$(echo "${IMAGE_TAG}" | grep -oP '(?<=a)\d{8}')
               SUFFIX="${IMAGE_TAG}"
               S3_PREFIX="device-metrics-exporter/nightly/${DATE}"
-              SKIP_UPLOAD="false"
               SCENARIO="nightly"
               ;;
 
@@ -120,19 +112,16 @@ jobs:
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               IMAGE_TAG="${DME_VERSION}"
               SUFFIX=$(echo "${GITHUB_SHA}" | cut -c1-8)
-              S3_PREFIX="device-metrics-exporter/pr-builds/${SUFFIX}"
-              SKIP_UPLOAD="true"
+              S3_PREFIX=""
               SCENARIO="pull_request"
               ;;
 
             workflow_dispatch)
-              # Uploads by default. Set skip_upload=true to build without uploading.
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               BASENAME=$(basename "${TARBALL_URL}" .tar.gz)
               IMAGE_TAG="${INPUT_IMAGE_TAG:-${BASENAME#therock-dist-linux-multiarch-}}"
               SUFFIX="${GITHUB_RUN_NUMBER}"
               S3_PREFIX="device-metrics-exporter/pre-release/${DME_VERSION}-${SUFFIX}"
-              SKIP_UPLOAD="${INPUT_SKIP:-true}"
               SCENARIO="pre-release"
               ;;
 
@@ -149,7 +138,6 @@ jobs:
           echo "rocm_tarball_url=${TARBALL_URL}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${IMAGE_TAG}"           >> "$GITHUB_OUTPUT"
           echo "s3_prefix=${S3_PREFIX}"           >> "$GITHUB_OUTPUT"
-          echo "skip_upload=${SKIP_UPLOAD}"       >> "$GITHUB_OUTPUT"
           echo "dme_version=${DME_VERSION}"       >> "$GITHUB_OUTPUT"
           echo "suffix=${SUFFIX}"                 >> "$GITHUB_OUTPUT"
           echo "scenario=${SCENARIO}"             >> "$GITHUB_OUTPUT"
@@ -159,45 +147,24 @@ jobs:
           echo "Suffix       : ${SUFFIX}"
           echo "Scenario     : ${SCENARIO}"
           echo "S3 prefix    : ${S3_PREFIX}"
-          echo "Skip upload  : ${SKIP_UPLOAD}"
           echo "DME version  : ${DME_VERSION}"
 
-      - name: Configure AWS credentials for dedup check
-        if: github.event_name == 'schedule'
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Check dedup cache
+        id: dedup
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: actions/cache/restore@v4
         with:
-          role-to-assume: ${{ secrets.ROCK_CI_S3_SECRET }}
-          aws-region: us-east-1
+          key: dedup-dme-${{ steps.resolve.outputs.image_tag }}-${{ github.sha }}
+          path: .dedup-marker
+          lookup-only: true
 
-      - name: Check S3 build marker
-        id: s3-dedup
-        if: github.event_name == 'schedule'
-        env:
-          S3_PREFIX: ${{ steps.resolve.outputs.s3_prefix }}
-        run: |
-          if aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok" 2>/dev/null; then
-            echo "Already built ${S3_PREFIX} — skipping"
-            echo "cache-hit=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "cache-hit=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Runs only when dedup skips the build — writes a summary explaining why.
-  skipped:
-    name: Already built — skipped
-    needs: resolve
-    if: needs.resolve.outputs.build_needed == 'false'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Generate skip summary
+      - name: Dedup summary
+        if: steps.dedup.outputs.cache-hit == 'true' && inputs.force_rebuild != true
         run: |
           {
             echo "## DME Build — Skipped"
-            if [ "${{ github.event_name }}" = "schedule" ]; then
-              echo "Build already succeeded for tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
-            else
-              echo "Build already succeeded for SHA \`${{ github.sha }}\` + tag \`${{ needs.resolve.outputs.image_tag }}\`. No rebuild needed."
-            fi
+            echo "Build already succeeded for tag \`${{ steps.resolve.outputs.image_tag }}\` at SHA \`${GITHUB_SHA}\`. No rebuild needed."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Builds DME exporter image, SR-IOV image, and .deb packages.
@@ -356,38 +323,23 @@ jobs:
   publish:
     name: Publish
     needs: [resolve, build-dme, build-test-runner]
-    if: always() && needs.resolve.outputs.build_needed == 'true'
+    if: always() && needs.resolve.outputs.build_needed == 'true' && github.event_name != 'pull_request' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Check build results
-        env:
-          DME_BUILD:  ${{ needs.build-dme.result }}
-          TR_BUILD:   ${{ needs.build-test-runner.result }}
-        run: |
-          echo "build-dme:         ${DME_BUILD}"
-          echo "build-test-runner: ${TR_BUILD}"
-          if [ "${DME_BUILD}" != "success" ] || [ "${TR_BUILD}" != "success" ]; then
-            echo "::error::Build failed — skipping upload"
-            exit 1
-          fi
-
       - name: Download DME artifacts
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         uses: actions/download-artifact@v4
         with:
           name: build-dme-${{ needs.resolve.outputs.image_tag }}
           path: artifacts
 
       - name: Download test-runner artifact
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         uses: actions/download-artifact@v4
         with:
           name: build-test-runner-${{ needs.resolve.outputs.image_tag }}
           path: artifacts
 
       - name: Rename artifacts with dme-version + identifier
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         env:
           IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
@@ -417,7 +369,6 @@ jobs:
           ls artifacts/
 
       - name: Validate upload prerequisites
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         env:
           HAS_ARN: ${{ secrets.ROCK_CI_S3_SECRET != '' }}
         run: |
@@ -431,7 +382,6 @@ jobs:
           fi
 
       - name: Configure AWS credentials (OIDC)
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.ROCK_CI_S3_SECRET }}
@@ -439,7 +389,6 @@ jobs:
 
       - name: Upload artifacts to S3
         id: s3-upload
-        if: ${{ needs.resolve.outputs.skip_upload == 'false' }}
         env:
           S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
         run: |
@@ -468,7 +417,6 @@ jobs:
           aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" --human-readable || true
 
       - name: Login to Docker Hub
-        if: ${{ !cancelled() && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKER_USERNAME }}
@@ -476,7 +424,6 @@ jobs:
 
       - name: Push images to amdpsdo registry
         id: registry-push
-        if: ${{ !cancelled() && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.resolve.outputs.skip_upload == 'false' }}
         env:
           IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
@@ -508,11 +455,16 @@ jobs:
           echo "Pushed docker.io/amdpsdo/device-metrics-exporter:${PUSH_TAG}"
           echo "Pushed docker.io/amdpsdo/test-runner:${PUSH_TAG}"
 
-      - name: Mark build as successful
-        if: ${{ steps.s3-upload.outcome == 'success' && steps.registry-push.outcome == 'success' }}
-        env:
-          S3_PREFIX: ${{ needs.resolve.outputs.s3_prefix }}
-        run: echo "ok" | aws s3 cp - "s3://${S3_BUCKET}/${S3_PREFIX}/.build-ok"
+      - name: Create dedup marker
+        if: ${{ always() && steps.s3-upload.outcome == 'success' && steps.registry-push.outcome == 'success' }}
+        run: mkdir -p .dedup-marker && echo "ok" > .dedup-marker/ok
+      - name: Save dedup marker to cache
+        uses: actions/cache/save@v4
+        if: ${{ always() && steps.s3-upload.outcome == 'success' && steps.registry-push.outcome == 'success' }}
+        continue-on-error: true
+        with:
+          key: dedup-dme-${{ needs.resolve.outputs.image_tag }}-${{ github.sha }}
+          path: .dedup-marker
 
       - name: Generate build summary
         if: always()
@@ -520,7 +472,6 @@ jobs:
           IMAGE_TAG:        ${{ needs.resolve.outputs.image_tag }}
           ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
           S3_PREFIX:        ${{ needs.resolve.outputs.s3_prefix }}
-          SKIP_UPLOAD:      ${{ needs.resolve.outputs.skip_upload }}
           DME_BUILD_RESULT: ${{ needs.build-dme.result }}
           TR_BUILD_RESULT:  ${{ needs.build-test-runner.result }}
           S3_RESULT:        ${{ steps.s3-upload.outcome }}
@@ -537,13 +488,8 @@ jobs:
             echo "| Artifact suffix | \`${{ needs.resolve.outputs.suffix }}\` |"
             echo "| Build DME | ${DME_BUILD_RESULT} |"
             echo "| Build Test Runner | ${TR_BUILD_RESULT} |"
-            if [ "${SKIP_UPLOAD}" = "true" ]; then
-              echo "| S3 upload | skipped (upload disabled) |"
-              echo "| Registry push | skipped (upload disabled) |"
-            else
-              echo "| S3 upload | ${S3_RESULT:-failure} |"
-              echo "| Registry push | ${REGISTRY_RESULT:-skipped} |"
-            fi
+            echo "| S3 upload | ${S3_RESULT:-failure} |"
+            echo "| Registry push | ${REGISTRY_RESULT:-skipped} |"
             echo "| S3 prefix | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -551,8 +497,8 @@ jobs:
   # Synchronous — this workflow waits for validation to complete.
   validate:
     name: Validate
-    needs: [resolve, publish]
-    if: needs.publish.result == 'success' && needs.resolve.outputs.skip_upload == 'false'
+    needs: [resolve, build-dme, build-test-runner, publish]
+    if: always() && needs.resolve.outputs.build_needed == 'true' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped')
     uses: ROCm/common-infra-operator/.github/workflows/rocm-orchestrator.yml@main
     with:
       component: dme
