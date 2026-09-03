@@ -1,7 +1,7 @@
 name: DME Build
 
-# Builds DME + test-runner images and .deb packages against a ROCm tarball.
-# Job graph: resolve → build-dme + build-test-runner → publish → validate → results
+# Builds DME + test-runner images, .deb packages, and Helm chart against a ROCm tarball.
+# Job graph: resolve → build-dme + build-test-runner + build-helm → publish → validate → results
 # Triggers: nightly (cron), PR (path-filtered), pre-release (workflow_dispatch)
 
 on:
@@ -19,6 +19,7 @@ on:
       - 'Makefile.build'
       - 'Makefile.compile'
       - 'Makefile.package'
+      - 'helm-charts/**'
 
   workflow_dispatch:
     inputs:
@@ -72,6 +73,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials for dispatch counter
+        if: github.event_name == 'workflow_dispatch'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROCK_CI_S3_SECRET }}
+          aws-region: us-east-1
+
       - name: Resolve trigger inputs
         id: resolve
         env:
@@ -120,7 +128,13 @@ jobs:
               TARBALL_URL="${INPUT_URL:-${PR_FALLBACK_URL}}"
               BASENAME=$(basename "${TARBALL_URL}" .tar.gz)
               IMAGE_TAG="${INPUT_IMAGE_TAG:-${BASENAME#therock-dist-linux-multiarch-}}"
-              SUFFIX="${GITHUB_RUN_NUMBER}"
+              # Next sequential build number: list existing S3 prefixes, find highest N, use N+1
+              if ! LISTING=$(aws s3 ls "s3://${S3_BUCKET}/device-metrics-exporter/pre-release/" 2>&1); then
+                echo "::error::Failed to query S3 for build counter: ${LISTING}"
+                exit 1
+              fi
+              LAST_N=$(echo "${LISTING}" | grep -oP "${DME_VERSION}-\K\d+" | sort -n | tail -1 || true)
+              SUFFIX=$(( ${LAST_N:-0} + 1 ))
               S3_PREFIX="device-metrics-exporter/pre-release/${DME_VERSION}-${SUFFIX}"
               SCENARIO="pre-release"
               ;;
@@ -319,11 +333,54 @@ jobs:
           path: staging/
 
 
+  # Packages the Helm chart — lightweight, no ROCm tarball or dev container needed.
+  build-helm:
+    name: Build Helm Chart
+    needs: resolve
+    if: needs.resolve.outputs.build_needed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: |
+          set -euo pipefail
+          # yq
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64" \
+            -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+          # helm
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version && yq --version
+
+      - name: Build Helm chart
+        env:
+          DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
+          IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          make helm HELM_CHARTS_VERSION="${DME_VERSION}" \
+                    HELM_EXPORTER_IMAGE_TAG="${IMAGE_TAG}"
+
+      - name: Upload Helm chart artifact
+        env:
+          DME_VERSION: ${{ needs.resolve.outputs.dme_version }}
+        run: |
+          mkdir -p staging
+          cp "helm-charts/device-metrics-exporter-charts-${DME_VERSION}.tgz" staging/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-helm-${{ needs.resolve.outputs.image_tag }}
+          retention-days: 1
+          path: staging/
+
+
   # Downloads build artifacts, renames with dme-version + identifier, uploads to S3 and Docker Hub.
   publish:
     name: Publish
-    needs: [resolve, build-dme, build-test-runner]
-    if: always() && needs.resolve.outputs.build_needed == 'true' && github.event_name != 'pull_request' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success'
+    needs: [resolve, build-dme, build-test-runner, build-helm]
+    if: always() && needs.resolve.outputs.build_needed == 'true' && github.event_name != 'pull_request' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -337,6 +394,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-test-runner-${{ needs.resolve.outputs.image_tag }}
+          path: artifacts
+
+      - name: Download Helm chart artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-helm-${{ needs.resolve.outputs.image_tag }}
           path: artifacts
 
       - name: Rename artifacts with dme-version + identifier
@@ -365,6 +428,9 @@ jobs:
             UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+(?=_amd64)')
             mv "$f" "artifacts/amdgpu-exporter-sriov-${DME_VERSION}-${SUFFIX}~${UBUNTU_VER}_amd64.deb"
           done
+          # Helm chart
+          mv "artifacts/device-metrics-exporter-charts-${DME_VERSION}.tgz" \
+             "artifacts/device-metrics-exporter-charts-${DME_VERSION}-${SUFFIX}.tgz"
           echo "Renamed artifacts:"
           ls artifacts/
 
@@ -408,7 +474,8 @@ jobs:
           shopt -s nullglob
           for f in artifacts/device-metrics-exporter-*.tar.gz \
                    artifacts/test-runner-*.tar.gz \
-                   artifacts/amdgpu-exporter-*_amd64.deb; do
+                   artifacts/amdgpu-exporter-*_amd64.deb \
+                   artifacts/device-metrics-exporter-charts-*.tgz; do
             upload_file "${f}" "${S3_PREFIX}/$(basename "${f}")"
           done
           shopt -u nullglob
@@ -472,10 +539,11 @@ jobs:
           IMAGE_TAG:        ${{ needs.resolve.outputs.image_tag }}
           ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
           S3_PREFIX:        ${{ needs.resolve.outputs.s3_prefix }}
-          DME_BUILD_RESULT: ${{ needs.build-dme.result }}
-          TR_BUILD_RESULT:  ${{ needs.build-test-runner.result }}
-          S3_RESULT:        ${{ steps.s3-upload.outcome }}
-          REGISTRY_RESULT:  ${{ steps.registry-push.outcome }}
+          DME_BUILD_RESULT:  ${{ needs.build-dme.result }}
+          TR_BUILD_RESULT:   ${{ needs.build-test-runner.result }}
+          HELM_BUILD_RESULT: ${{ needs.build-helm.result }}
+          S3_RESULT:         ${{ steps.s3-upload.outcome }}
+          REGISTRY_RESULT:   ${{ steps.registry-push.outcome }}
         run: |
           {
             echo "## DME Build — \`${IMAGE_TAG}\`"
@@ -488,6 +556,7 @@ jobs:
             echo "| Artifact suffix | \`${{ needs.resolve.outputs.suffix }}\` |"
             echo "| Build DME | ${DME_BUILD_RESULT} |"
             echo "| Build Test Runner | ${TR_BUILD_RESULT} |"
+            echo "| Build Helm Chart | ${HELM_BUILD_RESULT} |"
             echo "| S3 upload | ${S3_RESULT:-failure} |"
             echo "| Registry push | ${REGISTRY_RESULT:-skipped} |"
             echo "| S3 prefix | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
@@ -497,8 +566,8 @@ jobs:
   # Synchronous — this workflow waits for validation to complete.
   validate:
     name: Validate
-    needs: [resolve, build-dme, build-test-runner, publish]
-    if: always() && needs.resolve.outputs.build_needed == 'true' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    needs: [resolve, build-dme, build-test-runner, build-helm, publish]
+    if: always() && needs.resolve.outputs.build_needed == 'true' && needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped')
     uses: ROCm/common-infra-operator/.github/workflows/rocm-orchestrator.yml@main
     with:
       component: dme
