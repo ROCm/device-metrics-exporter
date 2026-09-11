@@ -1,0 +1,151 @@
+---
+version: 2.0
+meta: {}
+
+image:
+  bind_dir: "/device-metrics-exporter"
+  work_dir: "/device-metrics-exporter"
+
+e2e-targets:
+  exporter-k8s-pytest-sanity-devcfg-driver:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-internal/run_sanity.sh --app gpu-operator \
+         --registry direct --testbed /warmd.json --amdgpu-driver default-deviceconfig --module exporter"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies:
+      - build-device-metrics-exporter-gpu
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: ea87427f1574ca3fa12e4933353fb39aedc6c440
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: testbed-type
+            value: K8
+
+  testrunner-k8s-pytest-sanity-devcfg-driver:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-internal/run_sanity.sh --app gpu-operator \
+         --registry direct --testbed /warmd.json --amdgpu-driver default-deviceconfig --module test_runner"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies:
+      - build-device-metrics-exporter-gpu
+      - build-test-runner-docker
+      - build-test-runner-docker-agfhc
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: ea87427f1574ca3fa12e4933353fb39aedc6c440
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: testbed-type
+            value: K8
+
+  exporter-helmchart-pytest-sanity-inbox-driver:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-internal/run_sanity.sh --app exporter \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies:
+      - build-device-metrics-exporter-gpu
+      - build-helm-gpu-artifact
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: ea87427f1574ca3fa12e4933353fb39aedc6c440
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: testbed-type
+            value: K8
+
+  exporter-debian-pytest-sanity-inbox-driver:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-internal/run_sanity.sh --app debian \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies:
+      - build-device-metrics-exporter-gpu
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: ea87427f1574ca3fa12e4933353fb39aedc6c440
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: testbed-type
+            value: K8
+
+  exporter-docker-pytest-sanity-inbox-driver:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-internal/run_sanity.sh --app docker \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies:
+      - build-device-metrics-exporter-gpu
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: ea87427f1574ca3fa12e4933353fb39aedc6c440
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: testbed-type
+            value: K8
+
+logfiles:
+  - /common-infra-operator/tests/pytests/pytest_logs.tgz
+
+submodules: {}
