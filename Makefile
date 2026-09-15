@@ -694,11 +694,13 @@ mod:
 	@touch ${TOP_DIR}/libamdsmi/go.mod
 	@echo "setting up go mod packages"
 	@go mod tidy
-	@go mod edit -go=1.25.10
+	@go mod edit -go=1.25.13
 	#CVE-2024-24790 - amd-metrics-exporter
 	@go mod edit -replace golang.org/x/net@v0.29.0=golang.org/x/net@v0.36.0
-	#CVE-2026-84304
-	@go mod edit -replace google.golang.org/grpc@v1.72.1=google.golang.org/grpc@v1.83.1
+	#CVE-2026-33186, CVE-2026-84304, CVE-2026-84445, GHSA-hrxh-6v49-42gf, CVE-2026-84303
+	@go mod edit -replace google.golang.org/grpc@v1.78.0=google.golang.org/grpc@v1.83.2
+	#CVE-2026-56854 (CVE-2026-56855 needs x/crypto v0.56.0, which requires go1.26 - deferred)
+	@go mod edit -replace golang.org/x/crypto@v0.53.0=golang.org/x/crypto@v0.55.0
 	#CVE-2025-30204 - amd-test-runner
 	@go mod edit -replace github.com/golang-jwt/jwt/v5@v5.2.1=github.com/golang-jwt/jwt/v5@v5.2.2
 	#CVE GHSA-fv92-fjc5-jj9h - amdgpuhealth
