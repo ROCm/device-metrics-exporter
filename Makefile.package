@@ -31,13 +31,14 @@ GPUAGENT_SRIOV_LIBS := ${ASSETS_PATH}/gim_smi_lib/x86_64/${UBUNTU_LIBDIR}/lib
 GPUAGENT_SRIOV_LIBS_RHEL9 := ${ASSETS_PATH}/gim_smi_lib/x86_64/RHEL9/lib
 PROFILER_DEB_LIBS := ${TOP_DIR}/build/assets/${UBUNTU_LIBDIR}/profilerlibs/
 PROFILER_RPM_LIBS_RHEL9 := ${TOP_DIR}/build/assets/RHEL9/profilerlibs/
-ROCPROFILER_ASSETS := ${ASSETS_PATH}/rocprofiler
 PKG_PATH := ${TOP_DIR}/debian/usr/local/bin
 PKG_SRIOV_PATH := ${TOP_DIR}/debian-sriov/usr/local/bin
 RPM_PATH := ${TOP_DIR}/SOURCES/
 PKG_LIB_PATH := ${TOP_DIR}/debian/usr/local/metrics
 PKG_SRIOV_LIB_PATH := ${TOP_DIR}/debian-sriov/usr/local/metrics
-ROCPROFLER_SDK_ASSETS :=  ${ASSETS_PATH}/rocprofiler-sdk
+# Counter-definition XMLs are staged by the rocprofiler producer alongside the
+# client binaries (from the ROCm tarball in the builder image), not committed.
+ROCPROFLER_SDK_ASSETS :=  ${TOP_DIR}/build/rocprofiler
 SDK_COUNTER_DEF := ${TOP_DIR}/debian/usr/local/metrics/share/rocprofiler-sdk
 LUA_PROTO := ${TOP_DIR}/pkg/amdgpu/proto/luaplugin.proto
 LIB_CONF_PATH := ${TOP_DIR}/debian/usr/local/etc/metrics/gpuagent.conf
@@ -78,7 +79,7 @@ rpmpkg-clean:
 	@rm -rf ${TOP_DIR}/BUILDROOT
 	@rm -rf ${TOP_DIR}/SOURCES
 
-rpmpkg: rpmpkg-clean $(GPUAGENT_PRODUCER_DEP) $(AMDSMI_PKG_DEP)
+rpmpkg: rpmpkg-clean $(GPUAGENT_PRODUCER_DEP) $(AMDSMI_PKG_DEP) $(ROCPROFILER_PRODUCER_DEP)
 	@echo "build rpm package for $(RPM_BUILD_VERSION)-$(RPM_RELEASE_LABEL)"
 	$(if $(EXPORTER_PREBUILT),@echo "amd-metrics-exporter already built by caller; skipping rebuild",${MAKE} amdexporter)
 	# copy to bin folders for tar
@@ -113,10 +114,10 @@ endif
 	@echo "Copying profiler dependent libraries form ${PROFILER_RPM_LIBS_RHEL9}"
 	@cp -vaf $(PROFILER_RPM_LIBS_RHEL9)/rocprofilerdeplib/lib* ${RPM_PACKAGE_DIR}/lib/
 	ls -lart ${RPM_PACKAGE_DIR}/lib
-	@echo "Copying rocprofiler client library and binary"
-	@cp -vf ${ROCPROFILER_ASSETS}/librocpclient* ${RPM_PACKAGE_DIR}/lib/
-	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${RPM_PACKAGE_DIR}/bin/
-	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
+	@echo "Copying rocprofiler client library and binary (from source producer)"
+	@cp -vf ${ROCPROFILER_BUILD_DIR}/librocpclient.so ${RPM_PACKAGE_DIR}/lib/
+	@cp -vf ${ROCPROFILER_BUILD_DIR}/rocpctl ${RPM_PACKAGE_DIR}/bin/
+	@cp -vf ${ROCPROFLER_SDK_ASSETS}/*_counters.xml ${ROCPROFLER_SDK_ASSETS}/config.yaml ${RPM_PACKAGE_DIR}/share/rocprofiler-sdk
 	# strip policy: rpm strips EVERYTHING shipped (package size over
 	# in-place symbols). rpm previously stripped nothing; this step is added from
 	# scratch and covers every binary staged into ${RPM_PACKAGE_DIR}/bin.
@@ -234,7 +235,7 @@ debpkg-sriov-clean:
 	# usr/local/etc/metrics/gpuagent.conf EnvironmentFile.
 	rm -rf ${PKG_SRIOV_PATH} ${PKG_SRIOV_LIB_PATH} ${PKG_SRIOV_LUA_PATH} ${METRICS_SRIOV_CONF_DIR}
 
-debpkg: debpkg-clean $(GPUAGENT_PRODUCER_DEP) $(AMDSMI_PKG_DEP)
+debpkg: debpkg-clean $(GPUAGENT_PRODUCER_DEP) $(AMDSMI_PKG_DEP) $(ROCPROFILER_PRODUCER_DEP)
 	$(if $(EXPORTER_PREBUILT),@echo "amd-metrics-exporter already built by caller; skipping rebuild",${MAKE} amdexporter)
 	@echo "Building debian for $(BUILD_VER_ENV)"
 	@echo "library assets build path $(PROFILER_DEB_LIBS)"
@@ -267,10 +268,10 @@ endif
 	@echo "Copying profiler dependent libraries form ${PROFILER_DEB_LIBS}"
 	@cp -vaf $(PROFILER_DEB_LIBS)/rocprofilerdeplib/lib* ${PKG_LIB_PATH}/lib/
 	ls -lart ${PKG_LIB_PATH}/lib
-	@echo "Copying rocprofiler client library and binary"
-	@cp -vf ${ROCPROFILER_ASSETS}/librocpclient* ${PKG_LIB_PATH}/lib/
-	@cp -vf ${ROCPROFILER_ASSETS}/rocpctl ${PKG_PATH}/rocpctl
-	@cp -vf ${ROCPROFLER_SDK_ASSETS}/* ${SDK_COUNTER_DEF}/
+	@echo "Copying rocprofiler client library and binary (from source producer)"
+	@cp -vf ${ROCPROFILER_BUILD_DIR}/librocpclient* ${PKG_LIB_PATH}/lib/
+	@cp -vf ${ROCPROFILER_BUILD_DIR}/rocpctl ${PKG_PATH}/rocpctl
+	@cp -vf ${ROCPROFLER_SDK_ASSETS}/*_counters.xml ${ROCPROFLER_SDK_ASSETS}/config.yaml ${SDK_COUNTER_DEF}/
 	#copy default config
 	@jq '.CommonConfig.HealthService.Enable = false | del(.GPUConfig.ExtraPodLabels, .NICConfig, .IFOEConfig)' $(CONFIG_DIR)/config.json > ${METRICS_CONF_PATH}/config.json
 	@cat ${METRICS_CONF_PATH}/config.json

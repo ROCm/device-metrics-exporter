@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ARG BASE_IMAGE=ubuntu:22.04
 
 FROM ${BASE_IMAGE}
@@ -22,10 +23,20 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
   libcap-dev libdw-dev && \
   apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN if [ -n "${ROCM_TARBALL_URL}" ]; then \
-      echo "=== ROCm install: S3 tarball (full - compiler needed for build) ===" && \
+# tarball data bind-mounted from the `rocm-tarball` build context (downloaded once
+# on the host). Prune the math/DL libraries (hipblaslt, rocblas, MIOpen, composable-
+# kernel archives) in the same RUN layer — rocpctl only links rocprofiler-sdk + the
+# hip/llvm toolchain, so this cuts the builder image ~22GB -> ~10GB without touching
+# anything the compile needs.
+RUN --mount=type=bind,from=rocm-tarball,source=therock.tar.gz,target=/tmp/rocm.tar.gz \
+   if [ -n "${ROCM_TARBALL_URL}" ]; then \
+      echo "=== ROCm install: therock tarball (pruned - toolchain + rocprofiler-sdk only) ===" && \
       mkdir -p "/opt/rocm-${ROCM_VERSION}" && \
-      wget --fail -qO- "${ROCM_TARBALL_URL}" | tar -xzf - -C "/opt/rocm-${ROCM_VERSION}" && \
+      tar -xzf /tmp/rocm.tar.gz -C "/opt/rocm-${ROCM_VERSION}" && \
+      ROCM="/opt/rocm-${ROCM_VERSION}" && \
+      rm -rf "${ROCM}/lib/hipblaslt" "${ROCM}/lib/rocblas" "${ROCM}/share/miopen" \
+             "${ROCM}"/lib/libMIOpen* "${ROCM}"/lib/libdevice_conv_operations.a \
+             "${ROCM}"/lib/libdevice_reduction_operations.a && \
       mkdir -p /etc/alternatives && \
       ln -sf "/opt/rocm-${ROCM_VERSION}" /etc/alternatives/rocm && \
       ln -sf /etc/alternatives/rocm /opt/rocm && \

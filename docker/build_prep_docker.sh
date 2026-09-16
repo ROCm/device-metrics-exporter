@@ -108,19 +108,16 @@ if [ -n "$SMI_LIB_DIR" ]; then
     cp -vfL $SMI_LIB_DIR/librocm_sysdeps_*.so* $TOP_DIR/docker/ 2>/dev/null || true
 fi
 
-if [ "$SRIOV" != "1" ]; then
-    if [ -f $TOP_DIR/rocprofilerclient/build/librocpclient.so ]; then
-        echo "Copying newly built rocprofiler libs and binary"
-        cp -vf $TOP_DIR/rocprofilerclient/build/librocpclient.so $TOP_DIR/docker/
-        cp -vf $TOP_DIR/rocprofilerclient/build/rocpctl $TOP_DIR/docker/
-    else
-        # copy prebuilt
-        echo "Copying prebuilt rocprofiler libs and binary"
-        cp -vf $TOP_DIR/assets/rocprofiler/librocpclient.so $TOP_DIR/docker/
-        cp -vf $TOP_DIR/assets/rocprofiler/rocpctl $TOP_DIR/docker/
-    fi
-
-    chmod +x $TOP_DIR/docker/rocpctl
+# mock ships rocpctl-mock (no ROCm tarball / no rocprofiler producer); sriov ships
+# no rocpctl. Only the real release path stages the source-built client.
+if [ "$SRIOV" != "1" ] && [ "$MOCK" != "1" ]; then
+    # rocprofiler client is always staged from the shared source producer
+    # (build/rocprofiler/); there is no prebuilt-blob fallback.
+    ROCPROFILER_BUILD_DIR="${ROCPROFILER_BUILD_DIR:-$TOP_DIR/build/rocprofiler}"
+    echo "Staging rocprofiler client from source producer ($ROCPROFILER_BUILD_DIR)"
+    cp -vf "$ROCPROFILER_BUILD_DIR/librocpclient.so" "$TOP_DIR/docker/"
+    cp -vf "$ROCPROFILER_BUILD_DIR/rocpctl" "$TOP_DIR/docker/"
+    chmod +x "$TOP_DIR/docker/rocpctl"
 fi
 if [ "$SRIOV" == "1" ]; then
     # sriov gpuctl follows the shared producer when GPUAGENT_FROM_SOURCE=1

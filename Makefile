@@ -195,8 +195,8 @@ export RVS_TARBALL_URL
 # export so docker/Makefile (sub-make) can pass --build-context rocm-tarball
 export ROCM_TARBALL_DIR
 export AMDSMI_FROM_TARBALL
-export AMDSMI_FROM_TARBALL
 export GPUAGENT_FROM_SOURCE
+export ROCPROFILER_BUILD_DIR
 
 ASSETS_PATH :=${TOP_DIR}/assets
 
@@ -332,6 +332,14 @@ GPUAGENT_PRODUCER_DEP := $(GPUAGENT_BUILD_STAMP)
 else
 GPUAGENT_PRODUCER_DEP :=
 endif
+
+# rocprofiler client (rocpctl + librocpclient.so) shared producer, mirroring the
+# gpuagent model: built once per make invocation from rocprofilerclient/ source
+# against the (tarball) ROCm, extracted to build/rocprofiler/. Always built from
+# source (no prebuilt-blob fallback).
+ROCPROFILER_BUILD_DIR := $(TOP_DIR)/build/rocprofiler
+ROCPROFILER_BUILD_STAMP := $(ROCPROFILER_BUILD_DIR)/.stamp
+ROCPROFILER_PRODUCER_DEP := $(ROCPROFILER_BUILD_STAMP)
 
 # The mock build (docker-mock / e2e) uses the mock gpuagent, which needs no real
 # GPU libs, so it defaults to the committed assets/gpuagent_mock.bin.gz blob and
@@ -591,8 +599,8 @@ amdgpuhealth:
 
 # both exporter images (non-SR-IOV + SR-IOV), saved as tar.gz
 .PHONY: docker-image
-docker-image: gen amdexporter $(GPUAGENT_PRODUCER_DEP)
-	${MAKE} -C docker TOP_DIR=$(CURDIR) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) AMDSMI_FROM_TARBALL=$(AMDSMI_FROM_TARBALL) GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)
+docker-image: gen amdexporter $(GPUAGENT_PRODUCER_DEP) $(ROCPROFILER_PRODUCER_DEP)
+	${MAKE} -C docker TOP_DIR=$(CURDIR) HOURLY_TAG_LABEL=$(HOURLY_TAG_LABEL) AMDSMI_FROM_TARBALL=$(AMDSMI_FROM_TARBALL) GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)
 	${MAKE} -C docker docker-save TOP_DIR=$(CURDIR)
 	${MAKE} -C docker docker-sriov-save TOP_DIR=$(CURDIR)
 
@@ -611,7 +619,7 @@ docker-image-sriov: gen amdexporter $(GPUAGENT_PRODUCER_DEP)
 # CGO-static amd64 build, identical across ub22/ub24/rhel9). Standalone
 # `make debpkg` / `make rpmpkg` (no EXPORTER_PREBUILT) still rebuild fresh.
 .PHONY: docker-pkgs
-docker-pkgs: gen amdexporter $(GPUAGENT_PRODUCER_DEP)
+docker-pkgs: gen amdexporter $(GPUAGENT_PRODUCER_DEP) $(ROCPROFILER_PRODUCER_DEP)
 	${MAKE} EXPORTER_PREBUILT=1 libcopy-assets-RHEL9 rpmpkg rpmpkg-sriov
 	${MAKE} EXPORTER_PREBUILT=1 libcopy-assets-UBUNTU22 debpkg debpkg-sriov
 	${MAKE} EXPORTER_PREBUILT=1 UBUNTU_VERSION=noble libcopy-assets-UBUNTU24 debpkg debpkg-sriov
@@ -670,11 +678,11 @@ docker-test-runner-cicd: gen-test-runner amdtestrunner
 		RVS_TARBALL_URL=$(RVS_TARBALL_URL)
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-save
 
-# Pinned to the prebuilt blob path (GPUAGENT_FROM_SOURCE=0) so it stages
-# gpuagent/gpuctl from assets/ without the shared source producer.
+# Builds gpuagent + gpuctl + rocprofiler client from the shared source producers
+# (GPUAGENT_FROM_SOURCE=1 default; profiler always from source), like docker-image.
 .PHONY: docker-azure
-docker-azure: gen amdexporter
-	${MAKE} -C docker azure TOP_DIR=$(CURDIR) GPUAGENT_FROM_SOURCE=0
+docker-azure: gen amdexporter $(GPUAGENT_PRODUCER_DEP) $(ROCPROFILER_PRODUCER_DEP)
+	${MAKE} -C docker azure TOP_DIR=$(CURDIR) GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR)
 	${MAKE} -C docker docker-save TOP_DIR=$(CURDIR) DOCKER_CONTAINER_IMAGE=${EXPORTER_IMAGE_NAME}-${EXPORTER_IMAGE_TAG}-azure
 
 .PHONY:checks

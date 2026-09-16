@@ -43,6 +43,16 @@ cmake --build build --target all
 # come back to root directory
 cd "$dir"
 
+# stage counter XMLs (from the ROCm tarball) next to the client binaries
+sdk_src=/opt/rocm/share/rocprofiler-sdk
+for f in basic_counters.xml derived_counters.xml config.yaml; do
+    [[ -f "$sdk_src/$f" ]] && cp -vf "$sdk_src/$f" "$outdir"
+done
+if [[ ! -f "$outdir/basic_counters.xml" || ! -f "$outdir/derived_counters.xml" ]]; then
+    echo "ERROR: rocprofiler-sdk counter XMLs not found under $sdk_src" >&2
+    exit 1
+fi
+
 ls -lart "$outdir"
 
 echo "Successfully Built rocprofiler library"

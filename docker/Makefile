@@ -14,6 +14,7 @@ ROCM_TARBALL_URL ?=
 # build_prep_docker.sh stages its binaries when GPUAGENT_FROM_SOURCE=1.
 GPUAGENT_FROM_SOURCE ?= 1
 GPUAGENT_BUILD_DIR ?= $(TOP_DIR)/build/gpuagent
+ROCPROFILER_BUILD_DIR ?= $(TOP_DIR)/build/rocprofiler
 # once-downloaded ROCm tarball dir (exported by root Makefile; fallback
 # for standalone use). Passed as the `rocm-tarball` build context in tarball mode.
 ROCM_TARBALL_DIR ?= $(TOP_DIR)/build/rocm-tarball
@@ -29,7 +30,7 @@ AMDSMI_FROM_TARBALL ?= 1
 docker:
 	@echo "building amd exporter container (non-SR-IOV)"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) OS=RHEL9 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=RHEL9 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	# DOCKER_BUILDKIT=1 required for --build-context / RUN --mount (release runtime
 	# stage reads the bind-mounted tarball); overrides a CI DOCKER_BUILDKIT=0.
 	# BuildKit's integrated resolver ignores daemon.json insecure-registries for
@@ -50,14 +51,14 @@ docker:
 		--label HOURLY_TAG=$(HOURLY_TAG_LABEL) \
 		. -f Dockerfile.exporter-release
 	@echo "building amd exporter sriov container BASE_IMAGE:$(EXPORTER_SRIOV_BASE_IMAGE), image: $(EXPORTER_SRIOV_IMAGE)"
-	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(EXPORTER_SRIOV_BASE_IMAGE) -t $(EXPORTER_SRIOV_IMAGE) --label HOURLY_TAG=$(HOURLY_TAG_LABEL) . -f Dockerfile.sriov.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
 
 .PHONY: docker-mock
 docker-mock:
 	@echo "building amd exporter mock container"
-	@TOP_DIR=$(TOP_DIR) MOCK=1 OS=RHEL9 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) MOCK=1 OS=RHEL9 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(BUILD_BASE_IMAGE) \
 		-t $(EXPORTER_IMAGE) \
 		. -f Dockerfile.exporter-mock-release
@@ -77,14 +78,14 @@ endif
 azure:
 	@echo "building cicd docker for local publish"
 	@echo "HOURLY_TAG : $(HOURLY_TAG_LABEL)"
-	@TOP_DIR=$(TOP_DIR) OS=AZURE3 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=AZURE3 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(AZURE_BASE_IMAGE) -t $(EXPORTER_IMAGE) --label HOURLY_TAG=$(HOURLY_TAG_LABEL) . -f Dockerfile.azure.linux3.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
 
 .PHONY: docker-sriov
 docker-sriov:
 	@echo "building amd exporter sriov container BASE_IMAGE:$(EXPORTER_SRIOV_BASE_IMAGE), image: $(EXPORTER_SRIOV_IMAGE)"
-	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(EXPORTER_SRIOV_BASE_IMAGE) -t $(EXPORTER_SRIOV_IMAGE) --label HOURLY_TAG=$(HOURLY_TAG_LABEL) . -f Dockerfile.sriov.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
 
@@ -92,7 +93,7 @@ docker-sriov:
 docker-sriov-ub22:
 	@echo "building amd exporter sriov container BASE_IMAGE:$(BUILD_BASE_IMAGE), image: $(EXPORTER_SRIOV_IMAGE)"
 	# we use the same libs for ubuntu as well
-	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ./build_prep_docker.sh
+	@TOP_DIR=$(TOP_DIR) OS=RHEL9 SRIOV=1 GPUAGENT_FROM_SOURCE=$(GPUAGENT_FROM_SOURCE) GPUAGENT_BUILD_DIR=$(GPUAGENT_BUILD_DIR) ROCPROFILER_BUILD_DIR=$(ROCPROFILER_BUILD_DIR) ./build_prep_docker.sh
 	@docker build --build-arg BASE_IMAGE=$(BUILD_BASE_IMAGE) -t $(EXPORTER_SRIOV_IMAGE) --label HOURLY_TAG=$(HOURLY_TAG_LABEL) . -f Dockerfile.sriov.ub22.exporter-release
 	@TOP_DIR=$(TOP_DIR) ./build_post_docker.sh
 

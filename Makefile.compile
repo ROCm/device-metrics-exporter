@@ -119,19 +119,33 @@ amdsmi-sync-assets: amdsmi-from-tarball
 	echo "therock-$(ROCM_VERSION)" > $(TOP_DIR)/assets/amd_smi_lib/version.txt ; \
 	echo "amdsmi synced to $$dest"
 
-.PHONY: rocprofiler-compile
-rocprofiler-compile:
+# Shared rocprofiler-client producer: build once per make invocation from
+# rocprofilerclient/ source, extract to build/rocprofiler/. Stamp = the
+# "once per make" guarantee (mirrors the gpuagent producer). Rebuilds when the
+# ROCm tarball or the client source changes.
+.PHONY: rocprofiler-build-producer
+rocprofiler-build-producer: $(ROCPROFILER_BUILD_STAMP)
+
+$(ROCPROFILER_BUILD_STAMP): $(ROCM_TARBALL_DEP) \
+    $(ROCPROFILER_SRC_DIR)/rocpclient.cpp $(ROCPROFILER_SRC_DIR)/rocpctl.cpp \
+    $(ROCPROFILER_SRC_DIR)/RocpCounterSampler.h $(ROCPROFILER_SRC_DIR)/CMakeLists.txt
+	@echo "Building rocprofiler client from source (ROCM_VERSION=$(ROCM_VERSION))"
 	${MAKE} rocprofiler-build
-	@docker run --rm $(DOCKER_IT_FLAGS) --privileged \
+	@docker run --rm $(if $(CI),,-it) --privileged \
 		-e "USER_NAME=$(shell whoami)" \
 		-e "USER_UID=$(shell id -u)" \
 		-e "USER_GID=$(shell id -g)" \
 		-e "ROCM_VERSION=$(ROCM_VERSION)" \
 		--name rocprofilerbuild -v $(ROCPROFILER_HOST_SRC_DIR):$(ROCPROFILER_CONTAINER_WORKDIR) \
 		-w $(ROCPROFILER_CONTAINER_WORKDIR) $(ROCPROFILER_BUILDER_IMAGE)
-	@echo "Copy newly built assets"
-	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/librocpclient.so $(ROCPROFILER_ASSET_DIR)/
-	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/rocpctl $(ROCPROFILER_ASSET_DIR)/
+	@mkdir -p $(ROCPROFILER_BUILD_DIR)
+	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/librocpclient.so $(ROCPROFILER_BUILD_DIR)/
+	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/rocpctl $(ROCPROFILER_BUILD_DIR)/
+	# counter XMLs staged by the builder entrypoint from the ROCm tarball
+	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/basic_counters.xml $(ROCPROFILER_BUILD_DIR)/
+	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/derived_counters.xml $(ROCPROFILER_BUILD_DIR)/
+	@cp -vf $(ROCPROFILER_ASSET_BLD_DIR)/config.yaml $(ROCPROFILER_BUILD_DIR)/ 2>/dev/null || true
+	@touch $@
 
 LIBBUILDER_DIR := $(TOP_DIR)/tools/rocprofiler-libbuilder/
 .PHONY: libcopy-assets

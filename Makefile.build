@@ -7,11 +7,10 @@ AMDMSMI_HOST_SRC_DIR := $(HOST_TOP_DIR)/
 AMDSMI_BUILD_DIR := $(TOP_DIR)/tools/smilib-builderimage/
 GIMSMI_BUILD_DIR := $(TOP_DIR)/tools/gimlib-builderimage/
 ROCPROFILER_CONTAINER_WORKDIR := ${WORK_DIR}/rocprofilerclient
-ROCPROFILER_BUILD_DIR := $(TOP_DIR)/tools/rocprofiler-builderimage/
+ROCPROFILER_BUILDER_DIR := $(TOP_DIR)/tools/rocprofiler-builderimage/
 ROCPROFILER_SRC_DIR := $(TOP_DIR)/rocprofilerclient/
 ROCPROFILER_HOST_SRC_DIR := $(HOST_TOP_DIR)/rocprofilerclient/
 ROCPROFILER_ASSET_BLD_DIR := $(ROCPROFILER_SRC_DIR)/build/
-ROCPROFILER_ASSET_DIR := $(ASSETS_PATH)/rocprofiler/
 
 # this is usually required once for expediting the compilation
 
@@ -66,11 +65,15 @@ amdsmi-build-azure:
 .PHONY: rocprofiler-build
 rocprofiler-build:
 	@docker image rm $(ROCPROFILER_BUILDER_IMAGE) || true
-	@docker build --build-arg BUILD_BASE_IMAGE=$(ROCPROFILER_BASE_UBUNTU22) \
+	# Warm local cache via classic pull; BuildKit won't fall back to HTTP registry.
+	@docker pull $(ROCPROFILER_BASE_UBUNTU22) || true
+	@DOCKER_BUILDKIT=1 docker build --build-arg BASE_IMAGE=$(ROCPROFILER_BASE_UBUNTU22) \
 		--build-arg ROCM_VERSION=$(ROCM_VERSION) \
 		--build-arg AMDGPU_VERSION=$(ROCM_VERSION) \
+		$(if $(ROCM_TARBALL_URL),--build-arg ROCM_TARBALL_URL=$(ROCM_TARBALL_URL)) \
+		$(if $(filter 1,$(AMDSMI_FROM_TARBALL)),--build-context rocm-tarball=$(ROCM_TARBALL_DIR)) \
 		-t $(ROCPROFILER_BUILDER_IMAGE) \
-		 . -f $(ROCPROFILER_BUILD_DIR)/Dockerfile.ubuntu22
+		 . -f $(ROCPROFILER_BUILDER_DIR)/Dockerfile.ubuntu22
 
 # these create docker container images for the compilation of respective OS libraries 
 .PHONY: gimsmi-build
