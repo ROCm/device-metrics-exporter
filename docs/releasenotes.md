@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.5.3
+
+- **Version Bump**
+  - Routine version bump; no functional changes in this release.
+
+### Issues Fixed
+
+- N/A
+
+### Known Issues
+
+- N/A
+
 ## v1.5.2
 
 - **ROCm 10 Libraries**

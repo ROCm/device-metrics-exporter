@@ -32,6 +32,18 @@ fi
 echo "Using HIP compiler: ${HIPCC_BIN}"
 echo "Target HIP architectures: ${HIP_ARCHS}"
 
+# ROCm 10.1.0rc0 ships rocprofiler-sdk v1.4.1 whose cmake config FAILs when
+# spm_runner_preflight.py is absent (upstream bug ROCm/rocm-systems#11539,
+# fixed in #11633 but not yet in the tarball). Create a stub so cmake succeeds.
+SPM_STUB=/opt/rocm/share/rocprofiler-sdk/tests/spm_runner_preflight.py
+if [[ ! -f "$SPM_STUB" ]]; then
+    mkdir -p "$(dirname "$SPM_STUB")"
+    cat > "$SPM_STUB" <<'PYEOF'
+SPM_MIN_AMDGPU_DRIVER_VERSION = "0.0.0"
+PYEOF
+    echo "Created spm_runner_preflight.py stub (ROCm/rocm-systems#11539 workaround)"
+fi
+
 rm -rf build || true
 cmake -B build ./ \
     -DCMAKE_PREFIX_PATH=/opt/rocm \
