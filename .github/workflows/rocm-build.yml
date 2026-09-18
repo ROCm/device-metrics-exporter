@@ -24,11 +24,12 @@ on:
   workflow_dispatch:
     inputs:
       rocm_tarball_url:
-        description: "ROCm stable tarball URL\ne.g. https://stable.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-<version>.tar.gz"
-        required: true
+        description: 'ROCm tarball URL (leave blank to auto-detect)'
+        required: false
         type: string
+        default: ''
       image_tag:
-        description: 'Docker image tag. Auto-derived if blank.'
+        description: 'Docker image tag (e.g. 10.1.0a20260817). Auto-derived if blank.'
         required: false
         type: string
         default: ''
