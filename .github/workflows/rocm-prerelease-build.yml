@@ -288,8 +288,6 @@ jobs:
       component: dme
       scenario: pre-release
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
-    secrets:
-      ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
 
   results:
     name: Results
