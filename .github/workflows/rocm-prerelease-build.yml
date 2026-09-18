@@ -1,37 +1,19 @@
-name: DME Build
+name: DME Pre-Release Build
 
-# Builds DME + test-runner images, .deb packages, and Helm chart against a ROCm tarball.
-# Job graph: read-version → resolve (shared) → build-dme + build-test-runner + build-helm → publish (shared) → validate (shared) → results
-# Triggers: nightly (cron), PR (path-filtered), pre-release (workflow_dispatch)
+# Builds DME + test-runner images, .deb packages, and Helm chart against a ROCm RC tarball.
+# Triggered manually — provide the RC tarball URL from rc.repo.amd.com.
+# Artifacts land at: device-metrics-exporter/pre-release/{version}-{rocm_version}-{N}/
+# Image tag format:  {version}-{rocm_version}-{N}  e.g. v1.5.3-10.1.0rc0-1
+#
+# Job graph: read-version → resolve → build-dme + build-test-runner + build-helm → publish (shared) → validate (shared) → results
 
 on:
-  schedule:
-    - cron: '0 13 * * *'
-
-  pull_request:
-    branches:
-      - '**'
-    paths:
-      - '.github/workflows/rocm-build.yml'
-      - 'docker/**'
-      - 'tools/base-image/**'
-      - 'Makefile'
-      - 'Makefile.build'
-      - 'Makefile.compile'
-      - 'Makefile.package'
-      - 'helm-charts/**'
-
   workflow_dispatch:
     inputs:
       rocm_tarball_url:
-        description: "ROCm stable tarball URL\ne.g. https://stable.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-<version>.tar.gz"
+        description: "ROCm RC tarball URL\ne.g. https://rc.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-<version><rc>.tar.gz"
         required: true
         type: string
-      image_tag:
-        description: 'Docker image tag. Auto-derived if blank.'
-        required: false
-        type: string
-        default: ''
       force_rebuild:
         description: 'Force rebuild even if already built for this SHA + image tag'
         required: false
@@ -39,8 +21,8 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.event_name == 'schedule' && 'dme-nightly' || github.event_name == 'pull_request' && format('dme-pr-{0}', github.event.pull_request.number) || format('dme-{0}-{1}', github.event_name, github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'schedule' || github.event_name == 'pull_request' }}
+  group: dme-prerelease-${{ github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -58,28 +40,24 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.v.outputs.version }}
-      tarball_url: ${{ steps.v.outputs.tarball_url }}
     steps:
       - uses: actions/checkout@v4
       - id: v
         run: |
           echo "version=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
-          echo "tarball_url=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
 
   resolve:
     name: Resolve
     needs: read-version
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@d322879bf9fcd790a8ab92aed150874c52a957ed
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@dfccc0f74f54351194f5b095a8d3fba013d0b8f8
     with:
       component: dme
       version: ${{ needs.read-version.outputs.version }}
-      tarball_url_default: ${{ needs.read-version.outputs.tarball_url }}
       s3_component_prefix: device-metrics-exporter
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
-      trigger_event: ${{ github.event_name }}
+      trigger_event: pre-release
       trigger_sha: ${{ github.sha }}
       input_tarball_url: ${{ inputs.rocm_tarball_url }}
-      input_image_tag: ${{ inputs.image_tag }}
       force_rebuild: ${{ inputs.force_rebuild || false }}
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
@@ -95,7 +73,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Free up runner disk space
-        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@d322879bf9fcd790a8ab92aed150874c52a957ed
+        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@dfccc0f74f54351194f5b095a8d3fba013d0b8f8
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -111,7 +89,7 @@ jobs:
 
       - name: Build DME artifacts inside dev container
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          IMAGE_TAG:        ${{ needs.resolve.outputs.image_tag }}
           ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
         run: |
           docker run --rm --privileged \
@@ -131,9 +109,9 @@ jobs:
 
       - name: Rename and stage artifacts with final names
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.version }}
-          SUFFIX: ${{ needs.resolve.outputs.suffix }}
+          SUFFIX:      ${{ needs.resolve.outputs.suffix }}
         run: |
           set -euo pipefail
           mkdir -p staging
@@ -178,7 +156,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Free up runner disk space
-        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@d322879bf9fcd790a8ab92aed150874c52a957ed
+        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@dfccc0f74f54351194f5b095a8d3fba013d0b8f8
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -194,7 +172,7 @@ jobs:
 
       - name: Build test-runner inside dev container
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          IMAGE_TAG:        ${{ needs.resolve.outputs.image_tag }}
           ROCM_TARBALL_URL: ${{ needs.resolve.outputs.rocm_tarball_url }}
         run: |
           docker run --rm --privileged \
@@ -214,9 +192,9 @@ jobs:
 
       - name: Rename and stage artifact with final name
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
           DME_VERSION: ${{ needs.resolve.outputs.version }}
-          SUFFIX: ${{ needs.resolve.outputs.suffix }}
+          SUFFIX:      ${{ needs.resolve.outputs.suffix }}
         run: |
           mkdir -p staging
           mv "docker/testrunner/test-runner-${IMAGE_TAG}.tar.gz" \
@@ -249,8 +227,8 @@ jobs:
       - name: Build and rename Helm chart with final name
         env:
           DME_VERSION: ${{ needs.resolve.outputs.version }}
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
-          SUFFIX: ${{ needs.resolve.outputs.suffix }}
+          IMAGE_TAG:   ${{ needs.resolve.outputs.image_tag }}
+          SUFFIX:      ${{ needs.resolve.outputs.suffix }}
         run: |
           set -euo pipefail
           make helm HELM_CHARTS_VERSION="${DME_VERSION}" \
@@ -270,16 +248,15 @@ jobs:
     needs: [resolve, build-dme, build-test-runner, build-helm]
     if: >-
       always() && needs.resolve.outputs.build_needed == 'true'
-      && github.event_name != 'pull_request'
       && needs.build-dme.result == 'success'
       && needs.build-test-runner.result == 'success'
       && needs.build-helm.result == 'success'
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@d322879bf9fcd790a8ab92aed150874c52a957ed
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@dfccc0f74f54351194f5b095a8d3fba013d0b8f8
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
-      version: ${{ needs.resolve.outputs.version }}
-      suffix: ${{ needs.resolve.outputs.suffix }}
+      version:   ${{ needs.resolve.outputs.version }}
+      suffix:    ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
       trigger_sha: ${{ github.sha }}
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
@@ -294,8 +271,8 @@ jobs:
         test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|false
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-      DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
+      DOCKER_TOKEN:      ${{ secrets.DOCKER_TOKEN }}
+      DOCKER_USERNAME:   ${{ vars.DOCKER_USERNAME }}
 
   validate:
     name: Validate
@@ -309,8 +286,10 @@ jobs:
     uses: ROCm/common-infra-operator/.github/workflows/rocm-orchestrator.yml@d322879bf9fcd790a8ab92aed150874c52a957ed
     with:
       component: dme
-      scenario: ${{ needs.resolve.outputs.scenario }}
+      scenario: pre-release
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
+    secrets:
+      ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
 
   results:
     name: Results
@@ -321,11 +300,11 @@ jobs:
       - name: Determine overall status
         id: status
         env:
-          DME_RESULT: ${{ needs.build-dme.result }}
-          TR_RESULT: ${{ needs.build-test-runner.result }}
-          HELM_RESULT: ${{ needs.build-helm.result }}
-          PUBLISH_RESULT: ${{ needs.publish.result }}
-          VALIDATE_JOB: ${{ needs.validate.result }}
+          DME_RESULT:      ${{ needs.build-dme.result }}
+          TR_RESULT:       ${{ needs.build-test-runner.result }}
+          HELM_RESULT:     ${{ needs.build-helm.result }}
+          PUBLISH_RESULT:  ${{ needs.publish.result }}
+          VALIDATE_JOB:    ${{ needs.validate.result }}
           VALIDATE_OUTPUT: ${{ needs.validate.outputs.result }}
         run: |
           if [ "${DME_RESULT}" != "success" ]; then
@@ -349,20 +328,19 @@ jobs:
 
       - name: Post summary
         env:
-          STATUS: ${{ steps.status.outputs.status }}
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
-          SCENARIO: ${{ needs.resolve.outputs.scenario }}
-          VERSION: ${{ needs.resolve.outputs.version }}
-          SUFFIX: ${{ needs.resolve.outputs.suffix }}
-          DME_RESULT: ${{ needs.build-dme.result }}
-          TR_RESULT: ${{ needs.build-test-runner.result }}
-          HELM_RESULT: ${{ needs.build-helm.result }}
-          PUBLISH_RESULT: ${{ needs.publish.result }}
+          STATUS:          ${{ steps.status.outputs.status }}
+          IMAGE_TAG:       ${{ needs.resolve.outputs.image_tag }}
+          VERSION:         ${{ needs.resolve.outputs.version }}
+          SUFFIX:          ${{ needs.resolve.outputs.suffix }}
+          DME_RESULT:      ${{ needs.build-dme.result }}
+          TR_RESULT:       ${{ needs.build-test-runner.result }}
+          HELM_RESULT:     ${{ needs.build-helm.result }}
+          PUBLISH_RESULT:  ${{ needs.publish.result }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
           VALIDATE_OUTPUT: ${{ needs.validate.outputs.result }}
         run: |
           {
-            echo "## DME Build Results — \`${SCENARIO}\`"
+            echo "## DME Pre-Release Build Results"
             echo ""
             echo "| | |"
             echo "|---|---|"
