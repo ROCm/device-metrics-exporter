@@ -1,0 +1,55 @@
+name: Build Helm Chart
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      suffix:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+
+  build-helm:
+    name: Build Helm Chart
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64" \
+            -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version && yq --version
+
+      - name: Build and rename Helm chart with final name
+        env:
+          DME_VERSION: ${{ inputs.version }}
+          IMAGE_TAG:   ${{ inputs.image_tag }}
+          SUFFIX:      ${{ inputs.suffix }}
+        run: |
+          set -euo pipefail
+          make helm HELM_CHARTS_VERSION="${DME_VERSION}" \
+                    HELM_EXPORTER_IMAGE_TAG="${IMAGE_TAG}"
+          mkdir -p staging
+          mv "helm-charts/device-metrics-exporter-charts-${DME_VERSION}.tgz" \
+             "staging/device-metrics-exporter-charts-${DME_VERSION}-${SUFFIX}.tgz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-helm-${{ inputs.image_tag }}
+          retention-days: 1
+          path: staging/
