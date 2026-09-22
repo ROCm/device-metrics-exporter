@@ -40,7 +40,7 @@ jobs:
 
   resolve:
     name: Resolve
-    uses: Vyoma02/common-infra-operator/.github/workflows/rocm-resolve.yml@0d007e559c3c48793a4b5be42e8ee67eaec31f2d
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
       version: ${{ inputs.dme_version }}
