@@ -59,7 +59,7 @@ jobs:
   resolve:
     name: Resolve
     needs: read-version
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@d2e10a71e2af56af1fa0177901570daa75e8ac2b
     with:
       component: dme
       version: ${{ needs.read-version.outputs.version }}
@@ -113,7 +113,7 @@ jobs:
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@d2e10a71e2af56af1fa0177901570daa75e8ac2b
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
