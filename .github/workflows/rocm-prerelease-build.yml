@@ -1,72 +1,53 @@
-name: DME Build
+name: DME Pre-Release Build
 
 # Builds DME + test-runner images, .deb packages, and Helm chart against a ROCm tarball.
-# Job graph: read-version → resolve (shared) → build-dme + build-test-runner + build-helm → publish (shared) → results
-# Triggers: nightly (cron), PR (path-filtered), manual re-trigger (workflow_dispatch)
+# Provide dme_version (e.g. v1.5.3) and rocm_version (e.g. 10.1.0rc4 or 10.1.0).
+# When rocm_version contains rc (e.g. 10.1.0rc4), uses rc.repo.amd.com.
+# When rocm_version has no rc suffix (e.g. 10.1.0), uses stable.repo.amd.com (GA build).
+# Artifacts land at: device-metrics-exporter/pre-release/{dme_version}-{rocm_version}-{N}/
+# Image tag format:  {dme_version}-{rocm_version}-{N}  e.g. v1.5.3-10.1.0rc4-1
+#
+# Job graph: resolve → build-dme + build-test-runner + build-helm → publish → results
 
 on:
-  schedule:
-    - cron: '0 13 * * *'
-
-  pull_request:
-    branches:
-      - '**'
-    paths:
-      - '.github/workflows/rocm-build.yml'
-      - '.github/workflows/_build-dme.yml'
-      - '.github/workflows/_build-test-runner.yml'
-      - '.github/workflows/_build-helm.yml'
-      - 'docker/**'
-      - 'tools/base-image/**'
-      - 'Makefile'
-      - 'Makefile.build'
-      - 'Makefile.compile'
-      - 'Makefile.package'
-      - 'helm-charts/**'
-
   workflow_dispatch:
     inputs:
+      dme_version:
+        description: 'DME version (e.g. v1.5.3)'
+        required: true
+        type: string
+      rocm_version:
+        description: 'ROCm version (e.g. 10.1.0rc4 for RC build, or 10.1.0 for GA build)'
+        required: true
+        type: string
       force_rebuild:
-        description: 'Force rebuild even if already built for this SHA + image tag'
+        description: 'Force rebuild even if already built for this tarball + SHA'
         required: false
         type: boolean
         default: false
 
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('dme-pr-{0}', github.event.pull_request.number) || 'dme-nightly' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: dme-prerelease-${{ inputs.dme_version }}-${{ inputs.rocm_version }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
   id-token: write
   actions: write
 
-jobs:
 
-  read-version:
-    name: Read version from Makefile
-    runs-on: ubuntu-24.04
-    outputs:
-      version: ${{ steps.v.outputs.version }}
-      tarball_url: ${{ steps.v.outputs.tarball_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: v
-        run: |
-          echo "version=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
-          echo "tarball_url=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+jobs:
 
   resolve:
     name: Resolve
-    needs: read-version
     uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
-      version: ${{ needs.read-version.outputs.version }}
-      tarball_url_default: ${{ needs.read-version.outputs.tarball_url }}
+      version: ${{ inputs.dme_version }}
+      rocm_version: ${{ inputs.rocm_version }}
       s3_component_prefix: device-metrics-exporter
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
-      trigger_event: ${{ github.event_name }}
+      trigger_event: pre-release
       trigger_sha: ${{ github.sha }}
       force_rebuild: ${{ inputs.force_rebuild || false }}
     secrets:
@@ -109,7 +90,6 @@ jobs:
     needs: [resolve, build-dme, build-test-runner, build-helm]
     if: >-
       always() && needs.resolve.outputs.build_needed == 'true'
-      && github.event_name != 'pull_request'
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
@@ -119,8 +99,8 @@ jobs:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_version: ${{ needs.resolve.outputs.rocm_tarball_version }}
       all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' }}
-      version: ${{ needs.resolve.outputs.version }}
-      suffix: ${{ needs.resolve.outputs.suffix }}
+      version:   ${{ needs.resolve.outputs.version }}
+      suffix:    ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
       trigger_sha: ${{ github.sha }}
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
@@ -135,8 +115,8 @@ jobs:
         test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-      DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
+      DOCKER_TOKEN:      ${{ secrets.DOCKER_TOKEN }}
+      DOCKER_USERNAME:   ${{ vars.DOCKER_USERNAME }}
 
   results:
     name: Results
@@ -146,19 +126,18 @@ jobs:
     steps:
       - name: Post summary
         env:
-          IMAGE_TAG:             ${{ needs.resolve.outputs.image_tag }}
-          SCENARIO:              ${{ needs.resolve.outputs.scenario }}
-          VERSION:               ${{ needs.resolve.outputs.version }}
-          SUFFIX:                ${{ needs.resolve.outputs.suffix }}
-          S3_PREFIX:             ${{ needs.resolve.outputs.s3_prefix }}
-          S3_BUCKET:             ${{ vars.THEROCK_BUCKET_NAME }}
-          DME_RESULT:            ${{ needs.build-dme.result }}
-          TEST_RUNNER_RESULT:    ${{ needs.build-test-runner.result }}
-          HELM_RESULT:           ${{ needs.build-helm.result }}
-          PUBLISH_RESULT:        ${{ needs.publish.result }}
+          IMAGE_TAG:          ${{ needs.resolve.outputs.image_tag }}
+          VERSION:            ${{ needs.resolve.outputs.version }}
+          SUFFIX:             ${{ needs.resolve.outputs.suffix }}
+          S3_PREFIX:          ${{ needs.resolve.outputs.s3_prefix }}
+          S3_BUCKET:          ${{ vars.THEROCK_BUCKET_NAME }}
+          DME_RESULT:         ${{ needs.build-dme.result }}
+          TEST_RUNNER_RESULT: ${{ needs.build-test-runner.result }}
+          HELM_RESULT:        ${{ needs.build-helm.result }}
+          PUBLISH_RESULT:     ${{ needs.publish.result }}
         run: |
           {
-            echo "## DME Build Results — \`${SCENARIO}\`"
+            echo "## DME Pre-Release Build Results"
             echo ""
             echo "| | |"
             echo "|---|---|"
@@ -168,6 +147,6 @@ jobs:
             echo "| Build DME | ${DME_RESULT} |"
             echo "| Build Test Runner | ${TEST_RUNNER_RESULT} |"
             echo "| Build Helm | ${HELM_RESULT} |"
-            echo "| Publish | ${PUBLISH_RESULT:-n/a} |"
+            echo "| Publish | ${PUBLISH_RESULT} |"
             [ -n "${S3_PREFIX}" ] && echo "| S3 location | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |" || true
           } >> "$GITHUB_STEP_SUMMARY"

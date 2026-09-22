@@ -1,0 +1,86 @@
+name: Build Test Runner
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+      rocm_tarball_url:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      suffix:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  DEV_IMAGE_TAG: docker.io/rocm/device-metrics-exporter-build:v1.10
+  WORKSPACE: /usr/src/github.com/ROCm/device-metrics-exporter
+
+jobs:
+
+  build-test-runner:
+    name: Build Test Runner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space
+        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@840846bb5b34109a358b36e644dc73246f5e1eb6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev container
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/base-image
+          load: true
+          tags: ${{ env.DEV_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build test-runner inside dev container
+        env:
+          IMAGE_TAG:        ${{ inputs.image_tag }}
+          ROCM_TARBALL_URL: ${{ inputs.rocm_tarball_url }}
+        run: |
+          docker run --rm --privileged \
+            -e CI=true \
+            -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
+            -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -e "HOST_TOP_DIR=${{ github.workspace }}" \
+            -e "ROCM_TARBALL_URL=${ROCM_TARBALL_URL}" \
+            -e "TESTRUNNER_IMAGE_TAG=${IMAGE_TAG}" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:${WORKSPACE}" \
+            -w "${WORKSPACE}" \
+            "${DEV_IMAGE_TAG}" \
+            bash -c "source ~/.bashrc && \
+              git config --global --add safe.directory ${WORKSPACE} && \
+              make docker-test-runner-cicd TOP_DIR=${WORKSPACE}"
+
+      - name: Rename and stage artifact with final name
+        env:
+          IMAGE_TAG:   ${{ inputs.image_tag }}
+          DME_VERSION: ${{ inputs.version }}
+          SUFFIX:      ${{ inputs.suffix }}
+        run: |
+          mkdir -p staging
+          mv "docker/testrunner/test-runner-${IMAGE_TAG}.tar.gz" \
+             "staging/test-runner-${DME_VERSION}-${SUFFIX}.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-test-runner-${{ inputs.image_tag }}
+          retention-days: 1
+          path: staging/

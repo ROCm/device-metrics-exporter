@@ -1,0 +1,108 @@
+name: Build DME
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        required: true
+        type: string
+      rocm_tarball_url:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      suffix:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  DEV_IMAGE_TAG: docker.io/rocm/device-metrics-exporter-build:v1.10
+  WORKSPACE: /usr/src/github.com/ROCm/device-metrics-exporter
+
+jobs:
+
+  build-dme:
+    name: Build DME
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up runner disk space
+        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@840846bb5b34109a358b36e644dc73246f5e1eb6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dev container
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/base-image
+          load: true
+          tags: ${{ env.DEV_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build DME artifacts inside dev container
+        env:
+          IMAGE_TAG:        ${{ inputs.image_tag }}
+          ROCM_TARBALL_URL: ${{ inputs.rocm_tarball_url }}
+        run: |
+          docker run --rm --privileged \
+            -e CI=true \
+            -e "GIT_COMMIT=$(git rev-list -1 HEAD --abbrev-commit)" \
+            -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
+            -e "HOST_TOP_DIR=${{ github.workspace }}" \
+            -e "ROCM_TARBALL_URL=${ROCM_TARBALL_URL}" \
+            -e "EXPORTER_IMAGE_TAG=${IMAGE_TAG}" \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${{ github.workspace }}:${WORKSPACE}" \
+            -w "${WORKSPACE}" \
+            "${DEV_IMAGE_TAG}" \
+            bash -c "source ~/.bashrc && \
+              git config --global --add safe.directory ${WORKSPACE} && \
+              make docker TOP_DIR=${WORKSPACE}"
+
+      - name: Rename and stage artifacts with final names
+        env:
+          IMAGE_TAG:   ${{ inputs.image_tag }}
+          DME_VERSION: ${{ inputs.version }}
+          SUFFIX:      ${{ inputs.suffix }}
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+
+          cp "docker/device-metrics-exporter-${IMAGE_TAG}.tar.gz" \
+             "staging/device-metrics-exporter-${DME_VERSION}-${SUFFIX}.tar.gz"
+
+          if [ -f "docker/device-metrics-exporter-sriov-${IMAGE_TAG}.tar.gz" ]; then
+            cp "docker/device-metrics-exporter-sriov-${IMAGE_TAG}.tar.gz" \
+               "staging/device-metrics-exporter-sriov-${DME_VERSION}-${SUFFIX}.tar.gz"
+          fi
+
+          for f in bin/amdgpu-exporter_*_amd64.deb; do
+            [ -f "${f}" ] || continue
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+(?=_amd64)')
+            cp "$f" "staging/amdgpu-exporter-${DME_VERSION}-${SUFFIX}~${UBUNTU_VER}_amd64.deb"
+          done
+
+          for f in bin/amdgpu-exporter-sriov_*_amd64.deb; do
+            [ -f "${f}" ] || continue
+            UBUNTU_VER=$(basename "$f" | grep -oP '\d+\.\d+(?=_amd64)')
+            cp "$f" "staging/amdgpu-exporter-sriov-${DME_VERSION}-${SUFFIX}~${UBUNTU_VER}_amd64.deb"
+          done
+
+          echo "Staged artifacts:"
+          ls -lh staging/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-dme-${{ inputs.image_tag }}
+          retention-days: 1
+          path: staging/
