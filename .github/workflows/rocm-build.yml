@@ -13,6 +13,9 @@ on:
       - '**'
     paths:
       - '.github/workflows/rocm-build.yml'
+      - '.github/workflows/_build-dme.yml'
+      - '.github/workflows/_build-test-runner.yml'
+      - '.github/workflows/_build-helm.yml'
       - 'docker/**'
       - 'tools/base-image/**'
       - 'Makefile'
@@ -30,8 +33,8 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.event_name == 'schedule' && 'dme-nightly' || github.event_name == 'pull_request' && format('dme-pr-{0}', github.event.pull_request.number) || format('dme-{0}-{1}', github.event_name, github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'schedule' || github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('dme-pr-{0}', github.event.pull_request.number) || 'dme-nightly' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -56,7 +59,7 @@ jobs:
   resolve:
     name: Resolve
     needs: read-version
-    uses: Vyoma02/common-infra-operator/.github/workflows/rocm-resolve.yml@d953ed65272f0dcd50fd80786ecadd36eb7552ee
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
       version: ${{ needs.read-version.outputs.version }}
@@ -110,11 +113,12 @@ jobs:
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
-    uses: Vyoma02/common-infra-operator/.github/workflows/rocm-publish.yml@d953ed65272f0dcd50fd80786ecadd36eb7552ee
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_version: ${{ needs.resolve.outputs.rocm_tarball_version }}
+      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' }}
       version: ${{ needs.resolve.outputs.version }}
       suffix: ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
@@ -126,9 +130,9 @@ jobs:
         build-helm-${{ needs.resolve.outputs.image_tag }}
       s3_file_globs: "*.tar.gz,*_amd64.deb,*.tgz"
       docker_images: |
-        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|false
+        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
-        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|false
+        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
@@ -164,6 +168,6 @@ jobs:
             echo "| Build DME | ${DME_RESULT} |"
             echo "| Build Test Runner | ${TEST_RUNNER_RESULT} |"
             echo "| Build Helm | ${HELM_RESULT} |"
-            echo "| Publish | ${PUBLISH_RESULT} |"
-            echo "| S3 location | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
+            echo "| Publish | ${PUBLISH_RESULT:-n/a} |"
+            [ -n "${S3_PREFIX}" ] && echo "| S3 location | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |" || true
           } >> "$GITHUB_STEP_SUMMARY"

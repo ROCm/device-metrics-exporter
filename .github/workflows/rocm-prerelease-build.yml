@@ -7,7 +7,7 @@ name: DME Pre-Release Build
 # Artifacts land at: device-metrics-exporter/pre-release/{dme_version}-{rocm_version}-{N}/
 # Image tag format:  {dme_version}-{rocm_version}-{N}  e.g. v1.5.3-10.1.0rc4-1
 #
-# Job graph: resolve → build-dme + build-test-runner + build-helm → publish → validate → results
+# Job graph: resolve → build-dme + build-test-runner + build-helm → publish → results
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ on:
         default: false
 
 concurrency:
-  group: dme-prerelease-${{ github.run_id }}
+  group: dme-prerelease-${{ inputs.dme_version }}-${{ inputs.rocm_version }}
   cancel-in-progress: false
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
 
   resolve:
     name: Resolve
-    uses: Vyoma02/common-infra-operator/.github/workflows/rocm-resolve.yml@d953ed65272f0dcd50fd80786ecadd36eb7552ee
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
       version: ${{ inputs.dme_version }}
@@ -93,11 +93,12 @@ jobs:
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
-    uses: Vyoma02/common-infra-operator/.github/workflows/rocm-publish.yml@d953ed65272f0dcd50fd80786ecadd36eb7552ee
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@840846bb5b34109a358b36e644dc73246f5e1eb6
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_version: ${{ needs.resolve.outputs.rocm_tarball_version }}
+      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' }}
       version:   ${{ needs.resolve.outputs.version }}
       suffix:    ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
@@ -109,9 +110,9 @@ jobs:
         build-helm-${{ needs.resolve.outputs.image_tag }}
       s3_file_globs: "*.tar.gz,*_amd64.deb,*.tgz"
       docker_images: |
-        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|false
+        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
-        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|false
+        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
       DOCKER_TOKEN:      ${{ secrets.DOCKER_TOKEN }}
@@ -147,5 +148,5 @@ jobs:
             echo "| Build Test Runner | ${TEST_RUNNER_RESULT} |"
             echo "| Build Helm | ${HELM_RESULT} |"
             echo "| Publish | ${PUBLISH_RESULT} |"
-            echo "| S3 location | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |"
+            [ -n "${S3_PREFIX}" ] && echo "| S3 location | \`s3://${S3_BUCKET}/${S3_PREFIX}/\` |" || true
           } >> "$GITHUB_STEP_SUMMARY"
