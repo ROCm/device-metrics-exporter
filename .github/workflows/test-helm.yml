@@ -48,6 +48,15 @@ jobs:
           filename=$(basename "$latest_chart" .tgz)
           echo "LATEST_CHART version: $filename"
           echo "LATEST_CHART=$filename" >> $GITHUB_ENV
+
+          # Extract the Helm chart name and version from Chart.yaml inside the .tgz
+          chart_name=$(tar -xzf "$latest_chart" --to-stdout --wildcards '*/Chart.yaml' | grep '^name:' | awk '{print $2}')
+          chart_version=$(tar -xzf "$latest_chart" --to-stdout --wildcards '*/Chart.yaml' | grep '^version:' | awk '{print $2}')
+
+          echo "Chart name: $chart_name"
+          echo "Chart version: $chart_version"
+          echo "CHART_NAME=$chart_name" >> $GITHUB_ENV
+          echo "CHART_VERSION=$chart_version" >> $GITHUB_ENV
       - name: Set up Kind cluster
         uses: helm/kind-action@v1.12.0
       - name: Setup kubectl (latest stable)
@@ -71,10 +80,10 @@ jobs:
         if: github.event_name == 'push'
         run: |
           helm repo add rocm https://rocm.github.io/device-metrics-exporter && helm repo update &&
-          helm install ${{ env.HELM_INSTALL_NAME }} rocm/device-metrics-exporter-charts \
+          helm install ${{ env.HELM_INSTALL_NAME }} rocm/${{ env.CHART_NAME }} \
             --namespace ${{ env.NAMESPACE }} \
             --create-namespace \
-            --version "${LATEST_CHART#device-metrics-exporter-charts-}"
+            --version "${{ env.CHART_VERSION }}"
       - name: Install Exporter chart (Pull request)
         if: github.event_name == 'pull_request'
         run: |
