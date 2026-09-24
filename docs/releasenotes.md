@@ -2,16 +2,26 @@
 
 ## v1.5.3
 
-- **Version Bump**
-  - Routine version bump; no functional changes in this release.
+- **ROCm 10.1 Libraries**
+  - Device Metrics Exporter is now based on ROCm 10.1 libraries
 
 ### Issues Fixed
 
-- N/A
+- **ECC block iterator overflow on multi-GPU systems**
+  - `amdsmi` 27.1.0 expanded the GPU block `enum` from 19 to 39 entries (bits 19-38).
+    The `uint32_t` loop iterator in gpuagent ECC stats collection overflowed at
+    bit 31, creating an infinite loop that caused gRPC `DeadlineExceeded` and no
+    metrics on 8-GPU systems. Fixed by widening to `uint64_t` (ROCm/gpu-agent#97).
+
+- **CVE remediation**
+  - gRPC bumped to v1.83.2, `x/crypto` updated, Go `toolchain` 1.25.13
 
 ### Known Issues
 
-- N/A
+### Platform Support
+
+ROCm 6.2 or later, MI2xx, MI3xx
+ROCm 7.13 or later, MI350P, Radeon AI
 
 ## v1.5.2
 
