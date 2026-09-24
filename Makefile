@@ -131,13 +131,13 @@ GIMSMI_COMMIT ?= 9.1.0.K
 # requires a full SHA (abbreviated SHAs are rejected by the remote).
 GPUAGENT_REPO ?= https://github.com/ROCm/gpu-agent.git
 GPUAGENT_BRANCH ?= main
-GPUAGENT_COMMIT ?= 4ce653089c09ae9be2503425d63d3e4452992813
+GPUAGENT_COMMIT ?= 26807f975a35184aadba9aa679e23b5d34138e85
 
 # authoritative ROCm tarball defaults (not overridden in dev.env).
 # ROCM_VERSION must match the tarball's version string (extracts to
 # /opt/rocm-${ROCM_VERSION}/). Keep URL version in sync; HTTP-200-verify on bump.
-ROCM_VERSION ?= 10.1.0rc1
-ROCM_TARBALL_URL ?= https://rc.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-10.1.0rc1.tar.gz
+ROCM_VERSION ?= 10.1.0rc2
+ROCM_TARBALL_URL ?= https://rc.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-10.1.0rc2.tar.gz
 # amdsmi commit auto-extracted from the fetched tarball; empty until fetched.
 ROCM_COMMIT = $(shell cat "$(ROCM_COMMIT_FILE)" 2>/dev/null)
 RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
