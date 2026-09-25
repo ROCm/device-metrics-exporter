@@ -75,7 +75,7 @@ If you're using Kubernetes, you can install Prometheus and Grafana using the Pro
 
    ```bash
    helm install metrics-exporter \
-     https://github.com/ROCm/device-metrics-exporter/releases/download/v1.5.3/device-metrics-exporter-charts-v1.5.3.tgz \
+     https://github.com/ROCm/device-metrics-exporter/releases/download/v1.5.4/device-metrics-exporter-charts-v1.5.4.tgz \
      --set serviceMonitor.enabled=true \
      --set serviceMonitor.interval=15s \
      -n mynamespace --create-namespace
