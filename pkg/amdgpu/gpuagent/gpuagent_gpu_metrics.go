@@ -19,6 +19,7 @@ package gpuagent
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -1867,7 +1868,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 	}
 
 	ga.k8PodInfoMap, _ = ga.FetchPodInfoForNode()
-	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
+	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)[0]
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
 	// update periodically. this is required only for first state
@@ -1922,74 +1923,69 @@ func (ga *GPUAgentGPUClient) QueryInbandRASErrors(severity string) (interface{},
 // kubernetes job  - "pod:pod_name, namespace: pod_namespace,container: container_name"
 // slurm job       - "id: job_id, user: job_user, partition: job_partition", cluster: job_cluster
 
-func (ga *GPUAgentGPUClient) getWorkloadsListString(wls map[string]scheduler.Workload, gpuID string) []string {
+func (ga *GPUAgentGPUClient) getWorkloadsListString(wls map[string]scheduler.Workloads, gpuID string) []string {
 	associatedWorkloads := []string{}
 
-	schedulerJobs := ga.getWorkloadInfo(wls, gpuID)
-	for _, wl := range schedulerJobs {
-		if wl == nil {
-			continue
-		}
+	for _, wl := range ga.getWorkloadInfo(wls, gpuID) {
 		associatedWorkloads = append(associatedWorkloads, wl.String())
 	}
 	return associatedWorkloads
 }
 
-func (ga *GPUAgentGPUClient) getWorkloadInfo(wls map[string]scheduler.Workload, gpuID string) []*scheduler.Workload {
-	associatedWorkloads := []*scheduler.Workload{}
+func (ga *GPUAgentGPUClient) getWorkloadInfo(wls map[string]scheduler.Workloads, gpuID string) scheduler.Workloads {
+	var associatedWorkloads scheduler.Workloads
 	gpuMeta, err := ga.GetGPUMeta(gpuID)
 	if err != nil {
 		return associatedWorkloads
 	}
 
-	// DRA device name support
-	if draKey := gpuMeta.DRAKey; draKey != "" {
-		if workload, ok := wls[draKey]; ok {
-			associatedWorkloads = append(associatedWorkloads, &workload)
+	// populate with workload info from different keys to make sure we cover
+	// all the possible scenarios based on the environment setup and scheduler
+	// configurations. Append drops a consumer already listed, because two keys
+	// can name the same device.
+	appendDevice := func(key string) {
+		for _, wl := range wls[key] {
+			associatedWorkloads.Append(wl)
 		}
 	}
-
-	// populate with workload info from different keys to make sure we cover
-	// all the possible scenarios based on the environment setup and scheduler configurations
-	if workload, ok := wls[gpuMeta.PCIeBusId]; ok {
-		associatedWorkloads = append(associatedWorkloads, &workload)
-	}
-
-	if workload, ok := wls[gpuMeta.DeviceName]; ok {
-		associatedWorkloads = append(associatedWorkloads, &workload)
-	}
-
-	if workload, ok := wls[gpuMeta.RenderID]; ok {
-		associatedWorkloads = append(associatedWorkloads, &workload)
-	}
-
-	if workload, ok := wls[gpuMeta.GPUID]; ok {
-		associatedWorkloads = append(associatedWorkloads, &workload)
-	}
+	// DRA device name support
+	appendDevice(gpuMeta.DRAKey)
+	appendDevice(gpuMeta.PCIeBusId)
+	appendDevice(gpuMeta.DeviceName)
+	appendDevice(gpuMeta.RenderID)
+	appendDevice(gpuMeta.GPUID)
 	return associatedWorkloads
 }
 
+// populateLabelsFromGPU returns one label set per consumer of the GPU. A device
+// can be held by more than one workload, and each of them needs the device
+// attributed to itself, so a shared device is exported once per consumer. A
+// device with no consumer returns one set with the consumer labels empty, and a
+// nil GPU returns one set of the labels that are not device derived.
 func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
-	wls map[string]scheduler.Workload,
+	wls map[string]scheduler.Workloads,
 	gpu *amdgpu.GPU,
-	partitionMap map[string]*amdgpu.GPU) map[string]string {
-	var podInfo scheduler.PodResourceInfo
-	var jobInfo scheduler.JobInfo
-
-	if jobInfos := ga.getWorkloadInfo(wls, getGPUInstanceIDString(gpu)); jobInfos != nil {
-		for _, wl := range jobInfos {
-			if wl == nil {
-				continue
-			}
-			switch wl.Type {
-			case scheduler.Kubernetes:
-				podInfo = wl.Info.(scheduler.PodResourceInfo)
-			case scheduler.Slurm:
-				jobInfo = wl.Info.(scheduler.JobInfo)
-			}
-		}
+	partitionMap map[string]*amdgpu.GPU) []map[string]string {
+	deviceLabels := ga.deviceLabels(gpu, partitionMap)
+	if gpu == nil {
+		return []map[string]string{ga.finishLabels(deviceLabels)}
 	}
+	consumers := ga.getWorkloadInfo(wls, getGPUInstanceIDString(gpu))
+	if len(consumers) == 0 {
+		consumers = scheduler.Workloads{{}}
+	}
+	sets := make([]map[string]string, 0, len(consumers))
+	for _, wl := range consumers {
+		set := maps.Clone(deviceLabels)
+		ga.addConsumerLabels(set, wl)
+		sets = append(sets, ga.finishLabels(set))
+	}
+	return sets
+}
 
+// deviceLabels returns the labels that describe the device itself, which every
+// consumer of that device shares.
+func (ga *GPUAgentGPUClient) deviceLabels(gpu *amdgpu.GPU, partitionMap map[string]*amdgpu.GPU) map[string]string {
 	labels := make(map[string]string)
 	var parentPartition *amdgpu.GPU
 
@@ -2057,38 +2053,15 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			if gpu != nil {
 				labels[key] = gpu.Status.VBIOSVersion
 			}
-		case exportermetrics.MetricLabel_POD.String():
-			if gpu != nil {
-				labels[key] = podInfo.Pod
-			}
-		case exportermetrics.MetricLabel_NAMESPACE.String():
-			if gpu != nil {
-				labels[key] = podInfo.Namespace
-			}
-		case exportermetrics.MetricLabel_CONTAINER.String():
-			if gpu != nil {
-				labels[key] = podInfo.Container
-			}
-		case exportermetrics.MetricLabel_POD_UUID.String():
-			if gpu != nil {
-				labels[key] = utils.GetPodUID(&podInfo, ga.k8PodInfoMap)
-			}
-		case exportermetrics.MetricLabel_JOB_ID.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Id
-			}
-		case exportermetrics.MetricLabel_JOB_USER.String():
-			if gpu != nil {
-				labels[key] = jobInfo.User
-			}
-		case exportermetrics.MetricLabel_JOB_PARTITION.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Partition
-			}
-		case exportermetrics.MetricLabel_CLUSTER_NAME.String():
-			if gpu != nil {
-				labels[key] = jobInfo.Cluster
-			}
+		// the consumer labels, added once per consumer in addConsumerLabels
+		case exportermetrics.MetricLabel_POD.String(),
+			exportermetrics.MetricLabel_NAMESPACE.String(),
+			exportermetrics.MetricLabel_CONTAINER.String(),
+			exportermetrics.MetricLabel_POD_UUID.String(),
+			exportermetrics.MetricLabel_JOB_ID.String(),
+			exportermetrics.MetricLabel_JOB_USER.String(),
+			exportermetrics.MetricLabel_JOB_PARTITION.String(),
+			exportermetrics.MetricLabel_CLUSTER_NAME.String():
 		case exportermetrics.MetricLabel_SERIAL_NUMBER.String():
 			if gpu != nil {
 				if parentPartition != nil {
@@ -2150,17 +2123,58 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			logger.Log.Printf("Invalid label is ignored %v", key)
 		}
 	}
+	return labels
+}
 
-	// Add extra pod labels only if config has mapped any
-	if gpu != nil && len(ga.extraPodLabelsMap) > 0 {
-		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodInfoMap)
-		for prometheusPodlabel, k8Podlabel := range ga.extraPodLabelsMap {
-			label := strings.ToLower(prometheusPodlabel)
-			labels[label] = podLabels[k8Podlabel]
+// addConsumerLabels adds the labels of one consumer to a label set. A workload
+// of no type leaves them empty, which is the label set of a device with no
+// consumer.
+func (ga *GPUAgentGPUClient) addConsumerLabels(labels map[string]string, wl scheduler.Workload) {
+	var podInfo scheduler.PodResourceInfo
+	var jobInfo scheduler.JobInfo
+	switch wl.Type {
+	case scheduler.Kubernetes:
+		podInfo, _ = wl.Info.(scheduler.PodResourceInfo)
+	case scheduler.Slurm:
+		jobInfo, _ = wl.Info.(scheduler.JobInfo)
+	}
+
+	for ckey, enabled := range ga.exportLabels {
+		if !enabled {
+			continue
+		}
+		key := strings.ToLower(ckey)
+		switch ckey {
+		case exportermetrics.MetricLabel_POD.String():
+			labels[key] = podInfo.Pod
+		case exportermetrics.MetricLabel_NAMESPACE.String():
+			labels[key] = podInfo.Namespace
+		case exportermetrics.MetricLabel_CONTAINER.String():
+			labels[key] = podInfo.Container
+		case exportermetrics.MetricLabel_POD_UUID.String():
+			labels[key] = utils.GetPodUID(&podInfo, ga.k8PodInfoMap)
+		case exportermetrics.MetricLabel_JOB_ID.String():
+			labels[key] = jobInfo.Id
+		case exportermetrics.MetricLabel_JOB_USER.String():
+			labels[key] = jobInfo.User
+		case exportermetrics.MetricLabel_JOB_PARTITION.String():
+			labels[key] = jobInfo.Partition
+		case exportermetrics.MetricLabel_CLUSTER_NAME.String():
+			labels[key] = jobInfo.Cluster
 		}
 	}
 
-	// Add custom labels
+	// Add extra pod labels only if config has mapped any
+	if len(ga.extraPodLabelsMap) > 0 {
+		podLabels := utils.GetPodLabels(&podInfo, ga.k8PodInfoMap)
+		for prometheusPodlabel, k8Podlabel := range ga.extraPodLabelsMap {
+			labels[strings.ToLower(prometheusPodlabel)] = podLabels[k8Podlabel]
+		}
+	}
+}
+
+// finishLabels adds the labels that depend on neither the device nor a consumer.
+func (ga *GPUAgentGPUClient) finishLabels(labels map[string]string) map[string]string {
 	for label, value := range ga.customLabelMap {
 		labels[label] = value
 	}
@@ -2176,8 +2190,10 @@ func (ga *GPUAgentGPUClient) exporterEnabledGPU(instance int) bool {
 
 }
 
+// updateGPUInfoToMetrics exports this GPU once per consumer, because a device
+// held by more than one workload has to be attributed to every one of them.
 func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
-	wls map[string]scheduler.Workload,
+	wls map[string]scheduler.Workloads,
 	gpu *amdgpu.GPU,
 	partitionMap map[string]*amdgpu.GPU,
 	profMetrics map[string]float64,
@@ -2186,9 +2202,18 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	if !ga.exporterEnabledGPU(getGPUInstanceID(gpu)) {
 		return
 	}
+	for _, labels := range ga.populateLabelsFromGPU(wls, gpu, partitionMap) {
+		ga.exportGPUInfoWithLabels(labels, gpu, profMetrics, cperEntryMap)
+	}
+}
 
-	labels := ga.populateLabelsFromGPU(wls, gpu, partitionMap)
-	labelsWithIndex := ga.populateLabelsFromGPU(wls, gpu, partitionMap)
+func (ga *GPUAgentGPUClient) exportGPUInfoWithLabels(
+	labels map[string]string,
+	gpu *amdgpu.GPU,
+	profMetrics map[string]float64,
+	cperEntryMap map[string]*amdgpu.CPEREntry,
+) {
+	labelsWithIndex := maps.Clone(labels)
 	status := gpu.Status
 	stats := gpu.Stats
 

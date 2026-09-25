@@ -75,7 +75,7 @@ func yamlifyEthtoolOutput(res []byte) []byte {
 	return lines
 }
 
-func (ec *EthtoolClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (ec *EthtoolClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	if !fetchEthtoolMetrics {
 		return nil
 	}
@@ -89,10 +89,12 @@ func (ec *EthtoolClient) UpdateNICStats(ctx context.Context, workloads map[strin
 	}
 
 	// fetch K8s Workload Pod Interface Stats
-	for i := range workloads {
-		wlPodInfo := (workloads[i].Info.(scheduler.PodResourceInfo))
-		if err := ec.fetchEthStatsForDevicesInPod(&wlPodInfo); err != nil {
-			logger.Log.Printf("failure to fetch stats for devices in pod: %v", err)
+	for _, consumers := range workloads {
+		for _, wl := range consumers {
+			wlPodInfo := (wl.Info.(scheduler.PodResourceInfo))
+			if err := ec.fetchEthStatsForDevicesInPod(&wlPodInfo); err != nil {
+				logger.Log.Printf("failure to fetch stats for devices in pod: %v", err)
+			}
 		}
 	}
 
