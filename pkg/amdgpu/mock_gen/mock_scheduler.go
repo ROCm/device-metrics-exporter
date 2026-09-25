@@ -85,10 +85,10 @@ func (mr *MockSchedulerClientMockRecorder) Close() *gomock.Call {
 }
 
 // ListWorkloads mocks base method.
-func (m *MockSchedulerClient) ListWorkloads() (map[string]scheduler.Workload, error) {
+func (m *MockSchedulerClient) ListWorkloads() (map[string]scheduler.Workloads, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListWorkloads")
-	ret0, _ := ret[0].(map[string]scheduler.Workload)
+	ret0, _ := ret[0].(map[string]scheduler.Workloads)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

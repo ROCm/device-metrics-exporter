@@ -357,7 +357,7 @@ func TestMetricFieldMapping(t *testing.T) {
 		},
 	}
 
-	wls := make(map[string]scheduler.Workload)
+	wls := make(map[string]scheduler.Workloads)
 	partitionMap := make(map[string]*amdgpu.GPU)
 	cper := make(map[string]*amdgpu.CPEREntry)
 
@@ -466,7 +466,7 @@ func TestMetricFieldMappingMI2xxEmptyBusyInst(t *testing.T) {
 		},
 	}
 
-	wls := make(map[string]scheduler.Workload)
+	wls := make(map[string]scheduler.Workloads)
 	partitionMap := make(map[string]*amdgpu.GPU)
 	cper := make(map[string]*amdgpu.CPEREntry)
 
@@ -545,11 +545,11 @@ func TestOccupancyElapsedCalculation(t *testing.T) {
 		"MeanOccupancyPerActiveCU": meanOccPerActiveCU,
 	}
 
-	wls := make(map[string]scheduler.Workload)
+	wls := make(map[string]scheduler.Workloads)
 	gpuclient.updateGPUInfoToMetrics(wls, gpu, nil, profMetrics, nil)
 
 	// Collect the gpuOccElapsed gauge and verify the derived value
-	labels := gpuclient.populateLabelsFromGPU(wls, gpu, nil)
+	labels := gpuclient.populateLabelsFromGPU(wls, gpu, nil)[0]
 	gauge, err := gpuclient.metrics.gpuOccElapsed.GetMetricWith(labels)
 	assert.Assert(t, err == nil, "expected gpuOccElapsed metric to exist: %v", err)
 
@@ -833,7 +833,7 @@ func TestECCDeferredErrorMetricsCollection(t *testing.T) {
 		},
 	}
 
-	wls := make(map[string]scheduler.Workload)
+	wls := make(map[string]scheduler.Workloads)
 	partitionMap := make(map[string]*amdgpu.GPU)
 	cper := make(map[string]*amdgpu.CPEREntry)
 

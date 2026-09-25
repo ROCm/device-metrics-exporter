@@ -24,7 +24,7 @@ import (
 
 type NICInterface interface {
 	// fill AINIC stats
-	UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error
+	UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workloads) error
 	// Initiate connection and return connection status
 	Init() error
 	// Return NIC Client name implementing this interface

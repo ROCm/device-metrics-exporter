@@ -456,29 +456,34 @@ func strDoubleToFloat(strValue string) float64 {
 
 // ListWorkloads - get all workloads from every client , lock must be taken by
 // the caller
-func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workload, err error) {
-	wls = make(map[string]scheduler.Workload)
+func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workloads, err error) {
+	wls = make(map[string]scheduler.Workloads)
 	if ga.isKubernetes && ga.k8sScheduler != nil {
-		var k8sWls map[string]scheduler.Workload
+		var k8sWls map[string]scheduler.Workloads
 		k8sWls, err = ga.k8sScheduler.ListWorkloads()
 		if err != nil {
 			return
 		}
-		for k, wl := range k8sWls {
-			wls[k] = wl
+		for k, consumers := range k8sWls {
+			wls[k] = consumers
 		}
 	}
 	if ga.slurmScheduler == nil {
 		return wls, nil
 	}
-	var swls map[string]scheduler.Workload
+	var swls map[string]scheduler.Workloads
 	swls, err = ga.slurmScheduler.ListWorkloads()
 	if err != nil {
 		return
 	}
-	// return combined list
-	for k, wl := range swls {
-		wls[k] = wl
+	// return combined list. Both schedulers can name the same device, so the
+	// entries are merged rather than one replacing the other.
+	for k, consumers := range swls {
+		merged := wls[k]
+		for _, wl := range consumers {
+			merged.Append(wl)
+		}
+		wls[k] = merged
 	}
 	return
 }

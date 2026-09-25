@@ -210,8 +210,8 @@ func setupTest(t *testing.T) func(t *testing.T) {
 }
 
 func newSlurmMockClient() scheduler.SchedulerClient {
-	workload := map[string]scheduler.Workload{
-		"0": scheduler.Workload{
+	workload := map[string]scheduler.Workloads{
+		"0": {{
 			Type: scheduler.Slurm,
 			Info: scheduler.JobInfo{
 				Id:        "SLURM_JOB_ID0",
@@ -219,8 +219,8 @@ func newSlurmMockClient() scheduler.SchedulerClient {
 				Partition: "SLURM_JOB_PARTITION0",
 				Cluster:   "SLURM_CLUSTER_NAME0",
 			},
-		},
-		"1": scheduler.Workload{
+		}},
+		"1": {{
 			Type: scheduler.Slurm,
 			Info: scheduler.JobInfo{
 				Id:        "SLURM_JOB_ID1",
@@ -228,7 +228,7 @@ func newSlurmMockClient() scheduler.SchedulerClient {
 				Partition: "SLURM_JOB_PARTITION1",
 				Cluster:   "SLURM_CLUSTER_NAME",
 			},
-		},
+		}},
 	}
 	slurmSchedMockCl.EXPECT().ListWorkloads().Return(workload, nil).AnyTimes()
 	slurmSchedMockCl.EXPECT().CheckExportLabels(gomock.Any()).Return(true).AnyTimes()
@@ -238,23 +238,23 @@ func newSlurmMockClient() scheduler.SchedulerClient {
 }
 
 func newK8sSchedulerMock() scheduler.SchedulerClient {
-	workload := map[string]scheduler.Workload{
-		"pcie0": scheduler.Workload{
+	workload := map[string]scheduler.Workloads{
+		"pcie0": {{
 			Type: scheduler.Kubernetes,
 			Info: scheduler.PodResourceInfo{
 				Pod:       "pod0",
 				Namespace: "Namespace0",
 				Container: "ContainerName0",
 			},
-		},
-		"pcie1": scheduler.Workload{
+		}},
+		"pcie1": {{
 			Type: scheduler.Kubernetes,
 			Info: scheduler.PodResourceInfo{
 				Pod:       "pod1",
 				Namespace: "Namespace1",
 				Container: "ContainerName1",
 			},
-		},
+		}},
 	}
 	k8sSchedMockCl.EXPECT().ListWorkloads().Return(workload, nil).AnyTimes()
 	k8sSchedMockCl.EXPECT().CheckExportLabels(gomock.Any()).Return(true).AnyTimes()
