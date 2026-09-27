@@ -53,6 +53,8 @@ jobs:
         env:
           IMAGE_TAG:        ${{ inputs.image_tag }}
           ROCM_TARBALL_URL: ${{ inputs.rocm_tarball_url }}
+          DME_VERSION:      ${{ inputs.version }}
+          SUFFIX:           ${{ inputs.suffix }}
         run: |
           docker run --rm --privileged \
             -e CI=true \
@@ -67,7 +69,7 @@ jobs:
             "${DEV_IMAGE_TAG}" \
             bash -c "source ~/.bashrc && \
               git config --global --add safe.directory ${WORKSPACE} && \
-              make docker-test-runner-cicd TOP_DIR=${WORKSPACE}"
+              make docker-test-runner-cicd TOP_DIR=${WORKSPACE} RELEASE=${DME_VERSION}-${SUFFIX}"
 
       - name: Rename and stage artifact with final name
         env:
