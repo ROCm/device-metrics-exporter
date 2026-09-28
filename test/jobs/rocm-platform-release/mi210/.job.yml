@@ -1,0 +1,148 @@
+---
+version: 2.0
+meta: {}
+
+image:
+  bind_dir: "/device-metrics-exporter"
+  work_dir: "/device-metrics-exporter"
+
+e2e-targets:
+  rocm-exporter-debian-mi210-sanity:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-external/run_sanity.sh --scenario /common-infra-operator/ci-external/prerelease-10.1.0.yaml --app amdgpu-metrics-exporter-debian \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies: []
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: eb7b24d138d006e514fa67cd0e90fd2f56a0be8d
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: gpu-series
+            value: MI210
+          - name: testbed-type
+            value: K8
+  rocm-exporter-docker-mi210-sanity:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-external/run_sanity.sh --scenario /common-infra-operator/ci-external/prerelease-10.1.0.yaml --app amdgpu-metrics-exporter-docker \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies: []
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: eb7b24d138d006e514fa67cd0e90fd2f56a0be8d
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: gpu-series
+            value: MI210
+          - name: testbed-type
+            value: K8
+  rocm-exporter-helmchart-mi210-k8-sanity:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-external/run_sanity.sh --scenario /common-infra-operator/ci-external/prerelease-10.1.0.yaml --app gpu-operator-exporter \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies: []
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: eb7b24d138d006e514fa67cd0e90fd2f56a0be8d
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: gpu-series
+            value: MI210
+          - name: testbed-type
+            value: K8
+  rocm-exporter-pod-mi210-k8-sanity:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-external/run_sanity.sh --scenario /common-infra-operator/ci-external/prerelease-10.1.0.yaml --app gpu-operator \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox --module exporter"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies: []
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: eb7b24d138d006e514fa67cd0e90fd2f56a0be8d
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: gpu-series
+            value: MI210
+          - name: testbed-type
+            value: K8
+  rocm-exporter-pod-mi210-openshift-sanity:
+    commands: [
+        "/bin/sh",
+        "-c",
+        "cat /warmd.json && cd /common-infra-operator/tests/pytests && \
+         /common-infra-operator/ci-external/run_sanity.sh --scenario /common-infra-operator/ci-external/prerelease-10.1.0.yaml --app gpu-operator \
+         --registry direct --testbed /warmd.json --amdgpu-driver inbox --module exporter"
+    ]
+    owners: ["email:srivatsa.sangli@amd.com"]
+    tcp-ports: [5000]
+    area:
+    sub-area:
+    build-dependencies: []
+    repo-dependencies:
+      /common-infra-operator:
+        repository: https://github.com/pensando/common-infra-operator
+        reference: eb7b24d138d006e514fa67cd0e90fd2f56a0be8d
+    resources:
+    - generic:
+      - type: GPUOP-Cluster
+        vendor: Pensando
+        count: 1
+        props:
+          - name: gpu-series
+            value: MI210
+          - name: testbed-type
+            value: OpenShift
+logfiles:
+  - /common-infra-operator/tests/pytests/pytest_logs.tgz
+
+submodules: {}
