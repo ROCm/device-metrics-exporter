@@ -48,8 +48,17 @@ type gpuconfig struct {
 	HealthThresholds map[string]int `json:"HealthThresholds"`
 }
 
+type debugConfig struct {
+	EnableAPI bool `json:"EnableAPI"`
+}
+
+type commonConfig struct {
+	Debug *debugConfig `json:"Debug,omitempty"`
+}
+
 type exporterConfig struct {
-	GPUConfig *gpuconfig `json:"GPUConfig"`
+	CommonConfig *commonConfig `json:"CommonConfig,omitempty"`
+	GPUConfig    *gpuconfig    `json:"GPUConfig,omitempty"`
 }
 
 func (s *E2ESuite) Test001FirstDeplymentDefaults(c *C) {
@@ -314,19 +323,31 @@ func (s *E2ESuite) Test006VerifyMetricValues(c *C) {
 
 func (s *E2ESuite) Test007MarkAndVerifyGPUUnhealthyLabel(c *C) {
 	ctx := context.Background()
+	log.Print("Enabling Debug.EnableAPI for ECC injection")
+	config := exporterConfig{
+		CommonConfig: &commonConfig{Debug: &debugConfig{EnableAPI: true}},
+	}
+	cfgData, err := json.Marshal(config)
+	assert.NoError(c, err)
+	err = s.k8sclient.UpdateConfigMap(ctx, s.ns, configmapName, string(cfgData))
+	assert.NoError(c, err)
+
 	log.Print("Marking gpu 0 as unhealthy using metricsclient tool")
 	cmd := `echo "{\"ID\": \"0\",\"Fields\": [\"GPU_ECC_UNCORRECT_SEM\",\"GPU_ECC_UNCORRECT_FUSE\"],\"Counts\" : [1, 2]}" > /tmp/ecc.json`
-	_, err := s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd)
+	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd)
 	if err != nil {
 		assert.Fail(c, err.Error())
 		return
 	}
 	cmd1 := "metricsclient --ecc-file-path /tmp/ecc.json"
-	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
-	if err != nil {
-		assert.Fail(c, err.Error())
-		return
-	}
+	assert.Eventually(c, func() bool {
+		_, err := s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
+		if err != nil {
+			log.Printf("metricsclient ecc injection not ready yet: %v", err)
+			return false
+		}
+		return true
+	}, 3*time.Minute, 10*time.Second, "metricsclient ecc injection failed after EnableAPI")
 	labelMap := make(map[string]string)
 	labelMap["metricsexporter.amd.com.gpu.0.state"] = "unhealthy"
 	log.Print("Verifying unhealthy label on the node(s)")
@@ -350,11 +371,14 @@ func (s *E2ESuite) Test008MarkAndVerifyGPUHealthyLabel(c *C) {
 		return
 	}
 	cmd1 := "metricsclient --ecc-file-path /tmp/ecc.json"
-	_, err = s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
-	if err != nil {
-		assert.Fail(c, err.Error())
-		return
-	}
+	assert.Eventually(c, func() bool {
+		_, err := s.k8sclient.ExecCmdOnPod(ctx, s.restConfig, exporterPod, "amdgpu-metrics-exporter-container", cmd1)
+		if err != nil {
+			log.Printf("metricsclient ecc clear not ready yet: %v", err)
+			return false
+		}
+		return true
+	}, 1*time.Minute, 5*time.Second, "metricsclient ecc clear failed")
 	labelMap := make(map[string]string)
 	labelMap["metricsexporter.amd.com.gpu.0.state"] = "unhealthy"
 	log.Print("Verifying healthy label on the node(s)")
@@ -378,6 +402,7 @@ func (s *E2ESuite) Test009VerifyHealthThresholds(c *C) {
 		thresholds[field] = 1
 	}
 	config := exporterConfig{
+		CommonConfig: &commonConfig{Debug: &debugConfig{EnableAPI: true}},
 		GPUConfig: &gpuconfig{
 			Fields:           fields,
 			HealthThresholds: thresholds,
