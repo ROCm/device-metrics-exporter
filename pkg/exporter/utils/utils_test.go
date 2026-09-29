@@ -73,68 +73,36 @@ func TestGetPCIeBaseAddress(t *testing.T) {
 }
 
 func TestIsValueApplicable(t *testing.T) {
+	// Only the presented type's own maximum is NA (plus MaxInt32 for uint32, the GIM sentinel).
+	// A narrower type's maximum inside a wider value is a value: counters do pass through 255 and 65535.
 	tests := []struct {
 		name     string
-		input    uint64
+		input    interface{}
 		expected bool
 	}{
-		{
-			name:     "uint64 - na",
-			input:    0xFFFFFFFFFFFFFFFF,
-			expected: false,
-		},
-		{
-			name:     "uint32 - na",
-			input:    4294967295,
-			expected: false,
-		},
-		{
-			name:     "uint32 - na",
-			input:    0xFFFFFFFF,
-			expected: false,
-		},
-		{
-			name:     "uint16 - na",
-			input:    65535,
-			expected: false,
-		},
-		{
-			name:     "uint16 - na",
-			input:    0xFFFF,
-			expected: false,
-		},
-		{
-			name:     "uint8 - na",
-			input:    255,
-			expected: false,
-		},
-		{
-			name:     "uint8 - na",
-			input:    0xFF,
-			expected: false,
-		},
-		{
-			name:     "uint32 - valid",
-			input:    200,
-			expected: true,
-		},
-		{
-			name:     "uint16 - valid",
-			input:    100,
-			expected: true,
-		},
-		{
-			name:     "uint8 - valid",
-			input:    50,
-			expected: true,
-		},
+		{"uint64 - na", uint64(math.MaxUint64), false},
+		{"uint64 - uint32 max is a value", uint64(math.MaxUint32), true},
+		{"uint64 - int32 max is a value", uint64(math.MaxInt32), true},
+		{"uint64 - 65535 is a value", uint64(65535), true},
+		{"uint64 - 255 is a value", uint64(255), true},
+		{"uint32 - na", uint32(math.MaxUint32), false},
+		{"uint32 - gim na", uint32(math.MaxInt32), false},
+		{"uint32 - 65535 is a value", uint32(65535), true},
+		{"uint32 - 255 is a value", uint32(255), true},
+		{"uint16 - na", uint16(math.MaxUint16), false},
+		{"uint16 - 255 is a value", uint16(255), true},
+		{"uint8 - na", uint8(math.MaxUint8), false},
+		{"uint8 - value", uint8(50), true},
+		{"float64 - na", float64(math.MaxUint64), false},
+		{"float64 - value", float64(255), true},
+		{"float32 - na", float32(math.MaxUint32), false},
+		{"float32 - value", float32(65535), true},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := IsValueApplicable(tt.input)
 			if got != tt.expected {
-				t.Errorf("IsApplicable(%v) = %v; want %v", tt.input, got, tt.expected)
+				t.Errorf("IsValueApplicable(%T %v) = %v; want %v", tt.input, tt.input, got, tt.expected)
 			}
 		})
 	}
@@ -143,51 +111,25 @@ func TestIsValueApplicable(t *testing.T) {
 func TestNormalize(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    uint64
+		input    interface{}
 		expected float64
 	}{
-		{
-			name:     "uint64 - na",
-			input:    0xFFFFFFFFFFFFFFFF,
-			expected: 0,
-		},
-		{
-			name:     "uint32 - na",
-			input:    0xFFFFFFFF,
-			expected: 0,
-		},
-		{
-			name:     "uint16 - na",
-			input:    0xFFFF,
-			expected: 0,
-		},
-		{
-			name:     "uint8 - na",
-			input:    0xFF,
-			expected: 0,
-		},
-		{
-			name:     "uint32 - valid",
-			input:    200,
-			expected: 200,
-		},
-		{
-			name:     "uint16 - valid",
-			input:    100,
-			expected: 100,
-		},
-		{
-			name:     "uint8 - valid",
-			input:    50,
-			expected: 50,
-		},
+		{"uint64 - na", uint64(math.MaxUint64), 0},
+		{"uint64 - 65535 is a value", uint64(65535), 65535},
+		{"uint64 - 255 is a value", uint64(255), 255},
+		{"uint32 - na", uint32(math.MaxUint32), 0},
+		{"uint32 - gim na", uint32(math.MaxInt32), 0},
+		{"uint32 - 255 is a value", uint32(255), 255},
+		{"uint16 - na", uint16(math.MaxUint16), 0},
+		{"uint16 - 255 is a value", uint16(255), 255},
+		{"uint8 - na", uint8(math.MaxUint8), 0},
+		{"uint8 - value", uint8(50), 50},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NormalizeUint64(tt.input)
 			if got != tt.expected {
-				t.Errorf("IsApplicable(%v) = %v; want %v", tt.input, got, tt.expected)
+				t.Errorf("NormalizeUint64(%T %v) = %v; want %v", tt.input, tt.input, got, tt.expected)
 			}
 		})
 	}
@@ -223,10 +165,12 @@ func TestFloatSentinel(t *testing.T) {
 			wantNormalized: 0,
 		},
 		{
-			name:           "uint64 INT32_MAX sentinel - NA",
+			// GIM reports INT32_MAX on uint32 engine-usage fields, which callers present at their
+			// source width. A native uint64 counter legitimately passes through INT32_MAX.
+			name:           "uint64 INT32_MAX is a counter value",
 			input:          uint64(math.MaxInt32),
-			wantApplicable: false,
-			wantNormalized: 0,
+			wantApplicable: true,
+			wantNormalized: math.MaxInt32,
 		},
 		{
 			name:           "float32 valid temperature",

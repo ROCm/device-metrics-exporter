@@ -175,22 +175,29 @@ func IsNonZeroValue(val interface{}) bool {
 // IsValueApplicable checks if the value is applicable for metrics export.
 // It checks if the value is not equal to the maximum value for its type, which indicates NA (not applicable).
 // The function returns true if the value is applicable and false if it is NA.
-// MaxInt32 is also NA: the GIM smi-lib reports some unsupported fields (e.g. mm_activity) with that sentinel.
+// MaxInt32 is also NA for uint32: the GIM smi-lib reports some unsupported fields (e.g. mm_activity) with that sentinel.
+//
+// Only the presented type's own maximum is a sentinel. The caller presents each value at its AMD-SMI
+// source width (uint16 for a uint16 sensor field, uint32 for a uint32 one, uint64 for native 64-bit
+// counters); gpu-agent widens narrower fields into wider stats without translating the sentinel, and a
+// wider value cannot say which narrower maximum it came from. Narrowing an all-ones sentinel of any
+// width back to the source width yields that width's maximum, so it stays NA; a genuine 255 or 65535 in
+// a wider counter is a value.
 func IsValueApplicable(val interface{}) bool {
 
 	x := convertFloatToUint(val)
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 {
 			return false
 		}
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 || x == math.MaxInt32 {
 			return false
 		}
 	case uint16:
-		if x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint16 {
 			return false
 		}
 	case uint8:
@@ -202,27 +209,25 @@ func IsValueApplicable(val interface{}) bool {
 
 }
 
-// NormalizeUint64 - return 0 if any of the value is of 0xf indication NA as
-//
-//	  per the max data size
-//	- return x as is otherwise
+// NormalizeUint64 - return 0 when the value is the presented type's NA sentinel
+// (see IsValueApplicable), and x as a float64 otherwise.
 func NormalizeUint64(val interface{}) float64 {
 
 	x := convertFloatToUint(val)
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 {
 			return 0
 		}
 		return float64(x)
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 || x == math.MaxInt32 {
 			return 0
 		}
 		return float64(x)
 	case uint16:
-		if x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint16 {
 			return 0
 		}
 		return float64(x)

@@ -2207,12 +2207,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String())
 	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPackagePower, exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String(),
-		labels, stats.PackagePower)
+		labels, fromUint16Source(stats.PackagePower))
 	if !utils.IsNonZeroValue(stats.AvgPackagePower) {
 		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String())
 	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuAvgPkgPower, exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String(),
-		labels, stats.AvgPackagePower)
+		labels, fromUint16Source(stats.AvgPackagePower))
 
 	// gpu temp stats
 	tempStats := stats.Temperature
@@ -2221,22 +2221,23 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String())
 		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEdgeTemp, exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String(),
-			labels, tempStats.EdgeTemperature)
+			labels, fromUint16SourceFloat(tempStats.EdgeTemperature))
 		if !utils.IsNonZeroValue(tempStats.JunctionTemperature) {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JUNCTION_TEMPERATURE.String())
 		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJunctionTemp, exportermetrics.GPUMetricField_GPU_JUNCTION_TEMPERATURE.String(),
-			labels, tempStats.JunctionTemperature)
+			labels, fromUint16SourceFloat(tempStats.JunctionTemperature))
 		if !utils.IsNonZeroValue(tempStats.MemoryTemperature) {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_MEMORY_TEMPERATURE.String())
 		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuMemoryTemp, exportermetrics.GPUMetricField_GPU_MEMORY_TEMPERATURE.String(),
-			labels, tempStats.MemoryTemperature)
+			labels, fromUint16SourceFloat(tempStats.MemoryTemperature))
 
 		if len(tempStats.HBMTemperature) == 0 {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String())
 		}
-		for j, temp := range tempStats.HBMTemperature {
+		for j, hbmTemperature := range tempStats.HBMTemperature {
+			temp := fromUint16SourceFloat(hbmTemperature)
 			labelsWithIndex["hbm_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && (!utils.IsValueApplicable(temp) || !utils.IsNonZeroValue(temp)) {
 				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_HBM_TEMPERATURE.String())
@@ -2252,16 +2253,17 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	gpuUsage := stats.Usage
 	if gpuUsage != nil {
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuGFXActivity, exportermetrics.GPUMetricField_GPU_GFX_ACTIVITY.String(),
-			labels, gpuUsage.GFXActivity)
+			labels, fromUint16Source(gpuUsage.GFXActivity))
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuUMCActivity, exportermetrics.GPUMetricField_GPU_UMC_ACTIVITY.String(),
-			labels, gpuUsage.UMCActivity)
+			labels, fromUint16Source(gpuUsage.UMCActivity))
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuMMAActivity, exportermetrics.GPUMetricField_GPU_MMA_ACTIVITY.String(),
-			labels, gpuUsage.MMActivity)
+			labels, fromUint16Source(gpuUsage.MMActivity))
 		if len(gpuUsage.VCNActivity) == 0 {
 			ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVCNActivity, exportermetrics.GPUMetricField_GPU_VCN_ACTIVITY.String(),
-				labels, float64(math.MaxUint32))
+				labels, uint32(math.MaxUint32))
 		}
-		for j, act := range gpuUsage.VCNActivity {
+		for j, vcnActivity := range gpuUsage.VCNActivity {
+			act := fromUint16Source(vcnActivity)
 			labelsWithIndex["vcn_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
 				ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VCN_ACTIVITY.String())
@@ -2275,11 +2277,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		if len(gpuUsage.JPEGActivity) == 0 {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JPEG_ACTIVITY.String())
 		}
-		for j, act := range gpuUsage.JPEGActivity {
+		for j, jpegActivity := range gpuUsage.JPEGActivity {
+			act := fromUint16Source(jpegActivity)
 			labelsWithIndex["jpeg_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
 				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJPEGActivity, exportermetrics.GPUMetricField_GPU_JPEG_ACTIVITY.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+					labelsWithIndex, uint32(math.MaxUint32))
 				break
 			} else if utils.IsValueApplicable(act) {
 				ga.metrics.gpuJPEGActivity.With(labelsWithIndex).Set(float64(act))
@@ -2294,7 +2297,7 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
 				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuGfxBusyInst, exportermetrics.GPUMetricField_GPU_GFX_BUSY_INSTANTANEOUS.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+					labelsWithIndex, uint32(math.MaxUint32))
 				break
 			} else if utils.IsValueApplicable(act) {
 				ga.metrics.gpuGfxBusyInst.With(labelsWithIndex).Set(float64(act))
@@ -2304,11 +2307,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		if len(gpuUsage.VCNBusyInst) == 0 {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VCN_BUSY_INSTANTANEOUS.String())
 		}
-		for j, act := range gpuUsage.VCNBusyInst {
+		for j, vcnBusy := range gpuUsage.VCNBusyInst {
+			act := fromUint16Source(vcnBusy)
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
 				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVcnBusyInst, exportermetrics.GPUMetricField_GPU_VCN_BUSY_INSTANTANEOUS.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+					labelsWithIndex, uint32(math.MaxUint32))
 				break
 			} else if utils.IsValueApplicable(act) {
 				ga.metrics.gpuVcnBusyInst.With(labelsWithIndex).Set(float64(act))
@@ -2318,11 +2322,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		if len(gpuUsage.JPEGBusyInst) == 0 {
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_JPEG_BUSY_INSTANTANEOUS.String())
 		}
-		for j, act := range gpuUsage.JPEGBusyInst {
+		for j, jpegBusy := range gpuUsage.JPEGBusyInst {
+			act := fromUint16Source(jpegBusy)
 			labelsWithIndex["xcc_index"] = fmt.Sprintf("%v", j)
 			if j == 0 && !utils.IsValueApplicable(act) {
 				ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuJpegBusyInst, exportermetrics.GPUMetricField_GPU_JPEG_BUSY_INSTANTANEOUS.String(),
-					labelsWithIndex, float64(math.MaxUint32))
+					labelsWithIndex, uint32(math.MaxUint32))
 				break
 			} else if utils.IsValueApplicable(act) {
 				ga.metrics.gpuJpegBusyInst.With(labelsWithIndex).Set(float64(act))
@@ -2344,11 +2349,11 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 			ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_MEMORY_VOLTAGE.String())
 		}
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVoltage, exportermetrics.GPUMetricField_GPU_VOLTAGE.String(),
-			labels, volt.Voltage)
+			labels, fromUint16Source(volt.Voltage))
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuGFXVoltage, exportermetrics.GPUMetricField_GPU_GFX_VOLTAGE.String(),
-			labels, volt.GFXVoltage)
+			labels, fromUint16Source(volt.GFXVoltage))
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuMemVoltage, exportermetrics.GPUMetricField_GPU_MEMORY_VOLTAGE.String(),
-			labels, volt.MemoryVoltage)
+			labels, fromUint16Source(volt.MemoryVoltage))
 	}
 
 	// pcie status
@@ -2420,16 +2425,17 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 		delete(labelsWithIndex, "clock_type")
 	} else {
 		ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuClock, exportermetrics.GPUMetricField_GPU_CLOCK.String(),
-			labels, float64(math.MaxUint32))
+			labels, uint32(math.MaxUint32))
 
 	}
 
 	if !utils.IsNonZeroValue(stats.PowerUsage) {
 		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String())
 	}
-	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPowerUsage, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String(), labels, stats.PowerUsage)
+	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPowerUsage, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String(),
+		labels, fromUint16Source(stats.PowerUsage))
 
-	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVramMaxBandwidth, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(), labels, float64(status.GetVRAMStatus().GetMaxBandwidth()))
+	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVramMaxBandwidth, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(), labels, status.GetVRAMStatus().GetMaxBandwidth())
 
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEccCorrectTotal, exportermetrics.GPUMetricField_GPU_ECC_CORRECT_TOTAL.String(),
 		labels, stats.TotalCorrectableErrors)
@@ -2921,4 +2927,42 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 
 func GetGPUMandatoryLabels() []string {
 	return gpuMandatoryLables
+}
+
+// fromUint16Source maps a stat that gpu-agent widened from a uint16 AMD-SMI field onto the
+// exporter's wire rule without ever narrowing it.
+//
+// amdsmi_gpu_metrics_t carries these fields as uint16 with 0xFFFF meaning unavailable: socket
+// power (current and average), the SoC/GFX/memory voltages, the edge/hotspot/memory/HBM
+// temperatures, GFX/UMC/MM/VCN/JPEG activity and VCN/JPEG instantaneous busy. gpu-agent copies
+// them into wider stats (uint32, uint64, or float for temperatures) without translating the
+// sentinel (smi_api.cc, smi_fill_gpu_stats_), so the value's wire type says nothing about the
+// sensor and the validator alone cannot tell 0xFFFF-unavailable from a genuine 65535.
+//
+// Anything at or beyond UINT16_MAX cannot be a reading from a uint16 sensor, so it is the source
+// sentinel (or a wider all-ones sentinel gpu-agent may adopt later) and becomes the presented
+// type's own unavailable value. Everything below passes through unchanged: a genuine 255 stays a
+// reading instead of being mistaken for UINT8_MAX, and nothing is truncated, so a value that is
+// not uint16-sourced after all (the SR-IOV host path reports package_power from a uint64
+// amdsmi_power_info_t.socket_power) is reported unavailable rather than wrapped into a plausible
+// wrong number.
+//
+// This is a compatibility shim for gpu-agent builds that emit untranslated sentinels. Once
+// gpu-agent maps 0xFFFF to the destination type's maximum at its copy sites, every call site of
+// this helper can pass the stat through directly and the helper can be deleted.
+func fromUint16Source[T ~uint32 | ~uint64](stat T) T {
+	if stat >= math.MaxUint16 {
+		return ^T(0)
+	}
+	return stat
+}
+
+// fromUint16SourceFloat is fromUint16Source for the temperatures, which gpu-agent stores as float.
+// The validator clamps a float32 into the uint32 rule, so the unavailable value is UINT32_MAX;
+// negative values cannot come from a uint16 sensor either and are unavailable.
+func fromUint16SourceFloat(stat float32) float32 {
+	if stat < 0 || stat >= math.MaxUint16 {
+		return float32(math.MaxUint32)
+	}
+	return stat
 }
