@@ -49,12 +49,14 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       tarball_url: ${{ steps.v.outputs.tarball_url }}
+      rocm_version: ${{ steps.v.outputs.rocm_version }}
     steps:
       - uses: actions/checkout@v4
       - id: v
         run: |
           echo "version=$(grep -m1 'PROJECT_VERSION ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
           echo "tarball_url=$(grep -m1 'ROCM_TARBALL_URL ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+          echo "rocm_version=$(grep -m1 'ROCM_VERSION ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
 
   resolve:
     name: Resolve
@@ -74,23 +76,25 @@ jobs:
 
   build-dme:
     name: Build DME
-    needs: resolve
+    needs: [read-version, resolve]
     if: needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-dme.yml
     with:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_url: ${{ needs.resolve.outputs.rocm_tarball_url }}
+      rocm_version: ${{ github.event_name == 'pull_request' && needs.read-version.outputs.rocm_version || needs.resolve.outputs.rocm_tarball_version }}
       version: ${{ needs.resolve.outputs.version }}
       suffix: ${{ needs.resolve.outputs.suffix }}
 
   build-test-runner:
     name: Build Test Runner
-    needs: resolve
+    needs: [read-version, resolve]
     if: needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-test-runner.yml
     with:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_url: ${{ needs.resolve.outputs.rocm_tarball_url }}
+      rocm_version: ${{ github.event_name == 'pull_request' && needs.read-version.outputs.rocm_version || needs.resolve.outputs.rocm_tarball_version }}
       version: ${{ needs.resolve.outputs.version }}
       suffix: ${{ needs.resolve.outputs.suffix }}
 
