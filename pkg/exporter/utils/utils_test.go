@@ -75,57 +75,66 @@ func TestGetPCIeBaseAddress(t *testing.T) {
 func TestIsValueApplicable(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    uint64
+		input    interface{}
 		expected bool
 	}{
+		// only the max of the value's own datatype is NA; gpuagent widens each
+		// field's NA sentinel to the field width, so lower-width maxes in a
+		// wider type are real values.
 		{
-			name:     "uint64 - na",
-			input:    0xFFFFFFFFFFFFFFFF,
+			name:     "uint64 max - na",
+			input:    uint64(math.MaxUint64),
 			expected: false,
 		},
 		{
-			name:     "uint32 - na",
-			input:    4294967295,
+			name:     "uint32 max - na",
+			input:    uint32(math.MaxUint32),
 			expected: false,
 		},
 		{
-			name:     "uint32 - na",
-			input:    0xFFFFFFFF,
+			name:     "uint16 max - na",
+			input:    uint16(math.MaxUint16),
 			expected: false,
 		},
 		{
-			name:     "uint16 - na",
-			input:    65535,
+			name:     "uint8 max - na",
+			input:    uint8(math.MaxUint8),
 			expected: false,
 		},
+		// GPUOP #662: a real 255 W power (uint64) must not be treated as NA
 		{
-			name:     "uint16 - na",
-			input:    0xFFFF,
-			expected: false,
-		},
-		{
-			name:     "uint8 - na",
-			input:    255,
-			expected: false,
-		},
-		{
-			name:     "uint8 - na",
-			input:    0xFF,
-			expected: false,
-		},
-		{
-			name:     "uint32 - valid",
-			input:    200,
+			name:     "uint64 holding 255 - valid (#662)",
+			input:    uint64(255),
 			expected: true,
 		},
 		{
-			name:     "uint16 - valid",
-			input:    100,
+			name:     "uint64 holding 65535 - valid",
+			input:    uint64(65535),
 			expected: true,
 		},
 		{
-			name:     "uint8 - valid",
-			input:    50,
+			name:     "uint64 holding MaxUint32 - valid",
+			input:    uint64(math.MaxUint32),
+			expected: true,
+		},
+		{
+			name:     "uint32 holding 255 - valid",
+			input:    uint32(255),
+			expected: true,
+		},
+		{
+			name:     "uint32 holding 65535 - valid",
+			input:    uint32(65535),
+			expected: true,
+		},
+		{
+			name:     "uint16 holding 255 - valid",
+			input:    uint16(255),
+			expected: true,
+		},
+		{
+			name:     "uint64 ordinary value - valid",
+			input:    uint64(200),
 			expected: true,
 		},
 	}
@@ -143,43 +152,44 @@ func TestIsValueApplicable(t *testing.T) {
 func TestNormalize(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    uint64
+		input    interface{}
 		expected float64
 	}{
 		{
-			name:     "uint64 - na",
-			input:    0xFFFFFFFFFFFFFFFF,
+			name:     "uint64 max - na",
+			input:    uint64(math.MaxUint64),
 			expected: 0,
 		},
 		{
-			name:     "uint32 - na",
-			input:    0xFFFFFFFF,
+			name:     "uint32 max - na",
+			input:    uint32(math.MaxUint32),
 			expected: 0,
 		},
 		{
-			name:     "uint16 - na",
-			input:    0xFFFF,
+			name:     "uint16 max - na",
+			input:    uint16(math.MaxUint16),
 			expected: 0,
 		},
 		{
-			name:     "uint8 - na",
-			input:    0xFF,
+			name:     "uint8 max - na",
+			input:    uint8(math.MaxUint8),
 			expected: 0,
 		},
+		// GPUOP #662: a real 255 (uint64) normalizes to itself, not 0
 		{
-			name:     "uint32 - valid",
-			input:    200,
+			name:     "uint64 holding 255 - valid (#662)",
+			input:    uint64(255),
+			expected: 255,
+		},
+		{
+			name:     "uint64 holding MaxUint32 - valid",
+			input:    uint64(math.MaxUint32),
+			expected: float64(math.MaxUint32),
+		},
+		{
+			name:     "uint32 ordinary value - valid",
+			input:    uint32(200),
 			expected: 200,
-		},
-		{
-			name:     "uint16 - valid",
-			input:    100,
-			expected: 100,
-		},
-		{
-			name:     "uint8 - valid",
-			input:    50,
-			expected: 50,
 		},
 	}
 
@@ -216,18 +226,9 @@ func TestFloatSentinel(t *testing.T) {
 			wantApplicable: false,
 			wantNormalized: 0,
 		},
-		{
-			name:           "uint32 INT32_MAX sentinel (GIM mm_activity) - NA",
-			input:          uint32(math.MaxInt32),
-			wantApplicable: false,
-			wantNormalized: 0,
-		},
-		{
-			name:           "uint64 INT32_MAX sentinel - NA",
-			input:          uint64(math.MaxInt32),
-			wantApplicable: false,
-			wantNormalized: 0,
-		},
+		// NOTE: the GIM INT32_MAX sentinel (e.g. mm_activity) is now widened to
+		// the field-width all-Fs in gpuagent, so a raw INT32_MAX no longer
+		// reaches the exporter; the exporter only checks each datatype's own max.
 		{
 			name:           "float32 valid temperature",
 			input:          float32(43),
