@@ -173,24 +173,25 @@ func IsNonZeroValue(val interface{}) bool {
 }
 
 // IsValueApplicable checks if the value is applicable for metrics export.
-// It checks if the value is not equal to the maximum value for its type, which indicates NA (not applicable).
-// The function returns true if the value is applicable and false if it is NA.
-// MaxInt32 is also NA: the GIM smi-lib reports some unsupported fields (e.g. mm_activity) with that sentinel.
+// A value equal to the maximum of its own datatype indicates NA (not applicable).
+// gpuagent widens each field's NA sentinel to the field width, so only the
+// respective datatype max is checked here; a lower-width max in a wider type
+// (e.g. 255 W power in a uint64) is a real value.
 func IsValueApplicable(val interface{}) bool {
 
 	x := convertFloatToUint(val)
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 {
 			return false
 		}
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 {
 			return false
 		}
 	case uint16:
-		if x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint16 {
 			return false
 		}
 	case uint8:
@@ -212,17 +213,17 @@ func NormalizeUint64(val interface{}) float64 {
 
 	switch x := x.(type) {
 	case uint64:
-		if x == math.MaxUint64 || x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint64 {
 			return 0
 		}
 		return float64(x)
 	case uint32:
-		if x == math.MaxUint32 || x == math.MaxInt32 || x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint32 {
 			return 0
 		}
 		return float64(x)
 	case uint16:
-		if x == math.MaxUint16 || x == math.MaxUint8 {
+		if x == math.MaxUint16 {
 			return 0
 		}
 		return float64(x)
