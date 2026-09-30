@@ -1,0 +1,202 @@
+---
+version: 2.0
+builds:
+  build-nic-debian-package:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && make nic-debpkg"]
+    owners: ["email:yshankar@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/bin/amdnic-exporter_22.04_amd64.deb
+        - /device-metrics-exporter/bin/amdnic-exporter_24.04_amd64.deb
+
+  # `make docker` builds both exporter images (non-SR-IOV + SR-IOV) AND all gpu
+  # deb (Ubuntu 22/24) + rpm (RHEL9) packages, non-SR-IOV + SR-IOV, in one target.
+  # The former separate build-debian-package-ub22.04 / -ub24.04 / build-rpm-package-rhel9
+  # jobs are folded in here. (NIC deb stays separate — not produced by make docker.)
+  build-device-metrics-exporter-gpu:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && \
+                            HOURLY_TAG_LABEL=$RELEASE EXPORTER_IMAGE_TAG=latest make docker"]
+    owners: ["email:prshanmug@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/docker/device-metrics-exporter-latest.tar.gz
+        - /device-metrics-exporter/docker/device-metrics-exporter-sriov-latest.tar.gz
+        - /device-metrics-exporter/bin/amdgpu-exporter_22.04_amd64.deb
+        - /device-metrics-exporter/bin/amdgpu-exporter-sriov_22.04_amd64.deb
+        - /device-metrics-exporter/bin/amdgpu-exporter_24.04_amd64.deb
+        - /device-metrics-exporter/bin/amdgpu-exporter-sriov_24.04_amd64.deb
+        - /device-metrics-exporter/bin/amdgpu-exporter-rhel9.x86_64.rpm
+        - /device-metrics-exporter/bin/amdgpu-exporter-sriov-rhel9.x86_64.rpm
+        - /device-metrics-exporter/tools/techsupport_dump.sh
+
+  build-device-metrics-exporter-docker-ainic-ubi9.6:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && \
+                            HOURLY_TAG_LABEL=$RELEASE EXPORTER_IMAGE_TAG=latest make docker-ainic"]
+    owners: ["email:sgurunat@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/docker/device-metrics-exporter-ainic-latest.tar.gz
+
+  e2e-build-mock-exporter:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && EXPORTER_IMAGE_TAG=latest make e2e"]
+    owners: ["email:prshanmug@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/docker/device-metrics-exporter-mock-latest.tar.gz
+
+  build-helm-gpu-artifact:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && \
+                 mkdir -p build/charts && \
+                 INTERNAL_TAG=${RELEASE:-v1.5.0} && INTERNAL_TAG=${INTERNAL_TAG%-*} && \
+                 if [ \"$INTERNAL_TAG\" = 'exporter-0.0.1' ]; then INTERNAL_TAG=latest; fi && \
+                 HELM_CHARTS_VERSION=v0.0.1-${RELEASE:-dev} PROJECT_VERSION=${RELEASE:-v1.5.0} DOCKER_REGISTRY=registry.test.pensando.io:5000 HELM_EXPORTER_IMAGE_TAG=$INTERNAL_TAG make helm && \
+                 cp helm-charts/device-metrics-exporter-charts.tgz build/charts/internal-device-metrics-exporter-charts.tgz && \
+                 HELM_CHARTS_VERSION=v0.0.1-${RELEASE:-dev} PROJECT_VERSION=${RELEASE:-v1.5.0} DOCKER_REGISTRY=docker.io/amdpsdo HELM_EXPORTER_IMAGE_TAG=${RELEASE:-v1.5.0} make helm && \
+                 cp helm-charts/device-metrics-exporter-charts.tgz build/charts/amdpsdo-device-metrics-exporter-charts.tgz"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+    artifacts:
+        - /device-metrics-exporter/build/charts/internal-device-metrics-exporter-charts.tgz
+        - /device-metrics-exporter/build/charts/amdpsdo-device-metrics-exporter-charts.tgz
+
+  build-helm-nic-artifact:
+    commands: ["sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && \
+                 mkdir -p build/charts && \
+                 INTERNAL_TAG=${RELEASE:-v1.5.0} && INTERNAL_TAG=${INTERNAL_TAG%-*} && \
+                 if [ \"$INTERNAL_TAG\" = 'exporter-0.0.1' ]; then INTERNAL_TAG=latest; fi && \
+                 HELM_CHARTS_VERSION=v0.0.1-${RELEASE:-dev} PROJECT_VERSION=${RELEASE:-v1.5.0} DOCKER_REGISTRY=registry.test.pensando.io:5000 HELM_EXPORTER_IMAGE_TAG=$INTERNAL_TAG NIC_BUILD=1 make helm && \
+                 cp helm-charts/nic-device-metrics-exporter-charts.tgz build/charts/internal-nic-device-metrics-exporter-charts.tgz && \
+                 HELM_CHARTS_VERSION=v0.0.1-${RELEASE:-dev} PROJECT_VERSION=${RELEASE:-v1.5.0} DOCKER_REGISTRY=docker.io/amdpsdo HELM_EXPORTER_IMAGE_TAG=${RELEASE:-v1.5.0} NIC_BUILD=1 make helm && \
+                 cp helm-charts/nic-device-metrics-exporter-charts.tgz build/charts/amdpsdo-nic-device-metrics-exporter-charts.tgz"]
+    owners: ["email:yshankar@amd.com"]
+    area:
+    sub-area:
+    feature:
+    artifacts:
+        - /device-metrics-exporter/build/charts/internal-nic-device-metrics-exporter-charts.tgz
+        - /device-metrics-exporter/build/charts/amdpsdo-nic-device-metrics-exporter-charts.tgz
+
+  build-test-runner-docker:
+    commands: ["/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && HOURLY_TAG_LABEL=$RELEASE AGFHC=0 TESTRUNNER_IMAGE_TAG=latest make docker-test-runner-cicd"]
+    owners: ["email:yan.sun3@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/docker/testrunner/test-runner-latest.tar.gz
+
+  build-test-runner-docker-agfhc:
+    commands: ["/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && HOURLY_TAG_LABEL=$RELEASE AGFHC=1 TESTRUNNER_IMAGE_TAG=agfhc-latest make docker-test-runner-cicd"]
+    owners: ["email:yan.sun3@amd.com"]
+    artifacts:
+        - /device-metrics-exporter/docker/testrunner/test-runner-agfhc-latest.tar.gz
+
+targets:
+  device-metrics-sanity:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && \
+                                    make unit-test"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+    logfiles:
+        - /device-metrics-exporter/exporter.log
+    build-dependencies:
+        - build-helm-gpu-artifact
+        - build-helm-nic-artifact
+        - build-device-metrics-exporter-gpu
+        - e2e-build-mock-exporter
+        - build-nic-debian-package
+
+  device-metrics-exporter-build-sanity:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+    logfiles:
+        - /device-metrics-exporter/exporter-build.log
+    build-dependencies:
+        - build-device-metrics-exporter-gpu
+        - build-device-metrics-exporter-docker-ainic-ubi9.6
+
+  test-runner-sanity:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter"]
+    owners: ["email:yan.sun3@amd.com"]
+    area:
+    sub-area:
+    feature:
+    logfiles:
+        - /device-metrics-exporter/test-runner.log
+    build-dependencies:
+        - build-test-runner-docker
+        - build-test-runner-docker-agfhc
+   
+  docs-sanity:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && make docs"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+
+  api-checks:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && make checks"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+
+  copyright-checks:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && make copyrights"]
+    owners: ["email:sajmera@amd.com"]
+    area:
+    sub-area:
+    feature:
+
+  docs-lint:
+    commands: [ "/bin/sh", "-c", "cd /usr/src/github.com/ROCm/device-metrics-exporter && make docs-lint"]
+    owners: ["email:prshanmug@amd.com"]
+    area:
+    sub-area:
+    feature:
+
+image:
+  bind_dir: "/device-metrics-exporter"
+  work_dir: "/device-metrics-exporter"
+
+jobs:
+  asset-build:
+    labels: ["CI-Sanity-Build"]
+  devops/jobs/security_scan/sanity:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/sanity:
+    labels: ["CI-Pytest-Sanity"]
+  test/jobs/regression:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/mi300x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/mi325x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/mi350x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/mi350p:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/mi210:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/r9700s:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/platform-release/w7900:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-sanity:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/mi210:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/mi300x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/mi325x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/mi350p:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/mi350x:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/r9700s:
+    labels: ["CI-Sanity-Build"]
+  test/jobs/rocm-platform-release/w7900:
+    labels: ["CI-Sanity-Build"]
+
+submodules: {}
