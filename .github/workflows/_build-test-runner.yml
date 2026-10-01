@@ -49,12 +49,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Read RVS tarball URL from Makefile
+        id: rvs
+        run: |
+          echo "url=$(grep -m1 'RVS_ROCM10_TARBALL_URL ?=' Makefile | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+
       - name: Build test-runner inside dev container
         env:
-          IMAGE_TAG:        ${{ inputs.image_tag }}
-          ROCM_TARBALL_URL: ${{ inputs.rocm_tarball_url }}
-          DME_VERSION:      ${{ inputs.version }}
-          SUFFIX:           ${{ inputs.suffix }}
+          IMAGE_TAG:              ${{ inputs.image_tag }}
+          ROCM_TARBALL_URL:       ${{ inputs.rocm_tarball_url }}
+          RVS_ROCM10_TARBALL_URL: ${{ steps.rvs.outputs.url }}
+          DME_VERSION:            ${{ inputs.version }}
+          SUFFIX:                 ${{ inputs.suffix }}
         run: |
           docker run --rm --privileged \
             -e CI=true \
@@ -62,6 +68,7 @@ jobs:
             -e "BUILD_DATE=$(date +%Y-%m-%dT%H:%M:%S%z)" \
             -e "HOST_TOP_DIR=${{ github.workspace }}" \
             -e "ROCM_TARBALL_URL=${ROCM_TARBALL_URL}" \
+            -e "RVS_ROCM10_TARBALL_URL=${RVS_ROCM10_TARBALL_URL}" \
             -e "TESTRUNNER_IMAGE_TAG=${IMAGE_TAG}" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "${{ github.workspace }}:${WORKSPACE}" \

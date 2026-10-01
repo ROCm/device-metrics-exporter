@@ -101,6 +101,7 @@ TESTRUNNER_PATTERNS=(
     "librocroller.*"
     "libhiprtc.*"
     "librocsolver.*"
+    "liborigami.*"
 )
 
 # testrunner and rvs profiles share the same lib/library set; they differ only in
