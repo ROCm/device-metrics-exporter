@@ -96,6 +96,7 @@ TESTRUNNER_PATTERNS=(
     "librocblas.*"
     "librocm-core.*"
     "libhipblaslt.*"
+    "liborigami.*"
     "libhiprand.*"
     "libroctx64.*"
     "librocroller.*"
