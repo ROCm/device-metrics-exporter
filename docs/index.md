@@ -75,6 +75,8 @@ See [GPU Metrics List](./configuration/metricslist.md) for the complete list.
 | 1.117.5-a-56<br>1.117.5-a-77                           | nic-v1.2.0             | Pollara 400    |
 | 1.117.5-a-77<br>1.117.5-a-147<br>1.117.5-a-196         | nic-v1.2.1             | Pollara 400    |
 
+**Note:** The debian exporter does not have any firmware version dependencies and works on all firmware versions.
+
 ### Available Metrics
 
 Device Metrics Exporter provides extensive NIC metrics including:
