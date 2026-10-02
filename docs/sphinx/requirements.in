@@ -1,2 +1,11 @@
 rocm-docs-core[llms]==1.38.0
 sphinx-reredirects
+
+# Security floors for vulnerable docs-build transitive deps (Dependabot pip alerts).
+# Drop once rocm-docs-core pulls patched versions transitively.
+cryptography==50.0.2
+gitpython==3.2.0
+pyjwt==2.15.1
+soupsieve==2.10
+tornado==6.5.10
+urllib3==2.8.0
