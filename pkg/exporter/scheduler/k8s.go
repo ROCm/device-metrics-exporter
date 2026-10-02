@@ -59,9 +59,9 @@ func NewKubernetesClient(ctx context.Context) (SchedulerClient, error) {
 }
 
 // ListWorkloads - list all the workloads
-// This function will return a map of device id to workload
+// This function will return a map of device id to the workloads consuming it.
 // The device id is the device id (pcie id or partition xcd string) of the GPU
-func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
+func (cl *podResourcesClient) ListWorkloads() (map[string]Workloads, error) {
 	prCl := kube.NewPodResourcesListerClient(cl.clientConn)
 	ctx, cancel := context.WithTimeout(cl.ctx, time.Second*10)
 	defer cancel()
@@ -89,14 +89,27 @@ func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
 		}
 	}
 
-	podInfo := make(map[string]Workload)
-	// Iterate through all pods and their containers to find AMD GPU allocations
-	// Allocations can be done via device plugin or via DRA
-	// If device plugin is used, the resource name will have the prefix "amd.com"
-	// If DRA is used, the claim driver name will be "gpu.amd.com"
-	// All pods in a node can have allocations serviced by either device plugin or the DRA driver, not both
+	return workloadsFromPodResources(resp.PodResources), nil
+}
+
+// workloadsFromPodResources maps each device to the workloads consuming it.
+//
+// Allocations can be done via device plugin or via DRA. If device plugin is
+// used, the resource name will have the prefix "amd.com". If DRA is used, the
+// claim driver name will be "gpu.amd.com". All pods in a node can have
+// allocations serviced by either device plugin or the DRA driver, not both.
+func workloadsFromPodResources(pods []*kube.PodResources) map[string]Workloads {
+	podInfo := make(map[string]Workloads)
+	// A device can have several consumers, so an allocation appends to the
+	// device's entry instead of replacing whatever is already there.
+	add := func(deviceId string, wl Workload) {
+		key := strings.ToLower(deviceId)
+		consumers := podInfo[key]
+		consumers.Append(wl)
+		podInfo[key] = consumers
+	}
 	mode := "" // "plugin" or "dra"
-	for _, pod := range resp.PodResources {
+	for _, pod := range pods {
 		for _, container := range pod.Containers {
 			wl := Workload{
 				Type: Kubernetes,
@@ -112,7 +125,7 @@ func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
 					if strings.HasPrefix(devs.ResourceName, globals.AMDGPUResourcePrefix) {
 						mode = "plugin"
 						for _, devId := range devs.DeviceIds {
-							podInfo[strings.ToLower(devId)] = wl
+							add(devId, wl)
 						}
 					}
 				}
@@ -123,15 +136,14 @@ func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
 					for _, claim := range dyn.ClaimResources {
 						if strings.HasPrefix(claim.DriverName, globals.AMDGPUDriverName) {
 							mode = "dra"
-							podInfo[strings.ToLower(claim.DeviceName)] = wl
+							add(claim.DeviceName, wl)
 						}
 					}
 				}
 			}
 		}
 	}
-
-	return podInfo, nil
+	return podInfo
 }
 
 func (cl *podResourcesClient) CheckExportLabels(labels map[string]bool) bool {

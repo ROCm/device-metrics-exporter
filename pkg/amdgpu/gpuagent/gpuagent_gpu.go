@@ -372,7 +372,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 		logger.Errorf("FetchPodInfoForNode failed with err : %v", err)
 	}
 
-	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
+	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)[0]
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	for _, gpu := range resp.Response {
 		var gpuProfMetrics map[string]float64

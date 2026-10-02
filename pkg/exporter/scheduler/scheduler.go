@@ -30,9 +30,40 @@ type Workload struct {
 	Info interface{}
 }
 
+// Workloads is every consumer of one device. A device can be consumed by more
+// than one workload: a DRA ResourceClaim may be referenced by several pods, and
+// each of them consumes every device the claim allocated.
+type Workloads []Workload
+
+// Append adds wl unless the same consumer is already listed.
+func (w *Workloads) Append(wl Workload) {
+	for _, existing := range *w {
+		if existing.Same(wl) {
+			return
+		}
+	}
+	*w = append(*w, wl)
+}
+
+// Same reports whether two workloads are the same consumer.
+func (w Workload) Same(other Workload) bool {
+	if w.Type != other.Type {
+		return false
+	}
+	switch info := w.Info.(type) {
+	case PodResourceInfo:
+		otherInfo, ok := other.Info.(PodResourceInfo)
+		return ok && info == otherInfo
+	case JobInfo:
+		otherInfo, ok := other.Info.(JobInfo)
+		return ok && info == otherInfo
+	}
+	return false
+}
+
 type SchedulerClient interface {
-	// List of JobInfo/PodResourceInfo map
-	ListWorkloads() (map[string]Workload, error)
+	// List of JobInfo/PodResourceInfo map, one entry per device
+	ListWorkloads() (map[string]Workloads, error)
 	CheckExportLabels(labels map[string]bool) bool
 	Close() error
 	Type() SchedulerType

@@ -407,7 +407,7 @@ func (na *NICAgentClient) getNetDevicesList(podInfo *scheduler.PodResourceInfo) 
 }
 
 // ListWorkloads returns the list of workloads by device ID
-func (na *NICAgentClient) ListWorkloads() (map[string]scheduler.Workload, error) {
+func (na *NICAgentClient) ListWorkloads() (map[string]scheduler.Workloads, error) {
 	if na.isKubernetes && na.k8sScheduler != nil {
 		return na.k8sScheduler.ListWorkloads()
 	}
@@ -441,18 +441,20 @@ func (na *NICAgentClient) getMetricsAll(ctx context.Context) error {
 	var wg sync.WaitGroup
 	na.initLocalCacheIfRequired()
 
-	workloads := make(map[string]scheduler.Workload)
+	workloads := make(map[string]scheduler.Workloads)
 	var err error
 	if na.isKubernetes {
 		workloads, err = na.ListWorkloads()
 		if err != nil {
 			logger.Log.Printf("failed to list workloads, err: %v", err)
 		}
-		for i := range workloads {
-			podInfo := workloads[i].Info.(scheduler.PodResourceInfo)
-			if err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace); err != nil {
-				logger.Log.Printf("failure in pod2pid update for pod %s ns %s: %v",
-					podInfo.Pod, podInfo.Namespace, err)
+		for _, consumers := range workloads {
+			for _, wl := range consumers {
+				podInfo := wl.Info.(scheduler.PodResourceInfo)
+				if err := na.addPodPidIfAbsent(podInfo.Pod, podInfo.Namespace); err != nil {
+					logger.Log.Printf("failure in pod2pid update for pod %s ns %s: %v",
+						podInfo.Pod, podInfo.Namespace, err)
+				}
 			}
 		}
 		k8PodInfoMap, _ = na.fetchPodInfoForNode()
