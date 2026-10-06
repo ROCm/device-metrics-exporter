@@ -363,9 +363,9 @@ on Radeon.
 
 ### Occupancy & Utilization Metrics
 
-**_Radeon_**: not supported. `GPU_PROF_TENSOR_ACTIVE_PERCENT` and
-`GPU_PROF_SIMD_UTILIZATION` are not exported; all other metrics in this
-section are exported but always return `0` on Radeon.
+**_Radeon_**: not supported. `GPU_PROF_TENSOR_ACTIVE_PERCENT` is not
+exported; all other metrics in this section are exported but always
+return `0` on Radeon.
 
 | Metric                           | Description                                         |
 |----------------------------------|-----------------------------------------------------|
