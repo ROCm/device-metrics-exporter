@@ -126,13 +126,12 @@ jobs:
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
       artifact_names: >-
         build-dme-${{ needs.resolve.outputs.image_tag }},
-        build-test-runner-${{ needs.resolve.outputs.image_tag }},
         build-helm-${{ needs.resolve.outputs.image_tag }}
       s3_file_globs: "*.tar.gz,*_amd64.deb,*.tgz"
       docker_images: |
         device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
+        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|rocm/device-metrics-exporter:nightly-${{ needs.resolve.outputs.nightly_date }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
-        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
