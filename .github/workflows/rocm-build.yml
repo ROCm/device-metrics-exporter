@@ -61,7 +61,7 @@ jobs:
       contents: read
       id-token: write
       actions: write
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@d2e10a71e2af56af1fa0177901570daa75e8ac2b
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@51769beb79300d5c2787fb5bd161e93c922355fb
     with:
       component: dme
       version: ${{ needs.read-version.outputs.version }}
@@ -128,7 +128,7 @@ jobs:
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@d2e10a71e2af56af1fa0177901570daa75e8ac2b
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@51769beb79300d5c2787fb5bd161e93c922355fb
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
