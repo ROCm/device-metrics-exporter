@@ -145,7 +145,7 @@ jobs:
       s3_file_globs: "*.tar.gz,*_amd64.deb,*.tgz"
       docker_images: |
         device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
-        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|rocm/device-metrics-exporter:nightly-${{ needs.resolve.outputs.nightly_date }}|true
+        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|rocm/device-metrics-exporter:nightly-${{ needs.resolve.outputs.nightly_tag }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
