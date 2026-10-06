@@ -133,7 +133,7 @@ jobs:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_version: ${{ needs.resolve.outputs.rocm_tarball_version }}
-      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' }}
+      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-helm.result == 'success' }}
       version: ${{ needs.resolve.outputs.version }}
       suffix: ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}

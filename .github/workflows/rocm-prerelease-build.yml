@@ -32,14 +32,15 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
-  actions: write
-
 
 jobs:
 
   resolve:
     name: Resolve
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
     uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@51769beb79300d5c2787fb5bd161e93c922355fb
     with:
       component: dme
@@ -56,6 +57,9 @@ jobs:
   build-dme:
     name: Build DME
     needs: resolve
+    permissions:
+      contents: read
+      actions: write
     if: needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-dme.yml
     with:
@@ -67,6 +71,9 @@ jobs:
   build-test-runner:
     name: Build Test Runner
     needs: resolve
+    permissions:
+      contents: read
+      actions: write
     if: needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-test-runner.yml
     with:
@@ -78,6 +85,9 @@ jobs:
   build-helm:
     name: Build Helm Chart
     needs: resolve
+    permissions:
+      contents: read
+      actions: write
     if: needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-helm.yml
     with:
@@ -88,6 +98,10 @@ jobs:
   publish:
     name: Publish
     needs: [resolve, build-dme, build-test-runner, build-helm]
+    permissions:
+      contents: read
+      id-token: write
+      actions: write
     if: >-
       always() && needs.resolve.outputs.build_needed == 'true'
       && (needs.build-dme.result == 'success'
