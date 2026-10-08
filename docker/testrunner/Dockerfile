@@ -11,7 +11,7 @@ ARG RADEON_REPO_URL=https://repo.radeon.com
 ARG ROCM_TARBALL_URL=""
 # Full URL to the RVS pre-built tarball.
 # Leave empty to install rocm-validation-suite via dnf (old path).
-ARG RVS_TARBALL_URL=""
+ARG RVS_TARBALL_URL="https://stable.repo.amd.com/rocm/extras/rvs/tarball/amdrocm10-rvs-1.6.131-844-Linux.tar.gz"
 
 ADD install-rocm-tarball.sh /usr/local/bin/install-rocm-tarball.sh
 ADD install-rvs-tarball.sh /usr/local/bin/install-rvs-tarball.sh
