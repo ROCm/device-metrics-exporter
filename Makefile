@@ -141,6 +141,7 @@ ROCM_TARBALL_URL ?= https://stable.repo.amd.com/rocm/core/tarball/therock-dist-l
 # amdsmi commit auto-extracted from the fetched tarball; empty until fetched.
 ROCM_COMMIT = $(shell cat "$(ROCM_COMMIT_FILE)" 2>/dev/null)
 RVS_TARBALL_URL ?= https://repo.amd.com/rocm/rvs/tarball/amdrocm7-rvs-1.5.122-579-Linux.tar.gz
+RVS_ROCM10_TARBALL_URL ?= https://stable.repo.amd.com/rocm/extras/rvs/tarball/amdrocm10-rvs-1.6.131-844-Linux.tar.gz
 
 # download the ~9 GB ROCm tarball ONCE to the host, then bind-mount it
 # into every docker build (gpuagent-build stage, release runtime, and the 3
@@ -192,6 +193,7 @@ export ROCM_COMMIT
 export ROCM_APT_VERSION
 export ROCM_TARBALL_URL
 export RVS_TARBALL_URL
+export RVS_ROCM10_TARBALL_URL
 # export so docker/Makefile (sub-make) can pass --build-context rocm-tarball
 export ROCM_TARBALL_DIR
 export AMDSMI_FROM_TARBALL
@@ -663,19 +665,20 @@ docker-test-runner: gen-test-runner amdtestrunner
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker \
 		ROCM_VERSION=$(TESTRUNNER_ROCM_VERSION) \
 		ROCM_TARBALL_URL=$(TESTRUNNER_ROCM_TARBALL_URL) \
-		RVS_TARBALL_URL=$(RVS_TARBALL_URL)
+		RVS_TARBALL_URL=$(TESTRUNNER_RVS_TARBALL_URL)
 
 # AGFHC=1 pins ROCm to the rocm7 tarball (AGFHC bundle is rocm7-only, see dev.env);
 # the default (RVS-only) build uses the repo-wide ROCM_VERSION.
 TESTRUNNER_ROCM_VERSION = $(if $(filter 1,$(AGFHC)),$(AGFHC_ROCM_VERSION),$(ROCM_VERSION))
 TESTRUNNER_ROCM_TARBALL_URL = $(if $(filter 1,$(AGFHC)),$(AGFHC_ROCM_TARBALL_URL),$(ROCM_TARBALL_URL))
+TESTRUNNER_RVS_TARBALL_URL = $(if $(filter 1,$(AGFHC)),$(RVS_TARBALL_URL),$(RVS_ROCM10_TARBALL_URL))
 
 .PHONY: docker-test-runner-cicd
 docker-test-runner-cicd: gen-test-runner amdtestrunner
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-cicd \
 		ROCM_VERSION=$(TESTRUNNER_ROCM_VERSION) \
 		ROCM_TARBALL_URL=$(TESTRUNNER_ROCM_TARBALL_URL) \
-		RVS_TARBALL_URL=$(RVS_TARBALL_URL)
+		RVS_TARBALL_URL=$(TESTRUNNER_RVS_TARBALL_URL)
 	${MAKE} -C docker/testrunner TOP_DIR=$(CURDIR) docker-save
 
 # Builds gpuagent + gpuctl + rocprofiler client from the shared source producers
