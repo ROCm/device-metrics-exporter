@@ -73,6 +73,7 @@ type Exporter struct {
 	enableCRI            bool
 	exitOnAgentDown      bool
 	exitOnRocpctlError   bool
+	gpuGetTTL            time.Duration
 	bindAddr             string
 	k8sApiClient         *k8sclient.K8sClient
 	svcHandler           *metricsserver.SvcHandler
@@ -300,6 +301,7 @@ func NewExporter(agentGrpcport int, configFile string, opts ...ExporterOption) *
 		disableK8sApi: false, // by default k8s api is enabled
 		disableK8sScl: false, // by default k8s scheduler client is enabled
 		enableCRI:     true,  // by default CRI client is enabled
+		gpuGetTTL:     gpuagent.DefaultGPUGetCacheTTL,
 	}
 
 	for _, o := range opts {
@@ -477,6 +479,13 @@ func WithExitOnRocpctlError(exit bool) ExporterOption {
 	}
 }
 
+func WithGPUGetCacheTTL(ttl time.Duration) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("GPUGet cache TTL set to %v", ttl)
+		e.gpuGetTTL = ttl
+	}
+}
+
 // StartMain - doesn't return it exits only on failure
 func (e *Exporter) StartMain() {
 	defer e.Close()
@@ -514,6 +523,7 @@ func (e *Exporter) StartMain() {
 			gpuagent.WithIFOEMonitoring(e.enableIFOEMonitoring),
 			gpuagent.WithExitOnAgentDown(e.exitOnAgentDown),
 			gpuagent.WithExitOnRocpctlError(e.exitOnRocpctlError),
+			gpuagent.WithGPUGetCacheTTL(e.gpuGetTTL),
 		}
 		if e.agentConfig.UseSocket {
 			opts = append(opts, gpuagent.WithSocketConnection(e.agentConfig.SocketPath))

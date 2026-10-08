@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -521,6 +522,21 @@ func TestExporterOptions(t *testing.T) {
 			},
 			verify: func(e *Exporter) {
 				assert.Assert(t, e.exitOnAgentDown, "exitOnAgentDown should be enabled")
+			},
+		},
+		{
+			name: "GPUGet cache TTL defaults to the gpuagent value",
+			verify: func(e *Exporter) {
+				assert.Equal(t, e.gpuGetTTL, gpuagent.DefaultGPUGetCacheTTL, "default GPUGet cache TTL should match gpuagent")
+			},
+		},
+		{
+			name: "GPUGet cache TTL disabled",
+			options: []ExporterOption{
+				WithGPUGetCacheTTL(0),
+			},
+			verify: func(e *Exporter) {
+				assert.Equal(t, e.gpuGetTTL, time.Duration(0), "GPUGet cache TTL should be zero")
 			},
 		},
 	}
