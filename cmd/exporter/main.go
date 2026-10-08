@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -37,6 +38,8 @@ var (
 	GitCommit  string
 	ROCmCommit string
 )
+
+const gpuGetCacheTTLEnv = "AMD_GPU_GET_CACHE_TTL"
 
 func main() {
 	// Check environment variable to determine error handling behavior
@@ -106,6 +109,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	gpuGetCacheTTL, err := gpuagent.ParseGPUGetCacheTTL(os.Getenv(gpuGetCacheTTLEnv))
+	if err != nil {
+		fmt.Printf("invalid GPUGet cache configuration: %s: %v, exiting\n", gpuGetCacheTTLEnv, err)
+		os.Exit(1)
+	}
+
 	if !*enableNICMonitoring && !*enableGPUMonitoring && !*enableIFOEMonitoring {
 		fmt.Printf("NIC Agent, GPU Agent and IFOE Agent are all disabled, exiting")
 		os.Exit(1)
@@ -128,6 +137,7 @@ func main() {
 		exporter.WithSRIOV(*sriov),
 		exporter.WithExitOnAgentDown(*exitOnAgentDown),
 		exporter.WithExitOnRocpctlError(*exitOnRocpctlError),
+		exporter.WithGPUGetCacheTTL(gpuGetCacheTTL),
 		exporter.WithBindAddr(*bindAddr),
 		exporter.WithSlurmClient(*enableSlumrScl),
 		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),

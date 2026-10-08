@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,7 @@ type GPUAgentClient struct {
 	enableSriov          bool
 	exitOnAgentDown      bool // exit DME process when agent is unreachable
 	exitOnRocpctlError   bool // exit DME process when rocpctl auto-disables on failure
+	gpuGetCacheTTL       time.Duration
 	useSocket            bool // use socket connection instead of IP:port
 	socketPath           string
 
@@ -144,6 +146,35 @@ func WithExitOnRocpctlError(exit bool) GPUAgentClientOptions {
 	}
 }
 
+// DefaultGPUGetCacheTTL is the GPUGet response reuse window when no option is passed.
+const DefaultGPUGetCacheTTL = cacheTimer
+
+// WithGPUGetCacheTTL sets how long a GPUGet response is reused; a non-positive
+// value issues a new RPC on every read.
+func WithGPUGetCacheTTL(ttl time.Duration) GPUAgentClientOptions {
+	return func(ga *GPUAgentClient) {
+		logger.Log.Printf("GPUGet cache TTL set to %v", ttl)
+		ga.gpuGetCacheTTL = ttl
+	}
+}
+
+// ParseGPUGetCacheTTL parses a cache TTL; empty means DefaultGPUGetCacheTTL and
+// negative values are rejected.
+func ParseGPUGetCacheTTL(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return DefaultGPUGetCacheTTL, nil
+	}
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, err
+	}
+	if ttl < 0 {
+		return 0, fmt.Errorf("%v must not be negative", ttl)
+	}
+	return ttl, nil
+}
+
 func (ga *GPUAgentClient) GetGRPCConnection() *grpc.ClientConn {
 	return ga.conn
 }
@@ -174,6 +205,7 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 		computeNodeHealthState: true,
 		enableGPUMonitoring:    true,
 		enableIFOEMonitoring:   false,
+		gpuGetCacheTTL:         DefaultGPUGetCacheTTL,
 	}
 	for _, o := range opts {
 		o(ga)

@@ -154,6 +154,7 @@ type GPUAgentGPUClient struct {
 	healthState           map[string]*metricssvc.GPUState
 	mockEccField          map[string]map[string]uint32 // gpuid->fields->count
 	gCache                *gpuCache
+	gpuGetCacheTTL        time.Duration
 	exportLabels          map[string]bool
 	exportFieldMap        map[string]bool // all upper case keys
 	fieldMetricsMap       map[string]FieldMeta
@@ -183,6 +184,7 @@ func NewGPUAgentGPUClient(gpuHandler *GPUAgentClient) (*GPUAgentGPUClient, error
 		fieldMetricsMap: make(map[string]FieldMeta),
 		gpuSelectorMap:  make(map[int]bool),
 		gCache:          &gpuCache{},
+		gpuGetCacheTTL:  gpuHandler.gpuGetCacheTTL,
 		gpuHandler:      gpuHandler,
 		fl:              gpuHandler.fl,
 		gpuIDMap:        make(map[string]GPUIDMeta),
@@ -418,14 +420,14 @@ func (ga *GPUAgentGPUClient) GetContext() context.Context {
 	return ctx
 }
 
-// cacheRead serves the given slot within cacheTimer, else issues a GPUGet with
+// cacheRead serves the given slot within gpuGetCacheTTL, else issues a GPUGet with
 // the given filter and refreshes that slot.
 func (ga *GPUAgentGPUClient) cacheRead(filter *amdgpu.GPUGetFilter, c *responseCache) (*amdgpu.GPUGetResponse, error) {
 	now := time.Now()
 
 	// First try fast path with RLock
 	ga.gCache.RLock()
-	if c.resp != nil && now.Sub(c.ts) < cacheTimer {
+	if ga.gpuGetCacheTTL > 0 && c.resp != nil && now.Sub(c.ts) < ga.gpuGetCacheTTL {
 		res := c.resp
 		ga.gCache.RUnlock()
 		logger.Debug("returning metrics from cache")
@@ -438,7 +440,7 @@ func (ga *GPUAgentGPUClient) cacheRead(filter *amdgpu.GPUGetFilter, c *responseC
 	defer ga.gCache.Unlock()
 
 	// Check again after acquiring Lock to handle the case where another goroutine has already updated the cache
-	if c.resp != nil && time.Since(c.ts) < cacheTimer {
+	if ga.gpuGetCacheTTL > 0 && c.resp != nil && time.Since(c.ts) < ga.gpuGetCacheTTL {
 		logger.Debug("returning metrics from cache (after double-check)")
 		return c.resp, nil
 	}
