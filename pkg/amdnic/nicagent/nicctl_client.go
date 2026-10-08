@@ -65,11 +65,11 @@ func (rc *NICCtlClient) GetClientName() string {
 	return NICCtlClientName
 }
 
-func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	nc.Lock()
 	defer nc.Unlock()
 
-	fn_ptrs := []func(context.Context, map[string]scheduler.Workload) error{
+	fn_ptrs := []func(context.Context, map[string]scheduler.Workloads) error{
 		nc.UpdatePortStats,
 		nc.UpdateLifStats,
 		nc.UpdateQPStats}
@@ -77,7 +77,7 @@ func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string
 	var wg sync.WaitGroup
 	for _, fn := range fn_ptrs {
 		wg.Add(1)
-		go func(f func(context.Context, map[string]scheduler.Workload) error) {
+		go func(f func(context.Context, map[string]scheduler.Workloads) error) {
 			defer wg.Done()
 			if err := f(ctx, workloads); err != nil {
 				logger.Log.Printf("failed to update NIC stats, err: %+v", err)
@@ -88,7 +88,7 @@ func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string
 	return nil
 }
 
-func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdatePortStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	if !fetchPortMetrics {
 		return nil
 	}
@@ -268,7 +268,7 @@ func parseRateValue(rateStr string) float64 {
 	return value
 }
 
-func (nc *NICCtlClient) UpdateLifStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateLifStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	if !fetchLifMetrics {
 		return nil
 	}
@@ -317,7 +317,7 @@ func (nc *NICCtlClient) UpdateLifStats(ctx context.Context, workloads map[string
 	return nil
 }
 
-func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	debugMode := globals.GetDebugMode(ctx)
 	var wg sync.WaitGroup
 

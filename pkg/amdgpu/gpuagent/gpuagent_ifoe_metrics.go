@@ -406,7 +406,7 @@ func (ga *GPUAgentIFOEClient) PopulateStaticHostLabels() error {
 }
 
 func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
-	wls map[string]scheduler.Workload,
+	wls map[string]scheduler.Workloads,
 	ualStationMap map[string]*amdgpu.UALStation,
 	ualPort *amdgpu.UALNetworkPort) map[string]string {
 

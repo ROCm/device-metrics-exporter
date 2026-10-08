@@ -2333,15 +2333,16 @@ func (na *NICAgentClient) populateLabelsFromNIC(UUID string) map[string]string {
 	return labels
 }
 
-func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string, workloads map[string]scheduler.Workload) map[string]string {
+func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string, workloads map[string]scheduler.Workloads) map[string]string {
 	labels := map[string]string{
 		strings.ToLower(exportermetrics.MetricLabel_POD.String()):       "",
 		strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()): "",
 		strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String()): "",
 	}
 
-	if wl, wlFound := workloads[pcieAddr]; wlFound {
-		podInfo := wl.Info.(scheduler.PodResourceInfo)
+	// a NIC device is allocated to one workload, so the first consumer names it
+	if consumers, wlFound := workloads[pcieAddr]; wlFound && len(consumers) > 0 {
+		podInfo := consumers[0].Info.(scheduler.PodResourceInfo)
 		labels[strings.ToLower(exportermetrics.MetricLabel_POD.String())] = podInfo.Pod
 		labels[strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String())] = podInfo.Namespace
 		labels[strings.ToLower(exportermetrics.MetricLabel_CONTAINER.String())] = podInfo.Container
@@ -2360,7 +2361,7 @@ func (na *NICAgentClient) getAssociatedWorkloadLabelsForPcieAddr(pcieAddr string
 }
 
 // getAssociatedWorkloadLabels returns the workload labels for a given NIC and LIF
-func (na *NICAgentClient) getAssociatedWorkloadLabels(nicID string, lifID string, workloads map[string]scheduler.Workload) map[string]string {
+func (na *NICAgentClient) getAssociatedWorkloadLabels(nicID string, lifID string, workloads map[string]scheduler.Workloads) map[string]string {
 	labels := map[string]string{
 		strings.ToLower(exportermetrics.MetricLabel_POD.String()):       "",
 		strings.ToLower(exportermetrics.MetricLabel_NAMESPACE.String()): "",

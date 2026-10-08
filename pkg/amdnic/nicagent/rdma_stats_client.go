@@ -57,15 +57,16 @@ func (rc *RDMAStatsClient) GetClientName() string {
 }
 
 func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string,
-	workloads map[string]scheduler.Workload, hostNetDevices []NetDevice) (map[string]string, error) {
+	workloads map[string]scheduler.Workloads, hostNetDevices []NetDevice) (map[string]string, error) {
 	var podInfo scheduler.PodResourceInfo
 	var podInfoPtr *scheduler.PodResourceInfo
 	var netDevices []NetDevice
 	var err error
 
-	wl, exists := workloads[pcieAddr]
-	if exists {
-		podInfo = (wl.Info.(scheduler.PodResourceInfo))
+	// a NIC device is allocated to one workload, so the first consumer names it
+	consumers, exists := workloads[pcieAddr]
+	if exists && len(consumers) > 0 {
+		podInfo = (consumers[0].Info.(scheduler.PodResourceInfo))
 		podInfoPtr = &podInfo
 	}
 
@@ -90,7 +91,7 @@ func (rc *RDMAStatsClient) populateRdmaDeviceLabels(rdmaDevName, pcieAddr string
 	return map[string]string{}, err
 }
 
-func (rc *RDMAStatsClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+func (rc *RDMAStatsClient) UpdateNICStats(ctx context.Context, workloads map[string]scheduler.Workloads) error {
 	if !fetchRdmaMetrics {
 		return nil
 	}

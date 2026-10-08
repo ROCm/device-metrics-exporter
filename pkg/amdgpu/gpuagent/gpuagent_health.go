@@ -105,7 +105,7 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 }
 
 // returns list of
-func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[string]scheduler.Workload) map[string]*metricssvc.GPUState {
+func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[string]scheduler.Workloads) map[string]*metricssvc.GPUState {
 
 	gpuHealthMap := make(map[string]*metricssvc.GPUState)
 	metricErrCheck := func(gpuid string, fieldName string, threshold uint32, count float64) {
@@ -174,7 +174,7 @@ func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[
 // to make all gpu unavailable through
 // device plugin - populate the old pcie bus entries with updated workload
 // list
-func (ga *GPUAgentGPUClient) setUnhealthyGPU(wls map[string]scheduler.Workload) error {
+func (ga *GPUAgentGPUClient) setUnhealthyGPU(wls map[string]scheduler.Workloads) error {
 	// valid only for k8s case
 	ga.Lock()
 	defer ga.Unlock()
