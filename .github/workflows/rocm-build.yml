@@ -6,7 +6,7 @@ name: DME Build
 
 on:
   schedule:
-    - cron: '0 13 * * *'
+    - cron: '0 7 * * *'
 
   pull_request:
     branches:
@@ -41,6 +41,11 @@ permissions:
 
 jobs:
 
+  quartz-check:
+    name: Quartz nightly check
+    if: github.event_name == 'schedule'
+    uses: ROCm/common-infra-operator/.github/workflows/quartz-check.yml@4a3e419db49b34dea98515b9fe3ac6dfbae0a6e8
+
   read-version:
     name: Read version from Makefile
     runs-on: ubuntu-24.04
@@ -56,7 +61,8 @@ jobs:
 
   resolve:
     name: Resolve
-    needs: read-version
+    needs: [read-version, quartz-check]
+    if: always() && (needs.quartz-check.result == 'skipped' || needs.quartz-check.outputs.rocm_ready == 'true')
     permissions:
       contents: read
       id-token: write
