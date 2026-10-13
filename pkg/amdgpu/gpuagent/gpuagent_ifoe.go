@@ -27,6 +27,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
@@ -47,6 +48,8 @@ type GPUAgentIFOEClient struct {
 	fieldMetricsMap        map[string]FieldMeta
 	staticHostLabels       map[string]string
 	podInfoEnabled         bool
+	// deduper collapses concurrent IFOE fetch-on-scrape calls into one.
+	deduper *snapshotstore.Deduper
 }
 
 func NewGPUAgentIFOEClient(gpuHandler *GPUAgentClient) (*GPUAgentIFOEClient, error) {
@@ -57,7 +60,8 @@ func NewGPUAgentIFOEClient(gpuHandler *GPUAgentClient) (*GPUAgentIFOEClient, err
 		allowedCustomLabels: []string{
 			exportermetrics.MetricLabel_CLUSTER_NAME.String(),
 		},
-		fl: gpuHandler.fl,
+		fl:      gpuHandler.fl,
+		deduper: snapshotstore.NewDeduper(),
 	}
 	return ifoeClient, nil
 }
@@ -66,6 +70,9 @@ func NewGPUAgentIFOEClient(gpuHandler *GPUAgentClient) (*GPUAgentIFOEClient, err
 func (ga *GPUAgentIFOEClient) Close() {
 	// No op for now
 }
+
+// StopServices is a no-op: the IFOE client runs no long-lived streams.
+func (ga *GPUAgentIFOEClient) StopServices() {}
 
 // InitClients initializes the IFOE client
 func (ga *GPUAgentIFOEClient) InitClients() error {
@@ -257,6 +264,22 @@ func (ga *GPUAgentIFOEClient) updateMetrics(ctx context.Context) error {
 	ga.metrics.totalDevices.With(labels).Set(float64(len(dresp.Response)))
 	ga.metrics.totalStations.With(labels).Set(float64(len(sresp.Response)))
 
+	// Store writer (additive): mirror the gauge values/labels into the shared
+	// snapshot store. The three node-level totals are always-on health signals,
+	// keyed off the node-level slot (not a device UUID); per-port stats key off
+	// the port UUID below.
+	store := ga.gpuHandler.mh.GetStore()
+	if store != nil {
+		// The three IFOE totals are boot/reconfiguration-time constants (device,
+		// station, and port counts), not telemetry. UpdateIfChanged stores them only
+		// when a count changes, so steady-state scrapes never re-store them.
+		store.UpdateIfChanged(ga.nodeStoreKey(), map[string]snapshotstore.Sample{
+			"ifoe_total_ports":    {Value: float64(len(resp.Response)), Labels: labels},
+			"ifoe_total_devices":  {Value: float64(len(dresp.Response)), Labels: labels},
+			"ifoe_total_stations": {Value: float64(len(sresp.Response)), Labels: labels},
+		})
+	}
+
 	for _, ualPort := range resp.Response {
 		ifoeLabels := ga.populateLabelsFromObject(nil, nil, ualPort)
 		portUuid := utils.UUIDToString(ualPort.Spec.Id)
@@ -298,6 +321,30 @@ func (ga *GPUAgentIFOEClient) updateMetrics(ctx context.Context) error {
 			ga.metrics.fecCodeWordSymbolErrors13.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors13))
 			ga.metrics.fecCodeWordSymbolErrors14.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors14))
 			ga.metrics.fecCodeWordSymbolErrors15.With(ifoeLabels).Set(float64(stats.FECCodeWordSymbolErrors15))
+
+			if store != nil {
+				store.Update(portUuid, map[string]snapshotstore.Sample{
+					"ifoe_num_failedover_streams":       {Value: float64(stats.NumFailedoverStreams), Labels: ifoeLabels},
+					"ifoe_num_paused_streams":           {Value: float64(stats.NumPausedStreams), Labels: ifoeLabels},
+					"ifoe_bit_error_rate":               {Value: float64(stats.BitErrorRate), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors0":  {Value: float64(stats.FECCodeWordSymbolErrors0), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors1":  {Value: float64(stats.FECCodeWordSymbolErrors1), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors2":  {Value: float64(stats.FECCodeWordSymbolErrors2), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors3":  {Value: float64(stats.FECCodeWordSymbolErrors3), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors4":  {Value: float64(stats.FECCodeWordSymbolErrors4), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors5":  {Value: float64(stats.FECCodeWordSymbolErrors5), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors6":  {Value: float64(stats.FECCodeWordSymbolErrors6), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors7":  {Value: float64(stats.FECCodeWordSymbolErrors7), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors8":  {Value: float64(stats.FECCodeWordSymbolErrors8), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors9":  {Value: float64(stats.FECCodeWordSymbolErrors9), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors10": {Value: float64(stats.FECCodeWordSymbolErrors10), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors11": {Value: float64(stats.FECCodeWordSymbolErrors11), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors12": {Value: float64(stats.FECCodeWordSymbolErrors12), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors13": {Value: float64(stats.FECCodeWordSymbolErrors13), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors14": {Value: float64(stats.FECCodeWordSymbolErrors14), Labels: ifoeLabels},
+					"ifoe_fec_codeword_symbol_errors15": {Value: float64(stats.FECCodeWordSymbolErrors15), Labels: ifoeLabels},
+				})
+			}
 		}
 	}
 	return nil

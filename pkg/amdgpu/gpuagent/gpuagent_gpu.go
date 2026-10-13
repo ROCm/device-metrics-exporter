@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/fsysdevice"
@@ -32,9 +33,11 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
 	"github.com/gofrs/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -140,12 +143,20 @@ type GPUIDMeta struct {
 	UUID       string
 }
 
+// hrGPUSnap is the immutable subscribe-time GPU snapshot shared by the high-res
+// label-cache tickers; swapped wholesale via atomic.Pointer, never mutated in place.
+type hrGPUSnap struct {
+	gpus         []*amdgpu.GPU
+	partitionMap map[string]*amdgpu.GPU
+}
+
 type GPUAgentGPUClient struct {
 	sync.Mutex
 	metrics               *GpuMetrics // client specific metrics
 	enableAfidMetrics     bool
 	enableProfileMetrics  bool
 	gpuclient             amdgpu.GPUSvcClient
+	watchclient           amdgpu.GPUWatchSvcClient
 	evtclient             amdgpu.EventSvcClient
 	rocpclient            *rocprofiler.ROCProfilerClient
 	gpuHandler            *GPUAgentClient
@@ -165,8 +176,61 @@ type GPUAgentGPUClient struct {
 	k8PodInfoMap          map[string]types.K8sPodInfo
 	nodeHealthLabellerCfg *utils.NodeHealthLabellerConfig
 	gpuIDMap              map[string]GPUIDMeta // populate once at boot time
+	gpuIDMapMu            sync.RWMutex         // guards gpuIDMap: profiler label-cache reads race the boot populate
+	exportFieldMapMu      sync.RWMutex         // guards exportFieldMap: high-res/profiler readers race config reload
+	labelMapMu            sync.RWMutex         // guards customLabelMap/staticHostLabels/exportLabels/extraPodLabelsMap/k8PodInfoMap: label-cache readers race config reload
 	fl                    *fieldLogger
 	podInfoEnabled        bool
+	// hrLabelsByUUID / hrGPUIDByUUID cache the static Prometheus label set and
+	// the ga.fl key (GPU instance index) per GPU UUID, built once at
+	// high-resolution stream start; GPUWatch snapshots carry only GPU-id +
+	// attr values, so both come from these caches.
+	hrLabelsByUUID map[string]prometheus.Labels
+	hrGPUIDByUUID  map[string]string
+	// hrSnapshot: subscribe-time GPU snapshot the label caches reuse so the watcher
+	// stays the sole amd-smi caller. Atomic: StartHighRes swaps it on re-subscribe
+	// while both label-cache tickers read it.
+	hrSnapshot atomic.Pointer[hrGPUSnap]
+	// hrWLCache keeps the stream's per-UUID label set (incl. dynamic workload
+	// labels) fresh off the stream hot path; only built/read in high-res mode.
+	hrWLCache *hrWorkloadLabelCache
+	// hrWLCancel stops the current hrWLCache goroutine. The high-res feed runs a
+	// reconnect loop; each (re)connect replaces the workload-label cache, so the
+	// prior one is cancelled first to avoid a goroutine leak / duplicate refresher.
+	hrWLCancel context.CancelFunc
+	// pullWLCache keeps the non-high-res pull path's workload map off the scrape
+	// hot path; only built/started in flag-on non-high-res store-serving mode, so
+	// flag-off pull labels stay per-scrape-fresh and unchanged. atomic.Pointer
+	// because StartMonitor publishes it concurrently with scrape-path reads.
+	pullWLCache atomic.Pointer[pullWorkloadCache]
+
+	// hrMu guards hrCancel. hrCancel cancels the high-resolution GPUWatch consumer
+	// goroutine and is non-nil only while high-res is running. reconcileHighRes
+	// (driven by InitConfigs on each config change) uses it as the running flag and
+	// to tear the feed down — cancel the consumer and delete the GPUWatch object —
+	// on a high-res→non-high-res transition, releasing gpuagent's SMI/KFD hold.
+	// Close() does the same on shutdown.
+	hrMu     sync.Mutex
+	hrCancel context.CancelFunc
+	// hrDone is closed by the high-res reconnect goroutine when it exits. teardown
+	// cancels hrCancel then waits on hrDone, so the goroutine (sole owner of the
+	// high-res connection state) is fully stopped before a subsequent enable spawns
+	// a new one — no two reconnect goroutines ever touch that state concurrently.
+	hrDone chan struct{}
+
+	// Profiler high-res stream (P7): owns the long-lived `rocpctl --stream` child in
+	// high-res non-PTL mode, feeding gpu_prof_* into the store continuously. Guarded by
+	// hrMu, symmetric with the GPUWatch feed. profStreamOn is read lock-free by the
+	// slow-writer skip-mask, so it is atomic rather than hrMu-guarded.
+	profStreamMgr        *rocprofiler.ProfilerStreamManager
+	profLabelCache       *profilerLabelCache
+	profLabelCancel      context.CancelFunc
+	profStreamIntervalMs uint64
+	profStreamOn         atomic.Bool
+	profStreamBinPath    string // rocpctl path (PATH-resolved); overridable for tests
+	// profilerOneShotFetches counts one-shot rocpctl fetches actually issued by
+	// getProfilerMetrics (test observability for the stream-owns-profiler skip).
+	profilerOneShotFetches atomic.Int64
 
 	computeNodeHealthState bool // Tracks the health state of the compute node
 }
@@ -189,6 +253,7 @@ func NewGPUAgentGPUClient(gpuHandler *GPUAgentClient) (*GPUAgentGPUClient, error
 		fl:              gpuHandler.fl,
 		gpuIDMap:        make(map[string]GPUIDMeta),
 	}
+	gpuClient.profStreamBinPath = resolveRocpctlPath()
 	gpuClient.rocpclient = rocprofiler.NewRocProfilerClient("rocpclient")
 	gpuClient.rocpclient.SetEventEmitter(func(ctx context.Context, reason, msg string) {
 		events.EmitWarning(ctx, events.ProfilerDisabled, msg)
@@ -208,13 +273,64 @@ func NewGPUAgentGPUClient(gpuHandler *GPUAgentClient) (*GPUAgentGPUClient, error
 }
 
 func (ga *GPUAgentGPUClient) Close() {
+	// Tear down the high-resolution feed first: cancel the consumer and delete the
+	// GPUWatch object so gpuagent does not keep the watcher/SMI hold after shutdown.
+	ga.teardownHighRes()
+	// Stop the profiler stream child (SIGTERM→SIGKILL its process group) so no
+	// orphaned rocpctl survives the exporter.
+	ga.teardownProfilerStream()
 	if ga.rocpclient != nil {
 		logger.Log.Printf("gpuagent rocp reset connection")
 		ga.rocpclient.ResetFailureCount()
 	}
 }
 
+// StopServices gracefully stops the high-res GPUWatch feed and the profiler
+// stream (both wait for their goroutines to exit) so neither writes the store
+// while a config reload rebuilds label/field maps. Idempotent — a no-op when
+// nothing is running. Unlike Close() it does not touch the gRPC connection, so
+// the reload can re-read config and restart the services on the same client.
+func (ga *GPUAgentGPUClient) StopServices() {
+	ga.teardownHighRes()
+	ga.teardownProfilerStream()
+}
+
+// initialStorePopulate seeds the snapshot store with one pull-path GPUGet before
+// the high-res feed (re)starts, so /metrics serves a full snapshot immediately on
+// (re)load and the feed only has to apply deltas. No-op outside high-res
+// store-serving mode (the pull path reads per scrape there). Runs with services
+// stopped (see StopServices), so there is no concurrent store writer.
+func (ga *GPUAgentGPUClient) initialStorePopulate() {
+	if !ga.useHighResStoreServing() {
+		return
+	}
+	ctx := ga.gpuHandler.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ga.getMetricsAll(ctx); err != nil {
+		logger.Log.Printf("high-res initial baseline GPUGet failed: %v", err)
+		return
+	}
+	// Seed every family so watch-covered fields are present before the first stream
+	// tick; the feed overwrites them on its first apply. gpu_afid_errors is skipped:
+	// it is not a watcher attr and is not served in high-res, so it would otherwise
+	// linger as a stale boot value.
+	afidField := strings.ToLower(exportermetrics.GPUMetricField_GPU_AFID_ERRORS.String())
+	skip := func(field string) bool { return field == afidField }
+	if store := ga.gpuHandler.mh.GetStore(); store != nil {
+		if err := ga.mirrorGPUFamiliesToStore(store, skip); err != nil {
+			logger.Log.Printf("high-res initial store mirror failed: %v", err)
+		}
+	}
+}
+
 func (ga *GPUAgentGPUClient) InitPodExtraLabels(config *exportermetrics.GPUMetricConfig) {
+	// extraPodLabelsMap and k8PodInfoMap are read under labelMapMu.RLock by
+	// populateLabelsFromGPU, which the high-res workload-label cache ticker drives
+	// concurrently with this reload-time rebuild; guard the writes so they cannot race.
+	ga.labelMapMu.Lock()
+	defer ga.labelMapMu.Unlock()
 	// initialize pod labels maps
 	ga.k8PodInfoMap = make(map[string]types.K8sPodInfo)
 	if config != nil {
@@ -232,12 +348,15 @@ func (ga *GPUAgentGPUClient) InitClients() error {
 		return fmt.Errorf("grpc connection is nil")
 	}
 	ga.gpuclient = amdgpu.NewGPUSvcClient(conn)
+	ga.watchclient = amdgpu.NewGPUWatchSvcClient(conn)
 	ga.evtclient = amdgpu.NewEventSvcClient(conn)
 	return nil
 }
 
 func (ga *GPUAgentGPUClient) initGPUMetadata(gpus []*amdgpu.GPU) {
 	logger.Debugf("Initializing GPU metadata for %d GPUs", len(gpus))
+	ga.gpuIDMapMu.Lock()
+	defer ga.gpuIDMapMu.Unlock()
 	for _, gpu := range gpus {
 		gpuID := fmt.Sprintf("%v", getGPUInstanceID(gpu))
 		renderID := getGPURenderId(gpu)
@@ -261,7 +380,9 @@ func (ga *GPUAgentGPUClient) initGPUMetadata(gpus []*amdgpu.GPU) {
 }
 
 func (ga *GPUAgentGPUClient) GetGPUMeta(gpuID string) (*GPUIDMeta, error) {
+	ga.gpuIDMapMu.RLock()
 	gpuMeta, exists := ga.gpuIDMap[gpuID]
+	ga.gpuIDMapMu.RUnlock()
 	if !exists {
 		logger.Debugf("GPU metadata not found for GPU ID: %s", gpuID)
 		return nil, fmt.Errorf("GPU metadata not found for GPU ID: %s", gpuID)
@@ -270,6 +391,8 @@ func (ga *GPUAgentGPUClient) GetGPUMeta(gpuID string) (*GPUIDMeta, error) {
 }
 
 func (ga *GPUAgentGPUClient) PopulateStaticHostLabels() error {
+	ga.labelMapMu.Lock()
+	defer ga.labelMapMu.Unlock()
 	ga.staticHostLabels = map[string]string{}
 	hostname, err := utils.GetHostName()
 	if err != nil {
@@ -287,6 +410,15 @@ func (ga *GPUAgentGPUClient) getProfilerMetrics(ctx context.Context) (map[string
 	if !ga.isProfilerEnabled() {
 		return gpuMetrics, nil
 	}
+	// High-res profiler stream owns gpu_prof_* in this mode: skip the one-shot
+	// rocpctl exec so two rocpctl processes never open rocprofiler counter contexts
+	// on the same GPU (HW contention) and the shared rocpclient failure counter is
+	// not poisoned. profStreamOn==false keeps this byte-identical to the per-scrape /
+	// non-high-res / PTL path.
+	if ga.profStreamOn.Load() {
+		return gpuMetrics, nil
+	}
+	ga.profilerOneShotFetches.Add(1)
 	gpuProfiler, err := ga.rocpclient.GetMetrics(ctx)
 	if err != nil {
 		return gpuMetrics, err
@@ -321,6 +453,11 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 		// nolint
 		_ = ga.InitClients()
 	}
+	// High-resolution mode still serves /metrics from a per-scrape GPUGet: the
+	// 1 s binary stream is the high-frequency path, while Prometheus scrapes are
+	// infrequent, so the pull path populates the registry here (the stream path,
+	// applyWatchSnapshot, deliberately never touches the registry). Reset +
+	// refill run under prometheusMiddlewareMu, so the scrape stays consistent.
 	// Start fetching profiler metrics in a goroutine to run in parallel with GPU metrics
 	type profilerResult struct {
 		metrics map[string]map[string]float64
@@ -351,7 +488,21 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 		logger.Debugf("getLatestCPER failed with err : %v", err)
 		cper = nil
 	}
-	wls, _ := ga.gpuHandler.ListWorkloads()
+	// Flag-on non-high-res store-serving reads workloads from the async cache so
+	// the scheduler fetch (which can block on K8s/slurm) stays off the scrape hot
+	// path; labels become <=refresh-interval stale, matching the high-res stream.
+	// The cache is nil in flag-off/legacy mode and briefly before its first seed;
+	// both fall back to the synchronous per-scrape fetch, so flag-off /metrics is
+	// byte-identical.
+	var wls map[string]scheduler.Workload
+	if c := ga.pullWLCache.Load(); c != nil {
+		var ok bool
+		if wls, ok = c.get(); !ok {
+			wls, _ = ga.gpuHandler.ListWorkloads()
+		}
+	} else {
+		wls, _ = ga.gpuHandler.ListWorkloads()
+	}
 
 	// Wait for profiler metrics to complete, but respect request cancellation
 	var profResult profilerResult
@@ -369,10 +520,15 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	}
 	pmetrics := profResult.metrics
 
-	ga.k8PodInfoMap, err = ga.FetchPodInfoForNode()
+	podInfo, err := ga.FetchPodInfoForNode()
 	if err != nil {
 		logger.Errorf("FetchPodInfoForNode failed with err : %v", err)
 	}
+	// k8PodInfoMap is read under labelMapMu.RLock by populateLabelsFromGPU, which
+	// the high-res workload-label ticker drives concurrently; guard the write.
+	ga.labelMapMu.Lock()
+	ga.k8PodInfoMap = podInfo
+	ga.labelMapMu.Unlock()
 
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
@@ -526,6 +682,14 @@ func (ga *GPUAgentGPUClient) startCperRefresh(ctx context.Context) {
 }
 
 func (ga *GPUAgentGPUClient) refreshCperCache() {
+	// In high-res store-serving mode the running watcher must be the sole amd-smi
+	// caller: a concurrent CPER amd-smi read here would race it and UAF the
+	// single-threaded amd-smi library. Skip the discrete refresh while high-res is
+	// active (CPER follows the watcher data flow in that mode); getGPUCPER runs only
+	// outside high-res, or during init while the watcher is stopped.
+	if ga.useHighResStoreServing() {
+		return
+	}
 	res, err := ga.getGPUCPER("")
 	ga.gCache.Lock()
 	defer ga.gCache.Unlock()

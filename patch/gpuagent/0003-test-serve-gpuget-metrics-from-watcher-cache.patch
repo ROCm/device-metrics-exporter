@@ -1,0 +1,132 @@
+diff --git a/sw/nic/gpuagent/api/smi/smi_api.hpp b/sw/nic/gpuagent/api/smi/smi_api.hpp
+--- a/sw/nic/gpuagent/api/smi/smi_api.hpp
++++ b/sw/nic/gpuagent/api/smi/smi_api.hpp
+@@ -100,6 +100,23 @@
+                              aga_gpu_stats_t *stats,
+                              const aga_gpu_get_filter_t *filter);
+ 
++#if defined(AMD_SMI)
++/// \brief    TEST(option#3): publish a watcher-sourced gpu_metrics sample into
++///           the shared cache that the GpuGet spec/status/stats path reads, so
++///           the watcher is the sole caller of amdsmi_get_gpu_metrics_info
++///           (amdsmi SO27's gpu_metrics cache is not concurrency-safe)
++/// \param[in] gpu_handle    GPU (or partition) handle, matching the GpuGet key
++/// \param[in] metrics       gpu_metrics sample read by the watcher
++void smi_watcher_cache_gpu_metrics(aga_gpu_handle_t gpu_handle,
++                                   const amdsmi_gpu_metrics_t *metrics);
++
++/// \brief    TEST(option#3): true while the high-res watcher is actively
++///           refreshing the shared gpu_metrics cache; the GpuGet path then
++///           serves metrics from the cache instead of a concurrent amdsmi fetch
++/// \return   true if the watcher-refreshed cache is fresh, false otherwise
++bool smi_watcher_metrics_cache_active(void);
++#endif
++
+ /// \brief    read all the events and invokve the callback provided for each
+ /// \param[in] cb    callback function pointer
+ /// \param[in] ctxt  opaque context passed back to the callback
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -23,6 +23,8 @@
+ #include <sstream>
+ #include <iomanip>
+ #include <mutex>
++#include <atomic>
++#include <ctime>
+ #include <unordered_set>
+ extern "C" {
+ #include "nic/third-party/rocm/amd_smi_lib/include/amd_smi/amdsmi.h"
+@@ -54,6 +56,33 @@
+ /// status and statistics
+ std::mutex g_gpu_metrics_mutex;
+ std::unordered_map<aga_gpu_handle_t, amdsmi_gpu_metrics_t> g_gpu_metrics;
++/// TEST(option#3): wall-clock secs of the watcher's last g_gpu_metrics refresh;
++/// the GpuGet path treats the watcher as the sole amdsmi_get_gpu_metrics_info
++/// caller while this is fresh (amdsmi SO27 gpu_metrics cache is not safe against
++/// concurrent callers). 0 => watcher not active, fall back to per-GpuGet fetch
++static std::atomic<uint64_t> g_gpu_metrics_cache_ts{0};
++/// freshness window (secs): generous vs the fast-tier period + jitter
++#define GPU_METRICS_CACHE_FRESH_SECS   10ULL
++
++void
++smi_watcher_cache_gpu_metrics (aga_gpu_handle_t gpu_handle,
++                               const amdsmi_gpu_metrics_t *metrics) {
++    {
++        std::lock_guard<std::mutex> lock(g_gpu_metrics_mutex);
++        g_gpu_metrics[gpu_handle] = *metrics;
++    }
++    g_gpu_metrics_cache_ts.store((uint64_t)time(NULL),
++                                 std::memory_order_relaxed);
++}
++
++bool
++smi_watcher_metrics_cache_active (void) {
++    uint64_t ts = g_gpu_metrics_cache_ts.load(std::memory_order_relaxed);
++    if (ts == 0) {
++        return false;
++    }
++    return ((uint64_t)time(NULL) - ts) <= GPU_METRICS_CACHE_FRESH_SECS;
++}
+ /// RDNA = gfx target version top nibble 1 (gfx10/11/12); CDNA (gfx9) top nibble 0
+ #define AMDSMI_ASIC_IS_RDNA(gfx_ver)    (((gfx_ver) >> 12) == 1)
+ /// RDNA GPU handles, recorded at init; read-only during serving so no lock needed
+@@ -159,17 +188,23 @@
+     amdsmi_status_t amdsmi_ret;
+     amdsmi_gpu_metrics_t metrics_info = { 0 };
+ 
+-    // re-fetch gpu metrics for this GPU handle
+-    amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &metrics_info);
+-    {
+-        std::lock_guard<std::mutex> lock(g_gpu_metrics_mutex);
+-        g_gpu_metrics.erase(gpu_handle);
+-        if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
+-            AGA_TRACE_ERR("Failed to get GPU metrics info for GPU {}, err {}",
+-                          gpu_handle, amdsmi_ret);
+-        } else {
+-            // cache response
+-            g_gpu_metrics[gpu_handle] = metrics_info;
++    // TEST(option#3): when the high-res watcher is active it is the sole caller
++    // of amdsmi_get_gpu_metrics_info and keeps g_gpu_metrics fresh (keyed by the
++    // same per-partition gpu_handle). Skip the per-GpuGet fresh fetch to avoid a
++    // concurrent amdsmi access that UAF-crashes amdsmi SO27's gpu_metrics cache
++    if (!smi_watcher_metrics_cache_active()) {
++        // re-fetch gpu metrics for this GPU handle
++        amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &metrics_info);
++        {
++            std::lock_guard<std::mutex> lock(g_gpu_metrics_mutex);
++            g_gpu_metrics.erase(gpu_handle);
++            if (unlikely(amdsmi_ret != AMDSMI_STATUS_SUCCESS)) {
++                AGA_TRACE_ERR("Failed to get GPU metrics info for GPU {}, err {}",
++                              gpu_handle, amdsmi_ret);
++            } else {
++                // cache response
++                g_gpu_metrics[gpu_handle] = metrics_info;
++            }
+         }
+     }
+     // TODO: get admin_state
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+@@ -31,6 +31,7 @@
+ #include "nic/gpuagent/api/smi/smi.hpp"
+ #include "nic/gpuagent/api/smi/smi_state.hpp"
+ #include "nic/gpuagent/api/smi/smi_watch.hpp"
++#include "nic/gpuagent/api/smi/smi_api.hpp"
+ #include "nic/gpuagent/api/smi/amdsmi/smi_utils.hpp"
+ 
+ using std::vector;
+@@ -106,6 +107,12 @@
+     if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+         // mark bulk get as succeeded
+         bulk_get_succeeded = true;
++        // TEST(option#3): publish this read into the shared g_gpu_metrics cache
++        // so the GpuGet path can serve gpu_metrics without a concurrent
++        // amdsmi_get_gpu_metrics_info (amdsmi SO27 gpu_metrics cache is not
++        // concurrency-safe); keyed by this per-partition gpu_handle to match
++        // the key the GpuGet spec/status/stats path reads by
++        smi_watcher_cache_gpu_metrics(gpu_handle, &gpu_metrics);
+     }
+ 
+     // get correctable and uncorrectable total error count beforehand

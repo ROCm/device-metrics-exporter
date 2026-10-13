@@ -97,7 +97,10 @@ MOCK_DIR := ${TOP_DIR}/pkg/amdgpu/mock_gen
 HELM_CHARTS_DIR := $(TOP_DIR)/helm-charts
 CONFIG_DIR := $(TOP_DIR)/example/
 GOINSECURE='github.com, google.golang.org, golang.org'
-GOFLAGS ='-buildvcs=false'
+# -buildvcs=false by default for all go commands (build/test/vet/install). Go only
+# applies a GOFLAGS flag to commands that recognize it, so this is safe for go mod etc.
+GOFLAGS := -buildvcs=false
+export GOFLAGS
 GO_BUILD_TAGS ?=
 BUILD_DATE ?= $(shell date   +%Y-%m-%dT%H:%M:%S%z)
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD --abbrev-commit)
@@ -394,7 +397,10 @@ $(GPUAGENT_BUILD_STAMP): $(ROCM_TARBALL_DEP)
 	# Stage the amdsmi header/lib + gpuagent patches the gpuagent-build stage
 	# COPYs from the docker/ build context. In tarball mode the stage overrides
 	# these from the tarball, but the COPY lines still need a file present.
+	# the staging dir is gitignored and the Dockerfile applies every *.patch in
+	# it, so a patch dropped from patch/gpuagent/ would keep failing the build
 	@mkdir -p $(TOP_DIR)/docker/patch-gpuagent
+	@rm -f $(TOP_DIR)/docker/patch-gpuagent/*.patch
 	@cp -vfL $(ASSETS_PATH)/amd_smi_lib/x86_64/RHEL9/lib/amdsmi.h $(TOP_DIR)/docker/amdsmi.h
 	@cp -vfL $(ASSETS_PATH)/amd_smi_lib/x86_64/RHEL9/lib/libamd_smi.so.*.*.* $(TOP_DIR)/docker/
 	@cp -vfL $(ASSETS_PATH)/amd_smi_lib/x86_64/RHEL9/lib/librocm_sysdeps_*.so* $(TOP_DIR)/docker/ 2>/dev/null || true

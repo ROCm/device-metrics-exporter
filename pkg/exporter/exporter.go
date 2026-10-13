@@ -88,10 +88,6 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 		url := r.URL.String()
 		if strings.Contains(strings.ToLower(url), globals.MetricsHandlerPrefix) {
 			// pull metrics only for metrics handler
-			// Since UpdateMetrics() is clearing metrics, we hold the lock such that no
-			// other goroutine will update/read the metrics
-			prometheusMiddlewareMu.Lock()
-			defer prometheusMiddlewareMu.Unlock()
 
 			// Check for debug parameter to enable debug metrics temporarily
 			debugMode := globals.DebugMode(r.URL.Query().Get("debug"))
@@ -107,8 +103,24 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 				}
 			}
 
-			_ = mh.UpdateMetrics(ctx)
-			next.ServeHTTP(w, r)
+			if mh.AnyClientNeedsPerScrapePull() {
+				// Legacy path: UpdateMetrics() clears+refills the shared registry
+				// in place, so hold the lock such that no other goroutine will
+				// update/read the metrics. Inline func preserves the panic-safe
+				// defer-unlock around ServeHTTP.
+				func() {
+					prometheusMiddlewareMu.Lock()
+					defer prometheusMiddlewareMu.Unlock()
+					_ = mh.UpdateMetrics(ctx)
+					next.ServeHTTP(w, r)
+				}()
+			} else {
+				// Store-serving only (GPU store mode, non-high-res): refresh each
+				// store via its singleflight fetch (concurrent scrapes dedupe to
+				// one hardware pull) and serve lock-free from the store collector.
+				_ = mh.RefreshStoreServingClients(ctx)
+				next.ServeHTTP(w, r)
+			}
 		} else {
 			next.ServeHTTP(w, r)
 		}
@@ -533,6 +545,10 @@ func (e *Exporter) StartMain() {
 		if err := gpuclient.Init(); err != nil {
 			logger.Log.Printf("gpuclient init err :%+v", err)
 		}
+		// The health-poll monitor runs in both modes (it self-gates the high-res
+		// slow-writer). The high-resolution GPUWatch feed is managed by the
+		// MetricsHandler, which dispatches a resolution reconcile to each client on
+		// init and on every config reload — no agent lifecycle logic lives here.
 		go gpuclient.StartMonitor()
 		if err := e.svcHandler.RegisterGPUHealthClient(gpuclient); err != nil {
 			logger.Log.Printf("health client registration err: %+v", err)

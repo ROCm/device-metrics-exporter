@@ -65,6 +65,8 @@ main(int argc, char** argv)
     std::vector<std::string> metric_fields;
     uint64_t duration = 1000;    // Default sampling duration (in microseconds)
     uint32_t ptl_delay = 10;     // Default PTL delay (in milliseconds)
+    bool stream_mode = false;    // -s/--stream: long-lived NDJSON loop instead of one-shot
+    uint64_t interval_ms = 1000; // -i/--interval: stream emit cadence (default when --stream given alone)
     long ndevice = ntotdevice;   // Use actual device count
 
     if(ndevice > ntotdevice) ndevice = ntotdevice;
@@ -79,7 +81,9 @@ main(int argc, char** argv)
                       << "Options:\n"
                       << "  -h, --help          Show this help message and exit\n"
                       << "  -d <duration>       Sampling duration in microseconds (default: 1000)\n"
-                      << "  -p <delay>          PTL delay in milliseconds (default: 10)\n\n"
+                      << "  -p <delay>          PTL delay in milliseconds (default: 10)\n"
+                      << "  -s, --stream        Stream mode: loop sample+emit NDJSON until SIGTERM/SIGINT\n"
+                      << "  -i, --interval <ms> Stream emit interval in milliseconds (default: 1000)\n\n"
                       << "Arguments:\n"
                       << "  METRICS             List of metric fields to collect\n\n"
                       << "Example:\n"
@@ -107,13 +111,28 @@ main(int argc, char** argv)
                 std::cerr << "Invalid value for -p: " << argv[i] << std::endl;
                 return -1;
             }
+        } else if (arg == "-s" || arg == "--stream") {
+            stream_mode = true;
+        } else if (arg == "-i" || arg == "--interval") {
+            if (i + 1 >= argc || argv[i + 1] == nullptr) {
+                std::cerr << "Option -i requires a numeric argument" << std::endl;
+                return -1;
+            }
+            try {
+                interval_ms = std::stoull(argv[++i]);
+            } catch (const std::exception&) {
+                std::cerr << "Invalid value for -i: " << argv[i] << std::endl;
+                return -1;
+            }
         } else {                
             metric_fields.push_back(arg);            
         }
     }
 
     try {        
-        int rc = amd::rocp::CounterSampler::runSample(metric_fields, duration, ptl_delay);
+        int rc = stream_mode
+            ? amd::rocp::CounterSampler::runStream(metric_fields, duration, ptl_delay, interval_ms)
+            : amd::rocp::CounterSampler::runSample(metric_fields, duration, ptl_delay);
         if (rc != 0) {
             std::cerr << "run sample err: " << rc << "\n"; 
             return -1;

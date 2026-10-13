@@ -1,0 +1,21 @@
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+@@ -262,7 +262,7 @@
+                 amdsmi_ret = amdsmi_get_clk_freq(gpu_handle, clk_type, &freq_info);
+                 if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+                     watch_db->watch_info[gpu_id].gpu_clock =
+-                        freq_info.frequency[freq_info.current] / 1000000;
++                        current_frequency_hz(&freq_info) / 1000000;
+                 }
+             }
+             break;
+@@ -272,7 +272,7 @@
+             amdsmi_ret = amdsmi_get_clk_freq(gpu_handle, clk_type, &freq_info);
+             if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+                 watch_db->watch_info[gpu_id].memory_clock =
+-                    freq_info.frequency[freq_info.current] / 1000000;
++                    current_frequency_hz(&freq_info) / 1000000;
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_MEMORY_TEMP:

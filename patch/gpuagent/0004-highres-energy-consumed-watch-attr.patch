@@ -1,0 +1,123 @@
+--- a/sw/nic/gpuagent/api/gpu.cc	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/api/gpu.cc	2026-10-07 20:59:41.043312690 -0700
+@@ -318,6 +318,9 @@
+         case AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE:
+             attr_val->long_val = stats_.mem_voltage;
+             break;
++        case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
++            attr_val->long_val = stats_.energy_consumed;
++            break;
+         case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+             attr_val->long_val = stats_.gpu_memory_usage;
+             break;
+--- a/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp	2026-10-07 20:59:41.039312621 -0700
+@@ -190,7 +190,8 @@
+     AGA_GPU_WATCH_ATTR_ID_FREE_GTT            = 136,
+     AGA_GPU_WATCH_ATTR_ID_PCIE_SPEED          = 137,
+     AGA_GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED      = 138,
+-    AGA_GPU_WATCH_ATTRS_MAX                   = 139,
++    AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED     = 139,
++    AGA_GPU_WATCH_ATTRS_MAX                   = 140,
+ } aga_gpu_watch_attr_id_t;
+ 
+ /// \brief    GPU watch attribute value type
+--- a/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp	2026-10-07 20:59:41.039312621 -0700
+@@ -64,6 +64,8 @@
+     uint64_t soc_voltage;
+     /// memory voltage (in mV)
+     uint64_t mem_voltage;
++    /// accumulated energy consumed (in uJ)
++    uint64_t energy_consumed;
+     /// gpu VRAM memory usage
+     uint64_t gpu_memory_usage;
+     /// gpu total VRM memory
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc	2026-10-07 20:59:09.134773767 -0700
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc	2026-10-07 20:59:41.043312690 -0700
+@@ -72,6 +72,10 @@
+ 
+ namespace aga {
+ 
++/// energy counter resolution (uJ/count), defined in smi_api.cc (namespace aga);
++/// the watcher reuses it to scale energy_accumulator like GPUGet
++extern float g_energy_counter_resolution;
++
+ /// global singleton smi state class instance
+ smi_state g_smi_state;
+ 
+@@ -613,6 +617,22 @@
+                     AGA_WIDEN_UINT16_NA(gpu_metrics.voltage_mem, UINT64_MAX);
+             }
+             break;
++        case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
++            // scale the raw accumulator by the counter resolution to uJ, mirroring
++            // smi_gpu_fill_stats; NA accumulator maps to the uint64 NA sentinel so
++            // the exporter drops it. Fall back to the default resolution if the
++            // GPUGet status path has not initialized the global yet.
++            if (bulk_get_succeeded) {
++                if (gpu_metrics.energy_accumulator == UINT64_MAX) {
++                    watch_db->watch_info[gpu_id].energy_consumed = UINT64_MAX;
++                } else {
++                    double energy_res = (g_energy_counter_resolution != 0.0) ?
++                        g_energy_counter_resolution : 15.3;
++                    watch_db->watch_info[gpu_id].energy_consumed = (uint64_t)
++                        ((double)gpu_metrics.energy_accumulator * energy_res);
++                }
++            }
++            break;
+         case AGA_GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT:
+             if (bulk_get_succeeded) {
+                 watch_db->watch_info[gpu_id].pcie_replay_count =
+--- a/sw/nic/gpuagent/api/smi/smi_watch.cc	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/api/smi/smi_watch.cc	2026-10-07 20:59:41.043312690 -0700
+@@ -86,6 +86,7 @@
+     AGA_GPU_WATCH_ATTR_ID_GFX_VOLTAGE,
+     AGA_GPU_WATCH_ATTR_ID_SOC_VOLTAGE,
+     AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE,
++    AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED,
+     // array-valued attrs, all served by the same bulk gpu metrics read
+     AGA_GPU_WATCH_ATTR_ID_HBM_TEMP,
+     AGA_GPU_WATCH_ATTR_ID_VCN_ACTIVITY,
+--- a/sw/nic/gpuagent/protos/gpu_watch.proto	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/protos/gpu_watch.proto	2026-10-07 20:59:41.047312757 -0700
+@@ -195,6 +195,8 @@
+   GPU_WATCH_ATTR_ID_FREE_GTT            = 136;
+   GPU_WATCH_ATTR_ID_PCIE_SPEED          = 137;
+   GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED      = 138;
++  // accumulated GPU energy in uJ; number matches the exporter wire enum
++  GPU_WATCH_ATTR_ID_ENERGY_CONSUMED     = 139;
+ }
+ 
+ // one element of an array-valued (indexed) watch attribute
+--- a/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp	2026-10-07 20:59:41.047312757 -0700
+@@ -78,6 +78,8 @@
+     case AGA_GPU_WATCH_ATTR_ID_SOC_VOLTAGE:
+     case AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE:
+         return std::string("mV");
++    case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
++        return std::string("uJ");
+     case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+         return std::string("MB");
+     default:
+@@ -121,6 +123,8 @@
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_SOC_VOLTAGE;
+     case AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE:
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_MEM_VOLTAGE;
++    case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
++        return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ENERGY_CONSUMED;
+     case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE;
+     case AGA_GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL:
+--- a/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp	2026-10-07 20:59:09.122773565 -0700
++++ b/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp	2026-10-07 20:59:41.047312757 -0700
+@@ -65,6 +65,8 @@
+         return AGA_GPU_WATCH_ATTR_ID_SOC_VOLTAGE;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_MEM_VOLTAGE:
+         return AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE;
++    case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
++        return AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+         return AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL:

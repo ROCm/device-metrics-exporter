@@ -25,6 +25,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -32,6 +33,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 #include <filesystem>
@@ -327,6 +329,94 @@ int CounterSampler::runSample(std::vector<std::string> &metric_fields, uint64_t 
   }
   std::cout << "]\n}\n";
 	return 0;
+}
+
+namespace {
+// SIGTERM/SIGINT flip this; checked between stream iterations and sleep chunks for a
+// bounded-latency clean exit (async-signal-safe handler, no allocation/logging inside it).
+volatile std::sig_atomic_t g_stream_stop = 0;
+void handle_stream_stop(int) { g_stream_stop = 1; }
+
+// Serializes the same {GpuId, DrmRenderId, LogicalNodeId, Metrics:[{Field,Value}]} shape
+// runSample prints, but as compact single-line JSON (no embedded newlines) for the NDJSON
+// stream contract the Go decoder (profiler_stream_manager.go) unmarshals line-by-line.
+std::string serialize_gpu_metrics_line(
+    const std::vector<rocprofiler_agent_v0_t>& agents,
+    std::map<uint32_t, std::map<std::string, double>>& sampled_values) {
+  std::ostringstream os;
+  os << "{\"GpuMetrics\":[";
+  for (uint32_t gpu_index = 0; gpu_index < agents.size(); gpu_index++) {
+    auto& agent = agents[gpu_index];
+    if (gpu_index != 0) os << ",";
+    os << "{\"GpuId\":\"" << agent.gpu_id << "\","
+       << "\"DrmRenderId\":\"" << agent.drm_render_minor << "\","
+       << "\"LogicalNodeId\":\"" << agent.logical_node_id << "\","
+       << "\"Metrics\":[";
+    uint32_t count = 0;
+    for (const auto& [metric_name, value] : sampled_values[gpu_index]) {
+      if (count++ != 0) os << ",";
+      os << "{\"Field\":\"" << metric_name << "\",\"Value\":\"" << value << "\"}";
+    }
+    os << "]}";
+  }
+  os << "]}";
+  return os.str();
+}
+}  // namespace
+
+int CounterSampler::runStream(std::vector<std::string> &metric_fields, uint64_t duration,
+                              uint32_t delay_ms, uint64_t interval_ms) {
+  std::vector<std::shared_ptr<CounterSampler>> samplers = CounterSampler::get_samplers();
+  std::vector<rocprofiler_agent_v0_t> agents = CounterSampler::get_available_agents();
+  std::vector<std::string> metrics = metric_fields.empty() ? all_fields : metric_fields;
+
+  // Child of a supervisor that SIGTERMs the process group on shutdown (and SIGKILLs
+  // after a bounded timeout if we don't exit promptly) -- install handlers once, up front.
+  std::signal(SIGTERM, handle_stream_stop);
+  std::signal(SIGINT, handle_stream_stop);
+
+  // Unlike runSample (one-shot, no long-lived state), a single throw here must not kill
+  // the process: re-init on every exit would punch a restart-sized gap in the high-res
+  // stream. Skip the failed iteration's emit instead; only a run of kMaxConsecutiveFailures
+  // in a row (a persistent fault, not a transient hiccup) is treated as fatal.
+  const uint32_t kMaxConsecutiveFailures = 3;
+  uint32_t consecutive_failures = 0;
+
+  while (!g_stream_stop) {
+    std::map<uint32_t, std::map<std::string, double>> sampled_values;
+    bool sample_failed = false;
+    for (uint32_t gpu_index = 0; gpu_index < agents.size(); gpu_index++) {
+      auto& cs = *samplers[gpu_index];
+      try {
+        std::map<std::string, double> gpu_values;
+        cs.sample_counters_with_packing(metrics, gpu_values, duration, delay_ms);
+        sampled_values[gpu_index] = gpu_values;
+      } catch (const std::exception &e) {
+        ROCP_LOG(ROCP_ERROR, "Error while sampling counter values for GPU " << gpu_index << ": " << e.what());
+        sample_failed = true;
+        break;
+      }
+    }
+
+    if (sample_failed) {
+      if (++consecutive_failures >= kMaxConsecutiveFailures) return -1;
+    } else {
+      consecutive_failures = 0;
+      std::cout << serialize_gpu_metrics_line(agents, sampled_values) << std::endl;  // std::endl: newline + flush
+    }
+
+    // Sleep in short chunks so a mid-sleep SIGTERM/SIGINT is observed within ~100ms
+    // rather than blocking for the full interval (std::this_thread::sleep_for is not
+    // guaranteed to wake early on a signal). interval_ms == 0 is max-rate (no delay), not a bug.
+    uint64_t remaining_ms = interval_ms;
+    const uint64_t chunk_ms = 100;
+    while (remaining_ms > 0 && !g_stream_stop) {
+      uint64_t sleep_ms = remaining_ms < chunk_ms ? remaining_ms : chunk_ms;
+      std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
+      remaining_ms -= sleep_ms;
+    }
+  }
+  return 0;
 }
 
 void CounterSampler::set_profile(rocprofiler_context_id_t ctx,

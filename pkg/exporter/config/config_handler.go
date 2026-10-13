@@ -202,6 +202,66 @@ func (c *ConfigHandler) GetServerPort() uint32 {
 	return c.runningConfig.GetServerPort()
 }
 
+// GetHighResolutionState reports whether the GPU-only high-resolution
+// streaming profile is enabled. Default (unset) is false.
+func (c *ConfigHandler) GetHighResolutionState() bool {
+	c.Lock()
+	defer c.Unlock()
+	cfg := c.runningConfig.GetConfig()
+	if cfg == nil || cfg.GetCommonConfig() == nil {
+		return false
+	}
+	hr := cfg.GetCommonConfig().GetHighResolution()
+	return hr != nil && hr.GetEnable()
+}
+
+// High-res watcher sampling-period defaults applied when config omits them.
+// They mirror the gpuagent GPUWatch defaults (AGA_GPU_WATCH_*_PERIOD_DFLT);
+// a zero fast period in particular makes rocpctl stream at max rate, so the
+// default must be substituted here rather than passed through as 0.
+const (
+	highResDefaultFastPeriodSecs uint32 = 1
+	highResDefaultSlowPeriodSecs uint32 = 5
+	highResMinFastPeriodSecs     uint32 = 1
+	highResMaxFastPeriodSecs     uint32 = 60
+	highResMinSlowPeriodSecs     uint32 = 5
+	highResMaxSlowPeriodSecs     uint32 = 3600
+)
+
+// GetHighResPeriods returns the fast/slow watcher sampling periods in seconds,
+// substituting the high-res defaults for any period the config leaves unset.
+func (c *ConfigHandler) GetHighResPeriods() (uint32, uint32) {
+	c.Lock()
+	defer c.Unlock()
+	fast, slow := highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs
+	cfg := c.runningConfig.GetConfig()
+	if cfg == nil || cfg.GetCommonConfig() == nil {
+		return fast, slow
+	}
+	hr := cfg.GetCommonConfig().GetHighResolution()
+	if hr == nil {
+		return fast, slow
+	}
+	if v := hr.GetFastPeriodSecs(); v != 0 {
+		fast = v
+	}
+	if v := hr.GetSlowPeriodSecs(); v != 0 {
+		slow = v
+	}
+	// Enforce the documented ranges (fast 1-60, slow 5-3600, slow >= fast) so an
+	// out-of-range config can't wedge GPUWatch/profiler in a permanent reconnect
+	// loop; fall back to the defaults on any violation.
+	if fast < highResMinFastPeriodSecs || fast > highResMaxFastPeriodSecs ||
+		slow < highResMinSlowPeriodSecs || slow > highResMaxSlowPeriodSecs || slow < fast {
+		logger.Log.Printf("invalid high-res periods (fast=%ds slow=%ds); require fast[%d-%d] slow[%d-%d] slow>=fast; using defaults %ds/%ds",
+			fast, slow, highResMinFastPeriodSecs, highResMaxFastPeriodSecs,
+			highResMinSlowPeriodSecs, highResMaxSlowPeriodSecs,
+			highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs)
+		fast, slow = highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs
+	}
+	return fast, slow
+}
+
 func (c *ConfigHandler) GetProfilerConfig() *exportermetrics.ProfilerConfig {
 	c.Lock()
 	defer c.Unlock()

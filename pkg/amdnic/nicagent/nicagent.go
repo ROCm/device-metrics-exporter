@@ -31,6 +31,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
 	_ "github.com/alta/protopatch/patch" // nolint: gosec
@@ -59,6 +60,7 @@ type NICAgentClient struct {
 	podnameToPidCache       *lru.Cache[string, int]
 	podnameToNetDeviceCache *lru.Cache[string, []NetDevice]
 	cmdExec                 cmdexec.CommandExecuter
+	fetchDeduper            *snapshotstore.Deduper // singleflight for per-scrape fetch (Approach 1)
 }
 
 // NICAgentClientOptions defines the options for the NICAgentClient
@@ -126,7 +128,8 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...NICAgentClientOptions) *NI
 		nodeHealthLabellerCfg: &utils.NodeHealthLabellerConfig{
 			LabelPrefix: globals.NICHealthLabelPrefix,
 		},
-		cmdExec: cmdexec.NewExecuter(),
+		cmdExec:      cmdexec.NewExecuter(),
+		fetchDeduper: snapshotstore.NewDeduper(),
 	}
 
 	for _, o := range opts {
@@ -461,14 +464,25 @@ func (na *NICAgentClient) getMetricsAll(ctx context.Context) error {
 	nonNICLabels := na.populateNonNICLabels()
 	na.m.nicNodesTotal.With(nonNICLabels).Set(float64(len(na.nics)))
 
+	// Track active-vs-failed clients so a total fetch failure propagates: the
+	// caller (fetchMetricsOnce) drops stale NIC telemetry only on a non-nil
+	// error. Partial failures keep the data the healthy clients did populate.
+	var statMu sync.Mutex
+	var active, failed int
 	for _, client := range na.nicClients {
 		wg.Add(1)
 		go func(client NICInterface) {
 			startTime := time.Now()
 			defer wg.Done()
 			if utils.IsSimEnabled() || client.IsActive() {
+				statMu.Lock()
+				active++
+				statMu.Unlock()
 				if err := client.UpdateNICStats(ctx, workloads); err != nil {
 					logger.Log.Printf("failed to update NIC stats, err: %v", err)
+					statMu.Lock()
+					failed++
+					statMu.Unlock()
 				}
 			}
 			if time.Since(startTime) > 10*time.Second {
@@ -477,6 +491,15 @@ func (na *NICAgentClient) getMetricsAll(ctx context.Context) error {
 		}(client)
 	}
 	wg.Wait()
+	// A non-empty client set with zero active clients is a total fetch failure:
+	// return an error so the caller drops stale NIC telemetry instead of
+	// republishing the last GaugeVec rows.
+	if len(na.nicClients) > 0 && active == 0 {
+		return fmt.Errorf("all %d configured NIC client(s) are inactive", len(na.nicClients))
+	}
+	if active > 0 && failed == active {
+		return fmt.Errorf("all %d active NIC client(s) failed to update stats", active)
+	}
 	return nil
 }
 
@@ -529,3 +552,7 @@ func (na *NICAgentClient) Close() {
 	}
 	na.nicClients = []NICInterface{}
 }
+
+// StopServices is a no-op: the NIC client runs no high-res/profiler stream
+// services that must be stopped before a config reload.
+func (na *NICAgentClient) StopServices() {}

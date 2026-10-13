@@ -19,6 +19,7 @@ package gpuagent
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,9 +29,117 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 	"github.com/ROCm/device-metrics-exporter/pkg/types"
 )
+
+// ifoeStoreFieldSpec mirrors one IFOE GaugeVec for the store path: store field
+// key (== gauge metric name), enum field name (for enable gating), help text,
+// whether it carries per-port labels (vs node-level non-IFOE labels), and
+// whether it is a node-level always-on total. Single source for
+// buildStoreFieldDescs; values/labels are written in updateMetrics.
+type ifoeStoreFieldSpec struct {
+	field     string
+	enum      string
+	help      string
+	perPort   bool
+	nodeLevel bool
+}
+
+var ifoeStoreFieldSpecs = []ifoeStoreFieldSpec{
+	{"ifoe_total_devices", exportermetrics.IFOEMetricField_IFOE_TOTAL_DEVICES.String(), "Total number of IFOE devices", false, true},
+	{"ifoe_total_stations", exportermetrics.IFOEMetricField_IFOE_TOTAL_STATIONS.String(), "Total number of IFOE stations", false, true},
+	{"ifoe_total_ports", exportermetrics.IFOEMetricField_IFOE_TOTAL_PORTS.String(), "Total number of IFOE network ports", false, true},
+	{"ifoe_num_failedover_streams", exportermetrics.IFOEMetricField_IFOE_NUMBER_FAILEDOVER_STREAMS.String(), "Number of failed over IFOE streams", true, false},
+	{"ifoe_num_paused_streams", exportermetrics.IFOEMetricField_IFOE_NUMBER_PAUSED_STREAMS.String(), "Number of paused IFOE streams", true, false},
+	{"ifoe_bit_error_rate", exportermetrics.IFOEMetricField_IFOE_BIT_ERROR_RATE.String(), "Bit Error Rate (BER) reported by the network port expressed as errors per 10^12 bits", true, false},
+	{"ifoe_fec_codeword_symbol_errors0", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS0.String(), "Total number of FEC codewords with 0 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors1", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS1.String(), "Total number of FEC codewords with 1 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors2", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS2.String(), "Total number of FEC codewords with 2 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors3", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS3.String(), "Total number of FEC codewords with 3 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors4", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS4.String(), "Total number of FEC codewords with 4 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors5", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS5.String(), "Total number of FEC codewords with 5 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors6", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS6.String(), "Total number of FEC codewords with 6 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors7", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS7.String(), "Total number of FEC codewords with 7 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors8", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS8.String(), "Total number of FEC codewords with 8 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors9", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS9.String(), "Total number of FEC codewords with 9 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors10", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS10.String(), "Total number of FEC codewords with 10 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors11", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS11.String(), "Total number of FEC codewords with 11 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors12", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS12.String(), "Total number of FEC codewords with 12 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors13", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS13.String(), "Total number of FEC codewords with 13 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors14", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS14.String(), "Total number of FEC codewords with 14 symbol errors", true, false},
+	{"ifoe_fec_codeword_symbol_errors15", exportermetrics.IFOEMetricField_IFOE_FEC_CODEWORD_SYMBOL_ERRORS15.String(), "Total number of FEC codewords with 15 symbol errors", true, false},
+}
+
+// nodeStoreKey is the reserved, stable store key for the node-level IFOE totals
+// slot. Derived from the sorted node label-name set (never a device UUID), it is
+// identical at seed time and on every scrape so the same slot is updated in place.
+func (ga *GPUAgentIFOEClient) nodeStoreKey() string {
+	names := append([]string(nil), ga.GetExporterNonIFOELabels()...)
+	sort.Strings(names)
+	return "ifoe-node:" + strings.Join(names, ",")
+}
+
+// seedNodeTotals publishes the three node-level IFOE totals at 0 before any
+// fetch. They are always-on health signals, so they must be present on scrape #1
+// and persist (store COW) across zero/failed fetches.
+func (ga *GPUAgentIFOEClient) seedNodeTotals() {
+	store := ga.gpuHandler.mh.GetStore()
+	if store == nil {
+		return
+	}
+	labels := ga.populateLabelsFromObject(nil, nil, nil)
+	store.Update(ga.nodeStoreKey(), map[string]snapshotstore.Sample{
+		"ifoe_total_ports":    {Value: 0, Labels: labels},
+		"ifoe_total_devices":  {Value: 0, Labels: labels},
+		"ifoe_total_stations": {Value: 0, Labels: labels},
+	})
+}
+
+// buildStoreFieldDescs returns the IFOE StoreCollector descriptors mirroring the
+// GaugeVec definitions: prefixed name, help, gauge type, and the matching label
+// set (per-port vs node-level). Config-disabled per-device fields are omitted,
+// matching initFieldRegistration; node-level totals are always included.
+func (ga *GPUAgentIFOEClient) buildStoreFieldDescs() []snapshotstore.FieldDesc {
+	prefix := ga.gpuHandler.mh.GetPrefix()
+	perPortLabels := append([]string{"station_uuid", "port_name", "device_uuid"}, ga.GetExportLabels()...)
+	nonIfoeLabels := ga.GetExporterNonIFOELabels()
+	descs := make([]snapshotstore.FieldDesc, 0, len(ifoeStoreFieldSpecs))
+	for _, s := range ifoeStoreFieldSpecs {
+		if !s.nodeLevel {
+			if enabled, ok := ga.exportFieldMap[s.enum]; ok && !enabled {
+				continue
+			}
+		}
+		labelNames := nonIfoeLabels
+		if s.perPort {
+			labelNames = perPortLabels
+		}
+		descs = append(descs, snapshotstore.FieldDesc{
+			Field:      s.field,
+			Name:       prefix + s.field,
+			Help:       s.help,
+			ValueType:  prometheus.GaugeValue,
+			LabelNames: labelNames,
+		})
+	}
+	return descs
+}
+
+// ifoeStoreCollector serves IFOE /metrics from the snapshot store in place of the
+// GaugeVecs, mirroring gpuStoreCollector. updateMetrics feeds the store (port
+// samples via Update, node totals via UpdateIfChanged); descriptors come from
+// buildStoreFieldDescs. Unchecked collector (Describe is a no-op).
+type ifoeStoreCollector struct {
+	ga *GPUAgentIFOEClient
+}
+
+func (c *ifoeStoreCollector) Describe(ch chan<- *prometheus.Desc) {}
+
+func (c *ifoeStoreCollector) Collect(ch chan<- prometheus.Metric) {
+	snapshotstore.NewStoreCollector(c.ga.gpuHandler.mh.GetStore(), c.ga.buildStoreFieldDescs()).Collect(ch)
+}
 
 // local variables
 var (
@@ -353,21 +462,12 @@ func (ga *GPUAgentIFOEClient) initFieldMetricsMap() {
 }
 
 func (ga *GPUAgentIFOEClient) initFieldRegistration() error {
-	for field, enabled := range ga.exportFieldMap {
-		if !enabled {
-			continue
-		}
-		prommetric, ok := ga.fieldMetricsMap[field]
-		if !ok {
-			logger.Log.Printf("invalid field found ignore %v", field)
-			continue
-		}
-		if err := ga.gpuHandler.mh.RegisterMetric(prommetric.Metric); err != nil {
-			logger.Log.Printf("Field %v registration failed with err : %v", field, err)
-		}
-	}
-
-	return nil
+	// Serve IFOE /metrics from the snapshot store instead of the GaugeVecs:
+	// updateMetrics feeds the store per scrape (singleflight) and the GaugeVecs are
+	// left unregistered so output comes solely from the store collector. Registered
+	// raw (not via RegisterMetric) because the collector's descriptors already carry
+	// the configured metric prefix. Mirrors the GPU path.
+	return ga.gpuHandler.mh.GetRegistry().Register(&ifoeStoreCollector{ga: ga})
 }
 
 func (ga *GPUAgentIFOEClient) InitConfigs() error {
@@ -379,7 +479,11 @@ func (ga *GPUAgentIFOEClient) InitConfigs() error {
 	ga.initFieldConfig(filedConfigs)
 	ga.InitPodExtraLabels(filedConfigs)
 	ga.initPrometheusMetrics()
-	return ga.initFieldRegistration()
+	err := ga.initFieldRegistration()
+	// Seed the always-on node-level totals so they are present on scrape #1,
+	// before the first fetch.
+	ga.seedNodeTotals()
+	return err
 }
 
 func (ga *GPUAgentIFOEClient) InitPodExtraLabels(config *exportermetrics.IFOEMetricConfig) {
@@ -513,7 +617,43 @@ func (ga *GPUAgentIFOEClient) UpdateStaticMetrics(ctx context.Context) error {
 }
 
 func (ga *GPUAgentIFOEClient) UpdateMetricsStats(ctx context.Context) error {
-	return ga.updateMetrics(ctx)
+	// Approach 1: dedupe concurrent fetch-on-scrape into one gpuagent fetch.
+	return ga.deduper.FetchOnce("ifoe", func() error {
+		if err := ga.updateMetrics(ctx); err != nil {
+			// Fetch failed: drop stale IFOE telemetry so /metrics serves only the
+			// always-present ifoe_total_* signals until the next successful fetch.
+			ga.dropStaleIFOETelemetry()
+			return err
+		}
+		return nil
+	})
+}
+
+// dropStaleIFOETelemetry evicts the IFOE telemetry fields from the store on a
+// fetch failure, keeping only the always-present node-level ifoe_total_* signals
+// (nodeLevel=true in ifoeStoreFieldSpecs). Scoped to IFOE field names, so GPU/NIC
+// slots are untouched.
+func (ga *GPUAgentIFOEClient) dropStaleIFOETelemetry() {
+	store := ga.gpuHandler.mh.GetStore()
+	if store == nil {
+		return
+	}
+	drop := make(map[string]struct{}, len(ifoeStoreFieldSpecs))
+	for _, s := range ifoeStoreFieldSpecs {
+		if s.nodeLevel {
+			continue
+		}
+		drop[s.field] = struct{}{}
+	}
+	store.DropFields(drop)
+}
+
+// NeedsPerScrapePull reports whether this IFOE client serves /metrics via the
+// reset+refill pull path. False: IFOE is store-served (updateMetrics feeds the
+// store via singleflight on scrape and the store collector reads lock-free),
+// mirroring GPU.
+func (ga *GPUAgentIFOEClient) NeedsPerScrapePull() bool {
+	return false
 }
 
 func (ga *GPUAgentIFOEClient) QueryMetrics() (interface{}, error) {

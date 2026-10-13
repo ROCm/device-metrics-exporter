@@ -102,6 +102,15 @@ class CounterSampler {
   static std::vector<std::shared_ptr<CounterSampler>>& get_samplers();
   static int runSample(std::vector<std::string> &metric_fields, uint64_t duration, uint32_t delay_ms = 0);
 
+  // Long-lived variant of runSample: initializes once, then loops sample+emit until
+  // SIGTERM/SIGINT. Same per-iteration sampling as runSample; emits one compact JSON
+  // line per iteration instead of a single pretty-printed object, and returns 0 on
+  // clean signal-driven shutdown (vs. the error-path -1 returns from runSample). Unlike
+  // runSample, a single sampling throw does not abort the loop -- it skips that
+  // iteration's emit and only exits (non-zero) after 3 consecutive failures.
+  static int runStream(std::vector<std::string> &metric_fields, uint64_t duration,
+                       uint32_t delay_ms, uint64_t interval_ms);
+
  private:
   rocprofiler_agent_id_t agent_ = {};
   rocprofiler_context_id_t ctx_ = {};

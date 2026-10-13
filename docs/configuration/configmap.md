@@ -30,6 +30,30 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     - `PtlDelay` : Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` ms no delay. This setting is useful for platform supporting Peaks Top Limiter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
   - `Debug`: Configuration for optional debug interfaces.
     - `EnableAPI`: Boolean flag to expose the debug interfaces (the pprof/expvar profiling endpoints on the metrics port and the error-injection gRPC API). Default is `false`, meaning these interfaces are disabled. The value is read at runtime and applied on config reload.
+  - `HighResolution`: GPU-only high-resolution sampling profile. When enabled, GPU metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape.
+    - `Enable`: Boolean flag to enable the high-resolution profile. Default is `false`.
+    - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes (clocks, temperatures, power, utilization, energy). Valid range `1`–`60`. `0` selects the default (`1`).
+    - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage). Must be ≥ `FastPeriodSecs`. Valid range `5`–`3600`. `0` selects the default (`5`).
+
+    `1 s` (`FastPeriodSecs: 1`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU.
+
+    While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
+
+    **Example** (`config.json`):
+
+    ```json
+    {
+      "CommonConfig": {
+        "HighResolution": {
+          "Enable": true,
+          "FastPeriodSecs": 1,
+          "SlowPeriodSecs": 5
+        }
+      }
+    }
+    ```
+
+    See [High-Resolution Sampling Tiers](metricslist.md) for which metrics land in the fast and slow tiers.
 
 ## CLI flags
 

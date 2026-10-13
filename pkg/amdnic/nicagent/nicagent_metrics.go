@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
@@ -342,6 +343,8 @@ type metrics struct {
 
 func (na *NICAgentClient) ResetMetrics() error {
 	// reset all label based fields
+	nicFieldMapMu.RLock()
+	defer nicFieldMapMu.RUnlock()
 	for _, prommetric := range fieldMetricsMap {
 		prommetric.Metric.Reset()
 	}
@@ -585,7 +588,14 @@ func (na *NICAgentClient) initCustomLabels(config *exportermetrics.NICMetricConf
 	logger.Log.Printf("custom labels being exported: %v", customLabelMap)
 }
 
+// nicFieldMapMu guards the package-global exportFieldMap/fieldMetricsMap so a
+// config reload rebuilding them cannot race a scrape goroutine ranging them
+// (concurrent map iteration + write is a fatal runtime error, not a panic).
+var nicFieldMapMu sync.RWMutex
+
 func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfig) {
+	nicFieldMapMu.Lock()
+	defer nicFieldMapMu.Unlock()
 	exportFieldMap = make(map[string]bool)
 	// setup metric fields in map to be monitored
 	// init the map with all supported strings from enum
@@ -668,6 +678,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {
+	nicFieldMapMu.Lock()
+	defer nicFieldMapMu.Unlock()
 	//nolint
 	fieldMetricsMap = map[string]FieldMeta{
 		exportermetrics.NICMetricField_NIC_TOTAL.String():                               {Metric: na.m.nicNodesTotal},
@@ -2154,23 +2166,12 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 }
 
 func (na *NICAgentClient) initFieldRegistration() error {
-	for field, enabled := range exportFieldMap {
-		// Always register QP_ metrics so that ?debug=qp works at runtime
-		// Data collection is still gated by isFieldEnabled/debugMode
-		if !enabled && !strings.HasPrefix(field, "QP_") {
-			continue
-		}
-		prommetric, ok := fieldMetricsMap[field]
-		if !ok {
-			logger.Log.Printf("Invalid field %v, ignored", field)
-			continue
-		}
-		if err := na.mh.RegisterMetric(prommetric.Metric); err != nil {
-			logger.Log.Printf("Field %v registration failed with err : %v", field, err)
-		}
-	}
-
-	return nil
+	// Serve NIC /metrics from the snapshot store instead of the GaugeVecs: the
+	// store is fed per scrape (singleflight mirror in fetchMetricsOnce), and the
+	// GaugeVecs are left unregistered so output comes solely from the store
+	// collector. Registered raw (not via RegisterMetric) because the collector's
+	// descriptors already carry the configured metric prefix. Mirrors the GPU path.
+	return na.mh.GetRegistry().Register(&nicStoreCollector{na: na})
 }
 
 func (na *NICAgentClient) isFieldEnabled(fieldName string) bool {
@@ -2198,7 +2199,11 @@ func (na *NICAgentClient) InitConfigs() error {
 	na.initLabelConfigs(filedConfigs)
 	na.initFieldConfig(filedConfigs)
 	na.initPrometheusMetrics()
-	return na.initFieldRegistration()
+	err := na.initFieldRegistration()
+	// Seed the node-level nic_total slot so it is present in the store from
+	// startup (value 0 at zero NICs), before the first fetch. Additive.
+	na.writeNodeSlot(na.mh.GetStore())
+	return err
 }
 
 func (na *NICAgentClient) UpdateStaticMetrics(_ context.Context) error {
@@ -2217,7 +2222,9 @@ func (na *NICAgentClient) UpdateStaticMetrics(_ context.Context) error {
 }
 
 func (na *NICAgentClient) UpdateMetricsStats(ctx context.Context) error {
-	return na.getMetricsAll(ctx)
+	// Store-served: dedupe concurrent scrapes onto one fetch and mirror the
+	// populated GaugeVecs into the store (RefreshStoreServingClients calls this).
+	return na.fetchMetricsOnce(ctx)
 }
 
 func (na *NICAgentClient) QueryMetrics() (interface{}, error) {

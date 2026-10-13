@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
@@ -64,6 +65,11 @@ type GPUAgentClient struct {
 
 	fl      *fieldLogger
 	clients []GPUAgentClientInterface
+
+	// healthWritesSuspended pauses the health poller (a store writer) for the
+	// config-reload window (StopServices -> store.Reset -> InitConfigs) so a tick
+	// cannot write a gpu_health slot under stale labels and leave it orphaned.
+	healthWritesSuspended atomic.Bool
 }
 
 // GPUAgentClientOptions set desired options
@@ -241,11 +247,46 @@ func NewAgent(mh *metricsutil.MetricsHandler, opts ...GPUAgentClientOptions) *GP
 	return ga
 }
 
+// StopServices stops each sub-client's long-running services (high-res GPUWatch
+// feed, profiler stream) and waits for their goroutines to exit. The
+// MetricsHandler calls it before a reload rebuilds config/labels, so no service
+// writes the store mid-reload. Idempotent.
+func (ga *GPUAgentClient) StopServices() {
+	// Suspend the health poller's store writes until InitConfigs completes the
+	// reload; otherwise a tick lands between store.Reset and the label rebuild.
+	ga.healthWritesSuspended.Store(true)
+	for _, client := range ga.clients {
+		client.StopServices()
+	}
+}
+
 func (ga *GPUAgentClient) InitConfigs() error {
+	// The reload finishes when this returns; re-enable the health poller's store
+	// writes that StopServices suspended for the window.
+	defer ga.healthWritesSuspended.Store(false)
 	for _, client := range ga.clients {
 		err := client.InitConfigs()
 		if err != nil {
 			return err
+		}
+	}
+	// Services were stopped by StopServices before this reload, so config-derived
+	// label/field maps were just rebuilt with no concurrent reader. Seed the store
+	// with one pull-path GPUGet baseline next, so /metrics serves a full snapshot
+	// before the high-res feed starts (the feed then only applies deltas). GPU
+	// client only; no-op otherwise.
+	for _, client := range ga.clients {
+		if p, ok := client.(interface{ initialStorePopulate() }); ok {
+			p.initialStorePopulate()
+		}
+	}
+	// Only after the baseline read, reconcile (start) the high-resolution GPUWatch
+	// feed and profiler stream. InitConfigs is dispatched by the MetricsHandler on
+	// startup and on each config change, so a runtime high-res↔non-high-res toggle
+	// is handled here. Only the GPU client implements reconcileHighRes.
+	for _, client := range ga.clients {
+		if hr, ok := client.(interface{ reconcileHighRes() }); ok {
+			hr.reconcileHighRes()
 		}
 	}
 	return nil
@@ -365,6 +406,18 @@ func (ga *GPUAgentClient) StartMonitor() {
 		}
 	}
 
+	// Start the async pull-path workload cache per GPU client. Self-gates to
+	// flag-on non-high-res store-serving mode, so flag-off/legacy and high-res are
+	// untouched; keeps ListWorkloads (which can block on the scheduler) off the
+	// /metrics scrape hot path.
+	if ga.enableGPUMonitoring {
+		for _, client := range ga.clients {
+			if gpuClient, ok := client.(*GPUAgentGPUClient); ok {
+				gpuClient.startPullWorkloadCache(ga.ctx)
+			}
+		}
+	}
+
 	// Get health polling interval from configuration
 	pollInterval := ga.mh.GetHealthPollingInterval()
 	logger.Log.Printf("Health polling interval set to %v", pollInterval)
@@ -450,6 +503,11 @@ func (ga *GPUAgentClient) StartMonitor() {
 
 // processHealthValidation - process health validation for all clients
 func (ga *GPUAgentClient) processHealthValidation() error {
+	if ga.healthWritesSuspended.Load() {
+		// A config reload is rebuilding label/field maps and the store; skip this
+		// tick so health doesn't write gpu_health under stale labels.
+		return nil
+	}
 	for _, client := range ga.clients {
 		if client.GetDeviceType() != globals.GPUDevice {
 			continue

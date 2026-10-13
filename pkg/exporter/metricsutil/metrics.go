@@ -29,6 +29,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -36,11 +37,15 @@ type MetricsHandler struct {
 	reg     *prometheus.Registry
 	runConf *config.ConfigHandler
 	clients []MetricsInterface
+	// store is the single source of truth for device samples; writers reach it
+	// via GetStore() without touching device-client structs.
+	store *snapshotstore.Store
 }
 
 func NewMetrics(c *config.ConfigHandler) (*MetricsHandler, error) {
 	metricsHandler := MetricsHandler{
 		runConf: c,
+		store:   snapshotstore.New(),
 	}
 	metricsHandler.clients = []MetricsInterface{}
 	return &metricsHandler, nil
@@ -54,6 +59,11 @@ func (mh *MetricsHandler) GetRunConfig() *config.ConfigHandler {
 // GetRegistry : returns the registry handle
 func (mh *MetricsHandler) GetRegistry() *prometheus.Registry {
 	return mh.reg
+}
+
+// GetStore returns the shared snapshot store handle.
+func (mh *MetricsHandler) GetStore() *snapshotstore.Store {
+	return mh.store
 }
 
 func (mh *MetricsHandler) wrapRegister(r prometheus.Registerer) prometheus.Registerer {
@@ -70,7 +80,21 @@ func (mh *MetricsHandler) RegisterMetricsClient(client MetricsInterface) {
 }
 
 func (mh *MetricsHandler) InitConfig(ctx context.Context) {
+	// Stop every client's long-running services (high-res GPUWatch feed, profiler
+	// stream) and wait for their goroutines to exit BEFORE touching the registry,
+	// store, or config. A reload rebuilds config-derived label/field maps and the
+	// store device keys; doing that while a feed is still writing races those maps
+	// and leaves stale slots. Services are restarted at the end of InitConfigs once
+	// the new config and a fresh baseline read are in place.
+	for _, client := range mh.clients {
+		client.StopServices()
+	}
 	mh.reg = prometheus.NewRegistry()
+	// Clear stale device slots on (re)load: a changed label set (e.g. enabling
+	// kfd_process_id or a custom label) alters the store device key, so the old
+	// slot would otherwise orphan and collide with the freshly-written one on
+	// render. Writers repopulate on the next scrape / feed tick.
+	mh.store.Reset()
 	if err := mh.runConf.RefreshConfig(); err != nil {
 		logger.Log.Printf("failed to refresh config: %v", err)
 	}
@@ -97,11 +121,54 @@ func (mh *MetricsHandler) UpdateMetrics(ctx context.Context) error {
 		wg.Add(1)
 		go func(client MetricsInterface) {
 			defer wg.Done()
+			// Reset before refill in every mode, high-resolution included: a
+			// GaugeVec keeps children forever, so without it a label set that
+			// disappears (partition change, pod relabel) is served stale
+			// alongside the live one. UpdateMetricsStats below repopulates
+			// every field from one read, so the scrape stays a single
+			// self-consistent snapshot.
 			if err := client.ResetMetrics(); err != nil {
 				logger.Log.Printf("failed to reset metrics: %v", err)
 			}
 			if err := client.UpdateMetricsStats(ctx); err != nil {
 				logger.Log.Printf("failed to update metrics: %v", err)
+			}
+		}(client)
+	}
+	wg.Wait()
+	return nil
+}
+
+// AnyClientNeedsPerScrapePull reports whether any registered client still serves
+// /metrics via the in-place reset+refill pull path, which requires the scrape
+// mutex. False only when every registered client serves from the snapshot store
+// (GPU store mode, non-high-res), enabling lock-free concurrent scrapes. Returns
+// true when no clients are registered so the mutex path (today's behavior) holds.
+func (mh *MetricsHandler) AnyClientNeedsPerScrapePull() bool {
+	for _, client := range mh.clients {
+		if client.NeedsPerScrapePull() {
+			return true
+		}
+	}
+	return len(mh.clients) == 0
+}
+
+// RefreshStoreServingClients refreshes the snapshot store for every store-serving
+// client (NeedsPerScrapePull()==false) via its own singleflight fetch. No GaugeVec
+// reset and no scrape mutex: concurrent scrapes dedupe to one hardware pull and the
+// store collector reads lock-free. Called only when AnyClientNeedsPerScrapePull()
+// is false, so every registered client is store-serving.
+func (mh *MetricsHandler) RefreshStoreServingClients(ctx context.Context) error {
+	var wg sync.WaitGroup
+	for _, client := range mh.clients {
+		if client.NeedsPerScrapePull() {
+			continue
+		}
+		wg.Add(1)
+		go func(client MetricsInterface) {
+			defer wg.Done()
+			if err := client.UpdateMetricsStats(ctx); err != nil {
+				logger.Log.Printf("store refresh failed: %v", err)
 			}
 		}(client)
 	}
@@ -166,6 +233,18 @@ func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.MetricConfig {
 		return config
 	}
 	return nil
+}
+
+// IsHighResolution reports whether the GPU-only high-resolution profile is on.
+func (mh *MetricsHandler) IsHighResolution() bool {
+	return mh.runConf.GetHighResolutionState()
+}
+
+// GetHighResPeriods returns the fast/slow watcher sampling periods in seconds.
+// The config handler substitutes the high-res defaults for any unset period, so
+// both values are always non-zero.
+func (mh *MetricsHandler) GetHighResPeriods() (uint32, uint32) {
+	return mh.runConf.GetHighResPeriods()
 }
 
 func (mh *MetricsHandler) GetGPUMetricsConfig() *exportermetrics.GPUMetricConfig {

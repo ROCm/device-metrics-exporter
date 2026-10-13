@@ -58,6 +58,43 @@ The following document contains a full list of GPU Metrics that are available us
 
 ---
 
+## High-Resolution Sampling Tiers
+
+All metrics are collected the same way — by scraping `/metrics`. These tiers describe only
+how often the data behind `/metrics` is refreshed when high-resolution mode is enabled
+(`CommonConfig.HighResolution.Enable=true`): fast-moving fields refresh at `FastPeriodSecs`,
+slow-moving and more expensive fields at `SlowPeriodSecs`. When the mode is disabled (the
+default), all metrics refresh once per scrape.
+
+See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for the
+`FastPeriodSecs` / `SlowPeriodSecs` ranges, defaults, and supported rate.
+
+### Fast tier (`FastPeriodSecs`, default 1 s)
+
+| Family | Metrics |
+| --- | --- |
+| Clocks | `GPU_CLOCK`, `GPU_MEM_CLOCK` |
+| Temperature | `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` |
+| Power | `GPU_PACKAGE_POWER`, `GPU_AVERAGE_PACKAGE_POWER`, `GPU_POWER_USAGE` |
+| Energy | `GPU_ENERGY_CONSUMED` |
+| Activity | `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY` |
+| Voltage | `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` |
+| PCIe | `GPU_PCIE_SPEED`, `GPU_PCIE_REPLAY_COUNT`, `GPU_PCIE_NACK_SENT_COUNT`, `GPU_PCIE_NACK_RECEIVED_COUNT` |
+| XGMI | `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT`, `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` |
+| Throttle / violation residency | `GPU_VIOLATION_PROCESSOR_HOT_*`, `GPU_VIOLATION_PPT_*`, `GPU_VIOLATION_SOCKET_THERMAL_*`, `GPU_VIOLATION_VR_THERMAL_*`, `GPU_VIOLATION_HBM_THERMAL_*` |
+| Bandwidth | `GPU_VRAM_MAX_BANDWIDTH` |
+
+### Slow tier (`SlowPeriodSecs`, default 5 s)
+
+| Family | Metrics |
+| --- | --- |
+| ECC / RAS counters | `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) |
+| Memory usage | `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_TOTAL_VRAM` |
+| PCIe bandwidth | `GPU_PCIE_BANDWIDTH` |
+| Clock limits | `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` |
+
+---
+
 ## Cluster Management Metrics
 
 ### System Information

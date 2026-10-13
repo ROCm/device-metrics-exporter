@@ -1,0 +1,331 @@
+/*
+Copyright (c) Advanced Micro Devices, Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the \"License\");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an \"AS IS\" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+///
+/// \file
+/// protobuf specifications to watch GPU attributes
+///
+/// Exporter-side copy of the gpuagent GPUWatch contract (ROCm/gpu-agent
+/// sw/nic/gpuagent/protos/gpu_watch.proto). gogo annotations and the
+/// gogo.proto import are dropped since the exporter gen uses plain protoc.
+//----------------------------------------------------------------------------
+
+syntax = "proto3";
+package amdgpu;
+option go_package="gen/amdgpu";
+
+import "types.proto";
+
+// gRPC APIs for watch objects to monitor group of statistics of interest
+service GPUWatchSvc {
+  // API to create GPU watch object
+  rpc GPUWatchCreate(GPUWatchRequest) returns (GPUWatchResponse) {}
+  // API to delete GPU watch object
+  rpc GPUWatchDelete(GPUWatchDeleteRequest) returns (GPUWatchDeleteResponse) {}
+  // API to get GPU watch object
+  rpc GPUWatchGet(GPUWatchGetRequest) returns (GPUWatchGetResponse) {}
+  // API to subscribe to GPU watch object, GPUWatchSubscribe API will
+  // periodically send requested attributes and the specified GPUs in the
+  // GPU watch object to the client
+  rpc GPUWatchSubscribe(GPUWatchSubscribeRequest) returns (stream GPUWatch) {}
+}
+
+// identifiers of GPU watch attributes
+// NOTE:
+// not all watch attributes are supported in all GPUs. if an attribute is
+// is not supported, 0 will be returned as attribute value
+enum GPUWatchAttrId {
+  GPU_WATCH_ATTR_ID_INVALID             = 0;
+  GPU_WATCH_ATTR_ID_GPU_CLOCK           = 1;
+  GPU_WATCH_ATTR_ID_MEM_CLOCK           = 2;
+  GPU_WATCH_ATTR_ID_MEMORY_TEMP         = 3;
+  GPU_WATCH_ATTR_ID_GPU_TEMP            = 4;
+  GPU_WATCH_ATTR_ID_POWER_USAGE         = 5;
+  GPU_WATCH_ATTR_ID_PCIE_TX             = 6;
+  GPU_WATCH_ATTR_ID_PCIE_RX             = 7;
+  GPU_WATCH_ATTR_ID_GPU_UTIL            = 8;
+  GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE    = 9;
+  GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL   = 10;
+  GPU_WATCH_ATTR_ID_ECC_UNCORRECT_TOTAL = 11;
+  GPU_WATCH_ATTR_ID_ECC_SDMA_CE         = 12;
+  GPU_WATCH_ATTR_ID_ECC_SDMA_UE         = 13;
+  GPU_WATCH_ATTR_ID_ECC_GFX_CE          = 14;
+  GPU_WATCH_ATTR_ID_ECC_GFX_UE          = 15;
+  GPU_WATCH_ATTR_ID_ECC_MMHUB_CE        = 16;
+  GPU_WATCH_ATTR_ID_ECC_MMHUB_UE        = 17;
+  GPU_WATCH_ATTR_ID_ECC_ATHUB_CE        = 18;
+  GPU_WATCH_ATTR_ID_ECC_ATHUB_UE        = 19;
+  GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_CE     = 20;
+  GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_UE     = 21;
+  GPU_WATCH_ATTR_ID_ECC_HDP_CE          = 22;
+  GPU_WATCH_ATTR_ID_ECC_HDP_UE          = 23;
+  GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_CE    = 24;
+  GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_UE    = 25;
+  GPU_WATCH_ATTR_ID_ECC_DF_CE           = 26;
+  GPU_WATCH_ATTR_ID_ECC_DF_UE           = 27;
+  GPU_WATCH_ATTR_ID_ECC_SMN_CE          = 28;
+  GPU_WATCH_ATTR_ID_ECC_SMN_UE          = 29;
+  GPU_WATCH_ATTR_ID_ECC_SEM_CE          = 30;
+  GPU_WATCH_ATTR_ID_ECC_SEM_UE          = 31;
+  GPU_WATCH_ATTR_ID_ECC_MP0_CE          = 32;
+  GPU_WATCH_ATTR_ID_ECC_MP0_UE          = 33;
+  GPU_WATCH_ATTR_ID_ECC_MP1_CE          = 34;
+  GPU_WATCH_ATTR_ID_ECC_MP1_UE          = 35;
+  GPU_WATCH_ATTR_ID_ECC_FUSE_CE         = 36;
+  GPU_WATCH_ATTR_ID_ECC_FUSE_UE         = 37;
+  GPU_WATCH_ATTR_ID_ECC_UMC_CE          = 38;
+  GPU_WATCH_ATTR_ID_ECC_UMC_UE          = 39;
+  GPU_WATCH_ATTR_ID_ECC_MCA_CE          = 40;
+  GPU_WATCH_ATTR_ID_ECC_MCA_UE          = 41;
+  GPU_WATCH_ATTR_ID_ECC_VCN_CE          = 42;
+  GPU_WATCH_ATTR_ID_ECC_VCN_UE          = 43;
+  GPU_WATCH_ATTR_ID_ECC_JPEG_CE         = 44;
+  GPU_WATCH_ATTR_ID_ECC_JPEG_UE         = 45;
+  GPU_WATCH_ATTR_ID_ECC_IH_CE           = 46;
+  GPU_WATCH_ATTR_ID_ECC_IH_UE           = 47;
+  GPU_WATCH_ATTR_ID_ECC_MPIO_CE         = 48;
+  GPU_WATCH_ATTR_ID_ECC_MPIO_UE         = 49;
+  GPU_WATCH_ATTR_ID_XGMI_0_NOP_TX       = 50;
+  GPU_WATCH_ATTR_ID_XGMI_0_REQ_TX       = 51;
+  GPU_WATCH_ATTR_ID_XGMI_0_RESP_TX      = 52;
+  GPU_WATCH_ATTR_ID_XGMI_0_BEATS_TX     = 53;
+  GPU_WATCH_ATTR_ID_XGMI_1_NOP_TX       = 54;
+  GPU_WATCH_ATTR_ID_XGMI_1_REQ_TX       = 55;
+  GPU_WATCH_ATTR_ID_XGMI_1_RESP_TX      = 56;
+  GPU_WATCH_ATTR_ID_XGMI_1_BEATS_TX     = 57;
+  GPU_WATCH_ATTR_ID_XGMI_0_THRPUT       = 58;
+  GPU_WATCH_ATTR_ID_XGMI_1_THRPUT       = 59;
+  GPU_WATCH_ATTR_ID_XGMI_2_THRPUT       = 60;
+  GPU_WATCH_ATTR_ID_XGMI_3_THRPUT       = 61;
+  GPU_WATCH_ATTR_ID_XGMI_4_THRPUT       = 62;
+  GPU_WATCH_ATTR_ID_XGMI_5_THRPUT       = 63;
+  GPU_WATCH_ATTR_ID_PCIE_BANDWIDTH      = 64;
+  GPU_WATCH_ATTR_ID_UMC_ACTIVITY        = 65;
+  GPU_WATCH_ATTR_ID_MM_ACTIVITY         = 66;
+  GPU_WATCH_ATTR_ID_AVG_POWER           = 67;
+  GPU_WATCH_ATTR_ID_GFX_VOLTAGE         = 68;
+  GPU_WATCH_ATTR_ID_SOC_VOLTAGE         = 69;
+  GPU_WATCH_ATTR_ID_MEM_VOLTAGE         = 70;
+  // array-valued (indexed) attributes: value rides GPUWatchAttrVal.IndexedVal
+  GPU_WATCH_ATTR_ID_HBM_TEMP            = 71;
+  GPU_WATCH_ATTR_ID_VCN_ACTIVITY       = 72;
+  GPU_WATCH_ATTR_ID_JPEG_ACTIVITY      = 73;
+  GPU_WATCH_ATTR_ID_CLOCK_FREQ_CURRENT = 74;
+  GPU_WATCH_ATTR_ID_CLOCK_FREQ_MIN     = 75;
+  GPU_WATCH_ATTR_ID_CLOCK_FREQ_MAX     = 76;
+  GPU_WATCH_ATTR_ID_XGMI_LINK_RX       = 77;
+  GPU_WATCH_ATTR_ID_XGMI_LINK_TX       = 78;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_ACC   = 79;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_ACC = 80;
+  GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_ACC                         = 81;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_ACC   = 82;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_PCT   = 83;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_PCT = 84;
+  GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_PCT                         = 85;
+  GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_PCT   = 86;
+  GPU_WATCH_ATTR_ID_GFX_BUSY_INST      = 87;
+  GPU_WATCH_ATTR_ID_VCN_BUSY_INST      = 88;
+  GPU_WATCH_ATTR_ID_JPEG_BUSY_INST     = 89;
+  // flat scalar violation counters: value rides the scalar oneof (Phase C addendum)
+  GPU_WATCH_ATTR_ID_VIOLATION_CURRENT_ACC_COUNTER            = 90;
+  GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_ACC         = 91;
+  GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_ACC              = 92;
+  GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACC   = 93;
+  GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_ACC       = 94;
+  GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_ACC      = 95;
+  GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT         = 96;
+  GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_PCT              = 97;
+  GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_PCT   = 98;
+  GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_PCT       = 99;
+  GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_PCT      = 100;
+  // ECC deferred counters (third ECC category alongside CE/UE)
+  GPU_WATCH_ATTR_ID_ECC_DEF_TOTAL       = 101;
+  GPU_WATCH_ATTR_ID_ECC_DEF_SDMA        = 102;
+  GPU_WATCH_ATTR_ID_ECC_DEF_GFX         = 103;
+  GPU_WATCH_ATTR_ID_ECC_DEF_MMHUB       = 104;
+  GPU_WATCH_ATTR_ID_ECC_DEF_ATHUB       = 105;
+  GPU_WATCH_ATTR_ID_ECC_DEF_PCIE_BIF    = 106;
+  GPU_WATCH_ATTR_ID_ECC_DEF_HDP         = 107;
+  GPU_WATCH_ATTR_ID_ECC_DEF_XGMI_WAFL   = 108;
+  GPU_WATCH_ATTR_ID_ECC_DEF_DF          = 109;
+  GPU_WATCH_ATTR_ID_ECC_DEF_SMN         = 110;
+  GPU_WATCH_ATTR_ID_ECC_DEF_SEM         = 111;
+  GPU_WATCH_ATTR_ID_ECC_DEF_MP0         = 112;
+  GPU_WATCH_ATTR_ID_ECC_DEF_MP1         = 113;
+  GPU_WATCH_ATTR_ID_ECC_DEF_FUSE        = 114;
+  GPU_WATCH_ATTR_ID_ECC_DEF_UMC         = 115;
+  GPU_WATCH_ATTR_ID_ECC_DEF_MCA         = 116;
+  GPU_WATCH_ATTR_ID_ECC_DEF_VCN         = 117;
+  GPU_WATCH_ATTR_ID_ECC_DEF_JPEG        = 118;
+  GPU_WATCH_ATTR_ID_ECC_DEF_IH          = 119;
+  GPU_WATCH_ATTR_ID_ECC_DEF_MPIO        = 120;
+  // PCIe accumulated counters (from the bulk gpu metrics read)
+  GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT          = 121;
+  GPU_WATCH_ATTR_ID_PCIE_RECOVERY_COUNT        = 122;
+  GPU_WATCH_ATTR_ID_PCIE_REPLAY_ROLLOVER_COUNT = 123;
+  GPU_WATCH_ATTR_ID_PCIE_NACK_SENT_COUNT       = 124;
+  GPU_WATCH_ATTR_ID_PCIE_NACK_RECEIVED_COUNT   = 125;
+  // additional bulk scalars
+  GPU_WATCH_ATTR_ID_GPU_POWER_USAGE     = 126;
+  GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH  = 127;
+  GPU_WATCH_ATTR_ID_EDGE_TEMP           = 128;
+  // memory totals/used/free (separate amdsmi calls) and PCIe link speed
+  GPU_WATCH_ATTR_ID_TOTAL_VRAM          = 129;
+  GPU_WATCH_ATTR_ID_TOTAL_VISIBLE_VRAM  = 130;
+  GPU_WATCH_ATTR_ID_TOTAL_GTT           = 131;
+  GPU_WATCH_ATTR_ID_USED_VISIBLE_VRAM   = 132;
+  GPU_WATCH_ATTR_ID_USED_GTT            = 133;
+  GPU_WATCH_ATTR_ID_FREE_VRAM           = 134;
+  GPU_WATCH_ATTR_ID_FREE_VISIBLE_VRAM   = 135;
+  GPU_WATCH_ATTR_ID_FREE_GTT            = 136;
+  GPU_WATCH_ATTR_ID_PCIE_SPEED          = 137;
+  GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED      = 138;
+  // accumulated GPU energy in uJ (energy_accumulator scaled by the counter
+  // resolution); fast-tier, sourced from the one bulk gpu_metrics read
+  GPU_WATCH_ATTR_ID_ENERGY_CONSUMED     = 139;
+}
+
+// one element of an array-valued (indexed) watch attribute, e.g. one HBM
+// stack's temperature or one clock type's frequency
+message GPUWatchAttrIndexedVal {
+  // 0-based slice position; becomes the *_index label value. 0 is valid: each
+  // element is an explicitly-present repeated entry, so it is never "absent"
+  uint32 Index   = 1;
+  // optional qualifier (clocks carry clock_type); empty means none, and the
+  // consumer drops the label. Producers never encode a real qualifier as empty
+  string SubType = 2;
+  oneof indexed_attr_val {
+    uint64 LongVal  = 3;
+    float  FloatVal = 4;
+  }
+}
+
+// values of GPU watch attributes
+message GPUWatchAttrVal {
+  oneof watch_attr_val {
+    uint64 LongVal   = 1;
+    float  FloatVal  = 2;
+    string StringVal = 3;
+  }
+  // units for the value, ex: MHz, C, ...
+  string   Units     = 4;
+  // set instead of watch_attr_val for array-valued attributes; one entry per
+  // index (e.g. per HBM stack, clock type, XGMI link, or XCC)
+  repeated GPUWatchAttrIndexedVal IndexedVal = 5;
+}
+
+// GPU watch attribute id and value
+message GPUWatchAttr {
+  // attribute identifier
+  GPUWatchAttrId  Id    = 1;
+  // attribute value
+  GPUWatchAttrVal Value = 2;
+}
+
+// GPUWatchAttrs contains the GPU ID and its watched attributes (id, value) list
+message GPUWatchAttrs {
+  bytes                 GPU  = 1;
+  // list of (id, value) pairs
+  repeated GPUWatchAttr Attr = 2;
+}
+
+// GPUWatchSpec captures the list of GPUs and GPU attributes to monitor and
+// associated configuration
+message GPUWatchSpec {
+  // uuid identifying the GPU watch object
+  bytes                   Id        = 1;
+  // list of GPUs to monitor
+  // NOTE:
+  // atleast one GPU must be specified
+  repeated bytes          GPU       = 2;
+  // list of GPU attributes to monitor
+  // NOTE:
+  // atleast one GPU watch attribute must be specified
+  repeated GPUWatchAttrId Attribute = 3;
+  // sampling period in seconds for fast moving attributes (clocks,
+  // temperatures, power, utilization), also the subscriber notify period.
+  // 0 selects the default
+  uint32                  FastPeriodSecs = 4;
+  // sampling period in seconds for slow moving attributes (ECC and XGMI
+  // counters). must be >= FastPeriodSecs. 0 selects the default
+  uint32                  SlowPeriodSecs = 5;
+}
+
+// operational state of the GPUWatch object
+message GPUWatchStatus {
+  // number of subscribers of the GPU watch object
+  uint32 NumSubscribers = 1;
+}
+
+// list of stats being watched
+message GPUWatchStats {
+  // one list of (attribute-id, attribute-value) are sent back per GPU
+  repeated GPUWatchAttrs GPUWatchAttr = 1;
+}
+
+// GPUWatch captures the config, operational status and stats of GPUWatch object
+message GPUWatch {
+  // GPUWatch config specification
+  GPUWatchSpec   Spec   = 1;
+  // GPUWatch operational status
+  GPUWatchStatus Status = 2;
+  // GPUWatch statistics
+  GPUWatchStats  Stats  = 3;
+}
+
+// GPUWatchRequest is used to create or update a watch group
+message GPUWatchRequest {
+  // GPU watch configuration
+  repeated GPUWatchSpec Spec = 1;
+}
+
+// GPUWatchResponse is sent in response to GPUWatchRequest
+message GPUWatchResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+}
+
+// GPUWatchGetRequest is sent to observe a GPUWatch that was created
+message GPUWatchGetRequest {
+  // list of uuids of interested GPUWatch objects
+  repeated bytes Id = 1;
+}
+
+// GPUWatchGetResponse is sent in response to GPUWatchGetRequest
+message GPUWatchGetResponse {
+  // status code indicating the result of the operation
+  types.ApiStatus   ApiStatus = 1;
+  // list of responses
+  repeated GPUWatch Response  = 2;
+}
+
+// GPUWatchSubscribeRequest is sent to subscribe to a GPUWatch that was created
+message GPUWatchSubscribeRequest {
+  // list of uuids of interested GPUWatch objects
+  repeated bytes Id = 1;
+}
+
+// GPUWatchDeleteRequest is used to delete an existing
+// watch group
+message GPUWatchDeleteRequest {
+  // list of uuids of watch groups to delete
+  repeated bytes Id = 1;
+}
+
+// GPUWatchDeleteResponse is sent in response to GPUWatchDeleteRequest
+message GPUWatchDeleteResponse {
+  // result of the API processing
+  types.ApiStatus ApiStatus = 1;
+}

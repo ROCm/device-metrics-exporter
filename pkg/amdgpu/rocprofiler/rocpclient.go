@@ -79,12 +79,28 @@ func (rpc *ROCProfilerClient) SetEventEmitter(fn EventEmitFunc) {
 	rpc.emitEvent = fn
 }
 
+// ResetFailureCount clears ALL failure state, including a fatal (crash)
+// auto-disable. Reserved for Close()/pod restart: a config reload must not call
+// it, or a core-dumping rocpctl respawns instead of staying disabled until the
+// pod restarts (see ResetConsecutiveFailures for the reload/recovery path).
 func (rpc *ROCProfilerClient) ResetFailureCount() {
 	rpc.pCache.Lock()
 	defer rpc.pCache.Unlock()
 	rpc.pCache.consecutiveFailures = 0
 	rpc.pCache.fatalFailure = false
 	rpc.pCache.disabledReason = ""
+}
+
+// ResetConsecutiveFailures clears the transient consecutive-failure counter (and
+// a reason that came from it) but preserves a fatal (crash) disable, which stays
+// until the pod restarts. Used on a healthy sample and on reload teardown.
+func (rpc *ROCProfilerClient) ResetConsecutiveFailures() {
+	rpc.pCache.Lock()
+	defer rpc.pCache.Unlock()
+	rpc.pCache.consecutiveFailures = 0
+	if !rpc.pCache.fatalFailure {
+		rpc.pCache.disabledReason = ""
+	}
 }
 
 func (rpc *ROCProfilerClient) GetDisabledReason() string {
@@ -264,6 +280,6 @@ func (rpc *ROCProfilerClient) getMetrics(ctx context.Context) (*amdgpu.GpuProfil
 		rpc.IncFailureCount(callerCtx)
 		return nil, err
 	}
-	rpc.ResetFailureCount()
+	rpc.ResetConsecutiveFailures()
 	return &gpus, nil
 }

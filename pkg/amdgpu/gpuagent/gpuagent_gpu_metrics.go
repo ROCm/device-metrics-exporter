@@ -339,6 +339,11 @@ func (ga *GPUAgentGPUClient) GetExportLabels() []string {
 }
 
 func (ga *GPUAgentGPUClient) initLabelConfigs(config *exportermetrics.GPUMetricConfig) {
+	// exportLabels is read under labelMapMu.RLock by populateLabelsFromGPU, which the
+	// high-res workload-label cache ticker drives concurrently with this reload-time
+	// rebuild; guard the write so the two cannot race.
+	ga.labelMapMu.Lock()
+	defer ga.labelMapMu.Unlock()
 
 	// list of mandatory labels
 	ga.exportLabels = make(map[string]bool)
@@ -412,6 +417,8 @@ func profilerStateLabel(enabled bool) string {
 }
 
 func (ga *GPUAgentGPUClient) initCustomLabels(config *exportermetrics.GPUMetricConfig) {
+	ga.labelMapMu.Lock()
+	defer ga.labelMapMu.Unlock()
 	ga.customLabelMap = make(map[string]string)
 	disallowedLabels := []string{}
 	if config != nil && config.GetCustomLabels() != nil {
@@ -476,14 +483,21 @@ func (ga *GPUAgentGPUClient) initGPUSelectorConfig(config *exportermetrics.GPUMe
 // getExporterFieldState returns true if field is enabled for export
 // should be called after initFieldConfig
 func (ga *GPUAgentGPUClient) getExporterFieldState(field string) bool {
+	ga.exportFieldMapMu.RLock()
 	enabled, ok := ga.exportFieldMap[strings.ToUpper(field)]
+	ga.exportFieldMapMu.RUnlock()
 	if !ok {
 		return false
 	}
 	return enabled
 }
 
+// High-resolution mode uses this same config-driven enable path: the pull path
+// runs every scrape there too, so both views carry one field list. Profiler
+// fields remain gated separately by initProfilerMetrics.
 func (ga *GPUAgentGPUClient) initFieldConfig(config *exportermetrics.GPUMetricConfig) {
+	ga.exportFieldMapMu.Lock()
+	defer ga.exportFieldMapMu.Unlock()
 	ga.exportFieldMap = make(map[string]bool)
 	// setup metric fields in map to be monitored
 	// init the map with all supported strings from enum
@@ -527,6 +541,11 @@ func (ga *GPUAgentGPUClient) getAllSupportedProfilerFields() []string {
 }
 
 func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
+	// Guard the whole-map replace with exportFieldMapMu so the background slow
+	// writer's gatherGPUFamilies (which reads fieldMetricsMap under the same lock)
+	// cannot observe a torn/replaced map during a config reload.
+	ga.exportFieldMapMu.Lock()
+	defer ga.exportFieldMapMu.Unlock()
 	//nolint
 	ga.fieldMetricsMap = map[string]FieldMeta{
 		exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String():                                              FieldMeta{Metric: ga.metrics.gpuNodesTotal},
@@ -765,6 +784,7 @@ func (ga *GPUAgentGPUClient) initProfilerMetricsField() {
 	}
 	// to avoid exporting when disabled
 	// update the exporter fields map to disable performance register fields
+	ga.exportFieldMapMu.Lock()
 	for i := profilerStarIndex; i <= profilerEndIndex; i++ {
 		if name, exist := exportermetrics.GPUMetricField_name[i]; exist {
 			fieldName := strings.ToUpper(name)
@@ -774,6 +794,7 @@ func (ga *GPUAgentGPUClient) initProfilerMetricsField() {
 			}
 		}
 	}
+	ga.exportFieldMapMu.Unlock()
 }
 
 func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
@@ -1756,6 +1777,15 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 }
 
 func (ga *GPUAgentGPUClient) initFieldRegistration() error {
+	if ga.useSnapshotStoreServing() || ga.useHighResStoreServing() {
+		// Verification mode: serve GPU /metrics from the snapshot store instead of
+		// the GaugeVecs. Non-high-res feeds the store per scrape (singleflight
+		// mirror); high-res feeds it from the GPUWatch stream writer. In both, the
+		// GaugeVecs are left unregistered so output comes solely from the store
+		// collector. Registered raw (not via RegisterMetric) because the
+		// collector's descriptors already carry the configured metric prefix.
+		return ga.gpuHandler.mh.GetRegistry().Register(&gpuStoreCollector{ga: ga})
+	}
 	for field, enabled := range ga.exportFieldMap {
 		if !enabled {
 			continue
@@ -1788,7 +1818,11 @@ func (ga *GPUAgentGPUClient) InitConfigs() error {
 	ga.initPrometheusMetrics()
 	ga.initProfilerMetricsField()
 	ga.initGPUGetFilter()
-	return ga.initFieldRegistration()
+	err := ga.initFieldRegistration()
+	// Seed the always-on node-level gpu_nodes_total so it is present on scrape #1,
+	// before the first fetch.
+	ga.seedGPUNodeTotal()
+	return err
 }
 
 // initGPUGetFilter derives the GPUGet filter once from the loaded config and
@@ -1846,6 +1880,13 @@ func getGPUUUID(gpu *amdgpu.GPU) string {
 }
 
 func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
+	if ga.gpuHandler.mh.IsHighResolution() {
+		// High-resolution mode: GPU metadata, labels, and gauges are driven by
+		// the GPUWatch stream (StartHighResStream). Skip the init-time GPUGet
+		// population so the pull path shows only streamed fields (otherwise the
+		// full set would persist, since the per-scrape reset is gated).
+		return nil
+	}
 	// send the req to gpuclient
 	resp, partitionMap, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
 	if err != nil {
@@ -1866,7 +1907,12 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 		pmetrics = nil
 	}
 
-	ga.k8PodInfoMap, _ = ga.FetchPodInfoForNode()
+	podInfo, _ := ga.FetchPodInfoForNode()
+	// Guard the write: populateLabelsFromGPU reads k8PodInfoMap under
+	// labelMapMu.RLock from the concurrent high-res workload-label ticker.
+	ga.labelMapMu.Lock()
+	ga.k8PodInfoMap = podInfo
+	ga.labelMapMu.Unlock()
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
@@ -1889,10 +1935,29 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 }
 
 func (ga *GPUAgentGPUClient) UpdateMetricsStats(ctx context.Context) error {
-	return ga.getMetricsAll(ctx)
+	if ga.useHighResStoreServing() {
+		// High-res store serving: the store is fed continuously by the GPUWatch
+		// stream writer (applyWatchSnapshot), so a per-scrape GPUGet pull would
+		// both duplicate the hardware read and write a second, differently-keyed
+		// device slot. Serve from the store as-is.
+		return nil
+	}
+	return ga.fetchMetricsOnce(ctx)
 }
 
 func (ga *GPUAgentGPUClient) QueryMetrics() (interface{}, error) {
+	// High-res: the only GPU object available without a concurrent getGPUs (which
+	// would race the sole-caller stream) is the subscribe-time snapshot, whose
+	// gpu.Stats (temps, power, ECC) are frozen at subscribe. NPD (amd-gpu-health)
+	// turns those into node conditions, so serving them would silently miss a GPU
+	// that overheats or accrues ECC errors after subscribe. Fresh telemetry lives
+	// in the snapshot store and already drives the device-plugin health path
+	// (processEccHealthFromStore); disable the stale /gpumetrics live query here
+	// rather than serve frozen stats, mirroring QueryInbandRASErrors.
+	// TODO: overlay fresh store values onto gpu.Stats to re-enable NPD in high-res.
+	if ga.useHighResStoreServing() {
+		return nil, fmt.Errorf("/gpumetrics live query is disabled in high-resolution mode")
+	}
 	// NPD reads the full GPU object but always skips the process list.
 	resp, _, err := ga.getGPUs(&amdgpu.GPUGetFilter{SkipProcessStatus: true}, &ga.gCache.npdCache)
 	if err != nil {
@@ -1907,6 +1972,11 @@ func (ga *GPUAgentGPUClient) GetDeviceType() globals.DeviceType {
 }
 
 func (ga *GPUAgentGPUClient) QueryInbandRASErrors(severity string) (interface{}, error) {
+	// In-band RAS (CPER) is disabled in high-res: the CPER poll is an amd-smi call
+	// that would race the GPUWatch stream, and CPER health is not evaluated here.
+	if ga.useHighResStoreServing() {
+		return nil, fmt.Errorf("in-band RAS query is disabled in high-resolution mode")
+	}
 	var resp *amdgpu.GPUCPERGetResponse
 	var err error
 	resp, err = ga.getGPUCPER(severity)
@@ -1973,6 +2043,8 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 	wls map[string]scheduler.Workload,
 	gpu *amdgpu.GPU,
 	partitionMap map[string]*amdgpu.GPU) map[string]string {
+	ga.labelMapMu.RLock()
+	defer ga.labelMapMu.RUnlock()
 	var podInfo scheduler.PodResourceInfo
 	var jobInfo scheduler.JobInfo
 

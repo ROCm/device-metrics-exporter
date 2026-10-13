@@ -17,12 +17,86 @@
 package metricsutil
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"gotest.tools/assert"
+
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 )
+
+// recordingClient records the order UpdateMetrics drives the interface in.
+type recordingClient struct {
+	calls []string
+}
+
+func (c *recordingClient) UpdateStaticMetrics(_ context.Context) error { return nil }
+
+func (c *recordingClient) UpdateMetricsStats(_ context.Context) error {
+	c.calls = append(c.calls, "stats")
+	return nil
+}
+
+func (c *recordingClient) InitConfigs() error { return nil }
+
+func (c *recordingClient) StopServices() {}
+
+func (c *recordingClient) ResetMetrics() error {
+	c.calls = append(c.calls, "reset")
+	return nil
+}
+
+func (c *recordingClient) QueryMetrics() (interface{}, error) { return nil, nil }
+
+func (c *recordingClient) GetDeviceType() globals.DeviceType { return globals.GPUDevice }
+
+func (c *recordingClient) QueryInbandRASErrors(_ string) (interface{}, error) { return nil, nil }
+
+func (c *recordingClient) NeedsPerScrapePull() bool { return true }
+
+// GetStore must return the store created in NewMetrics so downstream writers
+// (GPU health, NIC) can reach it via the shared handle.
+func TestGetStoreNonNilAfterNewMetrics(t *testing.T) {
+	logger.Init(true)
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	assert.NilError(t, os.WriteFile(cfgPath, []byte(`{}`), 0644))
+	mh, err := NewMetrics(config.NewConfigHandler(cfgPath,
+		config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort}))
+	assert.NilError(t, err)
+
+	if mh.GetStore() == nil {
+		t.Fatal("GetStore() returned nil after NewMetrics")
+	}
+}
+
+// A GaugeVec keeps children forever, so skipping the reset in high-resolution
+// mode would serve label sets that no longer exist alongside the live ones.
+func TestUpdateMetricsResetsInHighResolutionMode(t *testing.T) {
+	// NewConfigHandler logs on entry; logger.Log is nil until Init.
+	logger.Init(true)
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	assert.NilError(t, os.WriteFile(cfgPath,
+		[]byte(`{"CommonConfig":{"HighResolution":{"Enable":true}}}`), 0644))
+	mh, err := NewMetrics(config.NewConfigHandler(cfgPath,
+		config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort}))
+	assert.NilError(t, err)
+
+	client := &recordingClient{}
+	mh.RegisterMetricsClient(client)
+	mh.InitConfig(context.Background())
+	assert.Equal(t, mh.IsHighResolution(), true)
+
+	assert.NilError(t, mh.UpdateMetrics(context.Background()))
+	assert.DeepEqual(t, client.calls, []string{"reset", "stats"})
+}
 
 func TestMetricsHandler(t *testing.T) {
 	teardownSuite := setupTest(t)

@@ -1,0 +1,124 @@
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc	2026-10-08 08:09:57.702936535 -0700
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc	2026-10-08 08:28:43.994062254 -0700
+@@ -477,12 +477,21 @@
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_MEM_CLOCK:
+-            clk_type = AMDSMI_CLK_TYPE_MEM;
+-            // get clock frequency
+-            amdsmi_ret = amdsmi_get_clk_freq(gpu_handle, clk_type, &freq_info);
+-            if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
++            // Prefer the one bulk gpu_metrics read (current_uclk, already MHz) over
++            // a per-attr amdsmi_get_clk_freq. At 64 partitions under load the extra
++            // per-attr amdsmi calls pile up and destabilize amdsmi; the discrete
++            // read is only a fallback for a failed/NA bulk read. Same path for SPX
++            // and CPX (the bulk read is per gpu_handle).
++            if (bulk_get_succeeded && gpu_metrics.current_uclk != UINT16_MAX) {
+                 watch_db->watch_info[gpu_id].memory_clock =
+-                    current_frequency_hz(&freq_info) / 1000000;
++                    gpu_metrics.current_uclk;
++            } else {
++                clk_type = AMDSMI_CLK_TYPE_MEM;
++                amdsmi_ret = amdsmi_get_clk_freq(gpu_handle, clk_type, &freq_info);
++                if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
++                    watch_db->watch_info[gpu_id].memory_clock =
++                        current_frequency_hz(&freq_info) / 1000000;
++                }
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_MEMORY_TEMP:
+@@ -502,19 +511,30 @@
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_GPU_TEMP:
+-            sensor_type = AMDSMI_TEMPERATURE_TYPE_EDGE;
+-            // get GPU temperature
+-            amdsmi_ret = amdsmi_get_temp_metric(gpu_handle, sensor_type,
+-                             AMDSMI_TEMP_CURRENT, &int64_val);
+-            if (amdsmi_ret == AMDSMI_STATUS_NOT_SUPPORTED) {
+-                // fallback to hotspot temperature as some card may not have
+-                // edge temperature.
+-                sensor_type = AMDSMI_TEMPERATURE_TYPE_JUNCTION;
++            // Prefer the one bulk gpu_metrics read (temperature_edge, same field
++            // the GpuGet fill_stats path uses) over a per-attr amdsmi_get_temp_metric:
++            // at 64 partitions under load the extra per-attr amdsmi calls pile up and
++            // destabilize amdsmi. Only fall back to the discrete edge→junction read
++            // when the bulk read failed or edge is unsupported (0/NA). Same path for
++            // SPX and CPX (the bulk read is per gpu_handle).
++            if (bulk_get_succeeded && gpu_metrics.temperature_edge != 0 &&
++                gpu_metrics.temperature_edge != UINT16_MAX) {
++                watch_db->watch_info[gpu_id].gpu_temperature =
++                    gpu_metrics.temperature_edge;
++            } else {
++                sensor_type = AMDSMI_TEMPERATURE_TYPE_EDGE;
+                 amdsmi_ret = amdsmi_get_temp_metric(gpu_handle, sensor_type,
+                                  AMDSMI_TEMP_CURRENT, &int64_val);
+-            }
+-            if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+-                watch_db->watch_info[gpu_id].gpu_temperature = int64_val;
++                if (amdsmi_ret == AMDSMI_STATUS_NOT_SUPPORTED) {
++                    // fallback to hotspot temperature as some card may not have
++                    // edge temperature.
++                    sensor_type = AMDSMI_TEMPERATURE_TYPE_JUNCTION;
++                    amdsmi_ret = amdsmi_get_temp_metric(gpu_handle, sensor_type,
++                                     AMDSMI_TEMP_CURRENT, &int64_val);
++                }
++                if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
++                    watch_db->watch_info[gpu_id].gpu_temperature = int64_val;
++                }
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_POWER_USAGE:
+@@ -556,12 +576,18 @@
+             watch_db->watch_info[gpu_id].pcie_rx_usage = pcie_rx;
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_PCIE_BANDWIDTH:
+-            // PCIe bandwidth
+-            amdsmi_ret = amdsmi_get_pcie_info(gpu_handle, &pcie_info);
+-            if (unlikely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
+-                watch_db->watch_info[gpu_id].pcie_bandwidth =
+-                    AGA_WIDEN_UINT32_NA(pcie_info.pcie_metric.pcie_bandwidth,
+-                                        UINT64_MAX);
++            // PCIe bandwidth needs a discrete amdsmi_get_pcie_info (not in the bulk
++            // gpu_metrics struct, and its instantaneous Mb/s value differs from the
++            // bulk's accumulated field). To keep the per-fast-tick amdsmi call count
++            // low at 64 partitions (which otherwise destabilizes amdsmi), refresh it
++            // on the slow tier only; the last value is carried forward between.
++            if (refresh_slow) {
++                amdsmi_ret = amdsmi_get_pcie_info(gpu_handle, &pcie_info);
++                if (unlikely(amdsmi_ret == AMDSMI_STATUS_SUCCESS)) {
++                    watch_db->watch_info[gpu_id].pcie_bandwidth =
++                        AGA_WIDEN_UINT32_NA(pcie_info.pcie_metric.pcie_bandwidth,
++                                            UINT64_MAX);
++                }
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_GPU_UTIL:
+@@ -684,13 +710,20 @@
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+-            amdsmi_ret = amdsmi_get_gpu_memory_usage(gpu_handle,
+-                                                     AMDSMI_MEM_TYPE_VRAM,
+-                                                     &uint64_val);
+-            if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+-                // convert GPU memory usage from bytes to MB
+-                watch_db->watch_info[gpu_id].gpu_memory_usage =
+-                    uint64_val/1024/1024;
++            // VRAM usage needs a discrete, partition-scoped amdsmi_get_gpu_memory_usage
++            // (the bulk gpu_metrics vram field is unreliable, which is why the GpuGet
++            // fill path also reads it discretely). Refresh it on the slow tier only to
++            // keep the per-fast-tick amdsmi call count low at 64 partitions; the last
++            // value is carried forward between slow ticks.
++            if (refresh_slow) {
++                amdsmi_ret = amdsmi_get_gpu_memory_usage(gpu_handle,
++                                                         AMDSMI_MEM_TYPE_VRAM,
++                                                         &uint64_val);
++                if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
++                    // convert GPU memory usage from bytes to MB
++                    watch_db->watch_info[gpu_id].gpu_memory_usage =
++                        uint64_val/1024/1024;
++                }
+             }
+             break;
+         case AGA_GPU_WATCH_ATTR_ID_HBM_TEMP:

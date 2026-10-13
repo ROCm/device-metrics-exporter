@@ -6,3 +6,5 @@ AMD Device Metrics Exporter includes the following default configuration setting
 - Default configuration file: `/etc/metrics/config.json`
 
 See [Kubernetes configuration](configmap.md) for `GPUConfig.HealthThresholds`, including optional `GPU_CPER_MAX_AGE` for fatal CPER age filtering.
+
+See [Kubernetes configuration](configmap.md) for `CommonConfig.HighResolution`, the GPU-only high-resolution sampling profile (`Enable`, `FastPeriodSecs`, `SlowPeriodSecs`).

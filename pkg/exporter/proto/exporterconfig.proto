@@ -430,6 +430,27 @@ message CommonConfig {
 
     // Debug config
     DebugConfig Debug = 4;
+
+    // High-resolution GPU streaming profile
+    HighResolutionConfig HighResolution = 5;
+}
+
+message HighResolutionConfig {
+    // Enable the GPU-only high-resolution profile (1s first, 10ms north-star):
+    // the gpuagent GPUWatch feed updates the in-memory snapshot store and
+    // /metrics serves the latest snapshot. Default mode (disabled) is the
+    // per-scrape pull path and unchanged. There is no external stream.
+    bool Enable = 1;
+
+    // Sampling period in seconds for fast moving attributes (clocks,
+    // temperatures, power, utilization).
+    // Valid range 1-60, 0 selects the gpuagent default (1).
+    uint32 FastPeriodSecs = 2;
+
+    // Sampling period in seconds for slow moving attributes (ECC and XGMI
+    // counters), which carry forward between refreshes. Must be >=
+    // FastPeriodSecs. Valid range 5-3600, 0 selects the gpuagent default (5).
+    uint32 SlowPeriodSecs = 3;
 }
 
 message DebugConfig {

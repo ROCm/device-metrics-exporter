@@ -29,6 +29,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/metricssvc"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
 )
 
@@ -105,22 +106,53 @@ func (ga *GPUAgentGPUClient) applyCPERHealthChecks(
 }
 
 // returns list of
+// eccUncorrectBlock binds a per-engine uncorrectable-ECC counter to its health
+// threshold, its typed GPUStats accessor (pull path), and its store field name
+// (high-res path). The threshold check is identical regardless of source.
+type eccUncorrectBlock struct {
+	storeField string
+	name       string
+	threshold  func(*exportermetrics.GPUHealthThresholds) uint32
+	stat       func(*amdgpu.GPUStats) uint64
+}
+
+var eccUncorrectBlocks = []eccUncorrectBlock{
+	{"gpu_ecc_uncorrect_sdma", "GPU_ECC_UNCORRECT_SDMA", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_SDMA }, func(s *amdgpu.GPUStats) uint64 { return s.SDMAUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_gfx", "GPU_ECC_UNCORRECT_GFX", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_GFX }, func(s *amdgpu.GPUStats) uint64 { return s.GFXUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_mmhub", "GPU_ECC_UNCORRECT_MMHUB", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_MMHUB }, func(s *amdgpu.GPUStats) uint64 { return s.MMHUBUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_athub", "GPU_ECC_UNCORRECT_ATHUB", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_ATHUB }, func(s *amdgpu.GPUStats) uint64 { return s.ATHUBUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_bif", "GPU_ECC_UNCORRECT_BIF", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_BIF }, func(s *amdgpu.GPUStats) uint64 { return s.BIFUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_hdp", "GPU_ECC_UNCORRECT_HDP", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_HDP }, func(s *amdgpu.GPUStats) uint64 { return s.HDPUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_xgmi_wafl", "GPU_ECC_UNCORRECT_XGMI_WAFL", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_XGMI_WAFL }, func(s *amdgpu.GPUStats) uint64 { return s.XGMIWAFLUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_df", "GPU_ECC_UNCORRECT_DF", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_DF }, func(s *amdgpu.GPUStats) uint64 { return s.DFUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_smn", "GPU_ECC_UNCORRECT_SMN", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_SMN }, func(s *amdgpu.GPUStats) uint64 { return s.SMNUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_sem", "GPU_ECC_UNCORRECT_SEM", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_SEM }, func(s *amdgpu.GPUStats) uint64 { return s.SEMUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_mp0", "GPU_ECC_UNCORRECT_MP0", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_MP0 }, func(s *amdgpu.GPUStats) uint64 { return s.MP0UncorrectableErrors }},
+	{"gpu_ecc_uncorrect_mp1", "GPU_ECC_UNCORRECT_MP1", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_MP1 }, func(s *amdgpu.GPUStats) uint64 { return s.MP1UncorrectableErrors }},
+	{"gpu_ecc_uncorrect_fuse", "GPU_ECC_UNCORRECT_FUSE", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_FUSE }, func(s *amdgpu.GPUStats) uint64 { return s.FUSEUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_umc", "GPU_ECC_UNCORRECT_UMC", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_UMC }, func(s *amdgpu.GPUStats) uint64 { return s.UMCUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_mca", "GPU_ECC_UNCORRECT_MCA", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_MCA }, func(s *amdgpu.GPUStats) uint64 { return s.MCAUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_vcn", "GPU_ECC_UNCORRECT_VCN", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_VCN }, func(s *amdgpu.GPUStats) uint64 { return s.VCNUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_jpeg", "GPU_ECC_UNCORRECT_JPEG", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_JPEG }, func(s *amdgpu.GPUStats) uint64 { return s.JPEGUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_ih", "GPU_ECC_UNCORRECT_IH", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_IH }, func(s *amdgpu.GPUStats) uint64 { return s.IHUncorrectableErrors }},
+	{"gpu_ecc_uncorrect_mpio", "GPU_ECC_UNCORRECT_MPIO", func(t *exportermetrics.GPUHealthThresholds) uint32 { return t.GPU_ECC_UNCORRECT_MPIO }, func(s *amdgpu.GPUStats) uint64 { return s.MPIOUncorrectableErrors }},
+}
+
+// markUnhealthyIfOverThreshold flips state to unhealthy when count (or an injected
+// mock value) exceeds the per-block threshold. Shared by the pull and high-res paths.
+func (ga *GPUAgentGPUClient) markUnhealthyIfOverThreshold(state *metricssvc.GPUState, gpuid, fieldName string, threshold uint32, count float64) {
+	if mockVal := ga.getMockError(gpuid, fieldName); mockVal > 0 {
+		count = float64(mockVal)
+	}
+	if count > float64(threshold) {
+		state.Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
+		logger.Log.Printf("gpuid[%v] is set to unhealthy for ecc field [%v] error crossing threshold %v, current value %v", gpuid, fieldName, threshold, count)
+	}
+}
+
 func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[string]scheduler.Workload) map[string]*metricssvc.GPUState {
 
 	gpuHealthMap := make(map[string]*metricssvc.GPUState)
-	metricErrCheck := func(gpuid string, fieldName string, threshold uint32, count float64) {
-
-		mockVal := ga.getMockError(gpuid, fieldName)
-		if mockVal > 0 {
-			count = float64(mockVal)
-		}
-
-		if count > float64(threshold) {
-			// set health to unhealthy
-			gpuHealthMap[gpuid].Health = strings.ToLower(metricssvc.GPUHealth_UNHEALTHY.String())
-			logger.Log.Printf("gpuid[%v] is set to unhealthy for ecc field [%v] error crossing threshold %v, current value %v", gpuid, fieldName, threshold, count)
-		}
-	}
 	// this will fetch the latest threshold as the config refresh is done
 	// through metrics handler in the main thread
 	thresholds := ga.getHealthThreshholds()
@@ -145,29 +177,87 @@ func (ga *GPUAgentGPUClient) processEccErrorMetrics(gpus []*amdgpu.GPU, wls map[
 		}
 
 		// business logic for health detection
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SDMA", thresholds.GPU_ECC_UNCORRECT_SDMA, utils.NormalizeUint64(stats.SDMAUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_GFX", thresholds.GPU_ECC_UNCORRECT_GFX, utils.NormalizeUint64(stats.GFXUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MMHUB", thresholds.GPU_ECC_UNCORRECT_MMHUB, utils.NormalizeUint64(stats.MMHUBUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_ATHUB", thresholds.GPU_ECC_UNCORRECT_ATHUB, utils.NormalizeUint64(stats.ATHUBUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_BIF", thresholds.GPU_ECC_UNCORRECT_BIF, utils.NormalizeUint64(stats.BIFUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_HDP", thresholds.GPU_ECC_UNCORRECT_HDP, utils.NormalizeUint64(stats.HDPUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_XGMI_WAFL", thresholds.GPU_ECC_UNCORRECT_XGMI_WAFL, utils.NormalizeUint64(stats.XGMIWAFLUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_DF", thresholds.GPU_ECC_UNCORRECT_DF, utils.NormalizeUint64(stats.DFUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SMN", thresholds.GPU_ECC_UNCORRECT_SMN, utils.NormalizeUint64(stats.SMNUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_SEM", thresholds.GPU_ECC_UNCORRECT_SEM, utils.NormalizeUint64(stats.SEMUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP0", thresholds.GPU_ECC_UNCORRECT_MP0, utils.NormalizeUint64(stats.MP0UncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MP1", thresholds.GPU_ECC_UNCORRECT_MP1, utils.NormalizeUint64(stats.MP1UncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_FUSE", thresholds.GPU_ECC_UNCORRECT_FUSE, utils.NormalizeUint64(stats.FUSEUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_UMC", thresholds.GPU_ECC_UNCORRECT_UMC, utils.NormalizeUint64(stats.UMCUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MCA", thresholds.GPU_ECC_UNCORRECT_MCA, utils.NormalizeUint64(stats.MCAUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_VCN", thresholds.GPU_ECC_UNCORRECT_VCN, utils.NormalizeUint64(stats.VCNUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_JPEG", thresholds.GPU_ECC_UNCORRECT_JPEG, utils.NormalizeUint64(stats.JPEGUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_IH", thresholds.GPU_ECC_UNCORRECT_IH, utils.NormalizeUint64(stats.IHUncorrectableErrors))
-		metricErrCheck(gpuid, "GPU_ECC_UNCORRECT_MPIO", thresholds.GPU_ECC_UNCORRECT_MPIO, utils.NormalizeUint64(stats.MPIOUncorrectableErrors))
+		for _, b := range eccUncorrectBlocks {
+			ga.markUnhealthyIfOverThreshold(gpuHealthMap[gpuid], gpuid, b.name, b.threshold(thresholds), utils.NormalizeUint64(b.stat(stats)))
+		}
 	}
 
 	return gpuHealthMap
 
+}
+
+// processEccHealthFromStore computes per-GPU ECC health in high-res mode by reading
+// the watcher-fed uncorrectable ECC counters from the snapshot store instead of
+// issuing a getGPUs. It preserves the sole-amd-smi-caller invariant (no device call)
+// and mirrors the resulting gpu_health gauge back into the store so /metrics stays
+// consistent. Metadata (uuid, pcie, index) comes from the subscribe-time snapshot.
+func (ga *GPUAgentGPUClient) processEccHealthFromStore(wls map[string]scheduler.Workload) map[string]*metricssvc.GPUState {
+	store := ga.gpuHandler.mh.GetStore()
+	snap := ga.hrSnapshot.Load()
+	if store == nil || snap == nil || len(snap.gpus) == 0 {
+		return nil
+	}
+	thresholds := ga.getHealthThreshholds()
+	skip := ga.workloadLabelKeys()
+	healthyStr := strings.ToLower(metricssvc.GPUHealth_HEALTHY.String())
+	out := make(map[string]*metricssvc.GPUState, len(snap.gpus))
+	for _, gpu := range snap.gpus {
+		// snap.gpus is the unfiltered getGPUs result; skip Spec-less entries (the
+		// subscribe-list filter drops them too) so gpu.Spec.Id can't nil-panic.
+		if gpu.GetSpec() == nil || len(gpu.GetSpec().GetId()) == 0 {
+			continue
+		}
+		gpuid := getGPUInstanceIDString(gpu)
+		guuid, _ := uuid.FromBytes(gpu.GetSpec().GetId())
+		deviceid := ""
+		if gpu.Status != nil && gpu.Status.PCIeStatus != nil {
+			deviceid = strings.ToLower(gpu.Status.PCIeStatus.PCIeBusId)
+		}
+		// Key must match the stream writer's key: both are gpuStoreDeviceKey over
+		// the per-GPU label set with the workload skip, and the keyed labels are
+		// static per GPU so they agree. If they ever diverged, the ECC fields would
+		// read absent and the hold-prior branch below keeps the last verdict rather
+		// than flipping to healthy.
+		labels := ga.populateLabelsFromGPU(wls, gpu, snap.partitionMap)
+		key := gpuStoreDeviceKey(labels, skip)
+		ds := store.Snapshot(key)
+		state := &metricssvc.GPUState{
+			ID:                 gpuid,
+			UUID:               guuid.String(),
+			Health:             healthyStr,
+			Device:             deviceid,
+			AssociatedWorkload: ga.getWorkloadsListString(wls, gpuid),
+		}
+		eccPresent := false
+		for _, b := range eccUncorrectBlocks {
+			s, ok := ds.Get(b.storeField)
+			if !ok {
+				// Absent != zero: a stream gap (DropFields drops gpu_ecc_uncorrect_*)
+				// or a Fields list that omits them must not read as "0 errors" and
+				// flip a bad GPU healthy. Skip the block instead of defaulting to 0.
+				continue
+			}
+			eccPresent = true
+			ga.markUnhealthyIfOverThreshold(state, gpuid, b.name, b.threshold(thresholds), s.Value)
+		}
+		if !eccPresent {
+			// No ECC telemetry in the store for this GPU (stream dropped or ECC
+			// fields disabled): hold the prior verdict rather than declaring healthy
+			// on missing data.
+			if prev := ga.priorHealthState(gpuid); prev != nil {
+				state.Health = prev.Health
+			}
+		}
+		out[gpuid] = state
+		healthVal := 1.0
+		if state.Health != healthyStr {
+			healthVal = 0.0
+		}
+		store.Update(key, map[string]snapshotstore.Sample{
+			gpuHealthField: {Value: healthVal, Labels: labels},
+		})
+	}
+	return out
 }
 
 // setUnhealthyGPU : reset the health status to unhealthy
@@ -198,6 +288,16 @@ func (ga *GPUAgentGPUClient) updateNewHealthState(newGPUState map[string]*metric
 		ga.healthState[gpuid] = hstate
 	}
 	return nil
+}
+
+// priorHealthState returns the last computed health state for gpuid, or nil if
+// none. Held under ga.Lock since updateNewHealthState rewrites healthState. Used
+// by processEccHealthFromStore to carry a verdict forward when ECC telemetry is
+// momentarily absent from the store.
+func (ga *GPUAgentGPUClient) priorHealthState(gpuid string) *metricssvc.GPUState {
+	ga.Lock()
+	defer ga.Unlock()
+	return ga.healthState[gpuid]
 }
 
 // ErrAgentUnreachable is returned by processHealthValidation when the gRPC
@@ -243,6 +343,32 @@ func (ga *GPUAgentGPUClient) processHealthValidation() error {
 		return err
 	}
 	ga.Unlock()
+
+	// High-res: the GPUWatch stream is the sole amd-smi caller, so health is computed
+	// from the watcher-fed ECC counters in the store instead of a getGPUs. CPER and
+	// event checks are skipped (in-band RAS is disabled in high-res). The snapshot is
+	// nil until the first subscribe completes; skip the tick until then.
+	if ga.useHighResStoreServing() {
+		snap := ga.hrSnapshot.Load()
+		if snap == nil {
+			// First subscribe hasn't completed; nothing to assess yet.
+			return nil
+		}
+		if len(snap.gpus) == 0 {
+			// Snapshot present but zero GPUs: boot race (amdgpu loaded after
+			// gpuagent) or a driver crash. Mark existing GPUs unhealthy and return
+			// ErrZeroGPUs so StartMonitor counts it toward --exit-on-agent-down,
+			// matching the pull path's zero-GPU handling.
+			logger.Log.Printf("high-res: gpuagent snapshot reports 0 GPUs; marking existing GPUs unhealthy")
+			_ = ga.setUnhealthyGPU(wls)
+			return fmt.Errorf("gpuagent returned 0 GPUs: %w", ErrZeroGPUs)
+		}
+		newGPUState := ga.processEccHealthFromStore(wls)
+		if newGPUState == nil {
+			return nil
+		}
+		return ga.updateNewHealthState(newGPUState)
+	}
 
 	var gpumetrics *amdgpu.GPUGetResponse
 	var evtData *amdgpu.EventResponse
@@ -405,7 +531,13 @@ func (ga *GPUAgentGPUClient) updateAllGPUsHealthState(healthStr string) {
 	logger.Log.Printf("fetch GPUs and set health state")
 	// If health state is not set, fetch GPUs and mark them as unhealthy
 	wls, _ := ga.gpuHandler.ListWorkloads()
-	for gpuid, gpuIdMeta := range ga.gpuIDMap {
+	ga.gpuIDMapMu.RLock()
+	gpuIDMapCopy := make(map[string]GPUIDMeta, len(ga.gpuIDMap))
+	for k, v := range ga.gpuIDMap {
+		gpuIDMapCopy[k] = v
+	}
+	ga.gpuIDMapMu.RUnlock()
+	for gpuid, gpuIdMeta := range gpuIDMapCopy {
 		workloadInfo := ga.getWorkloadsListString(wls, gpuid)
 		ga.healthState[gpuid] = &metricssvc.GPUState{
 			ID:                 gpuIdMeta.GPUID,

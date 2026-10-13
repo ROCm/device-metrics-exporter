@@ -29,8 +29,21 @@ type MetricsInterface interface {
 	// ondemand query request for client to update current stat
 	UpdateMetricsStats(ctx context.Context) error
 
+	// NeedsPerScrapePull reports whether the client serves /metrics via the
+	// in-place reset+refill pull path (requiring the scrape mutex). Returns
+	// false only when the client serves from the snapshot store, which lets the
+	// middleware skip the mutex and refresh via singleflight instead.
+	NeedsPerScrapePull() bool
+
 	// metrics registration must be done in this
 	InitConfigs() error
+
+	// StopServices gracefully stops any long-running client services (e.g. the
+	// high-resolution GPUWatch feed and profiler stream) and waits for their
+	// goroutines to exit. The MetricsHandler calls it before a config reload so
+	// no service writes the store while config/labels are being rebuilt, avoiding
+	// races and stale writes. Idempotent; a no-op for clients with no services.
+	StopServices()
 
 	// reset metric states
 	ResetMetrics() error
