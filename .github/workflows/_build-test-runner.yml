@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Free up runner disk space
-        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@51769beb79300d5c2787fb5bd161e93c922355fb
+        uses: ROCm/common-infra-operator/.github/actions/free-disk-space@9c6a249c7abb8bda28b2940dbb536e22e56f3dce
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3

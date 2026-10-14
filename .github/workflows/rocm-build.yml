@@ -44,7 +44,7 @@ jobs:
   quartz-check:
     name: Quartz nightly check
     if: github.event_name == 'schedule'
-    uses: ROCm/common-infra-operator/.github/workflows/quartz-check.yml@4a3e419b6723a089ff597c76a0e97c1d06ee73d8
+    uses: ROCm/common-infra-operator/.github/workflows/quartz-check.yml@9c6a249c7abb8bda28b2940dbb536e22e56f3dce
 
   read-version:
     name: Read version from Makefile
@@ -67,7 +67,7 @@ jobs:
       contents: read
       id-token: write
       actions: write
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@51769beb79300d5c2787fb5bd161e93c922355fb
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-resolve.yml@9c6a249c7abb8bda28b2940dbb536e22e56f3dce
     with:
       component: dme
       version: ${{ needs.read-version.outputs.version }}
@@ -86,7 +86,10 @@ jobs:
     permissions:
       contents: read
       actions: write
-    if: needs.resolve.outputs.build_needed == 'true'
+    if: >-
+      always()
+      && needs.resolve.result == 'success'
+      && needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-dme.yml
     with:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
@@ -100,7 +103,10 @@ jobs:
     permissions:
       contents: read
       actions: write
-    if: needs.resolve.outputs.build_needed == 'true'
+    if: >-
+      always()
+      && needs.resolve.result == 'success'
+      && needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-test-runner.yml
     with:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
@@ -114,7 +120,10 @@ jobs:
     permissions:
       contents: read
       actions: write
-    if: needs.resolve.outputs.build_needed == 'true'
+    if: >-
+      always()
+      && needs.resolve.result == 'success'
+      && needs.resolve.outputs.build_needed == 'true'
     uses: ./.github/workflows/_build-helm.yml
     with:
       image_tag: ${{ needs.resolve.outputs.image_tag }}
@@ -134,7 +143,7 @@ jobs:
       && (needs.build-dme.result == 'success'
       || needs.build-test-runner.result == 'success'
       || needs.build-helm.result == 'success')
-    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@51769beb79300d5c2787fb5bd161e93c922355fb
+    uses: ROCm/common-infra-operator/.github/workflows/rocm-publish.yml@9c6a249c7abb8bda28b2940dbb536e22e56f3dce
     with:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
