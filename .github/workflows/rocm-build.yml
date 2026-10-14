@@ -44,7 +44,7 @@ jobs:
   quartz-check:
     name: Quartz nightly check
     if: github.event_name == 'schedule'
-    uses: ROCm/common-infra-operator/.github/workflows/quartz-check.yml@4a3e419db49b34dea98515b9fe3ac6dfbae0a6e8
+    uses: ROCm/common-infra-operator/.github/workflows/quartz-check.yml@4a3e419b6723a089ff597c76a0e97c1d06ee73d8
 
   read-version:
     name: Read version from Makefile
