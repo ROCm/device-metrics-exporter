@@ -275,6 +275,64 @@ func TestParseRvsTestResult(t *testing.T) {
 	assert.Nil(t, results)
 }
 
+func TestParseRvsFlatAndNestedSuiteResults(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "rvs_nested_test")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	jsonData := `{
+		"version": "1.0",
+		"babel": {
+			"babel-256MiB": [
+				{
+					"gpu_id": "35824",
+					"gpu_index": "0",
+					"results": [
+						{"subtest": "Copy", "pass": "true"},
+						{"subtest": "Mul", "pass": "false"}
+					]
+				},
+				{"gpu_id": "35824", "gpu_index": "0", "Function": "Add", "pass": "true"}
+			]
+		},
+		"iet": {"action_1": [{"gpu_id": "35824", "gpu_index": "0", "pass": "true"}]},
+		"gst": {"gst_single": [{"gpu_id": "35824", "gpu_index": "0", "pass": true}]},
+		"gpup": {"gpu_info": [{"gpu_id": "35824", "pass": "true"}]},
+		"mem": {"action_1": [{"gpu_id": "35824", "gpu_index": "0", "pass": "true"}]},
+		"pbqt": {"link_test": [{"srcgpu": "0", "dstgpu": "1", "pass": "true"}]},
+		"pebb": {"cpu_to_gpu_test": [{"srccpu": "0", "dstgpu": "1", "pass": "false"}]},
+		"peqt": {"pcie_test": [{"gpu_id": "35824", "gpu_index": "0", "pass": "true"}]},
+		"tst": {"temperature_test": [{"gpu_id": "35824", "gpu_index": "0", "pass": "true"}]}
+	}`
+
+	jsonFilePath := filepath.Join(tmpDir, "rvs_1742337000350.json")
+	if err := os.WriteFile(jsonFilePath, []byte(jsonData), 0644); err != nil {
+		t.Fatalf("Failed to create sample JSON file: %v", err)
+	}
+	rvsRunner := &RVSTestRunner{logDir: tmpDir}
+	results, err := rvsRunner.parseRvsTestResult("RVS result at " + jsonFilePath)
+	if err != nil {
+		t.Fatalf("parseRvsTestResult returned error: %v", err)
+	}
+
+	assert.Equal(t, types.Success, results["0"]["babel-256MiB/Copy"])
+	assert.Equal(t, types.Failure, results["0"]["babel-256MiB/Mul"])
+	assert.Equal(t, types.Success, results["0"]["babel-256MiB/Add"])
+	assert.Equal(t, types.Success, results["0"]["action_1"])
+	assert.Equal(t, types.Success, results["0"]["gst_single"])
+	assert.Equal(t, types.Success, results["0"]["pcie_test"])
+	assert.Equal(t, types.Success, results["0"]["temperature_test"])
+	// GPUP records can carry only gpu_id; retain it as the GPU key when no
+	// gpu_index is present.
+	assert.Equal(t, types.Success, results["35824"]["gpu_info"])
+	// PBQT/PEBB records identify the GPUs by topology endpoints.
+	assert.Equal(t, types.Success, results["0"]["link_test"])
+	assert.Equal(t, types.Success, results["1"]["link_test"])
+	assert.Equal(t, types.Failure, results["1"]["cpu_to_gpu_test"])
+}
+
 func TestLoadTestSuites(t *testing.T) {
 	// Setup temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "rvs_test")
