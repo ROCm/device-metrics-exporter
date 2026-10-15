@@ -148,7 +148,7 @@ jobs:
       component: dme
       image_tag: ${{ needs.resolve.outputs.image_tag }}
       rocm_tarball_version: ${{ needs.resolve.outputs.rocm_tarball_version }}
-      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-helm.result == 'success' }}
+      all_builds_succeeded: ${{ needs.build-dme.result == 'success' && needs.build-test-runner.result == 'success' && needs.build-helm.result == 'success' }}
       version: ${{ needs.resolve.outputs.version }}
       suffix: ${{ needs.resolve.outputs.suffix }}
       s3_prefix: ${{ needs.resolve.outputs.s3_prefix }}
@@ -156,10 +156,12 @@ jobs:
       s3_bucket: ${{ vars.THEROCK_BUCKET_NAME }}
       artifact_names: >-
         build-dme-${{ needs.resolve.outputs.image_tag }},
+        build-test-runner-${{ needs.resolve.outputs.image_tag }},
         build-helm-${{ needs.resolve.outputs.image_tag }}
       s3_file_globs: "*.tar.gz,*_amd64.deb,*.tgz"
       docker_images: |
         device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
+        test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
         device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|rocm/device-metrics-exporter:nightly-${{ needs.resolve.outputs.nightly_tag }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
     secrets:
