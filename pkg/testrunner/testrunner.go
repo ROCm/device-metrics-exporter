@@ -705,6 +705,9 @@ func (tr *TestRunner) setTestRunner() {
 		os.Exit(1)
 	}
 	tr.testRunnerIntf = runner
+	if rvsRunner, ok := runner.(*RVSTestRunner); ok {
+		rvsRunner.kfdIDToGPUIndexMap = tr.kfdIDToGPUIndexMap
+	}
 }
 
 func (tr *TestRunner) watchGPUState() {

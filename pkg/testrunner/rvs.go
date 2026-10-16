@@ -37,8 +37,8 @@ const (
 
 // RvsTestResult is used to convert test json output to struct
 type RvsTestResult struct {
-	Version    string `json:"version,omitempty"`
-	TestSuites map[string]map[string][]RvsGPUTestResult
+	Version    string                     `json:"version,omitempty"`
+	TestSuites map[string]json.RawMessage `json:"-"`
 }
 
 // unmarshalJSON custom unmarshaler to handle arbitrary test suite names
@@ -49,7 +49,7 @@ func (r *RvsTestResult) unmarshalJSON(data []byte) error {
 		return err
 	}
 
-	r.TestSuites = make(map[string]map[string][]RvsGPUTestResult)
+	r.TestSuites = make(map[string]json.RawMessage)
 
 	// Process all fields in the JSON
 	for key, value := range rawResult {
@@ -61,22 +61,14 @@ func (r *RvsTestResult) unmarshalJSON(data []byte) error {
 			}
 			r.Version = version
 		} else {
-			// Any other field is considered a test suite
-			var testSuite map[string][]RvsGPUTestResult
-			if err := json.Unmarshal(value, &testSuite); err != nil {
-				return err
-			}
-			r.TestSuites[key] = testSuite
+			// RVS suite result layouts are not uniform. Keep each suite as raw
+			// JSON and walk it recursively so both flat records and nested
+			// per-subtest records can be handled.
+			r.TestSuites[key] = value
 		}
 	}
 
 	return nil
-}
-
-// RvsGPUTestResult is struct for GPU ID and it's test result
-type RvsGPUTestResult struct {
-	GPUID string `json:"gpu_index"`
-	Pass  string `json:"pass,omitempty"`
 }
 
 // TestRunner is a test framework for testing GPUs
@@ -95,6 +87,10 @@ type RVSTestRunner struct {
 
 	// testsuites
 	testSuites map[string]bool
+
+	// kfdIDToGPUIndexMap normalizes RVS gpu_id values to the canonical indexes
+	// used by runner status and events.
+	kfdIDToGPUIndexMap map[string]string
 }
 
 // GetTestHandler returns test handler for the given test and params
@@ -201,23 +197,164 @@ func (rts *RVSTestRunner) parseRvsTestResult(stdout string) (map[string]types.Te
 	}
 
 	testResult := make(map[string]types.TestResults)
-
-	for _, testsuite := range data.TestSuites {
-		for name, test := range testsuite {
-			for _, gpu := range test {
-				if len(gpu.Pass) == 0 {
-					continue
-				}
-				if testResult[gpu.GPUID] == nil {
-					testResult[gpu.GPUID] = make(map[string]types.TestResult)
-					testResult[gpu.GPUID] = make(types.TestResults)
-				}
-				testResult[gpu.GPUID][name] = getTestResultEnum(gpu.Pass)
-			}
+	for _, suite := range data.TestSuites {
+		var result any
+		if err := json.Unmarshal(suite, &result); err != nil {
+			return nil, fmt.Errorf("failed to decode RVS test suite result: %w", err)
+		}
+		if err := collectRVSResults(result, "", "", rts.kfdIDToGPUIndexMap, testResult); err != nil {
+			return nil, fmt.Errorf("failed to associate RVS test result with a GPU index: %w", err)
 		}
 	}
 
 	return testResult, nil
+}
+
+// collectRVSResults finds result records at any depth in an RVS suite. Most
+// suites emit flat action records. Babel emits action metadata with pass/fail
+// values nested under results[]. GPU identity is inherited from parent records
+// when a nested subtest does not repeat it.
+func collectRVSResults(value any, testName, gpuIndex string, kfdIDToGPUIndex map[string]string, results map[string]types.TestResults) error {
+	switch node := value.(type) {
+	case map[string]any:
+		if index := rvsString(node["gpu_index"]); index != "" {
+			gpuIndex = index
+		}
+		if gpuID := rvsString(node["gpu_id"]); gpuID != "" {
+			if index, ok := kfdIDToGPUIndex[gpuID]; ok {
+				if gpuIndex != "" && gpuIndex != index {
+					return fmt.Errorf("RVS gpu_id %q maps to GPU index %q but record says %q", gpuID, index, gpuIndex)
+				}
+				gpuIndex = index
+			} else if gpuIndex == "" {
+				return fmt.Errorf("RVS gpu_id %q has no canonical GPU index", gpuID)
+			}
+		}
+
+		if subtest := firstRVSString(node, "subtest", "Function"); subtest != "" {
+			testName = joinRVSResultName(testName, subtest)
+		}
+
+		if pass, ok := node["pass"]; ok {
+			gpuIndexes := []string{gpuIndex}
+			if gpuIndex == "" {
+				// Topology suites (PBQT/PEBB) identify participating GPUs by
+				// endpoint rather than by gpu_index.
+				gpuIndexes = uniqueRVSStrings(rvsString(node["srcgpu"]), rvsString(node["dstgpu"]))
+			}
+			if testName == "" {
+				testName = "result"
+			}
+			if passValue, valid := rvsPassValue(pass); valid {
+				for _, index := range gpuIndexes {
+					if index == "" {
+						continue
+					}
+					if results[index] == nil {
+						results[index] = make(types.TestResults)
+					}
+					parsed := getTestResultEnum(passValue)
+					// If multiple records map to the same action, a failure must
+					// not be hidden by a later passing record.
+					if previous, exists := results[index][testName]; !exists || parsed == types.Failure || previous != types.Failure {
+						results[index][testName] = parsed
+					}
+				}
+			}
+		}
+
+		for key, child := range node {
+			if key == "pass" || key == "subtest" || key == "Function" || isRVSMetadataKey(key) {
+				continue
+			}
+			childName := testName
+			if key != "results" {
+				childName = joinRVSResultName(testName, key)
+			}
+			if err := collectRVSResults(child, childName, gpuIndex, kfdIDToGPUIndex, results); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for _, child := range node {
+			if err := collectRVSResults(child, testName, gpuIndex, kfdIDToGPUIndex, results); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func isRVSMetadataKey(key string) bool {
+	switch key {
+	case "version", "gpu_index", "gpu_id", "srcgpu", "dstgpu":
+		return true
+	default:
+		return false
+	}
+}
+
+func joinRVSResultName(parent, child string) string {
+	if parent == "" {
+		return child
+	}
+	if child == "" {
+		return parent
+	}
+	return parent + "/" + child
+}
+
+func firstRVSString(values map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value := rvsString(values[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func rvsString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case json.Number:
+		return typed.String()
+	case float64:
+		return fmt.Sprintf("%v", typed)
+	default:
+		return ""
+	}
+}
+
+func rvsPassValue(value any) (string, bool) {
+	switch typed := value.(type) {
+	case string:
+		pass := strings.ToLower(strings.TrimSpace(typed))
+		return pass, pass != ""
+	case bool:
+		if typed {
+			return "true", true
+		}
+		return "false", true
+	default:
+		return "", false
+	}
+}
+
+func uniqueRVSStrings(values ...string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
 }
 
 func getTestResultEnum(val string) types.TestResult {
