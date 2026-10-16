@@ -87,6 +87,10 @@ type RVSTestRunner struct {
 
 	// testsuites
 	testSuites map[string]bool
+
+	// kfdIDToGPUIndexMap normalizes RVS gpu_id values to the canonical indexes
+	// used by runner status and events.
+	kfdIDToGPUIndexMap map[string]string
 }
 
 // GetTestHandler returns test handler for the given test and params
@@ -198,7 +202,9 @@ func (rts *RVSTestRunner) parseRvsTestResult(stdout string) (map[string]types.Te
 		if err := json.Unmarshal(suite, &result); err != nil {
 			return nil, fmt.Errorf("failed to decode RVS test suite result: %w", err)
 		}
-		collectRVSResults(result, "", "", testResult)
+		if err := collectRVSResults(result, "", "", rts.kfdIDToGPUIndexMap, testResult); err != nil {
+			return nil, fmt.Errorf("failed to associate RVS test result with a GPU index: %w", err)
+		}
 	}
 
 	return testResult, nil
@@ -208,14 +214,21 @@ func (rts *RVSTestRunner) parseRvsTestResult(stdout string) (map[string]types.Te
 // suites emit flat action records. Babel emits action metadata with pass/fail
 // values nested under results[]. GPU identity is inherited from parent records
 // when a nested subtest does not repeat it.
-func collectRVSResults(value any, testName, gpuIndex string, results map[string]types.TestResults) {
+func collectRVSResults(value any, testName, gpuIndex string, kfdIDToGPUIndex map[string]string, results map[string]types.TestResults) error {
 	switch node := value.(type) {
 	case map[string]any:
 		if index := rvsString(node["gpu_index"]); index != "" {
 			gpuIndex = index
-		} else if gpuIndex == "" {
-			// Some suite schemas expose gpu_id without gpu_index.
-			gpuIndex = rvsString(node["gpu_id"])
+		}
+		if gpuID := rvsString(node["gpu_id"]); gpuID != "" {
+			if index, ok := kfdIDToGPUIndex[gpuID]; ok {
+				if gpuIndex != "" && gpuIndex != index {
+					return fmt.Errorf("RVS gpu_id %q maps to GPU index %q but record says %q", gpuID, index, gpuIndex)
+				}
+				gpuIndex = index
+			} else if gpuIndex == "" {
+				return fmt.Errorf("RVS gpu_id %q has no canonical GPU index", gpuID)
+			}
 		}
 
 		if subtest := firstRVSString(node, "subtest", "Function"); subtest != "" {
@@ -258,13 +271,18 @@ func collectRVSResults(value any, testName, gpuIndex string, results map[string]
 			if key != "results" {
 				childName = joinRVSResultName(testName, key)
 			}
-			collectRVSResults(child, childName, gpuIndex, results)
+			if err := collectRVSResults(child, childName, gpuIndex, kfdIDToGPUIndex, results); err != nil {
+				return err
+			}
 		}
 	case []any:
 		for _, child := range node {
-			collectRVSResults(child, testName, gpuIndex, results)
+			if err := collectRVSResults(child, testName, gpuIndex, kfdIDToGPUIndex, results); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func isRVSMetadataKey(key string) bool {
@@ -311,7 +329,8 @@ func rvsString(value any) string {
 func rvsPassValue(value any) (string, bool) {
 	switch typed := value.(type) {
 	case string:
-		return strings.ToLower(strings.TrimSpace(typed)), true
+		pass := strings.ToLower(strings.TrimSpace(typed))
+		return pass, pass != ""
 	case bool:
 		if typed {
 			return "true", true
