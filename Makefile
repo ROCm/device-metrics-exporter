@@ -517,7 +517,7 @@ clean: pkg-clean
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
-	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8)
+	$(call go-get-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0)
 
 HELMDOCS = $(shell pwd)/bin/helm-docs
 .PHONY: helm-docs
@@ -563,7 +563,7 @@ gopkglist:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	go install go.uber.org/mock/mockgen@v0.6.0
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 	go install golang.org/x/tools/cmd/goimports@v0.40.0
 	go install github.com/alta/protopatch/cmd/protoc-gen-go-patch@v0.5.3
 
@@ -711,9 +711,9 @@ mod:
 	@touch ${TOP_DIR}/libamdsmi/go.mod
 	@echo "setting up go mod packages"
 	@go mod tidy
-	@go mod edit -go=1.25.13
-	#CVE-2024-24790 - amd-metrics-exporter
-	@go mod edit -replace golang.org/x/net@v0.29.0=golang.org/x/net@v0.36.0
+	@go mod edit -go=1.27.2
+	#CVE-2026-78669 - amd-metrics-exporter
+	@go mod edit -replace golang.org/x/net@v0.58.0=golang.org/x/net@v0.60.0
 	#CVE-2026-33186, CVE-2026-84304, CVE-2026-84445, GHSA-hrxh-6v49-42gf, CVE-2026-84303
 	@go mod edit -replace google.golang.org/grpc@v1.78.0=google.golang.org/grpc@v1.83.2
 	#CVE-2026-56854 (CVE-2026-56855 needs x/crypto v0.56.0, which requires go1.26 - deferred)
