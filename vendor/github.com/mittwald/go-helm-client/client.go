@@ -206,9 +206,11 @@ func (c *HelmClient) UpdateChartRepos() error {
 		}
 
 		chartRepo.CachePath = c.Settings.RepositoryCache
-		_, err = chartRepo.DownloadIndexFile()
-		if err != nil {
-			return err
+		if !registry.IsOCI(entry.URL) {
+			_, err = chartRepo.DownloadIndexFile()
+			if err != nil {
+				return err
+			}
 		}
 
 		c.storage.Update(entry)
@@ -962,4 +964,6 @@ func mergeUninstallReleaseOptions(chartSpec *ChartSpec, uninstallReleaseOptions 
 	uninstallReleaseOptions.Description = chartSpec.Description
 	uninstallReleaseOptions.KeepHistory = chartSpec.KeepHistory
 	uninstallReleaseOptions.Wait = chartSpec.Wait
+	uninstallReleaseOptions.IgnoreNotFound = chartSpec.IgnoreNotFound
+	uninstallReleaseOptions.DeletionPropagation = chartSpec.DeletionPropagation
 }
