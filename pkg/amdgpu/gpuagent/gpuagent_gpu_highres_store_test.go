@@ -102,8 +102,8 @@ func hrStoreMetricNames(t *testing.T, ga *GPUAgentGPUClient) map[string]bool {
 
 // TestHighResStoreConfigDisableBothSurfaces proves (gate b) that a config Fields
 // allowlist excluding a field masks it on BOTH the store deltas the stream writer
-// produces and the store-served /metrics, while the enabled field and node total
-// stay present. The external push stream is gone, so the store deltas are the
+// produces and the store-served /metrics, and the node total (not listed) is also
+// masked. The external push stream is gone, so the store deltas are the
 // write-side surface.
 func TestHighResStoreConfigDisableBothSurfaces(t *testing.T) {
 	tcase := setupTest(t)
@@ -127,11 +127,24 @@ func TestHighResStoreConfigDisableBothSurfaces(t *testing.T) {
 	assert.Assert(t, fnames["gpu_package_power"], "enabled field missing from store deltas")
 	assert.Assert(t, !fnames["gpu_gfx_activity"], "disabled field leaked into store deltas")
 
-	// /metrics surface (store collector, prefixed): same masking, node total present.
+	// /metrics surface (store collector, prefixed): same masking, node total masked too.
 	mnames := hrStoreMetricNames(t, gpuclient)
 	assert.Assert(t, mnames[prefix+"gpu_package_power"], "enabled field missing from /metrics")
 	assert.Assert(t, !mnames[prefix+"gpu_gfx_activity"], "disabled field leaked into /metrics")
-	assert.Assert(t, mnames[prefix+gpuNodesTotalField], "node total absent from /metrics")
+	assert.Assert(t, !mnames[prefix+gpuNodesTotalField], "node total exported although GPU_NODES_TOTAL not in Fields")
+}
+
+// TestHighResStoreNodeTotalFieldGate: node total follows the Fields allowlist.
+func TestHighResStoreNodeTotalFieldGate(t *testing.T) {
+	tcase := setupTest(t)
+	defer tcase(t)
+
+	gpuclient, _ := newHighResStoreClient(t,
+		`{"CommonConfig":{"HighResolution":{"Enable":true}},`+
+			`"GPUConfig":{"Labels":["GPU_UUID"],"Fields":["GPU_PACKAGE_POWER","GPU_NODES_TOTAL"]}}`)
+	prefix := gpuclient.gpuHandler.mh.GetPrefix()
+	assert.Assert(t, hrStoreMetricNames(t, gpuclient)[prefix+gpuNodesTotalField],
+		"node total absent although GPU_NODES_TOTAL listed")
 }
 
 // TestHighResStoreServedMatchesStreamFieldSet proves (gate d) that in high-res the
