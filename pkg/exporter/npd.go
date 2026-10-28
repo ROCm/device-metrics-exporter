@@ -54,7 +54,7 @@ func cleanupResources(enableGPUMonitoring, enableNICMonitoring bool) {
 	if enableNICMonitoring {
 		removeIfExists(globals.NICMetricsSocketPath)
 	}
-	if utils.IsKubernetes() {
+	if utils.IsKubernetes() && enableGPUMonitoring {
 		removeIfExists(filepath.Join(globals.AMDGPUHealthHostDirPath, filepath.Base(globals.AMDGPUHealthContainerPath)))
 	}
 }

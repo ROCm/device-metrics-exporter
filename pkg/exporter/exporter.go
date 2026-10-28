@@ -604,7 +604,7 @@ func (e *Exporter) StartMain() {
 		}
 	}
 
-	if utils.IsKubernetes() {
+	if utils.IsKubernetes() && e.enableGPUMonitoring {
 		copyFilesToHost()
 	}
 	// start file watcher for config changes
