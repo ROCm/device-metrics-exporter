@@ -6,6 +6,7 @@ name: DME Pre-Release Build
 # When rocm_version has no rc suffix (e.g. 10.1.0), uses stable.repo.amd.com (GA build).
 # Artifacts land at: device-metrics-exporter/pre-release/{dme_version}-{rocm_version}-{N}/
 # Image tag format:  {dme_version}-{rocm_version}-{N}  e.g. v1.5.3-10.1.0rc4-1
+# DME image is pushed to rocm/device-metrics-exporter with that same tag.
 #
 # Job graph: resolve → build-dme + build-test-runner + build-helm → publish → results
 
@@ -127,6 +128,7 @@ jobs:
         device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
         device-metrics-exporter-sriov-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter-sriov:${{ needs.resolve.outputs.image_tag }}|amdpsdo/device-metrics-exporter-sriov:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
         test-runner-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/test-runner:${{ needs.resolve.outputs.image_tag }}|amdpsdo/test-runner:${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}|true
+        device-metrics-exporter-${{ needs.resolve.outputs.version }}-${{ needs.resolve.outputs.suffix }}.tar.gz|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|rocm/device-metrics-exporter:${{ needs.resolve.outputs.image_tag }}|true
     secrets:
       ROCK_CI_S3_SECRET: ${{ secrets.ROCK_CI_S3_SECRET }}
       DOCKER_TOKEN:      ${{ secrets.DOCKER_TOKEN }}
