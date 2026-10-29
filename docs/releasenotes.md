@@ -10,11 +10,35 @@
 
 ## v1.5.4
 
-- **New Features**
+- **ROCm 10.2 Libraries**
+  - Device Metrics Exporter is now based on ROCm 10.2 libraries
+
+- **High-Resolution GPU Sampling**
+  - A new `CommonConfig.HighResolution` configuration block enables continuous GPU metric sampling between Prometheus scrapes. When enabled, GPU metrics are refreshed at a configurable rate and `/metrics` always serves the most recent sample rather than collecting on demand.
+  - `FastPeriodSecs` (default `1`, range `1`–`60`) controls the refresh rate for fast-moving attributes: clocks, temperatures, power, utilization, and energy.
+  - `SlowPeriodSecs` (default `5`, range `5`–`3600`, must be ≥ `FastPeriodSecs`) controls the refresh rate for slow-moving attributes: ECC/XGMI counters, PCIe bandwidth, memory usage, and profiler metrics.
+  - See [Configuration](configuration/configmap.md) for usage details.
+
+- **Configurable GPU Agent Response Cache Timeout**
+  - The GPU Agent response cache timeout is now configurable, allowing tuning of cache freshness versus collection cost for environments with different scrape intervals.
 
 ### Issues Fixed
 
+- **CVE remediation**
+  - Go bumped to `1.27.2`, `golang.org/x/net` to `v0.60.0` (CVE-2026-78667, CVE-2026-78669, CVE-2026-97031)
+  - GPU Agent dependencies updated: `x/net` `v0.60.0` (CVE-2026-78669, CVE-2026-78663, CVE-2026-97032, CVE-2026-78659, CVE-2026-78660)
+  - `go-helm-client` bumped to `v0.12.19`, `containerd` to `v1.7.33`, `moby/spdystream` to `v0.5.1` (CVE-2026-53488, CVE-2024-25621, CVE-2025-53547, CVE-2026-35469, CVE-2025-15558)
+  - Sphinx docs pip dependencies updated to clear security alerts
+
 ### Known Issues
+
+- **High-resolution mode limitations**
+  - While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
+
+### Platform Support
+
+ROCm 6.2 or later, MI2xx, MI3xx
+ROCm 7.13 or later, MI350P, Radeon AI
 
 ## v1.5.3
 
