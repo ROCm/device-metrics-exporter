@@ -109,8 +109,10 @@ func (ga *GPUAgentGPUClient) gpuHighResStoreFieldDescs() []snapshotstore.FieldDe
 	// gpu_health is always owned: in high-res the store-based health poller writes it
 	// directly to the store (not via a GaugeVec), so it won't appear in gatherGPUFamilies.
 	ownedHelp := map[string]string{
-		gpuNodesTotalField: gpuNodesTotalHelp,
-		gpuHealthField:     "Health of the GPU (0 = Unhealthy | 1 = Healthy)",
+		gpuHealthField: "Health of the GPU (0 = Unhealthy | 1 = Healthy)",
+	}
+	if ga.nodeTotalEnabled() {
+		ownedHelp[gpuNodesTotalField] = gpuNodesTotalHelp
 	}
 	for f := range highResWatchFieldSet {
 		ownedHelp[f] = ""
@@ -164,16 +166,18 @@ func (ga *GPUAgentGPUClient) gpuHighResStoreFieldDescs() []snapshotstore.FieldDe
 var gpuNodesTotalField = strings.ToLower(exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String())
 
 // gpuHealthField is the store/gauge name of the per-GPU health metric. Together
-// with gpuNodesTotalField these are the always-present signal fields retained on
-// a fetch failure (dropStaleGPUTelemetry keeps them, drops everything else).
+// with gpuNodesTotalField these are the signal fields retained on a fetch
+// failure (dropStaleGPUTelemetry keeps them, drops everything else); gpu_health
+// is always present, gpu_nodes_total only when GPU_NODES_TOTAL is enabled.
 var gpuHealthField = strings.ToLower(exportermetrics.GPUMetricField_GPU_HEALTH.String())
 
 // dropStaleGPUTelemetry evicts the GPU telemetry fields from the store on a
-// GPUGet failure so /metrics serves only the always-present signals (the node
-// gpu_nodes_total slot and per-GPU gpu_health) instead of last-known clocks,
-// temps, etc. The drop set is the current GPU GaugeVec family names minus the two
-// signal fields — scoped to GPU field names, so NIC/IFOE slots are untouched. The
-// next successful getMetricsAll + publish merges the full set back (reconnect).
+// GPUGet failure so /metrics serves only the signal fields (the node
+// gpu_nodes_total slot, when enabled, and per-GPU gpu_health) instead of
+// last-known clocks, temps, etc. The drop set is the current GPU GaugeVec
+// family names minus the two signal fields — scoped to GPU field names, so
+// NIC/IFOE slots are untouched. The next successful getMetricsAll + publish
+// merges the full set back (reconnect).
 func (ga *GPUAgentGPUClient) dropStaleGPUTelemetry() {
 	store := ga.gpuHandler.mh.GetStore()
 	if store == nil {
@@ -273,7 +277,7 @@ func (ga *GPUAgentGPUClient) gatherGPUFamilies() ([]*dto.MetricFamily, error) {
 
 // gpuStoreFieldDescs builds StoreCollector descriptors mirroring the enabled GPU
 // GaugeVecs: prefixed metric name, help, gauge type, and the gauge's variable
-// label names. gpu_nodes_total is appended explicitly so it is always present.
+// label names. gpu_nodes_total is appended explicitly, gated on nodeTotalEnabled.
 func (ga *GPUAgentGPUClient) gpuStoreFieldDescs() ([]snapshotstore.FieldDesc, error) {
 	prefix := ga.gpuHandler.mh.GetPrefix()
 	fams, err := ga.gatherGPUFamilies()
@@ -283,7 +287,7 @@ func (ga *GPUAgentGPUClient) gpuStoreFieldDescs() ([]snapshotstore.FieldDesc, er
 	descs := make([]snapshotstore.FieldDesc, 0, len(fams)+1)
 	for _, mf := range fams {
 		if len(mf.GetMetric()) == 0 || mf.GetName() == gpuNodesTotalField {
-			// gpu_nodes_total is handled explicitly below so it is always present.
+			// gpu_nodes_total is handled explicitly below, gated on nodeTotalEnabled.
 			continue
 		}
 		// All metrics in a family share one label-name set; read it off any row.
@@ -300,22 +304,29 @@ func (ga *GPUAgentGPUClient) gpuStoreFieldDescs() ([]snapshotstore.FieldDesc, er
 			LabelNames: labelNames,
 		})
 	}
-	// Node-level GPU count: descriptor is always emitted so the StoreCollector
-	// renders it even at zero GPUs / before the first fetch.
-	descs = append(descs, snapshotstore.FieldDesc{
-		Field:      gpuNodesTotalField,
-		Name:       prefix + gpuNodesTotalField,
-		Help:       gpuNodesTotalHelp,
-		ValueType:  prometheus.GaugeValue,
-		LabelNames: ga.GetExporterNonGPULabels(),
-	})
+	// Node-level GPU count: descriptor is emitted, when enabled, so the
+	// StoreCollector renders it even at zero GPUs / before the first fetch.
+	if ga.nodeTotalEnabled() {
+		descs = append(descs, snapshotstore.FieldDesc{
+			Field:      gpuNodesTotalField,
+			Name:       prefix + gpuNodesTotalField,
+			Help:       gpuNodesTotalHelp,
+			ValueType:  prometheus.GaugeValue,
+			LabelNames: ga.GetExporterNonGPULabels(),
+		})
+	}
 	return descs, nil
+}
+
+// nodeTotalEnabled reports whether GPU_NODES_TOTAL is enabled in the config.
+func (ga *GPUAgentGPUClient) nodeTotalEnabled() bool {
+	return ga.getExporterFieldState(exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String())
 }
 
 // gpuNodeTotalSample reads the current gpu_nodes_total value and node labels
 // straight off the gpuNodesTotal GaugeVec. getMetricsAll Sets this gauge
-// unconditionally (independent of the GPU_NODES_TOTAL config gate), so the node
-// slot stays populated even when the field is config-disabled.
+// unconditionally (independent of the GPU_NODES_TOTAL config gate); callers
+// gate on nodeTotalEnabled() before writing it into the store.
 func (ga *GPUAgentGPUClient) gpuNodeTotalSample() (snapshotstore.Sample, bool) {
 	reg := prometheus.NewRegistry()
 	if err := reg.Register(ga.metrics.gpuNodesTotal); err != nil {
@@ -333,12 +344,17 @@ func (ga *GPUAgentGPUClient) gpuNodeTotalSample() (snapshotstore.Sample, bool) {
 	return snapshotstore.Sample{Value: m.GetGauge().GetValue(), Labels: labels}, true
 }
 
-// seedGPUNodeTotal publishes gpu_nodes_total=0 with node labels before any fetch.
-// It is an always-on health signal, so it must be present on scrape #1 and
-// persist (store COW) across zero/failed fetches.
+// seedGPUNodeTotal publishes gpu_nodes_total=0 with node labels before any fetch,
+// when GPU_NODES_TOTAL is enabled, so it is present on scrape #1 and persists
+// (store COW) across zero/failed fetches.
 func (ga *GPUAgentGPUClient) seedGPUNodeTotal() {
 	store := ga.gpuHandler.mh.GetStore()
 	if store == nil {
+		return
+	}
+	if !ga.nodeTotalEnabled() {
+		// Config reload may have disabled the field: evict any prior slot.
+		store.DropFields(map[string]struct{}{gpuNodesTotalField: {}})
 		return
 	}
 	labels := ga.populateLabelsFromGPU(nil, nil, nil)
@@ -348,10 +364,11 @@ func (ga *GPUAgentGPUClient) seedGPUNodeTotal() {
 }
 
 // writeGPUNodeSlot writes the node-level gpu_nodes_total metric into the store
-// under the reserved node key. Written independently of GaugeVec introspection so
-// it is always present; store COW keeps the last value across a zero/failed fetch.
+// under the reserved node key, when GPU_NODES_TOTAL is enabled. Written
+// independently of GaugeVec introspection; store COW keeps the last value
+// across a zero/failed fetch.
 func (ga *GPUAgentGPUClient) writeGPUNodeSlot(store snapshotstore.StoreWriter) {
-	if store == nil {
+	if store == nil || !ga.nodeTotalEnabled() {
 		return
 	}
 	s, ok := ga.gpuNodeTotalSample()
@@ -419,7 +436,7 @@ func (ga *GPUAgentGPUClient) mirrorGPUFamiliesToStore(store snapshotstore.StoreW
 	if store == nil {
 		return nil
 	}
-	// Always write the node slot first, independent of introspection.
+	// Write the node slot first (if enabled), independent of introspection.
 	ga.writeGPUNodeSlot(store)
 
 	fams, err := ga.gatherGPUFamilies()
