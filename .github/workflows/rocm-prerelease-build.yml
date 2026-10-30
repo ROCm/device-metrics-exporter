@@ -8,9 +8,15 @@ name: DME Pre-Release Build
 # Image tag format:  {dme_version}-{rocm_version}-{N}  e.g. v1.5.3-10.1.0rc4-1
 # DME image is pushed to rocm/device-metrics-exporter with that same tag.
 #
-# Job graph: resolve → build-dme + build-test-runner + build-helm → publish → results
+# Builds run from a release-vX.Y.Z branch only (branch-guard). The daily schedule runs only the
+# watch job on main, which dispatches this workflow on the latest release branch.
+#
+# Job graph: watch (schedule) | branch-guard → resolve → build-dme + build-test-runner + build-helm → publish → results
 
 on:
+  schedule:
+    - cron: '41 8 * * *'
+
   workflow_dispatch:
     inputs:
       dme_version:
@@ -27,6 +33,8 @@ on:
         type: boolean
         default: false
 
+# Keep this derived from inputs: the scheduled watch run has empty inputs, so it never shares a
+# group with the dispatched build it starts (an event-independent group would deadlock it).
 concurrency:
   group: dme-prerelease-${{ inputs.dme_version }}-${{ inputs.rocm_version }}
   cancel-in-progress: false
@@ -36,8 +44,100 @@ permissions:
 
 jobs:
 
+  watch:
+    name: Watch
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Dispatch build for latest release branch + ROCm RC
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RC_CDN="https://rc.repo.amd.com/rocm/core/tarball"
+
+          BRANCH=$(gh api "repos/${REPO}/git/matching-refs/heads/release-v" --paginate --jq '.[].ref' \
+            | sed 's#^refs/heads/##' \
+            | grep -E '^release-v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -1 || true)
+          if [ -z "${BRANCH}" ]; then
+            echo "::error::No release-vX.Y.Z branch found"
+            exit 1
+          fi
+
+          MAKEFILE=$(gh api "repos/${REPO}/contents/Makefile?ref=${BRANCH}" --jq '.content' | base64 -d)
+          read_var() {
+            printf '%s\n' "${MAKEFILE}" \
+              | grep -m1 -E "^$1[[:space:]]*\?=" \
+              | sed -E 's/^[^=]*=[[:space:]]*//; s/[[:space:]]*#.*$//; s/[[:space:]]+$//' \
+              | tr -d '"\r' || true
+          }
+          VERSION=$(read_var PROJECT_VERSION)
+          ROCM_LINE=$(read_var ROCM_VERSION)
+          echo "::notice::${BRANCH}: PROJECT_VERSION=${VERSION:-EMPTY} ROCM_VERSION=${ROCM_LINE:-EMPTY}"
+          if [ "${VERSION}" != "v${BRANCH#release-v}" ]; then
+            echo "::error::PROJECT_VERSION '${VERSION}' does not match branch ${BRANCH}"
+            exit 1
+          fi
+          if ! [[ "${ROCM_LINE}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::ROCM_VERSION '${ROCM_LINE}' on ${BRANCH} is not X.Y.Z"
+            exit 1
+          fi
+
+          # Nothing between "multiarch-" and the version, so the multiarch-tests-* tarballs never match
+          INDEX=$(curl -fsSL --retry 3 "${RC_CDN}/")
+          ESC="${ROCM_LINE//./\\.}"
+          ROCM_RC=$(printf '%s\n' "${INDEX}" \
+            | grep -oE "therock-dist-linux-multiarch-${ESC}rc[0-9]+\.tar\.gz" \
+            | sort -u \
+            | sed -E 's/^therock-dist-linux-multiarch-//; s/\.tar\.gz$//' \
+            | sed -E 's/.*rc([0-9]+)$/\1 &/' \
+            | sort -n | tail -1 | awk '{print $2}' || true)
+          if [ -z "${ROCM_RC}" ]; then
+            echo "::notice::No ${ROCM_LINE}rcN tarball published yet; nothing to build"
+            exit 0
+          fi
+
+          HTTP_CODE=$(curl -sSI -o /dev/null -w '%{http_code}' --retry 3 \
+            "${RC_CDN}/therock-dist-linux-multiarch-${ROCM_RC}.tar.gz" || echo 000)
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::warning::${ROCM_RC} tarball returned HTTP ${HTTP_CODE}; not dispatching"
+            exit 0
+          fi
+
+          # rocm-resolve in the dispatched run skips the build if this RC + branch head SHA was already built
+          gh workflow run rocm-prerelease-build.yml --repo "${REPO}" --ref "${BRANCH}" \
+            -f dme_version="${VERSION}" -f rocm_version="${ROCM_RC}"
+
+          {
+            echo "## DME Pre-Release Watch"
+            echo ""
+            echo "Dispatched \`rocm-prerelease-build.yml\` on \`${BRANCH}\`: dme_version \`${VERSION}\`, rocm_version \`${ROCM_RC}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  branch-guard:
+    name: Require release branch
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail unless running on a release-vX.Y.Z branch
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "${REF_TYPE}" != "branch" ] || ! [[ "${REF_NAME}" =~ ^release-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Pre-release builds must run from a release-vX.Y.Z branch, not '${REF_NAME}'. Use: gh workflow run rocm-prerelease-build.yml --ref release-vX.Y.Z ..."
+            exit 1
+          fi
+          echo "::notice::Running on release branch ${REF_NAME}"
+
   resolve:
     name: Resolve
+    needs: branch-guard
     permissions:
       contents: read
       id-token: write
