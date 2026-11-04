@@ -505,3 +505,5 @@ The Device Metrics Exporter `gpu_process_cu_occupancy` metric consists of an arr
 gpu_process_cu_occupancy{process_id="1234"} 5
 gpu_process_cu_occupancy{process_id="5678"} 10
 ```
+
+> **Note**: `gpu_process_cu_occupancy` is a per-process metric keyed by `process_id`. When no GPU processes are running on the node, there are zero label-sets to emit and the metric will be absent from `/metrics` output. This is expected behavior — the metric appears only while at least one GPU workload is active.
