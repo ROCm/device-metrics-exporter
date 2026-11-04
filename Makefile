@@ -711,7 +711,7 @@ mod:
 	@touch ${TOP_DIR}/libamdsmi/go.mod
 	@echo "setting up go mod packages"
 	@go mod tidy
-	@go mod edit -go=1.27.2
+	@go mod edit -go=1.27.3
 	#CVE-2026-78669 - amd-metrics-exporter
 	@go mod edit -replace golang.org/x/net@v0.58.0=golang.org/x/net@v0.60.0
 	#CVE-2026-33186, CVE-2026-84304, CVE-2026-84445, GHSA-hrxh-6v49-42gf, CVE-2026-84303
