@@ -18,6 +18,7 @@
 
 - **CVE remediation**
   - Go bumped to `1.27.2`, `golang.org/x/net` to `v0.60.0` (CVE-2026-78667, CVE-2026-78669, CVE-2026-97031)
+  - Go bumped to `1.27.3` (CVE-2026-111943)
   - GPU Agent dependencies updated: `x/net` `v0.60.0` (CVE-2026-78669, CVE-2026-78663, CVE-2026-97032, CVE-2026-78659, CVE-2026-78660)
   - `go-helm-client` bumped to `v0.12.19`, `containerd` to `v1.7.33`, `moby/spdystream` to `v0.5.1` (CVE-2026-53488, CVE-2024-25621, CVE-2025-53547, CVE-2026-35469, CVE-2025-15558)
   - Sphinx docs pip dependencies updated to clear security alerts
