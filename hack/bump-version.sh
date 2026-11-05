@@ -127,6 +127,9 @@ if [ "$TRACK" = "gpu" ]; then
 	sed -i -e "s|^version = .*|version = \"${VERSION_NUM}\"|" \
 		-e "s|^debian_version = .*|debian_version = \"${VERSION_NUM}\"|" \
 		"$CONF_PY"
+	# Remove the development-branch announcement banner so release docs
+	# don't show a "You're viewing documentation from a development branch" warning.
+	sed -i '/^[[:space:]]*"announcement":/,/^[[:space:]]*),$/d' "$CONF_PY"
 	track_change "$CONF_PY"
 
 	# kubernetes-helm.md: only the GPU {tab-item} blocks (lines 34-135 in the
