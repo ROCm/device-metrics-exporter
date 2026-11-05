@@ -67,7 +67,9 @@ func (s *E2ESuite) WriteConfig(data *exportermetrics.MetricConfig) error {
 		return err
 	}
 
-	// Write the JSON data to a file
+	if err := os.MkdirAll(filepath.Dir(s.configPath), 0755); err != nil {
+		return err
+	}
 	err = os.WriteFile(s.configPath, jsonData, 0644)
 	if err != nil {
 		fmt.Println("Error writing JSON file:", err)

@@ -1062,7 +1062,7 @@ func (s *E2ESuite) Test024MockInbandRAS(c *C) {
 	assert.Nil(c, err)
 	time.Sleep(5 * time.Second) // Wait for config update to take effect
 
-	_, err = s.exporter.RunCmd("metricsclient -setup-mock-inbandras")
+	_, err = s.exporter.RunCmd("metricsclient setup-mock-inbandras")
 	assert.Nil(c, err)
 
 	// jq to set AFID 35 in the mock inband RAS error file

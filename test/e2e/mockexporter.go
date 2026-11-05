@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	testutils "github.com/ROCm/device-metrics-exporter/test/utils"
@@ -48,10 +49,15 @@ func NewMockExporter(name, url string) *MockExporter {
 	for _, port := range ports {
 		portMap[port] = port
 	}
+	cfgPath := fmt.Sprintf("%v%v", dir, configPath)
+	if hostTop := os.Getenv("HOST_TOP_DIR"); hostTop != "" {
+		containerTop := filepath.Dir(filepath.Dir(dir))
+		cfgPath = strings.Replace(cfgPath, containerTop, hostTop, 1)
+	}
 	return &MockExporter{
 		Name:       name,
 		ImageURL:   url,
-		configPath: fmt.Sprintf("%v%v", dir, configPath),
+		configPath: cfgPath,
 		tu:         testutils.New(),
 		portMap:    portMap,
 	}
