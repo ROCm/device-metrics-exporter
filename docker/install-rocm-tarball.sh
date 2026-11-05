@@ -96,6 +96,7 @@ TESTRUNNER_PATTERNS=(
     "librocblas.*"
     "librocm-core.*"
     "libhipblaslt.*"
+    "libtensilelite-host.*"
     "libhiprand.*"
     "libroctx64.*"
     "librocroller.*"
@@ -136,7 +137,7 @@ if [ -d "${ROCM_DIR}/lib/llvm/lib" ]; then
     fi
     for pat in "${LLVM_PATS[@]}"; do
         for f in "${ROCM_DIR}/lib/llvm/lib"/${pat}; do
-            [ -e "$f" ] || [ -L "$f" ] && cp -a "$f" "${KEEP_DIR}/lib/llvm/lib/" 2>/dev/null || true
+            [ -e "$f" ] || [ -L "$f" ] && cp -aL "$f" "${KEEP_DIR}/lib/llvm/lib/" 2>/dev/null || true
         done
     done
 fi
