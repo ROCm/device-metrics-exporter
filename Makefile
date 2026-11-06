@@ -134,7 +134,7 @@ GIMSMI_COMMIT ?= 9.1.0.K
 # requires a full SHA (abbreviated SHAs are rejected by the remote).
 GPUAGENT_REPO ?= https://github.com/ROCm/gpu-agent.git
 GPUAGENT_BRANCH ?= main
-GPUAGENT_COMMIT ?= 2c967f0209c69f4c460350224343a6379aecb99b
+GPUAGENT_COMMIT ?= 9096cdeb8dc5f8c1f3c1ed3c36d58231cbe49fec
 
 # authoritative ROCm tarball defaults (not overridden in dev.env).
 # ROCM_VERSION must match the tarball's version string (extracts to
