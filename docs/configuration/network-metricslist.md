@@ -33,6 +33,9 @@ The following table contains a full list of AINIC Metrics that are available usi
 |------------|-----------|------------|--------------------------------------------------|-----------------------------------------------------------------------------|
 | &check;    | &check;   | &cross;    | NIC_TOTAL                                        | Number of NIC nodes on the host                                             |
 | &check;    | &check;   | &cross;    | NIC_MAX_SPEED                                    | Maximum NIC speed in Gbps                                                   |
+| &check;    | &cross;   | &cross;    | NIC_TOTAL_POWER_DRAWN                            | Total power drawn by the NIC in watts (includes optical module power)       |
+| &check;    | &cross;   | &cross;    | NIC_CORE_POWER                                   | NIC ASIC core power in watts                                                |
+| &check;    | &cross;   | &cross;    | NIC_ARM_POWER                                    | NIC ARM CPU power in watts                                                  |
 |            |           |            | --- Port stats ---                               |                                                                             |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_OK                      | Total number of valid network frames that were successfully received        |
 | &check;    | &check;   | &cross;    | NIC_PORT_STATS_FRAMES_RX_ALL                     | Total number of all frames received by the device                           |

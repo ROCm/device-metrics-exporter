@@ -756,6 +756,11 @@ enum NICMetricField {
     ETH_FRAMES_TX_PRI5                       = 533 [deprecated = true];
     ETH_FRAMES_TX_PRI6                       = 534 [deprecated = true];
     ETH_FRAMES_TX_PRI7                       = 535 [deprecated = true];
+
+    // Power metrics (601+)
+    NIC_TOTAL_POWER_DRAWN        = 601;
+    NIC_CORE_POWER               = 602;
+    NIC_ARM_POWER                = 603;
 }
 
 enum NICMetricLabel {
