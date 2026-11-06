@@ -115,3 +115,125 @@ func TestUpdatePortStatsHandlesMissingStatus(t *testing.T) {
 	count := testutil.CollectAndCount(&nc.na.m.nicPortStatusLinkDownCount)
 	assert.Equal(t, 0, count, "expected no link-down series when status is absent")
 }
+
+func TestUpdateEnvironmentStatsParsesPowerMetrics(t *testing.T) {
+	nc, mockExec := newTestNICCtlClient(t)
+
+	mockExec.AddResponse("nicctl show environment -j", `{
+		"nic": [
+			{
+				"id": "nic-1",
+				"power": {
+					"total_power_drawn": "27.156",
+					"core_power": "11.296",
+					"arm_power": "0.109"
+				}
+			}
+		]
+	}`)
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err == nil, "expected no error: %v", err)
+
+	assert.Equal(t, 27.156, testutil.ToFloat64(&nc.na.m.nicTotalPowerDrawn))
+	assert.Equal(t, 11.296, testutil.ToFloat64(&nc.na.m.nicCorePower))
+	assert.Equal(t, 0.109, testutil.ToFloat64(&nc.na.m.nicArmPower))
+}
+
+func TestUpdateEnvironmentStatsMultipleNICs(t *testing.T) {
+	nc, mockExec := newTestNICCtlClient(t)
+
+	nc.na.nics["nic-2"] = &NIC{
+		Index: "1",
+		UUID:  "nic-2",
+	}
+
+	mockExec.AddResponse("nicctl show environment -j", `{
+		"nic": [
+			{
+				"id": "nic-1",
+				"power": {
+					"total_power_drawn": "27.0",
+					"core_power": "11.0",
+					"arm_power": "0.1"
+				}
+			},
+			{
+				"id": "nic-2",
+				"power": {
+					"total_power_drawn": "25.0",
+					"core_power": "10.0",
+					"arm_power": "0.2"
+				}
+			}
+		]
+	}`)
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err == nil, "expected no error: %v", err)
+
+	count := testutil.CollectAndCount(&nc.na.m.nicTotalPowerDrawn)
+	assert.Equal(t, 2, count, "expected 2 NIC power series")
+}
+
+func TestUpdateEnvironmentStatsHandlesParseError(t *testing.T) {
+	nc, mockExec := newTestNICCtlClient(t)
+
+	mockExec.AddResponse("nicctl show environment -j", `{
+		"nic": [
+			{
+				"id": "nic-1",
+				"power": {
+					"total_power_drawn": "invalid",
+					"core_power": "11.0",
+					"arm_power": "0.1"
+				}
+			}
+		]
+	}`)
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err == nil, "expected no error even with parse failure")
+
+	assert.Equal(t, 11.0, testutil.ToFloat64(&nc.na.m.nicCorePower))
+	assert.Equal(t, 0.1, testutil.ToFloat64(&nc.na.m.nicArmPower))
+}
+
+func TestUpdateEnvironmentStatsCommandFailure(t *testing.T) {
+	nc, _ := newTestNICCtlClient(t)
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err != nil, "expected error when nicctl command not found")
+}
+
+func TestUpdateEnvironmentStatsDisabledByConfig(t *testing.T) {
+	nc, _ := newTestNICCtlClient(t)
+
+	fetchEnvironmentMetrics = false
+	defer func() { fetchEnvironmentMetrics = true }()
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err == nil, "expected no error when disabled")
+}
+
+func TestUpdateEnvironmentStatsUnknownNICDoesNotPanic(t *testing.T) {
+	nc, mockExec := newTestNICCtlClient(t)
+
+	mockExec.AddResponse("nicctl show environment -j", `{
+		"nic": [
+			{
+				"id": "unknown-nic",
+				"power": {
+					"total_power_drawn": "20.0",
+					"core_power": "8.0",
+					"arm_power": "0.05"
+				}
+			}
+		]
+	}`)
+
+	err := nc.UpdateEnvironmentStats(context.Background(), nil)
+	assert.Assert(t, err == nil, "expected no panic or error for unknown NIC")
+
+	assert.Equal(t, 20.0, testutil.ToFloat64(&nc.na.m.nicTotalPowerDrawn))
+}

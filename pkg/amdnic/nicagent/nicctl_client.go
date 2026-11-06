@@ -72,7 +72,8 @@ func (nc *NICCtlClient) UpdateNICStats(ctx context.Context, workloads map[string
 	fn_ptrs := []func(context.Context, map[string]scheduler.Workload) error{
 		nc.UpdatePortStats,
 		nc.UpdateLifStats,
-		nc.UpdateQPStats}
+		nc.UpdateQPStats,
+		nc.UpdateEnvironmentStats}
 
 	var wg sync.WaitGroup
 	for _, fn := range fn_ptrs {
@@ -725,5 +726,58 @@ func (nc *NICCtlClient) UpdateQPStats(ctx context.Context, workloads map[string]
 
 	}
 	wg.Wait()
+	return nil
+}
+
+func (nc *NICCtlClient) UpdateEnvironmentStats(ctx context.Context, workloads map[string]scheduler.Workload) error {
+	if !fetchEnvironmentMetrics {
+		return nil
+	}
+
+	type envResponse struct {
+		NIC []struct {
+			ID    string `json:"id"`
+			Power struct {
+				TotalPowerDrawn string `json:"total_power_drawn"`
+				CorePower       string `json:"core_power"`
+				ArmPower        string `json:"arm_power"`
+			} `json:"power"`
+		} `json:"nic"`
+	}
+
+	envOut, err := ExecWithContext("nicctl show environment -j", nc.na.cmdExec)
+	if err != nil {
+		logger.Log.Printf("failed to get environment stats, err: %+v", err)
+		return err
+	}
+
+	var resp envResponse
+	if err := json.Unmarshal(envOut, &resp); err != nil {
+		logger.Log.Printf("error unmarshalling environment data: %v", err)
+		return err
+	}
+
+	for _, nic := range resp.NIC {
+		labels := nc.na.populateEnvironmentLabels(nic.ID)
+
+		if power, err := strconv.ParseFloat(nic.Power.TotalPowerDrawn, 64); err == nil {
+			nc.na.m.nicTotalPowerDrawn.With(labels).Set(power)
+		} else {
+			logger.Log.Printf("NIC: %s, failed to parse total_power_drawn %q: %v", nic.ID, nic.Power.TotalPowerDrawn, err)
+		}
+
+		if power, err := strconv.ParseFloat(nic.Power.CorePower, 64); err == nil {
+			nc.na.m.nicCorePower.With(labels).Set(power)
+		} else {
+			logger.Log.Printf("NIC: %s, failed to parse core_power %q: %v", nic.ID, nic.Power.CorePower, err)
+		}
+
+		if power, err := strconv.ParseFloat(nic.Power.ArmPower, 64); err == nil {
+			nc.na.m.nicArmPower.With(labels).Set(power)
+		} else {
+			logger.Log.Printf("NIC: %s, failed to parse arm_power %q: %v", nic.ID, nic.Power.ArmPower, err)
+		}
+	}
+
 	return nil
 }

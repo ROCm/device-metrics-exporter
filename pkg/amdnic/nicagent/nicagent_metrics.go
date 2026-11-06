@@ -39,20 +39,21 @@ var (
 		exportermetrics.MetricLabel_SERIAL_NUMBER.String(),
 		exportermetrics.MetricLabel_HOSTNAME.String(),
 	}
-	exportLabels         map[string]bool
-	exportFieldMap       map[string]bool
-	fieldMetricsMap      map[string]FieldMeta
-	customLabelMap       map[string]string
-	extraPodLabelsMap    map[string]string
-	k8PodInfoMap         map[string]types.K8sPodInfo
-	podInfoEnabled       bool
-	fetchRdmaMetrics     bool
-	fetchEthtoolMetrics  bool
-	fetchPortMetrics     bool
-	fetchPortRateMetrics bool
-	fetchLifMetrics      bool
-	fetchQPMetrics       bool
-	fetchLIFAggQPMetrics bool
+	exportLabels            map[string]bool
+	exportFieldMap          map[string]bool
+	fieldMetricsMap         map[string]FieldMeta
+	customLabelMap          map[string]string
+	extraPodLabelsMap       map[string]string
+	k8PodInfoMap            map[string]types.K8sPodInfo
+	podInfoEnabled          bool
+	fetchRdmaMetrics        bool
+	fetchEthtoolMetrics     bool
+	fetchPortMetrics        bool
+	fetchPortRateMetrics    bool
+	fetchLifMetrics         bool
+	fetchQPMetrics          bool
+	fetchLIFAggQPMetrics    bool
+	fetchEnvironmentMetrics bool
 )
 
 type FieldMeta struct {
@@ -61,8 +62,11 @@ type FieldMeta struct {
 }
 
 type metrics struct {
-	nicNodesTotal prometheus.GaugeVec
-	nicMaxSpeed   prometheus.GaugeVec
+	nicNodesTotal      prometheus.GaugeVec
+	nicMaxSpeed        prometheus.GaugeVec
+	nicTotalPowerDrawn prometheus.GaugeVec
+	nicCorePower       prometheus.GaugeVec
+	nicArmPower        prometheus.GaugeVec
 
 	// Port stats
 	nicPortStatsFramesRxOk             prometheus.GaugeVec
@@ -373,6 +377,31 @@ func (na *NICAgentClient) GetNetworkDeviceLabels() []string {
 	return netDeviceLabels
 }
 
+const LabelNICUUID = "nic_uuid"
+
+func (na *NICAgentClient) GetEnvironmentLabels() []string {
+	envLabels := na.GetExportLabels()
+	return appendLabelsWithoutDuplicates(envLabels, []string{LabelNICUUID})
+}
+
+func (na *NICAgentClient) populateEnvironmentLabels(UUID string) map[string]string {
+	labels := na.populateLabelsFromNIC(UUID)
+	// Ensure every declared label has a value to avoid GaugeVec dimension mismatch panic
+	// when the NIC is not in the startup cache (populateLabelsFromNIC skips extra pod labels
+	// for unknown NICs)
+	for _, key := range na.GetEnvironmentLabels() {
+		if _, ok := labels[key]; !ok {
+			labels[key] = ""
+		}
+	}
+	if nic, found := na.nics[UUID]; found && nic != nil {
+		labels[LabelNICUUID] = nic.UUID
+	} else {
+		labels[LabelNICUUID] = UUID
+	}
+	return labels
+}
+
 func (na *NICAgentClient) populateLabelsForNetDevice(netDev NetDevice, podInfo *scheduler.PodResourceInfo) map[string]string {
 	var nic *NIC
 
@@ -623,6 +652,7 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 	fetchLifMetrics = false
 	fetchQPMetrics = false
 	fetchLIFAggQPMetrics = false
+	fetchEnvironmentMetrics = false
 
 	if config == nil || len(config.GetFields()) == 0 {
 		fetchRdmaMetrics = true
@@ -632,8 +662,9 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 		fetchLifMetrics = true
 		fetchLIFAggQPMetrics = true
 		fetchQPMetrics = false
-		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v}",
-			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics)
+		fetchEnvironmentMetrics = true
+		logger.Log.Printf("fetch enable status defaulted to: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v, Env: %v}",
+			fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics, fetchEnvironmentMetrics)
 		return
 	}
 
@@ -662,6 +693,10 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			fetchLIFAggQPMetrics = true
 		case strings.HasPrefix(fieldName, "QP_"):
 			fetchQPMetrics = true
+		case fieldName == "NIC_TOTAL_POWER_DRAWN",
+			fieldName == "NIC_CORE_POWER",
+			fieldName == "NIC_ARM_POWER":
+			fetchEnvironmentMetrics = true
 		default:
 			logger.Log.Printf("unhandled %v field in fetch enable check", fieldName)
 		}
@@ -673,8 +708,8 @@ func (na *NICAgentClient) initFieldConfig(config *exportermetrics.NICMetricConfi
 			logger.Log.Printf("%v field is disabled", k)
 		}
 	}
-	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v}",
-		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics)
+	logger.Log.Printf("fetch enable status: {Rdma: %v, Ethtool: %v, Port: %v, PortRate: %v, Lif: %v, QP: %v, LIF_Agg_QP: %v, Env: %v}",
+		fetchRdmaMetrics, fetchEthtoolMetrics, fetchPortMetrics, fetchPortRateMetrics, fetchLifMetrics, fetchQPMetrics, fetchLIFAggQPMetrics, fetchEnvironmentMetrics)
 }
 
 func (na *NICAgentClient) initFieldMetricsMap() {
@@ -684,6 +719,9 @@ func (na *NICAgentClient) initFieldMetricsMap() {
 	fieldMetricsMap = map[string]FieldMeta{
 		exportermetrics.NICMetricField_NIC_TOTAL.String():                               {Metric: na.m.nicNodesTotal},
 		exportermetrics.NICMetricField_NIC_MAX_SPEED.String():                           {Metric: na.m.nicMaxSpeed},
+		exportermetrics.NICMetricField_NIC_TOTAL_POWER_DRAWN.String():                   {Metric: na.m.nicTotalPowerDrawn},
+		exportermetrics.NICMetricField_NIC_CORE_POWER.String():                          {Metric: na.m.nicCorePower},
+		exportermetrics.NICMetricField_NIC_ARM_POWER.String():                           {Metric: na.m.nicArmPower},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_OK.String():             {Metric: na.m.nicPortStatsFramesRxOk},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_ALL.String():            {Metric: na.m.nicPortStatsFramesRxAll},
 		exportermetrics.NICMetricField_NIC_PORT_STATS_FRAMES_RX_BAD_FCS.String():        {Metric: na.m.nicPortStatsFramesRxBadFcs},
@@ -962,6 +1000,8 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 	labelsWithWorkload := appendLabelsWithoutDuplicates(labels, workloadLabels)
 	// used for RDMA and ethtool metrics
 	deviceLabels := na.GetNetworkDeviceLabels()
+	// used for environment metrics (power, temperature, voltage)
+	envLabels := na.GetEnvironmentLabels()
 
 	na.m = &metrics{
 		nicNodesTotal: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -973,6 +1013,21 @@ func (na *NICAgentClient) initPrometheusMetrics() {
 			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_MAX_SPEED.String()),
 			Help: "Maximum NIC speed in Gbps",
 		}, labels),
+
+		nicTotalPowerDrawn: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_TOTAL_POWER_DRAWN.String()),
+			Help: "Total power drawn by the NIC in watts (includes optical module power)",
+		}, envLabels),
+
+		nicCorePower: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_CORE_POWER.String()),
+			Help: "NIC ASIC core power in watts",
+		}, envLabels),
+
+		nicArmPower: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: strings.ToLower(exportermetrics.NICMetricField_NIC_ARM_POWER.String()),
+			Help: "NIC ARM CPU power in watts",
+		}, envLabels),
 
 		/* Port stats */
 		nicPortStatsFramesRxOk: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
