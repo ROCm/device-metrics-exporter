@@ -21,6 +21,11 @@ data:
           },
           "Debug": {
             "EnableAPI": false
+          },
+          "HighResolution": {
+            "Enable": false,
+            "FastPeriodSecs": 1,
+            "SlowPeriodSecs": 5
           }
       },
       "GPUConfig": {
