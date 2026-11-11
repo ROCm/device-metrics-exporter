@@ -2089,11 +2089,11 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 			}
 		case exportermetrics.MetricLabel_CARD_SERIES.String():
 			if gpu != nil {
+				series := gpu.Status.CardSeries
 				if parentPartition != nil {
-					labels[key] = parentPartition.Status.CardSeries
-				} else {
-					labels[key] = gpu.Status.CardSeries
+					series = parentPartition.Status.CardSeries
 				}
+				labels[key] = utils.NormalizeProductName(series)
 			}
 		case exportermetrics.MetricLabel_CARD_MODEL.String():
 			if gpu != nil {
