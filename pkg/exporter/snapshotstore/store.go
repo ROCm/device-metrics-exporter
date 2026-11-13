@@ -17,6 +17,7 @@
 package snapshotstore
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -53,6 +54,10 @@ type StoreWriter interface {
 	// DropFields evicts the named telemetry fields on a fetch failure so stale
 	// values are not served; the caller passes only its own fields.
 	DropFields(drop map[string]struct{})
+	// ReplaceOwned atomically sets every slot whose key starts with prefix to
+	// exactly slots, for writers whose devices come and go (one slot per
+	// workload cgroup).
+	ReplaceOwned(prefix string, slots map[string]map[string]Sample)
 }
 
 // StoreReader is the read side — the seam used by the StoreCollector that renders
@@ -228,6 +233,29 @@ func (s *Store) DropFields(drop map[string]struct{}) {
 			nm[key] = slot
 		}
 		slot.writeMu.Unlock()
+	}
+	s.devices.Store(&nm)
+}
+
+// ReplaceOwned swaps in one new device map where the keys under prefix are
+// exactly slots (fields set, not merged) and every other slot is carried over
+// as is. Readers see the owner's previous set or its new one, never a mix, and
+// no bookkeeping of the previous set is needed, so a concurrent Reset cannot
+// leave it stale. Every key in slots must start with prefix.
+func (s *Store) ReplaceOwned(prefix string, slots map[string]map[string]Sample) {
+	s.growMu.Lock()
+	defer s.growMu.Unlock()
+	old := *s.devices.Load()
+	nm := make(map[string]*deviceSlot, len(old)+len(slots))
+	for k, v := range old {
+		if !strings.HasPrefix(k, prefix) {
+			nm[k] = v
+		}
+	}
+	for k, fields := range slots {
+		slot := &deviceSlot{}
+		slot.ptr.Store(newDeviceSnapshot(fields))
+		nm[k] = slot
 	}
 	s.devices.Store(&nm)
 }

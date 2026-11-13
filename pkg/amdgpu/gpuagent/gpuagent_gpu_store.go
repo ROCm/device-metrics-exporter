@@ -230,6 +230,7 @@ func (ga *GPUAgentGPUClient) workloadLabelKeys() map[string]struct{} {
 		strings.ToLower(exportermetrics.MetricLabel_JOB_ID.String()):            {},
 		strings.ToLower(exportermetrics.MetricLabel_JOB_USER.String()):          {},
 		strings.ToLower(exportermetrics.MetricLabel_JOB_PARTITION.String()):     {},
+		strings.ToLower(exportermetrics.MetricLabel_JOB_ACCOUNT.String()):       {},
 		strings.ToLower(exportermetrics.MetricLabel_CLUSTER_NAME.String()):      {},
 		strings.ToLower(exportermetrics.GPUMetricLabel_KFD_PROCESS_ID.String()): {},
 	}

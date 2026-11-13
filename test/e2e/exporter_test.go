@@ -24,6 +24,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -552,7 +554,7 @@ func (s *E2ESuite) Test016HealthSvcReconnect(c *C) {
 }
 
 func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
-	labels := []string{"job_id", "job_partition", "job_user"}
+	labels := []string{"job_id", "job_partition", "job_user", "job_account"}
 	err := s.SetLabels(labels)
 	assert.Nil(c, err)
 	time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
@@ -566,6 +568,7 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 		"CUDA_VISIBLE_DEVICES": gpuIdList,
 		"SLURM_CLUSTER_NAME":   "aac11",
 		"SLURM_JOB_GPUS":       gpuIdList,
+		"SLURM_JOB_ACCOUNT":    "acct_42",
 		"SLURM_JOB_ID":         "742",
 		"SLURM_JOB_PARTITION":  "256C8G1H_MI325X_Ubuntu22",
 		"SLURM_JOB_USER":       "user_7kq",
@@ -601,6 +604,7 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 			"job_id":        "\"742\"",
 			"job_partition": "\"256C8G1H_MI325X_Ubuntu22\"",
 			"job_user":      "\"user_7kq\"",
+			"job_account":   "\"acct_42\"",
 		}
 
 		// Verify job labels are present for every GPU_ID discovered in Test001
@@ -1409,6 +1413,136 @@ func (s *E2ESuite) Test028ExitOnRocpctlError(c *C) {
 	err = s.exporter.Start()
 	assert.Nil(c, err)
 	time.Sleep(25 * time.Second)
+}
+
+func (s *E2ESuite) Test029MonitorCgroup(c *C) {
+	log.Print("Testing -monitor-cgroup: GPU metrics unchanged, job cgroup metrics exported or cleanly absent")
+	containerName := s.e2eConfig.ContainerName
+	defer func() {
+		s.restartExporter(c, nil)
+		time.Sleep(25 * time.Second)
+	}()
+
+	// Both sides come from a fresh container, so the comparison does not depend
+	// on how far the previous test's container got.
+	if !s.restartExporter(c, nil) {
+		return
+	}
+	baseline := s.stableGPUFields(c)
+	if !s.restartExporter(c, []string{"-monitor-cgroup=true"}) {
+		return
+	}
+	var gpus map[string][]string
+	if !assert.Eventually(c, func() bool {
+		gpus = s.gpuFields()
+		return reflect.DeepEqual(gpus, baseline)
+	}, 90*time.Second, 3*time.Second, "GPU metrics should be the same with -monitor-cgroup") {
+		log.Printf("GPU ids without -monitor-cgroup: %v; with it: %v", sortedKeys(baseline), sortedKeys(gpus))
+	}
+
+	response, err := s.getExporterResponse()
+	assert.Nil(c, err)
+	assert.Empty(c, cgroupCPULines(response), "no job cgroups exist yet, so no cgroup family should be exported")
+
+	if s.tu.LocalCommandOutput(fmt.Sprintf("docker exec %v stat -fc %%T /sys/fs/cgroup", containerName)) != "cgroup2fs" {
+		assert.True(c, s.CheckExporterLogForString("cgroup v2 is required"), "a cgroup v1 host should log why cgroup metrics are off")
+		return
+	}
+
+	jobCgroup := "/sys/fs/cgroup/spur/job_901_1"
+	out := s.tu.LocalCommandOutput(fmt.Sprintf("docker exec %v mkdir -p %v /var/run/exporter/jobs && echo ok", containerName, jobCgroup))
+	if !assert.Equal(c, "ok", out, "creating a job cgroup in the container") {
+		return
+	}
+	defer s.tu.LocalCommandOutput(fmt.Sprintf("docker exec %v rmdir %v %v", containerName, jobCgroup, filepath.Dir(jobCgroup)))
+
+	jobBytes, err := json.Marshal(map[string]string{
+		"SLURM_JOB_ID":        "901",
+		"SLURM_JOB_USER":      "user_e2e",
+		"SLURM_JOB_PARTITION": "part_e2e",
+		"SLURM_JOB_ACCOUNT":   "acct_e2e",
+	})
+	assert.Nil(c, err)
+	jobFile := filepath.Join(c.MkDir(), "901")
+	assert.Nil(c, os.WriteFile(jobFile, jobBytes, 0644))
+	_, _ = s.exporter.CopyFileTo(jobFile, "/var/run/exporter/jobs/901")
+
+	var lines []string
+	assert.Eventually(c, func() bool {
+		response, _ := s.getExporterResponse()
+		lines = cgroupCPULines(response)
+		return len(lines) == 3
+	}, 30*time.Second, 2*time.Second, "expecting the HELP, TYPE and one series line for the job cgroup")
+	if len(lines) != 3 {
+		log.Printf("cgroup lines: %v", lines)
+		return
+	}
+	assert.Regexp(c, `^# HELP \w*cgroup_cpu_usage_seconds_total Total CPU time consumed by the workload cgroup$`, lines[0])
+	assert.Regexp(c, `^# TYPE \w*cgroup_cpu_usage_seconds_total counter$`, lines[1])
+	for _, label := range []string{`job_id="901"`, `job_user="user_e2e"`, `job_partition="part_e2e"`, `job_account="acct_e2e"`} {
+		assert.Contains(c, lines[2], label)
+	}
+}
+
+func (s *E2ESuite) restartExporter(c *C, args []string) bool {
+	_ = s.exporter.Stop()
+	assert.Eventually(c, func() bool {
+		return s.tu.LocalCommandOutput(fmt.Sprintf("docker ps -aq -f Name=%v", s.e2eConfig.ContainerName)) == ""
+	}, 15*time.Second, 500*time.Millisecond, "container name should be fully released before restart")
+	return assert.Nil(c, s.exporter.StartWithArgs(args))
+}
+
+// gpuFields maps each GPU id in a scrape to its metric names.
+func (s *E2ESuite) gpuFields() map[string][]string {
+	response, _ := s.getExporterResponse()
+	gpus, _ := testutils.ParsePrometheusMetrics(response)
+	fields := make(map[string][]string, len(gpus))
+	for id, gpu := range gpus {
+		fields[id] = fieldNames(gpu)
+	}
+	return fields
+}
+
+// stableGPUFields waits until two scrapes in a row report the same GPUs and fields.
+func (s *E2ESuite) stableGPUFields(c *C) map[string][]string {
+	var prev map[string][]string
+	assert.Eventually(c, func() bool {
+		cur := s.gpuFields()
+		stable := len(cur) > 0 && reflect.DeepEqual(cur, prev)
+		prev = cur
+		return stable
+	}, 90*time.Second, 3*time.Second, "GPU metrics should settle after a restart")
+	return prev
+}
+
+func sortedKeys(m map[string][]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func fieldNames(gpu *testutils.GPUMetric) []string {
+	names := make([]string, 0, len(gpu.Fields))
+	for name := range gpu.Fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// cgroupCPULines returns the HELP, TYPE and series lines of the cgroup CPU
+// usage family; the GPU parser skips series without a gpu_id label.
+func cgroupCPULines(response string) []string {
+	var lines []string
+	for _, line := range strings.Split(response, "\n") {
+		if strings.Contains(line, "cgroup_cpu_usage_seconds_total") {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 func (s *E2ESuite) SetUpTest(c *C) {

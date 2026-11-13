@@ -97,6 +97,9 @@ When Slurm integration is enabled, the following job-specific labels are added t
 - `job_user`: Username of job owner
 - `job_partition`: Slurm partition name
 - `cluster_name`: Slurm cluster name
+- `job_account`: Slurm account
+
+The prolog also writes one file per job to `/var/run/exporter/jobs/`, including CPU-only jobs, and the epilog removes it. [Workload cgroup metrics](../configuration/workload-cgroup-metrics.md) use these files to label per-job CPU, memory and disk I/O metrics.
 
 ## Troubleshooting
 

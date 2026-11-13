@@ -34,6 +34,7 @@ import (
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdnic/nicagent"
+	"github.com/ROCm/device-metrics-exporter/pkg/cgroup/cgroupagent"
 	k8sclient "github.com/ROCm/device-metrics-exporter/pkg/client"
 	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
@@ -50,6 +51,7 @@ var (
 	mh                     *metricsutil.MetricsHandler
 	gpuclient              *gpuagent.GPUAgentClient
 	nicAgent               *nicagent.NICAgentClient
+	cgroupAgent            *cgroupagent.Agent
 	runConf                *config.ConfigHandler
 	debounceDuration       = 3 * time.Second // debounce duration for file watcher
 	defaultBindAddress     = "0.0.0.0"
@@ -66,6 +68,7 @@ type Exporter struct {
 	enableNICMonitoring  bool
 	enableGPUMonitoring  bool
 	enableIFOEMonitoring bool
+	enableCgroupMon      bool
 	disableK8sApi        bool
 	disableK8sScl        bool
 	enableSlurmScl       bool
@@ -410,6 +413,13 @@ func WithenableIFOEMonitoring(enableIFOEAgent bool) ExporterOption {
 	}
 }
 
+func WithCgroupMonitoring(enable bool) ExporterOption {
+	return func(e *Exporter) {
+		logger.Log.Printf("workload cgroup monitoring enable %v", enable)
+		e.enableCgroupMon = enable
+	}
+}
+
 func WithSRIOV(enableSriov bool) ExporterOption {
 	return func(e *Exporter) {
 		logger.Log.Printf("Host SRIOV mode set to %v", enableSriov)
@@ -604,6 +614,19 @@ func (e *Exporter) StartMain() {
 		}
 	}
 
+	if e.enableCgroupMon {
+		var opts []cgroupagent.Option
+		if e.enableSlurmScl {
+			opts = append(opts, cgroupagent.WithJobLookup(func(id string) (scheduler.JobInfo, bool) {
+				return scheduler.ReadJobFile(scheduler.SlurmJobDir, id)
+			}))
+		}
+		cgroupAgent = cgroupagent.NewAgent(mh, opts...)
+		if err := cgroupAgent.Init(); err != nil {
+			logger.Log.Printf("cgroup client init err :%+v", err)
+		}
+	}
+
 	if utils.IsKubernetes() && e.enableGPUMonitoring {
 		copyFilesToHost()
 	}
@@ -652,6 +675,11 @@ func (e *Exporter) Close() error {
 	if nicAgent != nil {
 		nicAgent.Close()
 		nicAgent = nil
+	}
+
+	if cgroupAgent != nil {
+		cgroupAgent.Close()
+		cgroupAgent = nil
 	}
 
 	if e.k8sApiClient != nil {
