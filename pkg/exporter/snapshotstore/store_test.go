@@ -196,6 +196,83 @@ func TestResetDropsOrphanSlots(t *testing.T) {
 	}
 }
 
+func TestReplaceOwnedSetsOnlyTheOwnersSlots(t *testing.T) {
+	st := New()
+	st.Update("gpu0", map[string]Sample{"gpu_clock": {Value: 1}})
+	st.Update("cgroup:1", map[string]Sample{"mem": {Value: 2}, "swap": {Value: 9}})
+	st.Update("cgroup:2", map[string]Sample{"mem": {Value: 3}})
+
+	st.ReplaceOwned("cgroup:", map[string]map[string]Sample{
+		"cgroup:1": {"mem": {Value: 4}},
+		"cgroup:3": {"mem": {Value: 5}},
+	})
+
+	snaps := st.Snapshots()
+	if len(snaps) != 3 {
+		t.Fatalf("Snapshots()=%d want 3: %v", len(snaps), snaps)
+	}
+	if _, ok := snaps["cgroup:2"]; ok {
+		t.Fatal("slot absent from the new set still rendered")
+	}
+	one := snaps["cgroup:1"]
+	if v, _ := one.Get("mem"); v.Value != 4 || one.Len() != 1 {
+		t.Fatalf("cgroup:1 = %v; want only mem=4 (set, not merged)", one)
+	}
+	if v, _ := snaps["cgroup:3"].Get("mem"); v.Value != 5 {
+		t.Fatalf("cgroup:3 mem = %v; want 5", v.Value)
+	}
+	if v, _ := snaps["gpu0"].Get("gpu_clock"); v.Value != 1 {
+		t.Fatal("another writer's slot changed")
+	}
+
+	st.ReplaceOwned("cgroup:", nil)
+	if snaps := st.Snapshots(); len(snaps) != 1 || snaps["gpu0"] == nil {
+		t.Fatalf("empty replace left %v; want only gpu0", snaps)
+	}
+}
+
+// TestReplaceOwnedIsAtomicForReaders alternates the owner between two disjoint
+// sets while readers scrape; a reader must never see a mix of the two.
+func TestReplaceOwnedIsAtomicForReaders(t *testing.T) {
+	st := New()
+	setA := map[string]map[string]Sample{"own:a1": {"f": {Value: 1}}, "own:a2": {"f": {Value: 1}}}
+	setB := map[string]map[string]Sample{"own:b1": {"f": {Value: 2}}}
+	st.ReplaceOwned("own:", setA)
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	for r := 0; r < 4; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+				snaps := st.Snapshots()
+				_, a1 := snaps["own:a1"]
+				_, a2 := snaps["own:a2"]
+				_, b1 := snaps["own:b1"]
+				if !(a1 && a2 && !b1) && !(!a1 && !a2 && b1) {
+					t.Errorf("reader saw a torn set: %v", snaps)
+					return
+				}
+			}
+		}()
+	}
+	for i := 0; i < 2000; i++ {
+		if i%2 == 0 {
+			st.ReplaceOwned("own:", setB)
+		} else {
+			st.ReplaceOwned("own:", setA)
+		}
+	}
+	close(done)
+	wg.Wait()
+}
+
 // TestDropFieldsKeepsSignals verifies the fetch-failure eviction: DropFields
 // removes the named telemetry fields per slot, keeps the always-present signals
 // (a slot's gpu_health, the node *_total slot), drops a slot left empty, and never

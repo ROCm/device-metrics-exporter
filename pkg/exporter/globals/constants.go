@@ -96,9 +96,10 @@ const (
 type DeviceType string
 
 const (
-	GPUDevice  DeviceType = "GPU"
-	NICDevice  DeviceType = "NIC"
-	IFOEDevice DeviceType = "IFOE"
+	GPUDevice    DeviceType = "GPU"
+	NICDevice    DeviceType = "NIC"
+	IFOEDevice   DeviceType = "IFOE"
+	CgroupDevice DeviceType = "CGROUP"
 )
 
 type DebugMode string

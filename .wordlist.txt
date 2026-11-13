@@ -337,3 +337,13 @@ xz
 SLES
 SUSE
 sysfs
+GPFS
+NFS
+OOM
+PID
+cgroup
+cgroups
+filesystems
+prepended
+requeued
+subtree

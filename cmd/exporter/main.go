@@ -63,6 +63,7 @@ func main() {
 	enableNICMonitoring := fs.Bool("monitor-nic", false, "Enable NIC Monitoring")
 	enableGPUMonitoring := fs.Bool("monitor-gpu", true, "Enable GPU Monitoring")
 	enableIFOEMonitoring := fs.Bool("monitor-ifoe", false, "Enable IFOE Monitoring")
+	enableCgroupMonitoring := fs.Bool("monitor-cgroup", false, "Enable per-workload cgroup (CPU, memory, disk I/O) monitoring")
 	enableK8s := fs.Bool("enable-k8s", true, "Enable Kubernetes API server integration")
 	enableK8sScl := fs.Bool("enable-k8s-scl", true, "Enable Kubernetes Scheduler client integration")
 	enableCRI := fs.Bool("enable-cri", true, "Enable CRI runtime client for per-pod container ID resolution")
@@ -115,8 +116,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !*enableNICMonitoring && !*enableGPUMonitoring && !*enableIFOEMonitoring {
-		fmt.Printf("NIC Agent, GPU Agent and IFOE Agent are all disabled, exiting")
+	if !*enableNICMonitoring && !*enableGPUMonitoring && !*enableIFOEMonitoring && !*enableCgroupMonitoring {
+		fmt.Printf("NIC, GPU, IFOE and cgroup monitoring are all disabled, exiting")
 		os.Exit(1)
 	}
 
@@ -141,6 +142,7 @@ func main() {
 		exporter.WithBindAddr(*bindAddr),
 		exporter.WithSlurmClient(*enableSlumrScl),
 		exporter.WithenableIFOEMonitoring(*enableIFOEMonitoring),
+		exporter.WithCgroupMonitoring(*enableCgroupMonitoring),
 		exporter.WithK8sApiClient(*enableK8s),
 		exporter.WithK8sSchedulerClient(*enableK8sScl),
 		exporter.WithCRIClient(*enableCRI),

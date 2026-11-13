@@ -547,7 +547,7 @@ func TestHighResSeedCarriesWorkloadLabelKeys(t *testing.T) {
 	gpu := &amdgpu.GPU{Spec: &amdgpu.GPUSpec{Id: gpuBytes}, Status: &amdgpu.GPUStatus{Index: 0}}
 	labels := gpuclient.populateLabelsFromGPU(nil, gpu, nil)
 	t.Logf("seed label keys: %v", labels)
-	want := []string{"pod", "namespace", "container", "job_id", "job_user", "job_partition"}
+	want := []string{"pod", "namespace", "container", "job_id", "job_user", "job_partition", "job_account"}
 	for _, k := range want {
 		if _, ok := labels[k]; !ok {
 			t.Errorf("mandatory workload label key %q missing from populateLabelsFromGPU output", k)

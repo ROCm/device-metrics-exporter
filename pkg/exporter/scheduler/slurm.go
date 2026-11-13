@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +38,46 @@ var SlurmLabels = map[string]bool{
 	exportermetrics.MetricLabel_JOB_ID.String():        true,
 	exportermetrics.MetricLabel_JOB_USER.String():      true,
 	exportermetrics.MetricLabel_JOB_PARTITION.String(): true,
+	exportermetrics.MetricLabel_JOB_ACCOUNT.String():   true,
+}
+
+// SlurmJobDir holds one file per running job, named by job id and written by
+// the prolog. Unlike the per-GPU files it also covers CPU-only jobs.
+var SlurmJobDir = filepath.Join(globals.SlurmDir, "jobs")
+
+var jobIDRe = regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`)
+
+func jobInfoFromEnv(env map[string]string) JobInfo {
+	return JobInfo{
+		Id:        env["SLURM_JOB_ID"],
+		User:      env["SLURM_JOB_USER"],
+		Partition: env["SLURM_JOB_PARTITION"],
+		Cluster:   env["SLURM_CLUSTER_NAME"],
+		Account:   env["SLURM_JOB_ACCOUNT"],
+	}
+}
+
+// ReadJobFile returns the metadata of jobID from its file in dir, or false
+// when no valid file exists. It reads on every call: a handful of small reads
+// per scrape is cheaper than keeping a cache coherent with requeues that reuse
+// a job id.
+func ReadJobFile(dir, jobID string) (JobInfo, bool) {
+	if jobID == "." || jobID == ".." || !jobIDRe.MatchString(jobID) {
+		return JobInfo{}, false
+	}
+	buf, err := os.ReadFile(filepath.Join(dir, jobID))
+	if err != nil {
+		return JobInfo{}, false
+	}
+	var env map[string]string
+	if err := json.Unmarshal(buf, &env); err != nil {
+		return JobInfo{}, false
+	}
+	info := jobInfoFromEnv(env)
+	if info.Id != jobID {
+		return JobInfo{}, false
+	}
+	return info, true
 }
 
 type client struct {
@@ -138,12 +180,7 @@ func (cl *client) processSlurm(op fsnotify.Op, name string, buff []byte) {
 		if gpus, ok := jobEnv["CUDA_VISIBLE_DEVICES"]; ok {
 			cl.Lock()
 			for _, allocGPU := range strings.Split(gpus, ",") {
-				cl.GpuJobs[allocGPU] = JobInfo{
-					Id:        jobEnv["SLURM_JOB_ID"],
-					User:      jobEnv["SLURM_JOB_USER"],
-					Partition: jobEnv["SLURM_JOB_PARTITION"],
-					Cluster:   jobEnv["SLURM_CLUSTER_NAME"],
-				}
+				cl.GpuJobs[allocGPU] = jobInfoFromEnv(jobEnv)
 			}
 			cl.Unlock()
 			logger.Log.Printf("updated %v", cl.GpuJobs)

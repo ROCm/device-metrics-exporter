@@ -235,7 +235,8 @@ func (mh *MetricsHandler) GetMetricsConfig() *exportermetrics.MetricConfig {
 	return nil
 }
 
-// IsHighResolution reports whether the GPU-only high-resolution profile is on.
+// IsHighResolution reports whether the high-resolution profile (GPU and
+// workload cgroup feeds) is on.
 func (mh *MetricsHandler) IsHighResolution() bool {
 	return mh.runConf.GetHighResolutionState()
 }

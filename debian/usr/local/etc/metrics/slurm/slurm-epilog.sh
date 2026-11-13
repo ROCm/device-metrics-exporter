@@ -35,7 +35,7 @@ mod128_array() {
     echo "$result"
 }
 AMDGPU_DEVICES=$(mod128_array "${CUDA_VISIBLE_DEVICES}")
-AMD_SLURM_GPUS=$(mod128_array "${SLURM_JOB_GPUS}")
+AMD_SLURM_GPUS=$(mod128_array "${SLURM_JOB_GPUS:-${SPUR_JOB_GPUS}}")
 # CUDA_VISIBLE_DEVICES is empty on AMD hardware; fall back to SLURM_JOB_GPUS so
 # the per-GPU job tracking files are cleaned up correctly on job exit.
 [ -z "${AMDGPU_DEVICES}" ] && AMDGPU_DEVICES="${AMD_SLURM_GPUS}"
@@ -57,3 +57,9 @@ GPUS=$(echo ${AMDGPU_DEVICES} | tr "," "\n")
 for GPUID in ${GPUS}; do
 	rm -f ${EXPORT_DIR}/${GPUID}
 done
+JOB_ID="${SLURM_JOB_ID:-${SPUR_JOB_ID}}"
+case "${JOB_ID}" in
+'' | *[!0-9A-Za-z_.+-]*) exit 0 ;;
+esac
+rm -f "${EXPORT_DIR}/jobs/${JOB_ID}"
+exit 0

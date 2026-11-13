@@ -49,6 +49,7 @@ type JobInfo struct {
 	User      string
 	Partition string
 	Cluster   string
+	Account   string
 }
 
 func (s SchedulerType) String() string {

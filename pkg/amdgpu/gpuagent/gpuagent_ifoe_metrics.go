@@ -573,6 +573,10 @@ func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
 			if ualPort != nil {
 				labels[key] = "job_partition_placeholder"
 			}
+		case exportermetrics.MetricLabel_JOB_ACCOUNT.String():
+			if ualPort != nil {
+				labels[key] = "job_account_placeholder"
+			}
 		case exportermetrics.MetricLabel_CLUSTER_NAME.String():
 			if ualPort != nil {
 				labels[key] = "cluster_name_placeholder"

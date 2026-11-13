@@ -52,6 +52,7 @@ var (
 		exportermetrics.MetricLabel_JOB_ID.String(),
 		exportermetrics.MetricLabel_JOB_USER.String(),
 		exportermetrics.MetricLabel_JOB_PARTITION.String(),
+		exportermetrics.MetricLabel_JOB_ACCOUNT.String(),
 		exportermetrics.MetricLabel_HOSTNAME.String(),
 	}
 )
@@ -2156,6 +2157,10 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 		case exportermetrics.MetricLabel_JOB_PARTITION.String():
 			if gpu != nil {
 				labels[key] = jobInfo.Partition
+			}
+		case exportermetrics.MetricLabel_JOB_ACCOUNT.String():
+			if gpu != nil {
+				labels[key] = jobInfo.Account
 			}
 		case exportermetrics.MetricLabel_CLUSTER_NAME.String():
 			if gpu != nil {
