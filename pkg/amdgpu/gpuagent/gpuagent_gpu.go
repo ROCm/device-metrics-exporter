@@ -458,7 +458,17 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	// infrequent, so the pull path populates the registry here (the stream path,
 	// applyWatchSnapshot, deliberately never touches the registry). Reset +
 	// refill run under prometheusMiddlewareMu, so the scrape stays consistent.
-	// Start fetching profiler metrics in a goroutine to run in parallel with GPU metrics
+	// GPUGet must complete before rocpctl starts: rocpctl wakes every GPU, so an
+	// overlapping GPUGet reports inflated idle gfx activity, clocks and power.
+	resp, partitionMap, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
+	if err != nil {
+		return err
+	}
+	if resp != nil && resp.ApiStatus != 0 {
+		logger.Errorf("resp status :%v", resp.ApiStatus)
+		return fmt.Errorf("%v", resp.ApiStatus)
+	}
+
 	type profilerResult struct {
 		metrics map[string]map[string]float64
 		err     error
@@ -473,16 +483,6 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 		}
 		profilerChan <- profilerResult{metrics: pmetrics, err: err}
 	}()
-
-	// send the req to gpuclient
-	resp, partitionMap, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
-	if err != nil {
-		return err
-	}
-	if resp != nil && resp.ApiStatus != 0 {
-		logger.Errorf("resp status :%v", resp.ApiStatus)
-		return fmt.Errorf("%v", resp.ApiStatus)
-	}
 	cper, err := ga.getLatestCPER()
 	if err != nil {
 		logger.Debugf("getLatestCPER failed with err : %v", err)
