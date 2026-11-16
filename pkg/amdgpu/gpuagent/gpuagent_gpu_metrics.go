@@ -2095,6 +2095,14 @@ func (ga *GPUAgentGPUClient) populateLabelsFromGPU(
 					labels[key] = gpu.Status.CardSeries
 				}
 			}
+		case exportermetrics.GPUMetricLabel_PRODUCT_NAME.String():
+			if gpu != nil {
+				status := gpu.Status
+				if parentPartition != nil {
+					status = parentPartition.Status
+				}
+				labels[key] = utils.GPUProductName(status.GetCardSeries(), status.GetMarketName())
+			}
 		case exportermetrics.MetricLabel_CARD_MODEL.String():
 			if gpu != nil {
 				var model string
