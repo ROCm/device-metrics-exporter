@@ -19,6 +19,11 @@
   - `SlowPeriodSecs` (default `5`, range `5`–`3600`, must be ≥ `FastPeriodSecs`) controls the refresh rate for slow-moving attributes: ECC/XGMI counters, PCIe bandwidth, memory usage, and profiler metrics.
   - See [Configuration](configuration/configmap.md) for usage details.
 
+- **Optional `PRODUCT_NAME` Label**
+  - New optional GPU label `PRODUCT_NAME` (disabled by default) reports the GPU product, for example `product_name="AMD_Instinct_MI350P"`, so metrics can be filtered by GPU product across a mixed cluster.
+  - The value matches the `amd.com/gpu.product-name` label set by the Kubernetes node labeller: the board product name, or the device ID based market name reported by AMD SMI when a board's FRU product fields are blank (for example on some MI350P boards). Repeated `_` separators are collapsed.
+  - Enable it by adding `PRODUCT_NAME` to `GPUConfig.Labels`. See [Configuration](configuration/configmap.md).
+
 - **Configurable GPU Agent Response Cache Timeout**
   - The GPU Agent response cache timeout is now configurable, allowing tuning of cache freshness versus collection cost for environments with different scrape intervals.
 

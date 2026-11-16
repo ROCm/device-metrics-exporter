@@ -338,6 +338,9 @@ enum GPUMetricLabel {
     // VM_VF      - Virtual Machine with VF passthrough
     // VM_PF      - Virtual Machine with PF passthrough
     DEPLOYMENT_MODE            = 6;
+    // optional; GPU product, same source order and format as the k8s node
+    // labeller's amd.com/gpu.product-name (board name, else amdsmi market name)
+    PRODUCT_NAME               = 7;
 }
 
 message GPUMetricConfig {

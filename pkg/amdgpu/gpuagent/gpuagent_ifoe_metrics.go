@@ -537,6 +537,10 @@ func (ga *GPUAgentIFOEClient) populateLabelsFromObject(
 			if ualPort != nil {
 				labels[key] = "card_model_placeholder"
 			}
+		case exportermetrics.GPUMetricLabel_PRODUCT_NAME.String():
+			if ualPort != nil {
+				labels[key] = "product_name_placeholder"
+			}
 		case exportermetrics.MetricLabel_CARD_VENDOR.String():
 			if ualPort != nil {
 				labels[key] = "AMD"
