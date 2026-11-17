@@ -4,6 +4,15 @@
 
 - **New Features**
 
+- **Workload cgroup Metrics**
+  - A new `-monitor-cgroup` flag (off by default) exports CPU, memory and disk I/O usage for each Spur or Slurm job on a node, read directly from the job's cgroup v2 files. CPU-only jobs are included.
+  - Series are labelled with `job_id`, `job_user`, `job_partition`, `job_account` and `hostname`, and follow `CommonConfig.HighResolution` when it is enabled.
+  - Supported with the Debian package and a standalone Docker container on cgroup v2 hosts. On a cgroup v1 host the exporter logs that cgroup v2 is required and exports no cgroup metrics. Kubernetes is not supported.
+  - See [Workload cgroup metrics](configuration/workload-cgroup-metrics.md).
+
+- **`JOB_ACCOUNT` Label**
+  - GPU metrics now carry `job_account` alongside the other job labels. The bundled Slurm prolog fills it from `SLURM_JOB_ACCOUNT` (or `SPUR_JOB_ACCOUNT`); it is empty when the scheduler does not pass the account to the prolog. The prolog now also writes a per-job file for CPU-only jobs. See [Slurm integration](integrations/slurm-integration.md).
+
 ### Issues Fixed
 
 ### Known Issues
