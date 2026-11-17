@@ -452,6 +452,8 @@ message GPUStatus {
   GPUVirtualizationMode       VirtualizationMode = 29;
   // GPU process information
   GPUProcessStatus            ProcessStatus      = 30;
+  // device-id based product name (amdsmi asic market name)
+  string                      MarketName         = 31;
 }
 
 // GPU temperature information
