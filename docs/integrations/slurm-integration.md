@@ -174,6 +174,7 @@ Slurm labels are disabled by default. To enable Slurm labels, add the following 
       "JOB_ID",
       "JOB_USER",
       "JOB_PARTITION",
+      "JOB_ACCOUNT",
       "CLUSTER_NAME",
       "CARD_SERIES",
       "CARD_MODEL",
