@@ -2507,7 +2507,12 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuPowerUsage, exportermetrics.GPUMetricField_GPU_POWER_USAGE.String(), labels, stats.PowerUsage)
 
-	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVramMaxBandwidth, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(), labels, float64(status.GetVRAMStatus().GetMaxBandwidth()))
+	vramMaxBW := status.GetVRAMStatus().GetMaxBandwidth()
+	// 0 = not populated (Radeon, non-primary partitions), not a real bandwidth
+	if !utils.IsNonZeroValue(vramMaxBW) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String())
+	}
+	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuVramMaxBandwidth, exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(), labels, float64(vramMaxBW))
 
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuEccCorrectTotal, exportermetrics.GPUMetricField_GPU_ECC_CORRECT_TOTAL.String(),
 		labels, stats.TotalCorrectableErrors)

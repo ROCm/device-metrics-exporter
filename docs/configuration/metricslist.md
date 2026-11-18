@@ -4,14 +4,9 @@ The following document contains a full list of GPU Metrics that are available us
 
 ## Platform Support Summary
 
-### MI2xx-Only Metrics
-
-- GPU_EDGE_TEMPERATURE
-
 ### MI3xx-Only Metrics
 
 - GPU_PACKAGE_POWER
-- GPU_JUNCTION_TEMPERATURE
 - GPU_VRAM_MAX_BANDWIDTH
 - PCIE_BANDWIDTH
 - PCIE_REPLAY_COUNT
@@ -108,9 +103,9 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &check; | &check; | GPU_EDGE_TEMPERATURE `[MI2xx]` | Edge temperature value in Celsius (MI2XX platforms only) |
-| &check; | &check; | GPU_JUNCTION_TEMPERATURE `[MI3xx]` | Hotspot (aka junction) temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
-| &check; | &check; | GPU_MEMORY_TEMPERATURE `[MI2xx, MI3xx]` | Memory temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
+| &check; | &check; | GPU_EDGE_TEMPERATURE `[MI2xx, Radeon]` | Edge temperature value in Celsius |
+| &check; | &check; | GPU_JUNCTION_TEMPERATURE `[MI3xx, Radeon]` | Hotspot (aka junction) temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
+| &check; | &check; | GPU_MEMORY_TEMPERATURE `[MI2xx, MI3xx, Radeon]` | Memory temperature value in Celsius. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
 | &cross; | &check; | GPU_HBM_TEMPERATURE `[MI2xx]` | List of per-stack HBM temperatures in Celsius. |
 
 ### Power Metrics
@@ -126,8 +121,8 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &check; | &check; | GPU_GFX_ACTIVITY `[MI2xx, MI3xx]` | Graphics engine usage percentage (0 - 100). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); amdsmi does not return per-partition activity data |
-| &check; | &check; | GPU_UMC_ACTIVITY `[MI2xx, MI3xx]` | Memory engine usage percentage (0 - 100). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); amdsmi does not return per-partition activity data |
+| &check; | &check; | GPU_GFX_ACTIVITY `[MI2xx, MI3xx, Radeon]` | Graphics engine usage percentage (0 - 100). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); amdsmi does not return per-partition activity data |
+| &check; | &check; | GPU_UMC_ACTIVITY `[MI2xx, MI3xx, Radeon]` | Memory engine usage percentage (0 - 100). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); amdsmi does not return per-partition activity data |
 | &cross; | &cross; | GPU_MMA_ACTIVITY `[Deprecated]` | Average multimedia engine usages in percentage (0 - 100) - Deprecated from 6.14.14 driver |
 | &cross; | &cross; | GPU_VCN_ACTIVITY `[Deprecated]` | List of VCN encode/decode engine utilization per AID - Deprecated from 6.14.14 driver |
 | &cross; | &cross; | GPU_JPEG_ACTIVITY `[Deprecated]` | List of JPEG engine activity in percentage (0 - 100) - Deprecated from 6.14.14 driver |
@@ -164,29 +159,29 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &check; | &check; | GPU_CLOCK `[MI2xx, MI3xx]` | Clock measure of the GPU in Mhz* ([See note below](#gpu_clock-measurements)). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU clocks) |
-| &check; | &check; | GPU_MIN_CLOCK `[MI2xx, MI3xx]` | Minimum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
-| &check; | &check; | GPU_MAX_CLOCK `[MI2xx, MI3xx]` | Maximum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_CLOCK `[MI2xx, MI3xx, Radeon]` | Clock measure of the GPU in Mhz* ([See note below](#gpu_clock-measurements)). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU clocks) |
+| &check; | &check; | GPU_MIN_CLOCK `[MI2xx, MI3xx, Radeon]` | Minimum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
+| &check; | &check; | GPU_MAX_CLOCK `[MI2xx, MI3xx, Radeon]` | Maximum Clock measure of the GPU in Mhz. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions |
 
 ### Memory (VRAM) Metrics
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &check; | &check; | GPU_TOTAL_VRAM `[MI2xx, MI3xx]` | Total VRAM available in MB |
-| &cross; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx]` | Total VRAM memory used in MB. Not exposed on the GIM/SR-IOV hypervisor host (per-VF usage not visible to host) |
-| &cross; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx]` | Total VRAM memory free in MB |
-| &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx]` | Total available visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx]` | Used visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx]` | Free visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &check; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions (physical GPU property) |
+| &check; | &check; | GPU_TOTAL_VRAM `[MI2xx, MI3xx, Radeon]` | Total VRAM available in MB |
+| &cross; | &check; | GPU_USED_VRAM `[MI2xx, MI3xx, Radeon]` | Total VRAM memory used in MB. Not exposed on the GIM/SR-IOV hypervisor host (per-VF usage not visible to host) |
+| &cross; | &check; | GPU_FREE_VRAM `[MI2xx, MI3xx, Radeon]` | Total VRAM memory free in MB |
+| &cross; | &check; | GPU_TOTAL_VISIBLE_VRAM `[MI2xx, MI3xx, Radeon]` | Total available visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_USED_VISIBLE_VRAM `[MI2xx, MI3xx, Radeon]` | Used visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_FREE_VISIBLE_VRAM `[MI2xx, MI3xx, Radeon]` | Free visible VRAM memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &check; | &check; | GPU_VRAM_MAX_BANDWIDTH `[MI3xx]` | Maximum VRAM bandwidth at max memory clock in GB/s. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU property) |
 
 ### GTT Memory Metrics
 
 | Hypervisor | Baremetal | Metric | Description |
 | ---------- | --------- | ------ | ----------- |
-| &cross; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx]` | Total GTT memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_USED_GTT `[MI2xx, MI3xx]` | Current GTT memory usage in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
-| &cross; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx]` | Free GTT memory available in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_TOTAL_GTT `[MI2xx, MI3xx, Radeon]` | Total GTT memory in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_USED_GTT `[MI2xx, MI3xx, Radeon]` | Current GTT memory usage in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
+| &cross; | &check; | GPU_FREE_GTT `[MI2xx, MI3xx, Radeon]` | Free GTT memory available in MB. Not exposed on the GIM/SR-IOV hypervisor host. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); reports 0 for all other partitions |
 
 ### ECC Error Metrics
 
