@@ -60,6 +60,8 @@ var gpuGetFilterGroups = map[string][]exportermetrics.GPUMetricField{
 		exportermetrics.GPUMetricField_GPU_CLOCK,
 		exportermetrics.GPUMetricField_GPU_MIN_CLOCK,
 		exportermetrics.GPUMetricField_GPU_MAX_CLOCK,
+		// amdsmi backend fills VRAMStatus.MaxBandwidth inside clock status (not GIM)
+		exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH,
 	},
 	"pcieStats": {
 		exportermetrics.GPUMetricField_PCIE_REPLAY_COUNT,
