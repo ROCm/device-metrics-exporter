@@ -126,6 +126,14 @@ func TestBuildGPUGetFilterActivityAndClock(t *testing.T) {
 	assert.Equal(t, true, f.SkipPCIeStats)
 }
 
+// gpuagent fills VRAM max bandwidth inside clock status; skipping it yields 0.
+func TestBuildGPUGetFilterClockGatedByVRAMMaxBandwidth(t *testing.T) {
+	ga := newFilterTestClient([]string{
+		exportermetrics.GPUMetricField_GPU_VRAM_MAX_BANDWIDTH.String(),
+	})
+	assert.Equal(t, false, ga.buildGPUGetFilter().SkipClockStatus)
+}
+
 // Health validation reads ECC counters and PCIeStatus regardless of which
 // metric fields are exported; the shared filter must never skip those groups.
 func TestBuildGPUGetFilterNeverSkipsHealthGroups(t *testing.T) {
