@@ -143,7 +143,7 @@ ROCM_VERSION ?= 10.2.0
 ROCM_TARBALL_URL ?= https://rc.repo.amd.com/rocm/core/tarball/therock-dist-linux-multiarch-10.2.0rc1.tar.gz
 # amdsmi commit auto-extracted from the fetched tarball; empty until fetched.
 ROCM_COMMIT = $(shell cat "$(ROCM_COMMIT_FILE)" 2>/dev/null)
-RVS_TARBALL_URL ?= https://rc.repo.amd.com/rocm/extras/rvs/tarball/amdrocm10-rvs-1.7.111-1039-Linux.tar.gz
+RVS_TARBALL_URL ?= https://rc.repo.amd.com/rocm/extras/rvs/tarball/amdrocm10-rvs-1.7.112-1077-Linux.tar.gz
 
 # download the ~9 GB ROCm tarball ONCE to the host, then bind-mount it
 # into every docker build (gpuagent-build stage, release runtime, and the 3

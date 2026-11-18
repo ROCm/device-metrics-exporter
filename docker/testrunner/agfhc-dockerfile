@@ -4,7 +4,7 @@ FROM ${BASE_IMAGE}
 LABEL maintainer="AMD Inc"
 LABEL OS="registry.access.redhat.com/ubi9/ubi:9.8"
 
-ARG AGFHC_VERSION=1.32.0
+ARG AGFHC_VERSION=1.35.1
 ARG ROCM_VERSION=7.2.1
 ARG RADEON_REPO_URL=https://repo.radeon.com
 # Set to full TheRock tarball URL to skip repo.radeon.com and install from tarball.
@@ -52,6 +52,9 @@ RUN dnf update -y libarchive libxml2 pam python3-requests glibc && \
     dnf clean all
 
 # Install AGFHC
+# AGFHC >=1.35 on ROCm 10 looks for rvs/TransferBench in extras-<major>/bin; the tarball puts them in /opt/rocm/bin.
+ENV EXTRAS_INSTALL_PATH=/opt/rocm
+ENV TXB_PATH=/opt/rocm/bin
 WORKDIR /agfhc
 
 RUN dnf install -y tar bzip2 python3-pyyaml python3-psutil wget cpio numactl-libs && \
