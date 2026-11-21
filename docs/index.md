@@ -1,6 +1,6 @@
 # AMD Device Metrics Exporter
 
-AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs and NICs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption. This tool includes the following features:
+AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs and NICs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption.
 
 ## Features
 
@@ -18,7 +18,7 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - Container-based deployment
 - Beta: Kubernetes Dynamic Resource Allocation (DRA) GPU claim support (Kubernetes 1.34+)
 
-## GPU Metrics
+## GPU metrics
 
 ### Requirements
 
@@ -27,9 +27,9 @@ AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD
 - MI2xx or MI3xx platform: ROCm 6.2.0 or later
 - MI350P or Radeon AI platform: ROCm 7.13 or later
 
-**Note:** The SR-IOV exporter variant (image `device-metrics-exporter`, tag `sriov-v1.0.0`, also available as a Debian package) is released only for MI-series platforms. See the [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases) for SR-IOV/GIM host packages, and the [GPU Metrics List](./configuration/metricslist.md) for the full list of metrics supported under hypervisor/guest deployment.
+**Note:** The SR-IOV exporter variant (image `device-metrics-exporter`, tag `sriov-v1.0.0`, also available as a Debian package) is released only for MI-series platforms. See the [MxGPU-Virtualization releases](https://github.com/amd/MxGPU-Virtualization/releases) for SR-IOV/GIM host packages, and the [GPU metrics list](./configuration/metricslist.md) for the full list of metrics supported under hypervisor/guest deployment.
 
-### Available Metrics
+### Available metrics
 
 Device Metrics Exporter provides extensive GPU metrics including:
 
@@ -55,9 +55,9 @@ Device Metrics Exporter provides extensive GPU metrics including:
   - Link speed
   - Error counts
 
-See [GPU Metrics List](./configuration/metricslist.md) for the complete list.
+See [GPU metrics list](./configuration/metricslist.md) for the complete list.
 
-## NIC Metrics
+## NIC metrics
 
 ### Requirements
 
@@ -65,7 +65,7 @@ See [GPU Metrics List](./configuration/metricslist.md) for the complete list.
 - Docker (or compatible container runtime)
 - AMD NICs with supported drivers (AINIC)
 
-### Compatibility Matrix
+### Compatibility matrix
 
 | AINIC Firmware Version                                 | Exporter Image Version | Supported NICs |
 |--------------------------------------------------------|------------------------|----------------|
@@ -75,9 +75,9 @@ See [GPU Metrics List](./configuration/metricslist.md) for the complete list.
 | 1.117.5-a-56<br>1.117.5-a-77                           | nic-v1.2.0             | Pollara 400    |
 | 1.117.5-a-77<br>1.117.5-a-147<br>1.117.5-a-196         | nic-v1.2.1             | Pollara 400    |
 
-**Note:** The debian exporter does not have any firmware version dependencies and works on all firmware versions.
+**Note:** The Debian package exporter has no firmware version dependency and works with all firmware versions.
 
-### Available Metrics
+### Available metrics
 
 Device Metrics Exporter provides extensive NIC metrics including:
 
@@ -103,4 +103,4 @@ Device Metrics Exporter provides extensive NIC metrics including:
   - Frame size distribution
   - Per-queue drop counts
 
-See [AINIC Metrics List](./configuration/network-metricslist.md) for the complete list.
+See [AINIC metrics list](./configuration/network-metricslist.md) for the complete list.

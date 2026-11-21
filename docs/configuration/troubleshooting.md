@@ -2,13 +2,13 @@
 
 This topic provides an overview of troubleshooting options for Device Metrics Exporter.
 
-## Techsupport Collection
+## Tech support collection
 
-### K8s Techsupport Collection
+### Kubernetes tech support collection
 
-Two specialized techsupport scripts are available for collecting diagnostics:
+Two tech support scripts collect diagnostics:
 
-#### GPU Exporter Techsupport
+#### GPU exporter tech support
 
 The [techsupport_dump.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/tools/techsupport_dump.sh) script collects GPU exporter diagnostics.
 
@@ -41,7 +41,7 @@ Collected diagnostics include:
 - GPU agent logs
 - Kubernetes resources (nodes, events, pods, daemonsets)
 
-#### NIC Exporter Techsupport
+#### NIC exporter tech support
 
 The [nic_techsupport_dump.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/tools/nic_techsupport_dump.sh) script collects NIC exporter diagnostics. It supports both standalone helm deployments and operator-managed deployments.
 
@@ -91,24 +91,24 @@ The script automatically:
 4. Detects deployment type (standalone vs operator-managed)
 5. Generates a tarball named `techsupport-nic-<timestamp>.tgz`
 
-### Docker Techsupport Collection
+### Docker tech support collection
 
 ```bash
 docker exec -it device-metrics-exporter metrics-exporter-ts.sh
 docker cp device-metrics-exporter:/var/log/amd-metrics-exporter-techsupport-<timestamp>.tar.gz .
 ```
 
-### Debian Techsupport Collection
+### Debian tech support collection
 
 ```bash
 sudo metrics-exporter-ts.sh
 ```
 
-Please file an issue with collected techsupport bundle on our [GitHub Issues](https://github.com/ROCm/device-metrics-exporter/issues) page
+File an issue with the collected tech support bundle on the [GitHub issues](https://github.com/ROCm/device-metrics-exporter/issues) page.
 
 ## Logs
 
-You can view the container logs by executing the following command:
+To view the exporter logs, run the command for your deployment:
 
 ### K8s deployment
 
@@ -128,20 +128,18 @@ docker logs device-metrics-exporter
 sudo journalctl -xu amd-metrics-exporter
 ```
 
-## Service Management for Driver and Partition Operations
+## Service management for driver and partition operations
 
 When performing GPU driver unload/upgrade or partition operations, the AMD Device Metrics Exporter services must be stopped first. The specific steps vary depending on your deployment method:
 
-- **Docker Deployment**: See [Docker Installation - Service Management](../installation/docker.md#service-management-for-driver-and-partition-operations)
-- **Debian Package Deployment**: See [Debian Package Installation - Troubleshooting](../installation/deb-package.rst#troubleshooting)
+- **Docker deployment**: See [Docker installation](../installation/docker.md#service-management-for-driver-and-partition-operations).
+- **Debian package deployment**: See "Service management for driver and partition operations" in [Debian package installation](../installation/deb-package.rst).
 
-**Why is this necessary?**
+The exporter must be stopped because it keeps active connections to the GPU devices and driver.
 
-The AMD Device Metrics Exporter maintains active connections to GPU devices and drivers.
+## Common issues
 
-## Common Issues
-
-This section describes common issues with AMD Device Metrics Exporter
+This section describes common issues with AMD Device Metrics Exporter.
 
 1. Port conflicts:
    - Verify port 5000 is available
@@ -155,11 +153,10 @@ This section describes common issues with AMD Device Metrics Exporter
    - Check GPU driver status
    - Verify ROCm version compatibility
 
-4. App Armor blocking Profiler:
+4. AppArmor blocking the profiler:
 
 ```bash
-# dmesg  | grep -3 rocpctl
-root@genoa3:~/praveen# dmesg | grep -3 rocpctl
+$ sudo dmesg | grep -3 rocpctl
 [97478.776746] cni0: port 10(veth9ec08a32) entered forwarding state
 [113647.022518] audit: type=1400 audit(1765338835.280:130): apparmor="DENIED" operation="open" class="file" profile="ubuntu_pro_apt_news" name="/opt/rocm-7.1.1/lib/" pid=801116 comm="python3" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
 [113647.029634] audit: type=1400 audit(1765338835.287:131): apparmor="DENIED" operation="open" class="file" profile="ubuntu_pro_esm_cache" name="/opt/rocm-7.1.1/lib/" pid=801117 comm="python3" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
@@ -169,4 +166,4 @@ root@genoa3:~/praveen# dmesg | grep -3 rocpctl
 [172955.598090] amdgpu: Freeing queue vital buffer 0x727890200000, queue evicted
 ```
 
-  **Solution** : Disable App Armor or create custom profile to allow `rocpctl` access to /opt/rocm-7.1.1/lib/
+   **Solution:** Disable AppArmor, or create a custom profile that allows `rocpctl` to access the ROCm library directory (for example, `/opt/rocm-7.1.1/lib/`).

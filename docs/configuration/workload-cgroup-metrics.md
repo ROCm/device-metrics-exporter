@@ -57,7 +57,7 @@ docker run -d \
 
 To collect GPU metrics in the same container, start from the command in [Standalone container configuration](docker.md) and add the options above, dropping `-monitor-gpu=false`.
 
-## Which cgroups are read
+## Cgroup paths
 
 | Path under `/sys/fs/cgroup` | Scheduler |
 | --- | --- |

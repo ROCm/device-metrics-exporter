@@ -1,16 +1,14 @@
 # Singularity installation
 
-Singularity can be used to run device-metrics-exporter in a cluster environment through SLURM. The steps to achieve
-this are detailed below.
+You can use Singularity to run Device Metrics Exporter in a cluster environment through Slurm.
   
 ## Installation
 
 The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-metrics-exporter](https://hub.docker.com/r/rocm/device-metrics-exporter).
 
-- Convert Docker Image to Singularity SIF:
-  Create a file named Singularity.def with the following content:
+- Convert the Docker image to a Singularity image file (SIF). Create a file named `Singularity.def` with the following content:
 
-  ```bash
+  ```text
   bootstrap: docker
   From: rocm/device-metrics-exporter:v1.5.5
 
@@ -23,20 +21,20 @@ The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-me
 
   ```
 
-- Build the Singularity Image:
+- Build the Singularity image:
   
   ```bash
   sudo singularity build device_metrics_exporter.sif Singularity.def
   ```
 
-- Run the Singularity Container:
+- Run the Singularity container:
 
   ```bash
   sudo singularity instance start \
   --writable-tmpfs \
   --bind ./config:/etc/metrics \
   --bind /var/run/exporter/:/var/run/exporter/ \
-  device-metrics-exporter-numa-fixed.sif metrics-exporter
+  device_metrics_exporter.sif metrics-exporter
   ```
 
 - Confirm metrics are accessible:
@@ -45,13 +43,13 @@ The Device Metrics Exporter container is hosted on Docker Hub at [rocm/device-me
 curl http://localhost:5000/metrics
 ```
 
-- Review the [Prometheus and Grafana Integration Guide](../integrations/prometheus-grafana.md).
+- Review the [Prometheus and Grafana integration guide](../integrations/prometheus-grafana.md).
 
-## Keypoints
+## Key points
 
-- Run the singularity container with `sudo` to ensure proper device access and logging.
-- Bind mount `/config`, `/var/run/exporter`, for correct operation.
+- Run the Singularity container with `sudo` to ensure proper device access and logging.
+- Bind mount `./config` and `/var/run/exporter` for correct operation.
 
 ## Custom metrics
 
-For information about custom metrics, see [Standalone Container](../configuration/docker.md) for instructions.
+For information about custom metrics, see [Standalone container configuration](../configuration/docker.md).
