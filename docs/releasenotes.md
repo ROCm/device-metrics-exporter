@@ -50,6 +50,13 @@
 - **High-resolution mode limitations**
   - While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
 
+- **Total ECC counters in high-resolution mode**
+  - Total ECC counters have a known issue in high-resolution mode affecting all three categories: correctable (`GPU_ECC_CORRECT_TOTAL`), uncorrectable (`GPU_ECC_UNCORRECT_TOTAL`), and deferred (`GPU_ECC_DEFERRED_TOTAL`).
+
+- **MI350P profiler metrics with concurrent vLLM workloads**
+  - Enabling profiler metrics on MI350P nodes running vLLM with driver 31.60 can cause intermittent GPU memory access faults and vLLM engine failures. This issue is not observed with driver 31.50. See [ROCm/device-metrics-exporter#721](https://github.com/ROCm/device-metrics-exporter/issues/721).
+  - **Workaround**: Disable profiler metrics (`"ProfilerMetrics": {"all": false}`) on affected nodes.
+
 ### Platform Support
 
 ROCm 6.2 or later, MI2xx, MI3xx
