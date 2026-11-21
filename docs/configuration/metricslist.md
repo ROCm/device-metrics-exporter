@@ -88,6 +88,10 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 | PCIe bandwidth | `GPU_PCIE_BANDWIDTH` |
 | Clock limits | `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` |
 
+### Unsupported fields
+
+- `GPU_VIOLATION_*_PERCENTAGE`: All percentage-in-violation fields are unsupported in high-resolution mode. This does not apply to accumulated violation counters.
+
 ---
 
 ## Cluster Management Metrics
