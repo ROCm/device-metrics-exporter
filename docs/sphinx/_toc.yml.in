@@ -13,16 +13,16 @@ subtrees:
       - file: installation/deb-package-sriov
       - file: installation/nic-debian-package
       - file: installation/singularity.md
-  - caption: Release Notes
+  - caption: Release notes
     entries:
       - file: releasenotes
-        title: Release Notes
+        title: Release notes
       - file: releasenotes-nic
-        title: NIC Exporter Release Notes
-  - caption: Known Issues
+        title: NIC exporter release notes
+  - caption: Known issues
     entries:
     - file: knownissues
-      title: Known Issues
+      title: Known issues
   - caption: Configuration
     entries:
       - file: configuration/configuration-settings
@@ -33,13 +33,14 @@ subtrees:
       - file: configuration/troubleshooting 
       - file: configuration/metricslist
       - file: configuration/network-metricslist
+      - file: configuration/workload-cgroup-metrics
   - caption: Integrations
     entries:
     - file: integrations/prometheus-grafana
     - file: integrations/slurm-integration  
     - file: integrations/prometheus-servicemonitor
     - file: integrations/node-health-monitoring
-  - caption: Developer Guide
+  - caption: Developer guide
     entries:
     - file: developerguide
-      title: Building from Source       
+      title: Building from source       

@@ -1,13 +1,13 @@
-=======================================
-SR-IOV Debian Package Install
-=======================================
+==================================
+SR-IOV Debian package installation
+==================================
 
 The ``amdgpu-exporter-sriov`` Debian package installs the Device Metrics
 Exporter and a matching GPU Agent build on an SR-IOV/GIM hypervisor host for
-MI-series platforms. It is versioned independently from the baremetal
+MI-series platforms. It is versioned independently from the bare-metal
 ``amdgpu-exporter`` package (see :doc:`deb-package`).
 
-System Requirements
+System requirements
 ===================
 
 - **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
@@ -20,8 +20,8 @@ System Requirements
 Installation
 ===================
 
-Step 1: Install the APT Prerequisites for Metrics Exporter
--------------------------------------------------------------
+Step 1: Install the APT prerequisites for the exporter
+------------------------------------------------------
 
 1. Update the package list and install necessary tools, keyrings and keys:
 
@@ -34,21 +34,23 @@ Step 1: Install the APT Prerequisites for Metrics Exporter
 
       wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
 
-2. Edit the sources list to add the Device Metrics Exporter repository:
+2. Add the SR-IOV Device Metrics Exporter repository to the APT sources:
 
    .. tab-set::
 
-      .. tab-item:: ubuntu 22.04
+      .. tab-item:: Ubuntu 22.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/sriov/1.0.0 jammy main
+            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/sriov/1.0.0 jammy main" \
+              | sudo tee /etc/apt/sources.list.d/device-metrics-exporter-sriov.list
 
-      .. tab-item:: ubuntu 24.04
+      .. tab-item:: Ubuntu 24.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/sriov/1.0.0 noble main
+            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/sriov/1.0.0 noble main" \
+              | sudo tee /etc/apt/sources.list.d/device-metrics-exporter-sriov.list
 
 3. Update the package list again:
 
@@ -56,8 +58,8 @@ Step 1: Install the APT Prerequisites for Metrics Exporter
 
       sudo apt update
 
-Step 2: Install the SR-IOV Metrics Exporter
-------------------------------------------------------
+Step 2: Install the SR-IOV exporter
+-----------------------------------
 
 1. Install the SR-IOV Device Metrics Exporter:
 
@@ -67,8 +69,8 @@ Step 2: Install the SR-IOV Metrics Exporter
 
    This installs two systemd units:
 
-   - ``gpuagent-sriov.service`` — the SR-IOV/GIM GPU Agent build
-   - ``amd-metrics-exporter-sriov.service`` — the metrics exporter (``Wants=``/``After=`` ``gpuagent-sriov.service``)
+   - ``gpuagent-sriov.service``: the SR-IOV/GIM GPU Agent build
+   - ``amd-metrics-exporter-sriov.service``: the metrics exporter (``Wants=``/``After=`` ``gpuagent-sriov.service``)
 
 2. Enable and start both services:
 
@@ -84,17 +86,17 @@ Step 2: Install the SR-IOV Metrics Exporter
       sudo systemctl status gpuagent-sriov.service
       sudo systemctl status amd-metrics-exporter-sriov.service
 
-Metrics Exporter Default Settings
-====================================
+Default settings
+================
 
 - **Configuration file:** ``/etc/metrics/config.json``
 - **GPU Agent socket:** ``/var/run/gpuagent.sock`` (Unix Domain Socket)
-- **GPU Agent binary:** ``gpuagent-sriov`` (SR-IOV/GIM build, distinct from the baremetal ``gpuagent``)
+- **GPU Agent binary:** ``gpuagent-sriov`` (SR-IOV/GIM build, distinct from the bare-metal ``gpuagent``)
 - Health monitoring is disabled by default in this package's config
 - See the **Hypervisor** column in the :doc:`../configuration/metricslist` for the list of metrics supported under this deployment
 
-Removing the SR-IOV Metrics Exporter
-------------------------------------------------
+Removing the SR-IOV exporter
+----------------------------
 
 1. Stop both services:
 
@@ -107,14 +109,13 @@ Removing the SR-IOV Metrics Exporter
 
    .. code-block:: bash
 
-      sudo dpkg -r amdgpu-exporter-sriov
-      sudo apt-get purge amdgpu-exporter-sriov
+      sudo apt purge amdgpu-exporter-sriov
 
 Troubleshooting
 ------------------------------------------------
 
-Techsupport Collection
-~~~~~~~~~~~~~~~~~~~~~~
+Tech support collection
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
@@ -128,16 +129,16 @@ Logs
    sudo journalctl -xu amd-metrics-exporter-sriov
    sudo journalctl -xu gpuagent-sriov
 
-Common Issues
+Common issues
 ~~~~~~~~~~~~~
 
 1. ``amd-metrics-exporter-sriov.service`` fails to start:
 
-   - Confirm ``gpuagent-sriov.service`` is running first — the exporter
-     service ``Wants=``/``After=`` it
+   - Confirm ``gpuagent-sriov.service`` is running first. The exporter
+     service has ``Wants=`` and ``After=`` dependencies on it.
    - Verify the GIM driver (9.0.0.K or later) is installed on the host
 
 2. Metric collection issues:
 
    - Check that the GIM driver version meets the minimum requirement
-   - Confirm the host is actually configured for SR-IOV/GIM virtualization
+   - Confirm the host is configured for SR-IOV/GIM virtualization

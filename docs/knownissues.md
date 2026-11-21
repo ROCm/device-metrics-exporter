@@ -1,10 +1,10 @@
-# Known Issues/Limitations
+# Known issues and limitations
 
 ## Limitations
 
-- Exporter In VM guest mode the follow labels will be empty. This is a
-  limitation because of SRIOV restriction from hypervisor
+- When the exporter runs in a VM guest, the following labels are empty because of an
+  SR-IOV restriction from the hypervisor:
   - `card_model`
   - `serial_number`
 
-[Issue 171](https://github.com/ROCm/device-metrics-exporter/issues/171)
+See [issue 171](https://github.com/ROCm/device-metrics-exporter/issues/171).

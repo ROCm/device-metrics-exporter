@@ -1,8 +1,8 @@
-# Standalone NIC Monitoring Debian Package Install
+# Standalone NIC monitoring Debian package installation
 
 This guide explains how to install and manage the AMD NIC Metrics Exporter using the Debian package artifacts published with each release.
 
-## System Requirements
+## System requirements
 
 Make sure the target node meets the following requirements:
 
@@ -10,7 +10,7 @@ Make sure the target node meets the following requirements:
 - **Privileges**: Root access (or sudo privileges) to install packages and manage systemd services
 - **Networking Tools**: `ethtool` and `iproute2` (automatically pulled in by the package dependencies)
 
-## Prepare the Host
+## Preparing the host
 
 Update the package metadata and install any pending security fixes before adding the exporter:
 
@@ -19,13 +19,13 @@ sudo apt update
 sudo apt upgrade -y
 ```
 
-**Note**: For air-gapped environments, ensure ethtool and iproute2 are available locally, or mirror them in your repository so .deb dependencies can be resolved.
+**Note:** For air-gapped environments, make sure `ethtool` and `iproute2` are available locally, or mirror them in your repository so that the package dependencies can be resolved.
 
-## Install the NIC Metrics Exporter
+## Installing the NIC exporter
 
-### 1. Install via APT
+### Install with APT
 
-#### Install Prerequisites
+#### Install prerequisites
 
 1. Update the package list and install necessary tools, keyrings and keys:
 
@@ -45,17 +45,17 @@ sudo apt upgrade -y
 
     On Ubuntu 22.04:
 
-    ```bash
-    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 jammy main
+    ```text
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 jammy main
     ```
 
     On Ubuntu 24.04:
 
-    ```bash
-    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]  https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 noble main
+    ```text
+    deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/nic/apt/1.1.0 noble main
     ```
 
-3. Update Package List and Install NIC Metrics Exporter
+3. Update the package list and install the NIC exporter:
 
     ```bash
     # Update packages list
@@ -65,7 +65,7 @@ sudo apt upgrade -y
     sudo apt install amdnic-exporter
     ```
 
-### 2. Install using a downloaded .deb file
+### Install from a downloaded .deb file
 
 Replace the filename with the specific Ubuntu version you are targeting (for example, `amdnic-exporter_24.04_amd64.deb` for Ubuntu 24.04):
 
@@ -75,7 +75,7 @@ sudo apt install ./amdnic-exporter_<ubuntu-version>_amd64.deb
 
 Using `apt` ensures the `ethtool` and `iproute2` dependencies are pulled in automatically. If you prefer to use `dpkg`, run `sudo dpkg -i ./amdnic-exporter_<ubuntu-version>_amd64.deb` followed by `sudo apt install -f` to resolve dependencies.
 
-### 3. Enable and Start the Service
+### Enable and start the service
 
 ```bash
 sudo systemctl daemon-reload
@@ -94,7 +94,7 @@ Check logs if you need to troubleshoot startup:
 journalctl -u amd-nic-metrics-exporter.service -f
 ```
 
-### 4. Validate Metrics Collection
+### Validate metrics collection
 
 - Scrape the metrics endpoint locally:
 
@@ -102,16 +102,16 @@ journalctl -u amd-nic-metrics-exporter.service -f
   curl http://127.0.0.1:5001/metrics | head
   ```
 
-## Metrics Exporter Default Settings
+## Default settings
 
-- **Metrics endpoint:** ``http://localhost:5001/metrics``
-- **Configuration file:** ``/etc/metrics/config-nic.json``
-- **Log file:** ``/var/log/amd-nic-metrics-exporter.log``
-- **Server port:** ``5001``
+- **Metrics endpoint:** `http://localhost:5001/metrics`
+- **Configuration file:** `/etc/metrics/config-nic.json`
+- **Log file:** `/var/log/amd-nic-metrics-exporter.log`
+- **Server port:** `5001`
 
-The Exporter HTTP port is configurable via the ServerPort field in the configuration file.
+To change the HTTP port, set the `ServerPort` field in the configuration file.
 
-## Metrics Exporter Custom Configuration
+## Custom configuration
 
 ### Update the configuration
 
@@ -121,7 +121,7 @@ Edit the NIC configuration file to adjust scrape settings (for example, to chang
 sudo vi /etc/metrics/config-nic.json
 ```
 
-The exporter watches this file and automatically reloads the new settings when it changes. For reference, see [example/config-nic.json](./../../example/config-nic.json).
+The exporter watches this file and automatically reloads the new settings when it changes. For reference, see [example/config-nic.json](https://github.com/ROCm/device-metrics-exporter/blob/main/example/config-nic.json).
 
 ### Change the log file path
 
@@ -146,7 +146,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart amd-nic-metrics-exporter.service
 ```
 
-## Uninstall the Package
+## Uninstalling the package
 
 ```bash
 sudo apt remove amdnic-exporter

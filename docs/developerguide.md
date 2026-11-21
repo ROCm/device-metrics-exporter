@@ -1,4 +1,4 @@
-# Developer Guide
+# Developer guide
 
 This document provides build instructions and guidance for developers working on the AMD Device Metrics Exporter repository.
 
@@ -16,7 +16,7 @@ git submodule update --init --recursive
 
 ## Environment Setup
 
-The project Makefile provides a easy way to create a docker build container that packages the Docker and Go versions needed to build this repository. The following environment variables can be set, either directly or via a `dev.env` file:
+The project Makefile provides an easy way to create a docker build container that packages the Docker and Go versions needed to build this repository. The following environment variables can be set, either directly or via a `dev.env` file:
 
 - `DOCKER_REGISTRY`: Docker registry (default: `docker.io/rocm`).
 - `DOCKER_BUILDER_TAG`: Docker build container tag (default: `v1.0`).
@@ -82,7 +82,7 @@ This command builds:
 
 ### Building a Debian/RPM Package
 
-To build a Debian ubuntu 22.04, 24.04 and Rhel 9 rpm
+To build Debian packages for Ubuntu 22.04 and 24.04 and an RPM package for RHEL 9:
 
 #### Build dependent libraries for packaging (once)
 
@@ -114,13 +114,13 @@ To run unit tests in `pkg/`:
 make unit-test
 ```
 
-To run end-end tests:
+To run end-to-end tests:
 
 ```bash
 make e2e
 ```
 
-**Note**: End-end tests run on mock AMD Metrics Exporter image that mocks the metrics generated.
+**Note:** End-to-end tests run on a mock AMD Metrics Exporter image that mocks the metrics generated.
 
 ## Kubernetes E2E Tests
 

@@ -1,6 +1,6 @@
 # Prometheus and Grafana integration
 
-Grafana dashboards provided visualize GPU metrics collected from AMD Device Metrics Exporter via Prometheus.
+The provided Grafana dashboards visualize GPU metrics collected from AMD Device Metrics Exporter via Prometheus.
 Pre-built Grafana dashboards are available in the [`grafana`](https://github.com/ROCm/device-metrics-exporter/tree/main/grafana) directory of the repository:
 
 - [High-level GPU cluster overview](https://raw.githubusercontent.com/ROCm/device-metrics-exporter/refs/heads/main/grafana/dashboard_overview.json)
@@ -10,29 +10,31 @@ Pre-built Grafana dashboards are available in the [`grafana`](https://github.com
 
 Import these dashboards through the Grafana interface for immediate visualization of your GPU metrics.
 
-## Grafana Dashboard Setup
+## Grafana dashboard setup
 
 - Variables can be configured at any time in each dashboard's **Settings > Variables** section.
 
-  **g_metrics_prefix**: string to prefix names of metrics queries (e.g. gpu_gfx_activity -> amd_gpu_gfx_activity)
+  `g_metrics_prefix`: Prefix added to the metric names in queries (for example, `gpu_gfx_activity` becomes `amd_gpu_gfx_activity`).
 
 - Prefix can be set using the dropdown menu in the top left corner of each dashboard.
 
-## Methods to Ingest metrics into Prometheus
+## Ingesting metrics into Prometheus
 
-### Method 1: Direct Prometheus Configuration
+### Method 1: Direct Prometheus configuration
 
-#### Run Prometheus (for Testing)
+#### Run Prometheus for testing
+
+Run this command from the root of a clone of this repository, which provides `example/prometheus.yml`:
 
 ```bash
 docker run -p 9090:9090 -v ./example/prometheus.yml:/etc/prometheus/prometheus.yml -v prometheus-data:/prometheus prom/prometheus
 ```
 
-#### Installing Grafana (for Testing)
+#### Install Grafana for testing
 
-Follow the official [Grafana Debian Installation guide](https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/).
+Follow the [Grafana Debian installation guide](https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/).
 
-Start Grafana Server:
+Start the Grafana server:
 
 ```bash
 sudo systemctl daemon-reload
@@ -51,7 +53,7 @@ scrape_configs:
       - targets: ['exporter_external_ip:5000']
 ```
 
-### Method 2: Using Prometheus Operator in Kubernetes
+### Method 2: Using the Prometheus Operator in Kubernetes
 
 If you're using Kubernetes, you can install Prometheus and Grafana using the Prometheus Operator:
 
@@ -74,11 +76,13 @@ If you're using Kubernetes, you can install Prometheus and Grafana using the Pro
 3. Deploy Device Metrics Exporter with ServiceMonitor enabled:
 
    ```bash
-   helm install metrics-exporter \
-     https://github.com/ROCm/device-metrics-exporter/releases/download/v1.5.5/device-metrics-exporter-charts-v1.5.5.tgz \
+   helm repo add exporter https://rocm.github.io/device-metrics-exporter
+   helm repo update
+   helm install metrics-exporter exporter/device-metrics-exporter-charts \
+     --version v1.5.5 \
      --set serviceMonitor.enabled=true \
      --set serviceMonitor.interval=15s \
      -n mynamespace --create-namespace
    ```
 
-For detailed ServiceMonitor configuration options and troubleshooting, please refer to the [Prometheus ServiceMonitor Integration](./prometheus-servicemonitor.md) documentation.
+For ServiceMonitor configuration options and troubleshooting, see [Prometheus ServiceMonitor integration](./prometheus-servicemonitor.md).

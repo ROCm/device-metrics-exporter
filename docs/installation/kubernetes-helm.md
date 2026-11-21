@@ -117,6 +117,7 @@ Use the `--debug` flag with helm install or helm template to see the fully rende
 
 ```bash
 helm template exporter exporter/device-metrics-exporter-charts \
+  --version v1.5.5 \
   --debug \
   -f gpu-values.yaml
 ```
@@ -220,6 +221,7 @@ Use the `--debug` flag with helm install or helm template to see the fully rende
 
 ```bash
 helm template exporter exporter/nic-device-metrics-exporter-charts \
+  --version v1.2.0 \
   --debug \
   -f nic-values.yaml
 ```
