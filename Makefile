@@ -195,7 +195,6 @@ export ROCM_COMMIT
 export ROCM_APT_VERSION
 export ROCM_TARBALL_URL
 export RVS_TARBALL_URL
-export RVS_ROCM10_TARBALL_URL
 # export so docker/Makefile (sub-make) can pass --build-context rocm-tarball
 export ROCM_TARBALL_DIR
 export AMDSMI_FROM_TARBALL
@@ -676,7 +675,7 @@ docker-test-runner: gen-test-runner amdtestrunner
 # the default (RVS-only) build uses the repo-wide ROCM_VERSION.
 TESTRUNNER_ROCM_VERSION = $(if $(filter 1,$(AGFHC)),$(AGFHC_ROCM_VERSION),$(ROCM_VERSION))
 TESTRUNNER_ROCM_TARBALL_URL = $(if $(filter 1,$(AGFHC)),$(AGFHC_ROCM_TARBALL_URL),$(ROCM_TARBALL_URL))
-TESTRUNNER_RVS_TARBALL_URL = $(if $(filter 1,$(AGFHC)),$(RVS_TARBALL_URL),$(RVS_ROCM10_TARBALL_URL))
+TESTRUNNER_RVS_TARBALL_URL = $(RVS_TARBALL_URL)
 
 .PHONY: docker-test-runner-cicd
 docker-test-runner-cicd: gen-test-runner amdtestrunner
