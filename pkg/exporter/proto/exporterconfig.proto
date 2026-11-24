@@ -227,6 +227,7 @@ enum GPUMetricField {
     GPU_ECC_DEFERRED_JPEG        = 139;
     GPU_ECC_DEFERRED_IH          = 140;
     GPU_ECC_DEFERRED_MPIO        = 141;
+    GPU_UBB_POWER                = 142;
 
     // Profiler Metrics (reserving 801 to 1200)
     GPU_PROF_GRBM_GUI_ACTIVE                                 = 801;

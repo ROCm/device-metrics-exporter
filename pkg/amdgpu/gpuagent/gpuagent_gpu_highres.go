@@ -161,6 +161,8 @@ var highResWatchMetrics = []highResWatchMetric{
 	// energy accumulator (uJ): fast-tier from the bulk gpu_metrics read, so it
 	// leaves the GPUGet non-watch carry set and updates every FastPeriodSecs
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED, "gpu_energy_consumed"},
+	// UBB node power (W): node-wide, partition 0 only, N/A elsewhere
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER, "gpu_ubb_power"},
 
 	// memory totals/used/free and PCIe link speed
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_VRAM, "gpu_total_vram"},

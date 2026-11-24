@@ -195,6 +195,8 @@ enum GPUWatchAttrId {
   // accumulated GPU energy in uJ (energy_accumulator scaled by the counter
   // resolution); fast-tier, sourced from the one bulk gpu_metrics read
   GPU_WATCH_ATTR_ID_ENERGY_CONSUMED     = 139;
+  // UBB node power in W, MI350X+ OAM; partition 0 only, N/A elsewhere
+  GPU_WATCH_ATTR_ID_UBB_POWER           = 140;
 }
 
 // one element of an array-valued (indexed) watch attribute, e.g. one HBM
