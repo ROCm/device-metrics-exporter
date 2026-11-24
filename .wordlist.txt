@@ -347,7 +347,6 @@ filesystems
 prepended
 requeued
 subtree
-cgroup
 vLLM
 AppArmor
 kubelet
