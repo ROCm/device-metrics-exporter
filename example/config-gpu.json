@@ -133,6 +133,7 @@
       "GPU_ECC_DEFERRED_JPEG",
       "GPU_ECC_DEFERRED_IH",
       "GPU_ECC_DEFERRED_MPIO",
+      "GPU_UBB_POWER",
       "GPU_HEALTH",
       "GPU_XGMI_LINK_RX",
       "GPU_XGMI_LINK_TX",

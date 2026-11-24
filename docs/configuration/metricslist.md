@@ -7,6 +7,7 @@ The following document contains a full list of GPU Metrics that are available us
 ### MI3xx-Only Metrics
 
 - GPU_PACKAGE_POWER
+- GPU_UBB_POWER
 - GPU_VRAM_MAX_BANDWIDTH
 - PCIE_BANDWIDTH
 - PCIE_REPLAY_COUNT
@@ -120,6 +121,7 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 | &cross; | &check; | GPU_AVERAGE_PACKAGE_POWER `[MI2xx, Radeon]` | Average socket power in Watts; not available on guest VM |
 | &cross; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
 | &cross; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
+| &cross; | &check; | GPU_UBB_POWER `[MI35x OAM]` | UBB (node) power in Watts. Node-wide value, identical on every GPU of the UBB; **do not sum across GPUs**. Reported on the primary partition (`partition_id=0`) only; other partitions omit it. Absent on non-OAM platforms. Refresh tier: 1 s only (pull / high-res fast tier); not available at 1 / 10 / 100 ms. See the [high-resolution tier table](#high-resolution-sampling-tiers) |
 
 ### Activity Metrics
 
