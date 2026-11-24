@@ -1,0 +1,340 @@
+From 8dca15190798a4b8bcf91f39980077e95301500e Mon Sep 17 00:00:00 2001
+From: praveen <praveenkumar.shanmugam@amd.com>
+Date: Tue, 24 Nov 2026 14:27:35 -0800
+Subject: [PATCH] GPUOP-1124: Implement gpuagent UBB node power
+
+Re-introduce UBB (node) power from amdsmi_get_power_info() -> ubb_power
+only, for GPUGet and GPUWatch, without amdsmi_get_node_handle /
+amdsmi_get_npm_info (render node waker, ROCM-26020).
+
+- proto/API: GPU_WATCH_ATTR_ID_UBB_POWER = 140, AGA_GPU_WATCH_ATTRS_MAX
+  141, svc proto<->aga id mapping, unit "Watts"
+- amdsmi: create-time probe on partition 0 records g_ubb_power_gpus;
+  GPUGet fills stats->ubb_power only for probed handles; 0 and
+  UINT32_MAX map to UINT64_MAX (N/A, never 0)
+- gpu_entry::fill_stats_ presets ubb_power = UINT64_MAX (parents, gim,
+  wsl, children)
+- watcher: attr 140 in k_fast_attrs; amdsmi case reads power_info for
+  probed handles; gim/wsl cases publish UINT64_MAX; reset to N/A each
+  tick via aga_gpu_watch_reset_fast_fields
+- mock: synthetic ubb_power on partition 0
+
+Attr 140 has a 1 s supported-cadence floor (GPUOP-1108 comment 592985).
+At today's 1 s fast tick it is read once per tick. GPUOP-1122 owns the
+per-attribute cadence mechanism and must gate this read to at most once
+per 1 s on sub-second ticks and carry the value forward instead of the
+per-tick reset (hook points commented in smi_state.cc and
+aga_gpu_watch.hpp).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ sw/nic/gpuagent/api/gpu.cc                    |  5 +++
+ sw/nic/gpuagent/api/include/aga_gpu_watch.hpp |  3 +-
+ .../gpuagent/api/internal/aga_gpu_watch.hpp   |  6 +++
+ sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc     | 44 +++++++++++++++++++
+ sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc   | 17 +++++++
+ .../gpuagent/api/smi/gimamdsmi/smi_state.cc   |  5 +++
+ sw/nic/gpuagent/api/smi/smi_api_mock.cc       |  3 ++
+ sw/nic/gpuagent/api/smi/smi_watch.cc          |  3 ++
+ .../gpuagent/api/smi/wslamdsmi/smi_state.cc   |  4 ++
+ sw/nic/gpuagent/protos/gpu_watch.proto        |  3 ++
+ sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp    |  3 ++
+ sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp     |  2 +
+ 12 files changed, 97 insertions(+), 1 deletion(-)
+
+diff --git a/sw/nic/gpuagent/api/gpu.cc b/sw/nic/gpuagent/api/gpu.cc
+index 8548a6cadbe..37b0cf6505d 100644
+--- a/sw/nic/gpuagent/api/gpu.cc
++++ b/sw/nic/gpuagent/api/gpu.cc
+@@ -152,6 +152,8 @@ gpu_entry::update_handler(api_params_base *api_params) {
+ void
+ gpu_entry::fill_stats_(aga_gpu_stats_t *stats,
+                        const aga_gpu_get_filter_t *filter) {
++    // UBB node power is NA unless the backend fills it (partition 0, MI350X+)
++    stats->ubb_power = UINT64_MAX;
+     // fill stats only for non-parent GPUs
+     if (child_gpus_.size()) {
+         return;
+@@ -321,6 +323,9 @@ gpu_entry::fill_gpu_watch_stats(aga_gpu_watch_attrs_t *stats) {
+         case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
+             attr_val->long_val = stats_.energy_consumed;
+             break;
++        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
++            attr_val->long_val = stats_.ubb_power;
++            break;
+         case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+             attr_val->long_val = stats_.gpu_memory_usage;
+             break;
+diff --git a/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp b/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp
+index f893abd2e6f..84e868669f9 100644
+--- a/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp
++++ b/sw/nic/gpuagent/api/include/aga_gpu_watch.hpp
+@@ -191,7 +191,8 @@ typedef enum aga_gpu_watch_attr_id_e {
+     AGA_GPU_WATCH_ATTR_ID_PCIE_SPEED                                     = 137,
+     AGA_GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED                                 = 138,
+     AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED                                = 139,
+-    AGA_GPU_WATCH_ATTRS_MAX                                              = 140,
++    AGA_GPU_WATCH_ATTR_ID_UBB_POWER                                      = 140,
++    AGA_GPU_WATCH_ATTRS_MAX                                              = 141,
+ } aga_gpu_watch_attr_id_t;
+ 
+ /// \brief    GPU watch attribute value type
+diff --git a/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp b/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp
+index 36dca3739a0..de2603a52c8 100644
+--- a/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp
++++ b/sw/nic/gpuagent/api/internal/aga_gpu_watch.hpp
+@@ -284,6 +284,8 @@ typedef struct aga_gpu_watch_fields_s {
+     /// PCIe link speed (in GT/s) from amdsmi_get_pcie_info
+     uint64_t pcie_speed;
+     uint64_t pcie_max_speed;
++    /// UBB node power (W) from amdsmi_get_power_info; partition 0 only
++    uint64_t ubb_power;
+ } aga_gpu_watch_fields_t;
+ 
+ /// \brief    reset the fast-tier fields of a watch record to the NA sentinel
+@@ -316,6 +318,10 @@ aga_gpu_watch_reset_fast_fields (aga_gpu_watch_fields_t *wi)
+     wi->pcie_replay_rollover_count = UINT64_MAX;
+     wi->pcie_nack_sent_count = UINT64_MAX;
+     wi->pcie_nack_received_count = UINT64_MAX;
++    // UBB node power (own amdsmi_get_power_info read, 1 s supported cadence
++    // floor); GPUOP-1122 must carry it forward on sub-second ticks instead of
++    // resetting it here
++    wi->ubb_power = UINT64_MAX;
+     // array-valued fast attrs: empty until (re)populated this tick
+     wi->hbm_temperature_count = 0;
+     wi->vcn_activity_count = 0;
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+index 12e5971b442..84aeb1921d0 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
+@@ -58,6 +58,9 @@ std::unordered_map<aga_gpu_handle_t, amdsmi_gpu_metrics_t> g_gpu_metrics;
+ #define AMDSMI_ASIC_IS_RDNA(gfx_ver)    (((gfx_ver) >> 12) == 1)
+ /// RDNA GPU handles, recorded at init; read-only during serving so no lock needed
+ std::unordered_set<aga_gpu_handle_t> g_rdna_gpus;
++/// partition 0 GPU handles with a valid UBB node power reading, recorded at
++/// create; read-only during serving so no lock needed
++std::unordered_set<aga_gpu_handle_t> g_ubb_power_gpus;
+ /// counter resolution in uJ; this is a constant value that we get once during
+ /// init time and use whenever we want to calculate energy accumalated
+ float g_energy_counter_resolution;
+@@ -260,6 +263,36 @@ smi_gpu_init_config_ (aga_gpu_handle_t gpu_handle, aga_gpu_spec_t *spec,
+     }
+ }
+ 
++/// \brief    decide UBB node power support once at create time; only partition
++///           0 (or a non-partitioned GPU) is probed since UBB power is node
++///           wide; amdsmi_get_power_info reads sysfs only (no render node)
++/// \param[in] gpu_handle    GPU handle
++/// \param[in] status        GPU status (partition id)
++static void
++smi_gpu_init_ubb_power_ (aga_gpu_handle_t gpu_handle,
++                         const aga_gpu_status_t *status)
++{
++    amdsmi_status_t amdsmi_ret;
++    amdsmi_power_info_t power_info = {};
++
++    // UBB power is node wide; only the primary partition reports it
++    if ((status->partition_id != 0) &&
++        (status->partition_id != AGA_GPU_INVALID_PARTITION_ID)) {
++        return;
++    }
++    // probe once; never amdsmi_get_node_handle/npm_info (render node waker,
++    // ROCM-26020). The return code is not gated on: it carries the
++    // gpu_metrics status (can be BUSY) while ubb_power is still filled
++    power_info.ubb_power = UINT32_MAX;
++    amdsmi_ret = amdsmi_get_power_info(gpu_handle, &power_info);
++    if ((power_info.ubb_power != UINT32_MAX) && (power_info.ubb_power != 0)) {
++        g_ubb_power_gpus.insert(gpu_handle);
++    }
++    AGA_TRACE_INFO("GPU {} UBB power {}supported (probe {}W, ret {})",
++                   gpu_handle, g_ubb_power_gpus.count(gpu_handle) ? "" : "not ",
++                   power_info.ubb_power, amdsmi_ret);
++}
++
+ /// \brief     function to get name for amdsmi firmware block enum
+ /// \param[in] block    amdsmi firmware block enum
+ /// \return    firmware block name
+@@ -1347,6 +1380,7 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+                     const aga_gpu_get_filter_t *filter)
+ {
+     amdsmi_status_t amdsmi_ret;
++    amdsmi_power_info_t power_info = {};
+     uint64_t sent, received, max_pkt_size;
+     amdsmi_gpu_metrics_t metrics_info = {};
+     amdsmi_gpu_metrics_t cached_metrics = {};
+@@ -1587,6 +1621,14 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+                 AGA_WIDEN_UINT16_NA(cached_metrics.average_umc_activity, UINT32_MAX);
+         }
+     }
++    // UBB node power: only on partition 0 handles probed at create time;
++    // never amdsmi_get_node_handle/npm_info (render node waker, ROCM-26020)
++    if (g_ubb_power_gpus.count(gpu_handle)) {
++        power_info.ubb_power = UINT32_MAX;
++        amdsmi_get_power_info(gpu_handle, &power_info);
++        stats->ubb_power = (power_info.ubb_power == 0) ? UINT64_MAX :
++            AGA_WIDEN_UINT32_NA(power_info.ubb_power, UINT64_MAX);
++    }
+     return SDK_RET_OK;
+ }
+ 
+@@ -2390,6 +2432,8 @@ smi_gpu_init_attrs (aga_gpu_handle_t gpu_handle, const aga_obj_key_t *gpu_key,
+     smi_gpu_fill_spec(gpu_handle, gpu_key, spec);
+     // read the config attributes
+     smi_gpu_init_config_(gpu_handle, spec, status);
++    // decide UBB node power support once
++    smi_gpu_init_ubb_power_(gpu_handle, status);
+     return SDK_RET_OK;
+ }
+ 
+diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+index c8af80bde53..80a3b3c37f0 100644
+--- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
++++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
+@@ -22,6 +22,7 @@ limitations under the License.
+ 
+ #include <vector>
+ #include <memory>
++#include <unordered_set>
+ extern "C" {
+ #include "nic/third-party/rocm/amd_smi_lib/include/amd_smi/amdsmi.h"
+ }
+@@ -74,6 +75,8 @@ namespace aga {
+ /// energy counter resolution (uJ/count), defined in smi_api.cc (namespace aga);
+ /// the watcher reuses it to scale energy_accumulator like GPUGet
+ extern float g_energy_counter_resolution;
++/// partition 0 GPU handles with UBB node power, probed at create in smi_api.cc
++extern std::unordered_set<aga_gpu_handle_t> g_ubb_power_gpus;
+ 
+ /// global singleton smi state class instance
+ smi_state g_smi_state;
+@@ -1262,6 +1265,20 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+                 }
+             }
+             break;
++        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
++            // node wide; read only on partition 0 handles probed at create;
++            // never amdsmi_get_node_handle/npm_info (render node waker,
++            // ROCM-26020). 1 s supported cadence floor: GPUOP-1122 gates this
++            // read to at most once per 1 s on sub-second ticks
++            if (g_ubb_power_gpus.count(gpu_handle)) {
++                power_info.ubb_power = UINT32_MAX;
++                amdsmi_get_power_info(gpu_handle, &power_info);
++                if (power_info.ubb_power != 0) {
++                    watch_db->watch_info[gpu_id].ubb_power =
++                        AGA_WIDEN_UINT32_NA(power_info.ubb_power, UINT64_MAX);
++                }
++            }
++            break;
+         default:
+             break;
+         }
+diff --git a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
+index d45aee7c7ea..23f5e4999ca 100644
+--- a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
++++ b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
+@@ -336,6 +336,11 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         case AGA_GPU_WATCH_ATTR_ID_XGMI_4_THRPUT:
+         case AGA_GPU_WATCH_ATTR_ID_XGMI_5_THRPUT:
+             // not supported
++            break;
++        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
++            // not supported (SR-IOV UBB deferred)
++            watch_db->watch_info[gpu_id].ubb_power = UINT64_MAX;
++            break;
+         default:
+             break;
+         }
+diff --git a/sw/nic/gpuagent/api/smi/smi_api_mock.cc b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
+index ad4a70b55d7..a3167dab787 100644
+--- a/sw/nic/gpuagent/api/smi/smi_api_mock.cc
++++ b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
+@@ -298,6 +298,9 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+     stats->avg_package_power = 90 + distr(gen) - distr(gen);
+     // fill the current package power
+     stats->package_power = 90 + distr(gen) - distr(gen);
++    // synthetic UBB node power, partition 0 only
++    stats->ubb_power =
++        partition_id ? UINT64_MAX : (2100 + distr(gen) - distr(gen));
+     // fill the GPU usage
+     if (!AGA_GPU_SKIP(filter, skip_activity_stats)) {
+         stats->usage.gfx_activity = distr(gen) % 100;
+diff --git a/sw/nic/gpuagent/api/smi/smi_watch.cc b/sw/nic/gpuagent/api/smi/smi_watch.cc
+index 1dc8bdf1182..64ace936444 100644
+--- a/sw/nic/gpuagent/api/smi/smi_watch.cc
++++ b/sw/nic/gpuagent/api/smi/smi_watch.cc
+@@ -105,6 +105,9 @@ static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
+     AGA_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE,
+     AGA_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH,
+     AGA_GPU_WATCH_ATTR_ID_EDGE_TEMP,
++    // UBB node power: own amdsmi_get_power_info call, partition 0 only, 1 s
++    // floor (GPUOP-1122's per-attr cadence must not read it below 1 s)
++    AGA_GPU_WATCH_ATTR_ID_UBB_POWER,
+ };
+ 
+ /// attrs that each cost their own smi call and so are sampled less often
+diff --git a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
+index b793cf035c1..cdbe765c345 100644
+--- a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
++++ b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
+@@ -1274,6 +1274,10 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+                 }
+             }
+             break;
++        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
++            // not supported (WSL UBB deferred)
++            watch_db->watch_info[gpu_id].ubb_power = UINT64_MAX;
++            break;
+         default:
+             break;
+         }
+diff --git a/sw/nic/gpuagent/protos/gpu_watch.proto b/sw/nic/gpuagent/protos/gpu_watch.proto
+index 3018b18f990..9c5f71f8473 100644
+--- a/sw/nic/gpuagent/protos/gpu_watch.proto
++++ b/sw/nic/gpuagent/protos/gpu_watch.proto
+@@ -197,6 +197,9 @@ enum GPUWatchAttrId {
+   GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED                                 = 138;
+   // accumulated GPU energy in uJ; number matches the exporter wire enum
+   GPU_WATCH_ATTR_ID_ENERGY_CONSUMED                                = 139;
++  // UBB (node) power in Watts, MI350X+; partition 0 only, N/A elsewhere;
++  // number matches the exporter wire enum
++  GPU_WATCH_ATTR_ID_UBB_POWER                                      = 140;
+ }
+ 
+ // one element of an array-valued (indexed) watch attribute
+diff --git a/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp b/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp
+index 765c254491c..eeca2d5f8bf 100644
+--- a/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp
++++ b/sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp
+@@ -103,6 +103,7 @@ aga_gpu_watch_attr_id_to_units (aga_gpu_watch_attr_id_t id)
+     case AGA_GPU_WATCH_ATTR_ID_EDGE_TEMP:
+         return std::string("C");
+     case AGA_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE:
++    case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
+         return std::string("Watts");
+     case AGA_GPU_WATCH_ATTR_ID_VCN_ACTIVITY:
+     case AGA_GPU_WATCH_ATTR_ID_JPEG_ACTIVITY:
+@@ -174,6 +175,8 @@ aga_gpu_watch_attr_id_to_proto (aga_gpu_watch_attr_id_t id)
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_MEM_VOLTAGE;
+     case AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ENERGY_CONSUMED;
++    case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
++        return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_UBB_POWER;
+     case AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+         return amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE;
+     case AGA_GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL:
+diff --git a/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp b/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp
+index 2c569d9aaee..83a84304ffa 100644
+--- a/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp
++++ b/sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp
+@@ -67,6 +67,8 @@ aga_gpu_watch_attr_id_to_api_spec (GPUWatchAttrId id)
+         return AGA_GPU_WATCH_ATTR_ID_MEM_VOLTAGE;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ENERGY_CONSUMED:
+         return AGA_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED;
++    case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_UBB_POWER:
++        return AGA_GPU_WATCH_ATTR_ID_UBB_POWER;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE:
+         return AGA_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE;
+     case amdgpu::GPUWatchAttrId::GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL:
+-- 
+2.25.1
+
