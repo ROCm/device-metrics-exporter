@@ -451,13 +451,25 @@ message HighResolutionConfig {
 
     // Sampling period in seconds for fast moving attributes (clocks,
     // temperatures, power, utilization, workload cgroup stats).
-    // Valid range 1-60, 0 selects the gpuagent default (1).
+    // Valid range 1-60, 0 selects the gpuagent default (1). Superseded by
+    // FastPeriodMs when that is set.
     uint32 FastPeriodSecs = 2;
 
     // Sampling period in seconds for slow moving attributes (ECC and XGMI
-    // counters), which carry forward between refreshes. Must be >=
-    // FastPeriodSecs. Valid range 5-3600, 0 selects the gpuagent default (5).
+    // counters), which carry forward between refreshes. Must be >= the
+    // effective fast period. Valid range 5-3600, 0 selects the gpuagent
+    // default (5).
     uint32 SlowPeriodSecs = 3;
+
+    // Sampling period in milliseconds for the high-resolution GPUWatch feed:
+    // 1, 10, 100, or a multiple of 1000 up to 60000. The power family (package
+    // power, power usage, energy, voltages, violation residency accumulators)
+    // is sampled at this period; other fast fields stay at 1 s, slow fields at
+    // SlowPeriodSecs. When set, it takes precedence over FastPeriodSecs.
+    // 0 = use FastPeriodSecs (or the default, 1000 ms). Sub-second periods are
+    // guaranteed only on non-partitioned GPUs, pending hardware validation on
+    // MI350X/MI355X.
+    uint32 FastPeriodMs = 4;
 }
 
 message DebugConfig {

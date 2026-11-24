@@ -23,6 +23,7 @@ package gpuagent
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -333,14 +334,28 @@ func (ga *GPUAgentGPUClient) reconcileHighRes() {
 	}
 	ga.hrMu.Lock()
 	defer ga.hrMu.Unlock()
+	var periods [2]uint32
 	desired := ga.gpuHandler.mh.IsHighResolution()
 	running := ga.hrCancel != nil
+	if desired {
+		periods[0], periods[1] = ga.gpuHandler.mh.GetHighResWatchPeriods()
+	}
+	// Periods are create-time only on the gpuagent watch, so a change of the
+	// effective periods restarts the feed (teardown deletes the watch, the new
+	// session recreates it with the new spec).
+	if desired && running && periods != ga.hrPeriodsRunning {
+		logger.Log.Printf("high-res: watch periods changed %dms/%ds -> %dms/%ds, restarting GPUWatch feed",
+			ga.hrPeriodsRunning[0], ga.hrPeriodsRunning[1], periods[0], periods[1])
+		ga.teardownHighResLocked()
+		running = false
+	}
 	switch {
 	case desired && !running:
 		hrCtx, cancel := context.WithCancel(ga.gpuHandler.ctx)
 		done := make(chan struct{})
 		ga.hrCancel = cancel
 		ga.hrDone = done
+		ga.hrPeriodsRunning = periods
 		go ga.runHighResFeed(hrCtx, done)
 		logger.Log.Printf("high-resolution ENABLED: GPUWatch feed started (gpuagent SMI persistent)")
 	case !desired && running:
@@ -355,6 +370,22 @@ func (ga *GPUAgentGPUClient) reconcileHighRes() {
 // highResReconnectBackoff is the wait between a GPUWatch stream failure and the
 // next reconnect attempt, bounding the churn when gpuagent is down.
 const highResReconnectBackoff = 5 * time.Second
+
+// highResFallbackFastPeriodMs is the GPUWatch fast period used when gpuagent
+// rejects a sub-second FastPeriodMs (a gpuagent without millisecond support).
+const highResFallbackFastPeriodMs uint32 = 1000
+
+// highResPeriodRejected reports whether a GPUWatchCreate status is how gpuagent
+// rejects a sub-second period: OPERATION_NOT_SUPPORTED (no millisecond support
+// on this platform) or INVALID_ARG (a gpuagent that only takes 1-60 s).
+func highResPeriodRejected(st amdgpu.ApiStatus) bool {
+	return st == amdgpu.ApiStatus_API_STATUS_OPERATION_NOT_SUPPORTED ||
+		st == amdgpu.ApiStatus_API_STATUS_INVALID_ARG
+}
+
+// highResMissedTicksLogInterval rate-limits the GPUWatchStatus.MissedTicks
+// debug line.
+const highResMissedTicksLogInterval = time.Minute
 
 // runHighResFeed owns the high-resolution GPUWatch feed for one enable session.
 // It (re)establishes the watch and consumes it until the stream fails, then evicts
@@ -511,25 +542,47 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	ga.deleteHighResWatch(ctx)
 	// Periods are create-time only: gpuagent keeps one set for the single watch
 	// object, so a retune must delete and recreate it.
-	fastSecs, slowSecs := ga.gpuHandler.mh.GetHighResPeriods()
+	fastMs, slowSecs := ga.gpuHandler.mh.GetHighResWatchPeriods()
 	spec := &amdgpu.GPUWatchSpec{
 		Id:             watchID[:],
 		GPU:            gpuIDs,
 		Attribute:      highResWatchAttrs,
-		FastPeriodSecs: fastSecs,
+		FastPeriodMs:   fastMs,
 		SlowPeriodSecs: slowSecs,
 	}
-	if _, err := ga.watchclient.GPUWatchCreate(ctx,
-		&amdgpu.GPUWatchRequest{Spec: []*amdgpu.GPUWatchSpec{spec}}); err != nil {
+	resp, err := ga.watchclient.GPUWatchCreate(ctx,
+		&amdgpu.GPUWatchRequest{Spec: []*amdgpu.GPUWatchSpec{spec}})
+	if err != nil {
 		return err
 	}
+	if st := resp.GetApiStatus(); st != amdgpu.ApiStatus_API_STATUS_OK {
+		if spec.FastPeriodMs >= highResFallbackFastPeriodMs || !highResPeriodRejected(st) {
+			return fmt.Errorf("GPUWatchCreate: %v", st)
+		}
+		// A gpuagent without sub-second support rejects the period: fall back
+		// to 1000 ms for this session. Not sticky; the next (re)connect tries
+		// the configured period again.
+		logger.Log.Printf("high-res: gpuagent rejected FastPeriodMs=%d (%v); recreating GPUWatch at %d ms",
+			spec.FastPeriodMs, st, highResFallbackFastPeriodMs)
+		ga.deleteHighResWatch(ctx)
+		spec.FastPeriodMs = highResFallbackFastPeriodMs
+		resp, err = ga.watchclient.GPUWatchCreate(ctx,
+			&amdgpu.GPUWatchRequest{Spec: []*amdgpu.GPUWatchSpec{spec}})
+		if err != nil {
+			return err
+		}
+		if st := resp.GetApiStatus(); st != amdgpu.ApiStatus_API_STATUS_OK {
+			return fmt.Errorf("GPUWatchCreate: %v", st)
+		}
+	}
+	ga.hrFastMs.Store(spec.FastPeriodMs)
 	stream, err := ga.watchclient.GPUWatchSubscribe(ctx,
 		&amdgpu.GPUWatchSubscribeRequest{Id: [][]byte{watchID[:]}})
 	if err != nil {
 		return err
 	}
-	logger.Log.Printf("high-res: GPUWatch subscribed for %d GPU(s), %d attrs",
-		len(gpuIDs), len(highResWatchAttrs))
+	logger.Log.Printf("high-res: GPUWatch subscribed for %d GPU(s), %d attrs, fast %d ms, slow %d s",
+		len(gpuIDs), len(highResWatchAttrs), spec.FastPeriodMs, spec.SlowPeriodSecs)
 
 	// Consume inline: blocks until the stream fails or ctx is cancelled, returning
 	// control to runHighResFeed to drop stale telemetry and reconnect.
@@ -542,8 +595,8 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 // cadence so the achievable high-resolution rate can be measured on hardware.
 func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	stream amdgpu.GPUWatchSvc_GPUWatchSubscribeClient) {
-	var last time.Time
-	var count uint64
+	var last, missedLogged time.Time
+	var count, missed uint64
 	for ctx.Err() == nil {
 		w, err := stream.Recv()
 		if err != nil {
@@ -551,6 +604,15 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 			return
 		}
 		now := time.Now()
+		// MissedTicks counts power ticks that never reached this subscriber
+		// (gpuagent sampler overruns plus frames dropped for us); not exported.
+		if m := w.GetStatus().GetMissedTicks(); m > missed {
+			if now.Sub(missedLogged) >= highResMissedTicksLogInterval {
+				logger.Log.Debugf("high-res: GPUWatch missed ticks %d (+%d)", m, m-missed)
+				missedLogged = now
+			}
+			missed = m
+		}
 		if !last.IsZero() {
 			// Cadence trace at debug only — at 1s it floods info logs otherwise.
 			if count%10 == 0 {

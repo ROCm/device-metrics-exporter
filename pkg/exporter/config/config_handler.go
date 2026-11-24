@@ -49,6 +49,10 @@ type ConfigHandler struct {
 	configPath  string
 	// running config can change keep updating states
 	runningConfig *Config
+	// last high-res (FastPeriodMs, FastPeriodSecs, SlowPeriodSecs) tuple seen by
+	// GetHighResWatchPeriods; its log lines fire only when the tuple changes
+	hrLogKey    [3]uint32
+	hrLogKeySet bool
 }
 
 func NewConfigHandler(configPath string, agentConfig GPUAgentConfig) *ConfigHandler {
@@ -220,7 +224,6 @@ func (c *ConfigHandler) GetHighResolutionState() bool {
 // a zero fast period in particular makes rocpctl stream at max rate, so the
 // default must be substituted here rather than passed through as 0.
 const (
-	highResDefaultFastPeriodSecs uint32 = 1
 	highResDefaultSlowPeriodSecs uint32 = 5
 	highResMinFastPeriodSecs     uint32 = 1
 	highResMaxFastPeriodSecs     uint32 = 60
@@ -228,38 +231,83 @@ const (
 	highResMaxSlowPeriodSecs     uint32 = 3600
 )
 
-// GetHighResPeriods returns the fast/slow watcher sampling periods in seconds,
-// substituting the high-res defaults for any period the config leaves unset.
-func (c *ConfigHandler) GetHighResPeriods() (uint32, uint32) {
+// highResDefaultFastPeriodMs is the effective fast period when the config sets
+// neither FastPeriodMs nor FastPeriodSecs; highResMaxFastPeriodMs caps both.
+const (
+	highResDefaultFastPeriodMs uint32 = 1000
+	highResMaxFastPeriodMs     uint32 = 60000
+)
+
+// highResFastPeriodMsValid mirrors gpuagent's aga_gpu_watch_fast_period_ms_valid:
+// 1, 10, 100, or a multiple of 1000 up to 60000.
+func highResFastPeriodMsValid(ms uint32) bool {
+	switch ms {
+	case 1, 10, 100:
+		return true
+	}
+	return ms != 0 && ms%1000 == 0 && ms <= highResMaxFastPeriodMs
+}
+
+// GetHighResWatchPeriods returns the GPUWatch fast period in milliseconds and
+// the slow period in seconds. Precedence for the fast period: FastPeriodMs if
+// set, else FastPeriodSecs*1000, else 1000 ms. Any invalid combination falls
+// back to the defaults (1000 ms / 5 s), so a sub-second period is never chosen
+// by accident. With high-res disabled or unconfigured the defaults are returned.
+func (c *ConfigHandler) GetHighResWatchPeriods() (uint32, uint32) {
 	c.Lock()
 	defer c.Unlock()
-	fast, slow := highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs
+	fastMs, slow := highResDefaultFastPeriodMs, highResDefaultSlowPeriodSecs
 	cfg := c.runningConfig.GetConfig()
 	if cfg == nil || cfg.GetCommonConfig() == nil {
-		return fast, slow
+		return fastMs, slow
 	}
 	hr := cfg.GetCommonConfig().GetHighResolution()
-	if hr == nil {
-		return fast, slow
+	if hr == nil || !hr.GetEnable() {
+		return fastMs, slow
 	}
-	if v := hr.GetFastPeriodSecs(); v != 0 {
-		fast = v
+	ms, secs := hr.GetFastPeriodMs(), hr.GetFastPeriodSecs()
+	key := [3]uint32{ms, secs, hr.GetSlowPeriodSecs()}
+	logIt := !c.hrLogKeySet || c.hrLogKey != key
+	c.hrLogKey, c.hrLogKeySet = key, true
+
+	valid := true
+	switch {
+	case ms != 0:
+		fastMs = ms
+		valid = highResFastPeriodMsValid(ms)
+		if secs != 0 && uint64(secs)*1000 != uint64(ms) && logIt {
+			logger.Log.Printf("high-res FastPeriodMs=%d takes precedence; FastPeriodSecs=%d ignored", ms, secs)
+		}
+	case secs != 0:
+		valid = secs >= highResMinFastPeriodSecs && secs <= highResMaxFastPeriodSecs
+		fastMs = secs * 1000
 	}
 	if v := hr.GetSlowPeriodSecs(); v != 0 {
 		slow = v
 	}
-	// Enforce the documented ranges (fast 1-60, slow 5-3600, slow >= fast) so an
+	// Enforce the documented ranges (slow 5-3600 and slow >= fast) so an
 	// out-of-range config can't wedge GPUWatch/profiler in a permanent reconnect
 	// loop; fall back to the defaults on any violation.
-	if fast < highResMinFastPeriodSecs || fast > highResMaxFastPeriodSecs ||
-		slow < highResMinSlowPeriodSecs || slow > highResMaxSlowPeriodSecs || slow < fast {
-		logger.Log.Printf("invalid high-res periods (fast=%ds slow=%ds); require fast[%d-%d] slow[%d-%d] slow>=fast; using defaults %ds/%ds",
-			fast, slow, highResMinFastPeriodSecs, highResMaxFastPeriodSecs,
-			highResMinSlowPeriodSecs, highResMaxSlowPeriodSecs,
-			highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs)
-		fast, slow = highResDefaultFastPeriodSecs, highResDefaultSlowPeriodSecs
+	if !valid || slow < highResMinSlowPeriodSecs || slow > highResMaxSlowPeriodSecs ||
+		uint64(slow)*1000 < uint64(fastMs) {
+		if logIt {
+			logger.Log.Printf("invalid high-res periods (FastPeriodMs=%d FastPeriodSecs=%d SlowPeriodSecs=%d); require FastPeriodMs 1, 10, 100 or 1000k up to %d, FastPeriodSecs[%d-%d], slow[%d-%d], slow>=fast; using defaults %dms/%ds",
+				ms, secs, hr.GetSlowPeriodSecs(), highResMaxFastPeriodMs,
+				highResMinFastPeriodSecs, highResMaxFastPeriodSecs,
+				highResMinSlowPeriodSecs, highResMaxSlowPeriodSecs,
+				highResDefaultFastPeriodMs, highResDefaultSlowPeriodSecs)
+		}
+		fastMs, slow = highResDefaultFastPeriodMs, highResDefaultSlowPeriodSecs
 	}
-	return fast, slow
+	return fastMs, slow
+}
+
+// GetHighResPeriods returns the fast/slow sampling periods in seconds for the
+// consumers that never run below 1 s (cgroup sampler, profiler stream): the
+// GetHighResWatchPeriods fast period floored at 1 s.
+func (c *ConfigHandler) GetHighResPeriods() (uint32, uint32) {
+	fastMs, slow := c.GetHighResWatchPeriods()
+	return max(1, fastMs/1000), slow
 }
 
 func (c *ConfigHandler) GetProfilerConfig() *exportermetrics.ProfilerConfig {

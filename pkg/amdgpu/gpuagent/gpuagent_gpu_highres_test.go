@@ -177,7 +177,7 @@ func TestHighResSpecCarriesConfiguredPeriods(t *testing.T) {
 	err := gpuclient.StartHighRes(ctx)
 	assert.Equal(t, err, errStop)
 	assert.Assert(t, gotSpec != nil)
-	assert.Equal(t, gotSpec.GetFastPeriodSecs(), uint32(5))
+	assert.Equal(t, gotSpec.GetFastPeriodMs(), uint32(5000))
 	assert.Equal(t, gotSpec.GetSlowPeriodSecs(), uint32(30))
 }
 

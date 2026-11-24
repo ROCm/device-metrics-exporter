@@ -219,6 +219,14 @@ type GPUAgentGPUClient struct {
 	// high-res connection state) is fully stopped before a subsequent enable spawns
 	// a new one — no two reconnect goroutines ever touch that state concurrently.
 	hrDone chan struct{}
+	// hrPeriodsRunning is the (fastMs, slowSecs) pair the running feed was
+	// started with; reconcileHighRes restarts the feed when the config's
+	// effective periods differ. Guarded by hrMu.
+	hrPeriodsRunning [2]uint32
+	// hrFastMs is the fast period gpuagent accepted for the current watch
+	// (1000 after a sub-second rejection); written by the feed goroutine, read
+	// by the sub-second power-frame handling (GPUOP-1137).
+	hrFastMs atomic.Uint32
 
 	// Profiler high-res stream (P7): owns the long-lived `rocpctl --stream` child in
 	// high-res non-PTL mode, feeding gpu_prof_* into the store continuously. Guarded by
