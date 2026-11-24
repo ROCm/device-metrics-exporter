@@ -1,4 +1,4 @@
-# Standalone container configuration
+# NIC standalone container configuration
 
 To use a custom configuration with the AMD Network Device Metrics Exporter container:
 
@@ -15,4 +15,6 @@ docker run -d  \
   rocm/device-metrics-exporter:nic-v1.1.0 -monitor-nic=true -monitor-gpu=false
 ```
 
-The exporter polls for configuration changes every minute, so updates take effect without container restarts.
+Use the image tag that matches your AINIC firmware version. See the [compatibility matrix](../index.md#compatibility-matrix).
+
+The exporter watches the configuration directory and reloads the configuration when the file changes, so updates take effect without a container restart.

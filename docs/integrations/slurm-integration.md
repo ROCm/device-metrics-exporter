@@ -6,18 +6,18 @@ AMD Device Metrics Exporter integrates with Slurm workload manager to track GPU 
 
 - Slurm workload manager installed and configured
 - AMD Device Metrics Exporter installed and running
-- Root or sudo access on Slurm nodes
+- Root or `sudo` access on Slurm nodes
 
 ## Installation
 
-- Copy the integration script:
-  - [exporter-epilog.sh](../../debian/usr/local/etc/metrics/slurm/slurm-epilog.sh)
-  - [exporter-prolog.sh](../../debian/usr/local/etc/metrics/slurm/slurm-prolog.sh)
+- Copy the integration scripts from a clone of this repository (`TOP_DIR` is the repository root):
+  - [exporter-prolog.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/debian/usr/local/etc/metrics/slurm/slurm-prolog.sh)
+  - [exporter-epilog.sh](https://github.com/ROCm/device-metrics-exporter/blob/main/debian/usr/local/etc/metrics/slurm/slurm-epilog.sh)
 
 ```bash
-cp ${TOP_DIR}/example/slurm/exporter-prolog.sh /etc/slurm/epilog.d/exporter-prolog.sh
-cp ${TOP_DIR}/example/slurm/exporter-epilog.sh /etc/slurm/epilog.d/exporter-epilog.sh
-sudo chmod +x /etc/slurm/epilog.d/exporter-prolog.sh
+sudo cp ${TOP_DIR}/example/slurm/exporter-prolog.sh /etc/slurm/prolog.d/exporter-prolog.sh
+sudo cp ${TOP_DIR}/example/slurm/exporter-epilog.sh /etc/slurm/epilog.d/exporter-epilog.sh
+sudo chmod +x /etc/slurm/prolog.d/exporter-prolog.sh
 sudo chmod +x /etc/slurm/epilog.d/exporter-epilog.sh
 ```
 
@@ -40,11 +40,11 @@ Epilog="/etc/slurm/epilog.d/*"
 sudo systemctl restart slurmd     # On compute nodes if slurm.conf is updated
 ```
 
-## Exporter Container Deployment
+## Exporter container deployment
 
-### Directory Setup
+### Directory setup
 
-It's recommended to use the following directory structure to store persistent exporter data on the host:
+Use the following directory structure to store persistent exporter data on the host:
 
 ```bash
 $ tree -d exporter/
@@ -59,7 +59,7 @@ Create the directory required for tracking Slurm jobs:
 mkdir -p /var/run/exporter
 ```
 
-### Start Exporter Container
+### Start the exporter container
 
 Once the directory structure is ready, start the exporter container:
 
@@ -103,7 +103,7 @@ The prolog also writes one file per job to `/var/run/exporter/jobs/`, including 
 
 ## Troubleshooting
 
-### Common Issues
+### Common issues
 
 1. Script permissions:
    - Ensure the exporter script is executable
@@ -143,9 +143,9 @@ journalctl -u gpuagent.service -u amd-metrics-exporter.service
 docker exec device-metrics-exporter tail -f /var/log/exporter.log
 ```
 
-## Advanced Configuration
+## Advanced configuration
 
-### Custom Script Location
+### Custom script location
 
 You can place the script in a different location by updating the paths in `slurm.conf`:
 
@@ -154,7 +154,7 @@ Prolog=/path/to/custom/slurm-prolog.sh
 Epilog=/path/to/custom/slurm-epilog.sh
 ```
 
-### Additional Job Information
+### Additional job information
 
 The integration script can be modified to include additional job-specific information in the metrics. Edit the script to add custom labels as needed.
 

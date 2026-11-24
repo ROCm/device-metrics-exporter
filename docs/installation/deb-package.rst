@@ -1,14 +1,14 @@
-=================================
-Standalone Debian Package Install
-=================================
+======================================
+Standalone Debian package installation
+======================================
 
 For SR-IOV/GIM hypervisor hosts, see :doc:`deb-package-sriov` instead.
 
-System Requirements
+System requirements
 ===================
 
-Before installing the AMD GPU Metrics Exporter, you need to install the "AMDGPU" driver from the Radeon repository.
-Please ensure that your system meets the following requirements:
+Before you install AMD Device Metrics Exporter, install the AMD GPU driver (``amdgpu``) from the Radeon repository.
+Make sure that your system meets the following requirements:
 
 - **Operating System**: Ubuntu 22.04 or Ubuntu 24.04
 - **ROCm / AMDGPU Driver**: ROCm 6.2.0 or later (includes the compatible AMDGPU driver)
@@ -16,7 +16,7 @@ Please ensure that your system meets the following requirements:
 Installation
 ===================
 
-Step 1: Install System Prerequisites
+Step 1: Install system prerequisites
 ------------------------------------
 
 1. Install Linux headers and modules:
@@ -32,11 +32,11 @@ Step 1: Install System Prerequisites
 
       sudo usermod -a -G render,video $LOGNAME 
 
-Step 2: Install AMDGPU Driver
-------------------------------
+Step 2: Install the AMD GPU driver
+----------------------------------
 
 .. note::
-   For the most up-to-date information on installing dkms drivers please see the `ROCm Install Quick Start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_ page.
+   For the latest information about installing the DKMS driver, see the `ROCm installation quick start <https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/quick-start.html>`_.
 
 1. Download the driver from the Radeon repository (`repo.radeon.com <https://repo.radeon.com/amdgpu-install>`_) for your operating system. For example, to install ROCm 7.2.3 on Ubuntu 22.04:
 
@@ -61,8 +61,8 @@ Step 2: Install AMDGPU Driver
 
       sudo modprobe amdgpu
 
-Step 3: Install the APT Prerequisites for Metrics Exporter
------------------------------------------------------------
+Step 3: Install the APT prerequisites for the exporter
+------------------------------------------------------
 
 1. Update the package list and install necessary tools, keyrings and keys:
 
@@ -78,21 +78,23 @@ Step 3: Install the APT Prerequisites for Metrics Exporter
       # Download the ROCm GPG key and add it to the keyrings:
       wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
 
-2. Edit the sources list to add the Device Metrics Exporter repository:
+2. Add the Device Metrics Exporter repository to the APT sources:
 
    .. tab-set::
 
-      .. tab-item:: ubuntu 22.04
+      .. tab-item:: Ubuntu 22.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.5 jammy main
+            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.5 jammy main" \
+              | sudo tee /etc/apt/sources.list.d/device-metrics-exporter.list
 
-      .. tab-item:: ubuntu 24.04
+      .. tab-item:: Ubuntu 24.04
 
          .. code-block:: bash
 
-            deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.5 noble main
+            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/device-metrics-exporter/apt/1.5.5 noble main" \
+              | sudo tee /etc/apt/sources.list.d/device-metrics-exporter.list
 
 
 3. Update the package list again:
@@ -101,8 +103,8 @@ Step 3: Install the APT Prerequisites for Metrics Exporter
 
       sudo apt update
 
-Step 4: Install Metrics Exporter
-------------------------------------------------------
+Step 4: Install the exporter
+----------------------------
 
 1. Install the Device Metrics Exporter:
 
@@ -124,48 +126,48 @@ Step 4: Install Metrics Exporter
       sudo systemctl status amd-metrics-exporter.service
 
 .. note::
-   Before performing GPU driver unload/upgrade or partition operations, services must be stopped. See the `Service Management for Driver and Partition Operations`_ section for detailed instructions.
+   Stop the services before you unload or upgrade the GPU driver or change GPU partitions. See `Service management for driver and partition operations`_.
 
-Metrics Exporter Default Settings
-====================================
+Default settings
+================
 
 - **Metrics endpoint:** ``http://localhost:5000/metrics``
 - **Configuration file:** ``/etc/metrics/config.json``
 - **GPU Agent socket:** ``/var/run/gpuagent.sock`` (Unix Domain Socket)
 
-The Exporter HTTP port is configurable via the `ServerPort` field in the configuration file.
+To change the HTTP port, set the ``ServerPort`` field in the configuration file.
 
-Metrics Exporter Custom Configuration
-======================================
+Custom configuration
+====================
 
-Changing configuration config.json
-----------------------------------
+Using a different configuration file
+------------------------------------
 
-If you need to customize ports or settings:
+The exporter reads ``/etc/metrics/config.json`` by default. To use a configuration file at a different path:
 
-
-1. Edit the amd-metrics-exporter service file:
+1. Edit the ``amd-metrics-exporter`` service file:
 
    .. code-block:: bash
 
       sudo vi /lib/systemd/system/amd-metrics-exporter.service
 
-2. Update the `ExecStart` line to read in the config.json file:
+2. Update the ``ExecStart`` line to point to your configuration file:
 
    .. code-block:: bash
 
-      ExecStart=/usr/local/bin/amd-metrics-exporter -amd-metrics-config /etc/metrics/config.json
+      ExecStart=/usr/local/bin/amd-metrics-exporter -amd-metrics-config /path/to/config.json
 
-3. Reload systemd:
+3. Reload systemd and restart the exporter:
 
    .. code-block:: bash
 
       sudo systemctl daemon-reload
+      sudo systemctl restart amd-metrics-exporter.service
 
-Custom Socket Configuration - Change GPU Agent Socket Path (Advanced)
----------------------------------------------------------------------
+Changing the GPU Agent socket path (advanced)
+---------------------------------------------
 
-By default, GPU Agent uses Unix Domain Socket at ``/var/run/gpuagent.sock`` for communication with the metrics exporter.
+By default, GPU Agent uses the Unix domain socket ``/var/run/gpuagent.sock`` for communication with the metrics exporter.
 
 To change the socket path:
 
@@ -175,7 +177,7 @@ To change the socket path:
 
       sudo vi /lib/systemd/system/gpuagent.service
 
-2. Update `ExecStart` with custom socket path:
+2. Update ``ExecStart`` with the custom socket path:
 
    .. code-block:: bash
 
@@ -187,22 +189,22 @@ To change the socket path:
 
       sudo vi /lib/systemd/system/amd-metrics-exporter.service
 
-4. Update `ExecStart` to use the same socket path:
+4. Update ``ExecStart`` to use the same socket path:
 
    .. code-block:: bash
 
       ExecStart=/usr/local/bin/amd-metrics-exporter -s /path/to/custom.sock
 
-5. Restart both services:
+5. Reload systemd and restart both services:
 
    .. code-block:: bash
-      
+
+      sudo systemctl daemon-reload
       sudo systemctl restart gpuagent.service
       sudo systemctl restart amd-metrics-exporter.service
-      sudo systemctl daemon-reload
 
-Change Metrics Exporter Port
-----------------------------
+Changing the exporter port
+--------------------------
 
 1. Edit the configuration file:
 
@@ -210,70 +212,76 @@ Change Metrics Exporter Port
 
       sudo vi /etc/metrics/config.json
 
-2. Update `ServerPort` to your desired port
+2. Set ``ServerPort`` to the port you want to use.
 
-3. Restart Metrics Exporter service:
+3. Restart the exporter service:
 
    .. code-block:: bash
-      sudo systemctl restart amd-metrics-exporter.service
-      sudo systemctl daemon-reload
 
-Stop Metrics Exporter
+      sudo systemctl restart amd-metrics-exporter.service
+
+Stopping the exporter
 ---------------------
 
-To stop the Metrics Exporter service, run:
-   .. code-block:: bash
+To stop the exporter and GPU Agent services, run:
 
-      sudo systemctl stop amd-metrics-exporter.service
-      sudo systemctl stop gpuagent.service 
-      sudo systemctl daemon-reload
+.. code-block:: bash
 
-Confirm Metrics Exporter is Running
-------------------------------------
+   sudo systemctl stop amd-metrics-exporter.service
+   sudo systemctl stop gpuagent.service
 
-To confirm that the Metrics Exporter is running and accessible, you can use the following command:
+Confirming the exporter is running
+----------------------------------
 
-   .. code-block:: bash
+To confirm that the exporter and GPU Agent services are running, run:
 
-      systemctl status amd-metrics-exporter.service
-      systemctl status gpuagent.service
+.. code-block:: bash
 
-Service Management for Driver and Partition Operations
+   systemctl status amd-metrics-exporter.service
+   systemctl status gpuagent.service
+
+To confirm that the metrics endpoint responds, run:
+
+.. code-block:: bash
+
+   curl http://localhost:5000/metrics
+
+Service management for driver and partition operations
 ------------------------------------------------------
 
-The GPU Metrics Exporter and GPU Agent services must be stopped before performing the following operations:
+The exporter and GPU Agent services must be stopped before performing the following operations:
 
 - GPU driver unload or upgrade
 - GPU partition configuration changes
 
 **Required Steps:**
 
-1. **Stop Services**: See `Stop Metrics Exporter`_ section for instructions on stopping both services
-2. **Perform driver upgrade or partition operations**
-3. **Restart Services**: Use the enable and start commands from `Step 4: Install Metrics Exporter`_
-4. **Verify Services**: See `Confirm Metrics Exporter is Running`_ section to verify both services are running correctly
+1. Stop both services. See `Stopping the exporter`_.
+2. Upgrade the driver or change the partitions.
+3. Start both services with the enable and start commands from `Step 4: Install the exporter`_.
+4. Verify that both services are running. See `Confirming the exporter is running`_.
 
-Removing Metrics Exporter and other components
-------------------------------------------------
+Removing the exporter and other components
+------------------------------------------
 
-To remove this application, follow these commands in reverse order:
+To remove the exporter and, optionally, the components it depends on:
 
 1. Uninstall the Metrics Exporter:
 
-   - Ensure the .deb package is removed:
+   - Remove the package and its configuration files:
 
      .. code-block:: bash
 
-        sudo dpkg -r amdgpu-exporter
-        sudo apt-get purge amdgpu-exporter
+        sudo apt purge amdgpu-exporter
 
-2. (Optional) If you would also like to uninstall the AMDGPU Driver:
+2. (Optional) Uninstall the AMD GPU driver:
 
-   - Uninstall any associated DKMS packages:
+   - Remove the DKMS driver package and the ``amdgpu-install`` repository package:
 
      .. code-block:: bash
 
-        sudo dpkg -r amdgpu-install
+        sudo apt purge amdgpu-dkms amdgpu-install
+        sudo apt autoremove
 
    - Unload the driver module:
 
@@ -281,7 +289,7 @@ To remove this application, follow these commands in reverse order:
 
         sudo modprobe -r amdgpu
 
-3. (Optional) If you would also like to remove the system prerequisites that were installed:
+3. (Optional) Remove the system prerequisites:
 
    - Remove Linux header and module packages:
 

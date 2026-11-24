@@ -1,4 +1,4 @@
-# Prometheus ServiceMonitor Integration
+# Prometheus ServiceMonitor integration
 
 The Device Metrics Exporter Helm chart supports integration with Prometheus Operator through ServiceMonitor Custom Resource Definition (CRD). This enables automated service discovery and scraping of metrics by Prometheus instances managed by the Prometheus Operator.
 
@@ -11,27 +11,34 @@ Before using the ServiceMonitor feature, ensure that:
 
 ## Enabling ServiceMonitor
 
+Add the Helm repository:
+
+```bash
+helm repo add exporter https://rocm.github.io/device-metrics-exporter
+helm repo update
+```
+
 To deploy the Device Metrics Exporter without ServiceMonitor, use the following Helm command:
 
 ```bash
-helm install metrics-exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.3.1/device-metrics-exporter-charts-v1.3.1.tgz \
+helm install metrics-exporter exporter/device-metrics-exporter-charts \
+  --version v1.5.5 \
   -n mynamespace -f values.yaml --create-namespace
 ```
 
 To deploy the Device Metrics Exporter with a ServiceMonitor resource, use the following Helm command:
 
 ```bash
-helm install metrics-exporter \
-  https://github.com/ROCm/device-metrics-exporter/releases/download/v1.3.1/device-metrics-exporter-charts-v1.3.1.tgz \
+helm install metrics-exporter exporter/device-metrics-exporter-charts \
+  --version v1.5.5 \
   --set serviceMonitor.enabled=true \
   --set serviceMonitor.interval=15s \
   -n mynamespace --create-namespace
 ```
 
-This will automatically create a ServiceMonitor resource that Prometheus Operator can discover and use to scrape metrics from the Device Metrics Exporter. The ServiceMonitor will be deployed in the same namespace as the metrics service and daemonset. Alternatively, define a `values.yaml` with the desired options and use it in helm install.
+This creates a ServiceMonitor resource that Prometheus Operator can discover and use to scrape metrics from the Device Metrics Exporter. The ServiceMonitor is deployed in the same namespace as the metrics service and daemonset. Alternatively, define a `values.yaml` with the desired options and use it in helm install.
 
-## Configuration Options
+## Configuration options
 
 The following options can be customized for the ServiceMonitor via Helm values `values.yaml`:
 
@@ -45,13 +52,18 @@ serviceMonitor:
   honorLabels: true
   # -- Honor timestamps configuration for ServiceMonitor
   honorTimestamps: true
+  # -- Adds node metadata to discovered targets for node-based filtering
+  attachMetadata:
+    node: false
   # -- Additional labels for the ServiceMonitor object (to match the Prometheus Operator instance selectors)
   labels: {}
   # -- RelabelConfigs to apply to targets before scraping
   relabelings: []
+  # -- Relabeling rules applied to individual scraped metrics
+  metricRelabelings: []
 ```
 
-## Verifying ServiceMonitor Deployment
+## Verifying the ServiceMonitor deployment
 
 After installation, you can verify that the ServiceMonitor was created correctly:
 
@@ -61,14 +73,14 @@ kubectl get servicemonitor -n mynamespace
 
 Here, `mynamespace` refers to the metrics namespace where the service and daemonset are deployed. You should see a ServiceMonitor resource with the name pattern `<release-name>-amd-metrics-exporter`.
 
-## Prometheus Configuration for ServiceMonitor Discovery
+## Prometheus configuration for ServiceMonitor discovery
 
 After deploying the ServiceMonitor, Prometheus must be configured to discover and scrape it. The Prometheus Operator uses selectors in the Prometheus Custom Resource (CR) to determine which ServiceMonitor objects to monitor. Two key selectors control this behavior:
 
 1. **serviceMonitorNamespaceSelector**: Allows selecting namespaces to search for ServiceMonitor objects. An empty value selects all namespaces.
 2. **serviceMonitorSelector**: Specifies which ServiceMonitor objects to select in the chosen namespaces based on labels.
 
-### Example Prometheus Configuration
+### Example Prometheus configuration
 
 Here's an example Prometheus CR configuration that will discover the Device Metrics Exporter ServiceMonitor:
 
@@ -99,13 +111,14 @@ spec:
   #     app.kubernetes.io/name: device-metrics-exporter
 ```
 
-### ServiceMonitor Labels and Discovery
+### ServiceMonitor labels and discovery
 
 The Helm chart automatically adds default labels to the ServiceMonitor for Prometheus discovery:
 
 - `app: <release-name>-amdgpu-metrics-exporter` (where `<release-name>` is your Helm release name)
+- `release: prometheus-operator` (only when `serviceMonitor.labels` is empty)
 
-#### Using Default Labels
+#### Using default labels
 
 You can rely on the default `app` label for Prometheus discovery without specifying custom labels:
 
@@ -126,7 +139,7 @@ serviceMonitorSelector:
 
 Replace `<release-name>` with the actual name you used when installing the Helm chart.
 
-#### Using Custom Labels
+#### Using custom labels
 
 If you need custom labels to match your specific Prometheus configuration, you can override the defaults:
 
@@ -141,7 +154,7 @@ serviceMonitor:
     team: gpu-monitoring
 ```
 
-### Verifying Prometheus Discovery
+### Verifying Prometheus discovery
 
 After configuring Prometheus, verify the integration by:
 
