@@ -62,7 +62,7 @@ how often the data behind `/metrics` is refreshed when high-resolution mode is e
 metrics refresh once per scrape.
 
 The fast period is set by `FastPeriodMs` (or, for existing configs, `FastPeriodSecs`) and
-the slow period by `SlowPeriodSecs`. See [`CommonConfig.HighResolution`](configmap.md) for
+the slow period by `SlowPeriodSecs`. See [CommonConfig.HighResolution](configmap.md) for
 the allowed values, defaults, and precedence.
 
 > **Note:** 1 ms / 10 ms / 100 ms are guaranteed only on non-partitioned GPUs and are
