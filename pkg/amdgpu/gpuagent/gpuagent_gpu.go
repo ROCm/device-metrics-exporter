@@ -227,6 +227,12 @@ type GPUAgentGPUClient struct {
 	// (1000 after a sub-second rejection); written by the feed goroutine, read
 	// by the sub-second power-frame handling (GPUOP-1137).
 	hrFastMs atomic.Uint32
+	// hrHot is the partial-frame fast-path cache (applyPowerFrame). Owned by
+	// the high-res feed goroutine; nil on feed (re)start and exit.
+	hrHot *hrHotCache
+	// exportFieldGen is bumped by initFieldConfig so the fast path re-reads the
+	// field allowlist after a config reload.
+	exportFieldGen atomic.Uint64
 
 	// Profiler high-res stream (P7): owns the long-lived `rocpctl --stream` child in
 	// high-res non-PTL mode, feeding gpu_prof_* into the store continuously. Guarded by

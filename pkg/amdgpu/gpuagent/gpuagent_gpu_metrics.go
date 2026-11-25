@@ -500,6 +500,7 @@ func (ga *GPUAgentGPUClient) getExporterFieldState(field string) bool {
 func (ga *GPUAgentGPUClient) initFieldConfig(config *exportermetrics.GPUMetricConfig) {
 	ga.exportFieldMapMu.Lock()
 	defer ga.exportFieldMapMu.Unlock()
+	defer ga.exportFieldGen.Add(1)
 	ga.exportFieldMap = make(map[string]bool)
 	// setup metric fields in map to be monitored
 	// init the map with all supported strings from enum

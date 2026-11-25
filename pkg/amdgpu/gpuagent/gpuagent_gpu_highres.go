@@ -387,6 +387,9 @@ func highResPeriodRejected(st amdgpu.ApiStatus) bool {
 // debug line.
 const highResMissedTicksLogInterval = time.Minute
 
+// highResCadenceLogInterval rate-limits the frames/s debug line.
+const highResCadenceLogInterval = 10 * time.Second
+
 // runHighResFeed owns the high-resolution GPUWatch feed for one enable session.
 // It (re)establishes the watch and consumes it until the stream fails, then evicts
 // the now-stale watch telemetry from the store — so /metrics serves only the
@@ -397,6 +400,8 @@ const highResMissedTicksLogInterval = time.Minute
 // session starts, so two feeds never run concurrently. Exits on ctx cancellation.
 func (ga *GPUAgentGPUClient) runHighResFeed(ctx context.Context, done chan struct{}) {
 	defer close(done)
+	// the fast-path cache belongs to this goroutine; drop it on exit
+	defer func() { ga.hrHot = nil }()
 	for ctx.Err() == nil {
 		err := ga.StartHighRes(ctx)
 		if ctx.Err() != nil {
@@ -576,6 +581,9 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 		}
 	}
 	ga.hrFastMs.Store(spec.FastPeriodMs)
+	// new session: labels, GPU set and period may differ, so the first partial
+	// frame rebuilds the fast-path cache (and the gpu_package_power state)
+	ga.hrHot = nil
 	stream, err := ga.watchclient.GPUWatchSubscribe(ctx,
 		&amdgpu.GPUWatchSubscribeRequest{Id: [][]byte{watchID[:]}})
 	if err != nil {
@@ -590,13 +598,16 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	return nil
 }
 
-// consumeWatchStream reads GPUWatch snapshots until the stream errors or ctx is
-// cancelled, applying each to the store, and logging the observed inter-sample
-// cadence so the achievable high-resolution rate can be measured on hardware.
+// consumeWatchStream reads GPUWatch frames until the stream errors or ctx is
+// cancelled, applying each to the store, and logging the observed frame rate
+// so the achievable high-resolution rate can be measured on hardware. A
+// partial frame (Spec without Attribute: the power attrs of one sub-second
+// tick) takes the allocation-free applyPowerFrame path; a full frame takes
+// applyWatchSnapshot.
 func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	stream amdgpu.GPUWatchSvc_GPUWatchSubscribeClient) {
-	var last, missedLogged time.Time
-	var count, missed uint64
+	var winStart, missedLogged time.Time
+	var winFrames, missed uint64
 	for ctx.Err() == nil {
 		w, err := stream.Recv()
 		if err != nil {
@@ -613,16 +624,23 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 			}
 			missed = m
 		}
-		if !last.IsZero() {
-			// Cadence trace at debug only — at 1s it floods info logs otherwise.
-			if count%10 == 0 {
-				logger.Log.Debugf("high-res: GPUWatch sample interval %v (sample #%d)",
-					now.Sub(last), count)
-			}
+		// Cadence trace at debug only, time-based: at 1 ms a per-frame-count
+		// trigger would log many times per second.
+		winFrames++
+		if winStart.IsZero() {
+			winStart = now
+		} else if d := now.Sub(winStart); d >= highResCadenceLogInterval {
+			logger.Log.Debugf("high-res: GPUWatch %.1f frames/s over %v",
+				float64(winFrames)/d.Seconds(), d)
+			winStart, winFrames = now, 0
 		}
-		last = now
-		count++
-		ga.applyWatchSnapshot(w)
+		// partial frames exist only at sub-second periods; at 1000 ms and
+		// above every frame keeps today's path
+		if ga.hrSubSecond() && len(w.GetSpec().GetAttribute()) == 0 {
+			ga.applyPowerFrame(w)
+		} else {
+			ga.applyWatchSnapshot(w)
+		}
 	}
 }
 
@@ -647,10 +665,21 @@ func (ga *GPUAgentGPUClient) applyWatchSnapshot(w *amdgpu.GPUWatch) map[string]m
 	now := time.Now().UnixMicro()
 	workloadSkip := ga.workloadLabelKeys()
 	storeByDevice := map[string]map[string]snapshotstore.Sample{}
+	// At sub-second periods partial frames own the power family; full frames
+	// write none of it, and POWER_USAGE (5) yields gpu_package_power to 126
+	// while hot.pkgFrom126 holds for the GPU.
+	sub := ga.hrSubSecond()
+	// hot cells are written through only while the cache matches the store
+	// epoch; after a bump they may be orphaned, so a plain delta is used
+	hotFresh := ga.hrHot != nil && ga.hrHot.epoch == st.Epoch()
 	for _, perGPU := range w.GetStats().GetGPUWatchAttr() {
 		guid, err := uuid.FromBytes(perGPU.GetGPU())
 		if err != nil {
 			continue
+		}
+		var hot *hrHotGPU
+		if ga.hrHot != nil {
+			hot = ga.hrHot.byGPU[guid]
 		}
 		uuidStr := guid.String()
 		// Prefer the async workload-label cache (live pod/slurm labels), falling
@@ -673,8 +702,15 @@ func (ga *GPUAgentGPUClient) applyWatchSnapshot(w *amdgpu.GPUWatch) map[string]m
 			gpuid = uuidStr
 		}
 		for _, attr := range perGPU.GetAttr() {
-			base := watchAttrMetricName(attr.GetId())
+			id := attr.GetId()
+			base := watchAttrMetricName(id)
 			if base == "" {
+				continue
+			}
+			if sub && int(id) < hrMaxAttrID && hrPowerAttr[id] {
+				continue
+			}
+			if sub && id == hrAttrPowerUsage && hot != nil && hot.pkgFrom126 {
 				continue
 			}
 			// Gauge base names are the lowercased GPUMetricField enum names, so
@@ -720,8 +756,22 @@ func (ga *GPUAgentGPUClient) applyWatchSnapshot(w *amdgpu.GPUWatch) map[string]m
 			}
 			val, ok := watchAttrFloat(attr.GetValue())
 			if !ok {
+				// at sub-second 126 may feed gpu_package_power: an N/A 5 must
+				// not mark GPU_PACKAGE_POWER unsupported for this GPU
+				if sub && id == hrAttrPowerUsage && hot != nil &&
+					!hot.fields[hrAttrGPUPowerUsage].aliasSkip {
+					continue
+				}
 				ga.fl.logUnsupportedField(gpuid, field)
 				continue
+			}
+			// a field with a registered hot cell is written through the cell;
+			// a plain delta would orphan it and bump the store epoch
+			if hot != nil && hotFresh {
+				if cell := hot.hotCell(id); cell != nil {
+					cell.Set(val, now)
+					continue
+				}
 			}
 			lbl := maps.Clone(labels)
 			addHRStoreSample(storeByDevice, base, lbl, val, now, workloadSkip)
