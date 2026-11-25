@@ -66,7 +66,7 @@ To collect GPU metrics in the same container, start from the command in [Standal
 
 Only the job-level cgroup is read; cgroup v2 already charges each job step to it. When a requeued Spur job has more than one attempt's cgroup present, only the highest attempt is exported. At most 1024 jobs are exported per node, keeping the newest job IDs. If the same job ID has a cgroup under both `spur/` and `system.slice/slurmstepd.scope/`, only the Spur one is exported and the exporter logs the other. Warnings about job cgroups, such as a cgroup that cannot be read, are logged once when they first appear rather than on every sample.
 
-With `CommonConfig.HighResolution.Enable`, jobs are sampled every `FastPeriodSecs` and `/metrics` serves the latest sample. Otherwise each scrape reads the cgroups once; concurrent scrapes share that read.
+With `CommonConfig.HighResolution.Enable`, jobs are sampled at the effective high-resolution fast period, never faster than once per second, and `/metrics` serves the latest sample. Otherwise each scrape reads the cgroups once; concurrent scrapes share that read.
 
 ## Metrics
 

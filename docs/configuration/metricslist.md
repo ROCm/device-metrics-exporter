@@ -58,36 +58,79 @@ The following document contains a full list of GPU Metrics that are available us
 
 All metrics are collected the same way — by scraping `/metrics`. These tiers describe only
 how often the data behind `/metrics` is refreshed when high-resolution mode is enabled
-(`CommonConfig.HighResolution.Enable=true`): fast-moving fields refresh at `FastPeriodSecs`,
-slow-moving and more expensive fields at `SlowPeriodSecs`. When the mode is disabled (the
-default), all metrics refresh once per scrape.
+(`CommonConfig.HighResolution.Enable=true`). When the mode is disabled (the default), all
+metrics refresh once per scrape.
 
-See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for the
-`FastPeriodSecs` / `SlowPeriodSecs` ranges, defaults, and supported rate.
+The fast period is set by `FastPeriodMs` (or, for existing configs, `FastPeriodSecs`) and
+the slow period by `SlowPeriodSecs`. See [`CommonConfig.HighResolution`](configmap.md) for
+the allowed values, defaults, and precedence.
 
-### Fast tier (`FastPeriodSecs`, default 1 s)
+> **Note:** 1 ms / 10 ms / 100 ms are guaranteed only on non-partitioned GPUs and are
+> pending hardware validation on MI350X/MI355X; partitioned GPUs are supported at
+> 1 s / 5 s.
 
-| Family | Metrics |
-| --- | --- |
-| Clocks | `GPU_CLOCK`, `GPU_MEM_CLOCK` |
-| Temperature | `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` |
-| Power | `GPU_PACKAGE_POWER`, `GPU_AVERAGE_PACKAGE_POWER`, `GPU_POWER_USAGE` |
-| Energy | `GPU_ENERGY_CONSUMED` |
-| Activity | `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY` |
-| Voltage | `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` |
-| PCIe | `GPU_PCIE_SPEED`, `GPU_PCIE_REPLAY_COUNT`, `GPU_PCIE_NACK_SENT_COUNT`, `GPU_PCIE_NACK_RECEIVED_COUNT` |
-| XGMI | `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT`, `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` |
-| Throttle / violation residency | `GPU_VIOLATION_PROCESSOR_HOT_*`, `GPU_VIOLATION_PPT_*`, `GPU_VIOLATION_SOCKET_THERMAL_*`, `GPU_VIOLATION_VR_THERMAL_*`, `GPU_VIOLATION_HBM_THERMAL_*` |
-| Bandwidth | `GPU_VRAM_MAX_BANDWIDTH` |
+Each column is a refresh cadence a metric can reach: 1 ms, 10 ms and 100 ms (with
+`FastPeriodMs` set to that value), 1 s (the default fast period), and 5 s (the default
+`SlowPeriodSecs`). A sub-second `FastPeriodMs` applies only to the power tier (the **T**
+and **C** rows); every other fast-tier metric keeps refreshing once per second (or at a
+longer fast period), and slow-tier metrics refresh every `SlowPeriodSecs`.
 
-### Slow tier (`SlowPeriodSecs`, default 5 s)
+Legend: **T** = target metric of the sub-second tier, **C** = captured at the same tick
+for correlation, &check; = refreshes at that cadence, blank = never refreshes at that
+cadence.
 
-| Family | Metrics |
-| --- | --- |
-| ECC / RAS counters | `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) |
-| Memory usage | `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_TOTAL_VRAM` |
-| PCIe bandwidth | `GPU_PCIE_BANDWIDTH` |
-| Clock limits | `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` |
+<!-- doc-audit:skip-start -->
+| Metric | 1 ms | 10 ms | 100 ms | 1 s | 5 s |
+| --- | --- | --- | --- | --- | --- |
+| `GPU_PACKAGE_POWER` | T | T | T | &check; | |
+| `GPU_POWER_USAGE` | T | T | T | &check; | |
+| `GPU_ENERGY_CONSUMED` | T | T | T | &check; | |
+| `GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED` | T | T | T | &check; | |
+| `GPU_GFX_VOLTAGE` | C | C | C | &check; | |
+| `GPU_VOLTAGE` | C | C | C | &check; | |
+| `GPU_MEMORY_VOLTAGE` | C | C | C | &check; | |
+| `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
+| `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
+| `GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
+| `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
+| `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` | C | C | C | &check; | |
+| `GPU_AVERAGE_PACKAGE_POWER` | | | | &check; | |
+| `GPU_UBB_POWER` (see [Power Metrics](#power-metrics)) | | | | &check; | |
+| Temperature: `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` | | | | &check; | |
+| Activity: `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY`, `GPU_*_BUSY_INSTANTANEOUS` | | | | &check; | |
+| PCIe counters: `PCIE_REPLAY_COUNT`, `PCIE_RECOVERY_COUNT`, `PCIE_REPLAY_ROLLOVER_COUNT`, `PCIE_NACK_SENT_COUNT`, `PCIE_NACK_RECEIVED_COUNT` | | | | &check; | |
+| XGMI link: `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` | | | | &check; | |
+| Bandwidth: `GPU_VRAM_MAX_BANDWIDTH` | | | | &check; | |
+| ECC / RAS counters: `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) | | | | | &check; |
+| Memory usage: `GPU_TOTAL_VRAM`, `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_*_VISIBLE_VRAM`, `GPU_*_GTT` | | | | | &check; |
+| PCIe bandwidth and speed: `PCIE_BIDIRECTIONAL_BANDWIDTH`, `PCIE_SPEED`, `PCIE_MAX_SPEED` | | | | | &check; |
+| Clocks and clock limits: `GPU_CLOCK`, `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` | | | | | &check; |
+| XGMI neighbour counters: `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT` | | | | | &check; |
+| Violation status counters: `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_*_ACCUMULATED`, `GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED` | | | | | &check; |
+<!-- doc-audit:skip-end -->
+
+Notes:
+
+- The residency accumulators (`GPU_VIOLATION_*_RESIDENCY_ACCUMULATED`) and
+  `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` are read from the same GPU metrics table as
+  power, so they are sampled with the fast tier (previously the slow tier).
+- At a sub-second `FastPeriodMs`, `GPU_PACKAGE_POWER` reports the current socket power,
+  the same value as `GPU_POWER_USAGE`. If current socket power is not available (N/A) on a
+  GPU, `GPU_PACKAGE_POWER` falls back to its existing value, which prefers the average
+  socket power and refreshes once per second; the same N/A also marks `GPU_POWER_USAGE`
+  unsupported on that GPU (see the known behaviour below). At 1 s and above
+  `GPU_PACKAGE_POWER` prefers the average socket power, as before.
+- `/metrics` serves the latest value received from gpuagent; at sub-second periods values
+  update at the achieved sampling cadence. Intermediate samples between scrapes are not
+  stored, so the freshness of a scraped series still depends on the Prometheus scrape
+  interval.
+- At 1 ms the exporter processes up to about 1000 power updates per second per watch
+  (fewer if gpuagent drops frames for a slow subscriber). See the
+  [release notes](../releasenotes.md) for the preview status.
+- Known behaviour: in high-resolution mode, the first N/A a field reports on a GPU marks
+  that field unsupported for the GPU, and it is no longer exported until the next config
+  reload. At a sub-second period a single transient N/A is enough. This is the existing
+  high-resolution behaviour.
 
 ### Unsupported fields
 

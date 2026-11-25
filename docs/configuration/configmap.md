@@ -30,12 +30,19 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     - `PtlDelay`: Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` (no delay). This setting is useful for platforms that support Peaks Top Limiter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
   - `Debug`: Configuration for optional debug interfaces.
     - `EnableAPI`: Boolean flag to expose the debug interfaces (the pprof/expvar profiling endpoints on the metrics port and the error-injection gRPC API). Default is `false`, meaning these interfaces are disabled. The value is read at runtime and applied on config reload.
-  - `HighResolution`: High-resolution sampling profile for GPU and [workload cgroup](workload-cgroup-metrics.md) metrics. When enabled, these metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape. Workload cgroup metrics are sampled every `FastPeriodSecs`.
+  - `HighResolution`: High-resolution sampling profile for GPU and [workload cgroup](workload-cgroup-metrics.md) metrics. When enabled, these metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape.
     - `Enable`: Boolean flag to enable the high-resolution profile. Default is `false`.
-    - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes (clocks, temperatures, power, utilization, energy). Valid range `1`–`60`. `0` selects the default (`1`).
-    - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage). Must be ≥ `FastPeriodSecs`. Valid range `5`–`3600`. `0` selects the default (`5`).
+    - `FastPeriodMs` (preview): Sampling period, in milliseconds, for fast-moving attributes. Allowed values are `1`, `10`, `100`, or a multiple of `1000` up to `60000`. `0` (unset) defers to `FastPeriodSecs`. A sub-second period (`1`, `10`, `100`) applies only to the power tier (current socket power, energy, GFX/SoC/memory voltage, violation residency accumulators and the accumulation counter); all other fast-moving attributes refresh at most once per second.
+    - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes (temperatures, power, utilization, energy). Valid range `1`–`60`. `0` selects the default (`1`). Still supported; superseded by `FastPeriodMs` when that is set.
+    - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage, clocks). Must be ≥ the effective fast period. Valid range `5`–`3600`. `0` selects the default (`5`).
 
-    `1 s` (`FastPeriodSecs: 1`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU.
+    The effective fast period is chosen in this order: `FastPeriodMs` if set, else `FastPeriodSecs` × 1000, else `1000` ms. If both are set and differ, `FastPeriodMs` wins and the exporter logs that `FastPeriodSecs` is ignored. Any invalid value or combination (a `FastPeriodMs` outside the allowed values, a `FastPeriodSecs` or `SlowPeriodSecs` out of range, or a slow period shorter than the fast period) is logged and the defaults (`1000` ms / `5` s) are used. A change of the effective periods on config reload restarts the GPU watch with the new periods.
+
+    The workload cgroup sampler and the profiler stream follow the effective fast period but never run faster than once per second.
+
+    If gpuagent rejects a sub-second period, the exporter logs it and continues at `1000` ms for that session (the configured period is tried again on the next reconnect). For example, gpuagent rejects sub-second periods on GIM (SR-IOV) and WSL hosts, when its power sampling thread failed to start, and when the amdsmi GPU metrics cache is longer than the requested period. That cache is set by the `AMDSMI_GPU_METRICS_CACHE_MS` environment variable of the gpuagent process, read once when the amdsmi library loads; the default is `1` ms. If you set it, it must be ≤ the requested period.
+
+    `1 s` (`FastPeriodSecs: 1` or `FastPeriodMs: 1000`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU. `1` / `10` / `100` ms are guaranteed only on non-partitioned GPUs and are pending hardware validation on MI350X/MI355X; partitioned GPUs are supported at 1 s / 5 s. The exporter and gpuagent must be upgraded together: GPU watch field 4 is now in milliseconds.
 
     While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
 
@@ -47,6 +54,33 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
         "HighResolution": {
           "Enable": true,
           "FastPeriodSecs": 1,
+          "SlowPeriodSecs": 5
+        }
+      }
+    }
+    ```
+
+    **Example** (`config.json`, 100 ms power tier, preview):
+
+    ```json
+    {
+      "CommonConfig": {
+        "HighResolution": {
+          "Enable": true,
+          "FastPeriodMs": 100
+        }
+      }
+    }
+    ```
+
+    **Example** (`config.json`, 10 ms power tier, preview):
+
+    ```json
+    {
+      "CommonConfig": {
+        "HighResolution": {
+          "Enable": true,
+          "FastPeriodMs": 10,
           "SlowPeriodSecs": 5
         }
       }

@@ -113,8 +113,14 @@ fi
 # Also handle profiler-only tables (no Hypervisor/Baremetal columns) -- skip those.
 declare -A md_bm md_hv
 md_names=()
+skip=0
 
 while IFS= read -r line; do
+  # Skip tables wrapped in doc-audit:skip-start/-end (e.g. the tier table,
+  # whose 6 columns would otherwise parse as Hypervisor | Baremetal | Metric)
+  [[ "$line" == *"<!-- doc-audit:skip-start -->"* ]] && { skip=1; continue; }
+  [[ "$line" == *"<!-- doc-audit:skip-end -->"* ]] && { skip=0; continue; }
+  [[ $skip -eq 1 ]] && continue
   # Only process lines that look like table rows with pipes
   [[ "$line" != *"|"* ]] && continue
   # Skip separator rows
