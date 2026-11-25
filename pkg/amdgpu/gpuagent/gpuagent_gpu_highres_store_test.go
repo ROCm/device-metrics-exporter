@@ -285,7 +285,7 @@ func TestHighResStoreHealthUnhealthyOnEcc(t *testing.T) {
 // that applyWatchSnapshot prefers the fresh workload-label cache over the static
 // subscribe-time set when store-serving, so streamed samples carry live workload
 // labels. The cache's labels-equal-pull-path property is covered by
-// TestHRWorkloadLabelCacheParity.
+// TestLabelCacheFailedThenOK.
 func TestHighResStreamUsesWorkloadCacheWhenServing(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)

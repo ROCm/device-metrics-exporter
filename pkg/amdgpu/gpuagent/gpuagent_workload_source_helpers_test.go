@@ -16,18 +16,20 @@
 
 package gpuagent
 
-// GPUOP-1140 test helpers: a ChangeNotifier slurm fake with injection hooks, a
-// fake kubelet PodResources server, and source/high-res setup over the oracle
-// fixtures (oracle_gpuop1140_test.go).
+// Workload-source test helpers: deterministic GPU and workload fixtures, a
+// scheduler fake, a ChangeNotifier fake with injection hooks, a fake kubelet
+// PodResources server, and source/high-res setup over a mocked GPU client.
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -35,13 +37,245 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/expfmt"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"gotest.tools/assert"
 	kube "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
+
+const testGPUCount = 4
+
+// testLabels enables every workload label plus the GPU_UUID key.
+const testLabels = `"Labels":["GPU_UUID","POD","NAMESPACE","CONTAINER",` +
+	`"JOB_ID","JOB_USER","JOB_PARTITION","JOB_ACCOUNT","CLUSTER_NAME"]`
+
+const pullTestConfig = `{"GPUConfig":{` + testLabels + `,"Fields":["GPU_PACKAGE_POWER"]}}`
+
+const hrTestConfig = `{"CommonConfig":{"HighResolution":{"Enable":true}},` +
+	`"GPUConfig":{` + testLabels + `,"Fields":["GPU_PACKAGE_POWER"]}}`
+
+var errKubeletUnavailable = errors.New("rpc error: code = Unavailable desc = connection error: " +
+	"desc = \"transport: Error while dialing: dial unix /var/lib/kubelet/pod-resources/kubelet.sock: " +
+	"connect: no such file or directory\"")
+
+// fakeSched is a hand-written SchedulerClient fake (gomock's Close().Times(1)
+// does not fit reconnect scenarios). Settable map and error; counts calls.
+// It does not implement scheduler.ChangeNotifier.
+type fakeSched struct {
+	mu     sync.Mutex
+	typ    scheduler.SchedulerType
+	wls    map[string]scheduler.Workload
+	err    error
+	lists  int
+	closes int
+}
+
+func (f *fakeSched) set(wls map[string]scheduler.Workload, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.wls, f.err = wls, err
+}
+
+func (f *fakeSched) ListWorkloads() (map[string]scheduler.Workload, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lists++
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := make(map[string]scheduler.Workload, len(f.wls))
+	for k, v := range f.wls {
+		out[k] = v
+	}
+	return out, nil
+}
+
+func (f *fakeSched) CheckExportLabels(map[string]bool) bool { return true }
+
+func (f *fakeSched) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closes++
+	return nil
+}
+
+func (f *fakeSched) Type() scheduler.SchedulerType { return f.typ }
+
+func (f *fakeSched) counts() (int, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lists, f.closes
+}
+
+// testGPUResp is a deterministic GPU list: fixed UUIDs, index i, PCIe
+// 0000:0<i+1>:00.0, DRM card 1+i, render 128+i.
+func testGPUResp(n int) *amdgpu.GPUGetResponse {
+	resp := &amdgpu.GPUGetResponse{ApiStatus: amdgpu.ApiStatus_API_STATUS_OK}
+	for i := 0; i < n; i++ {
+		id := make([]byte, 16)
+		for j := range id {
+			id[j] = byte(16*i + j + 1)
+		}
+		resp.Response = append(resp.Response, &amdgpu.GPU{
+			Spec: &amdgpu.GPUSpec{Id: id},
+			Status: &amdgpu.GPUStatus{
+				Index:       uint32(i),
+				SerialNum:   fmt.Sprintf("SN%d", i),
+				DRMCardId:   uint32(1 + i),
+				DRMRenderId: uint32(128 + i),
+				PCIeStatus:  &amdgpu.GPUPCIeStatus{PCIeBusId: fmt.Sprintf("0000:0%d:00.0", i+1)},
+			},
+			Stats: &amdgpu.GPUStats{PackagePower: uint64(100 + i)},
+		})
+	}
+	return resp
+}
+
+// testGPUIDs returns the test GPUs' 16-byte ids.
+func testGPUIDs() [][]byte {
+	var ids [][]byte
+	for _, g := range testGPUResp(testGPUCount).Response {
+		ids = append(ids, g.Spec.Id)
+	}
+	return ids
+}
+
+func testPod(i int) scheduler.Workload {
+	return scheduler.Workload{Type: scheduler.Kubernetes, Info: scheduler.PodResourceInfo{
+		Pod: fmt.Sprintf("pod%d", i), Namespace: fmt.Sprintf("ns%d", i), Container: fmt.Sprintf("ctr%d", i)}}
+}
+
+func testJob(id, user string) scheduler.Workload {
+	return scheduler.Workload{Type: scheduler.Slurm, Info: scheduler.JobInfo{
+		Id: id, User: user, Partition: "gpu", Cluster: "c1", Account: "acct-" + user}}
+}
+
+// workloadFixture: k8s and slurm parts (nil = no such scheduler).
+type workloadFixture struct {
+	name  string
+	k8s   map[string]scheduler.Workload
+	slurm map[string]scheduler.Workload
+}
+
+func workloadFixtures() []workloadFixture {
+	return []workloadFixture{
+		{name: "k8s", k8s: map[string]scheduler.Workload{
+			"0000:01:00.0": testPod(0), "0000:02:00.0": testPod(1), "0000:09:00.0": testPod(9)}},
+		{name: "slurm", slurm: map[string]scheduler.Workload{
+			"0": testJob("100", "alice"), "2": testJob("102", "bob"), "7": testJob("107", "zed")}},
+		// mixed: k8s on GPUs 0,1 (pcie key) and key "3"; slurm on "1" (same GPU
+		// as pod1, different key) and "3" (same key: slurm overwrites k8s).
+		{name: "mixed",
+			k8s: map[string]scheduler.Workload{
+				"0000:01:00.0": testPod(0), "0000:02:00.0": testPod(1), "3": testPod(3)},
+			slurm: map[string]scheduler.Workload{
+				"1": testJob("101", "carol"), "3": testJob("103", "dave")}},
+	}
+}
+
+func fixtureByName(name string) workloadFixture {
+	for _, fx := range workloadFixtures() {
+		if fx.name == name {
+			return fx
+		}
+	}
+	panic("no fixture " + name)
+}
+
+type workloadEnv struct {
+	ga    *GPUAgentClient
+	gpu   *GPUAgentGPUClient
+	k8s   *fakeSched
+	slurm *fakeSched
+}
+
+// newWorkloadEnv builds a GPU client over deterministic mocks with the given
+// schedulers wired the way the exporter does (k8s injected, slurm created by
+// Init; here both are fakes set on the agent fields).
+func newWorkloadEnv(t testing.TB, cfg string, fx workloadFixture) *workloadEnv {
+	t.Helper()
+	logger.Init(true)
+	t.Setenv("DS_NODE_NAME", "test-node")
+	ctl := gomock.NewController(t)
+	gpuMock := mock_gen.NewMockGPUSvcClient(ctl)
+	evtMock := mock_gen.NewMockEventSvcClient(ctl)
+	gpuMock.EXPECT().GPUGet(gomock.Any(), gomock.Any()).Return(testGPUResp(testGPUCount), nil).AnyTimes()
+	gpuMock.EXPECT().GPUCPERGet(gomock.Any(), gomock.Any()).
+		Return(&amdgpu.GPUCPERGetResponse{ApiStatus: amdgpu.ApiStatus_API_STATUS_OK}, nil).AnyTimes()
+	evtMock.EXPECT().EventGet(gomock.Any(), gomock.Any()).
+		Return(&amdgpu.EventResponse{ApiStatus: amdgpu.ApiStatus_API_STATUS_OK}, nil).AnyTimes()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	assert.NilError(t, os.WriteFile(cfgPath, []byte(cfg), 0o644))
+	mhh, err := metricsutil.NewMetrics(config.NewConfigHandler(cfgPath,
+		config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort}))
+	assert.NilError(t, err)
+	mhh.InitConfig(context.Background())
+	ga := NewAgent(mhh, WithK8sClient(nil), WithK8sSchedulerClient(nil), WithSlurmClient(false),
+		WithGPUMonitoring(true))
+	assert.NilError(t, ga.Init())
+	env := &workloadEnv{ga: ga}
+	ga.isKubernetes = false
+	if fx.k8s != nil {
+		env.k8s = &fakeSched{typ: scheduler.Kubernetes, wls: fx.k8s}
+		ga.isKubernetes = true
+		ga.k8sScheduler = env.k8s
+	}
+	if fx.slurm != nil {
+		env.slurm = &fakeSched{typ: scheduler.Slurm, wls: fx.slurm}
+		ga.slurmScheduler = env.slurm
+	}
+	for _, c := range ga.clients {
+		if c.GetDeviceType() == globals.GPUDevice {
+			env.gpu = c.(*GPUAgentGPUClient)
+		}
+	}
+	assert.Assert(t, env.gpu != nil)
+	t.Cleanup(env.gpu.stopWorkloadSource) // sources otherwise live for the process
+	env.gpu.gpuclient = gpuMock
+	env.gpu.evtclient = evtMock
+	assert.NilError(t, env.gpu.InitConfigs())
+	getResp, _, gerr := env.gpu.getGPUs(env.gpu.gCache.gpuGetFilter, &env.gpu.gCache.metricsCache)
+	assert.NilError(t, gerr)
+	env.gpu.initGPUMetadata(getResp.GetResponse())
+	return env
+}
+
+// render gathers the client's /metrics exposition: metric families with the
+// exporter prefix, text format, lines sorted.
+func (e *workloadEnv) render(t *testing.T) string {
+	t.Helper()
+	mfs, err := e.gpu.gpuHandler.mh.GetRegistry().Gather()
+	assert.NilError(t, err)
+	prefix := e.gpu.gpuHandler.mh.GetPrefix()
+	var buf bytes.Buffer
+	enc := expfmt.NewEncoder(&buf, expfmt.NewFormat(expfmt.TypeTextPlain))
+	for _, mf := range mfs {
+		if strings.HasPrefix(mf.GetName(), prefix) {
+			assert.NilError(t, enc.Encode(mf))
+		}
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	sort.Strings(lines)
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// renderPull runs one pull-path scrape (getMetricsAll + store publish).
+func (e *workloadEnv) renderPull(t *testing.T) string {
+	t.Helper()
+	assert.NilError(t, e.gpu.getMetricsAll(context.Background()))
+	assert.NilError(t, e.gpu.publishGPUMetricsToStore(e.gpu.gpuHandler.mh.GetStore()))
+	return e.render(t)
+}
 
 // notifySched is a slurm-like SchedulerClient that implements
 // scheduler.ChangeNotifier. hook (if set) runs at "changed" (after Changed()
@@ -50,7 +284,6 @@ import (
 type notifySched struct {
 	mu      sync.Mutex
 	wls     map[string]scheduler.Workload
-	err     error
 	version uint64
 	changed chan struct{}
 	lists   atomic.Int64
@@ -73,12 +306,6 @@ func (f *notifySched) set(wls map[string]scheduler.Workload) {
 	f.version++
 	close(f.changed)
 	f.changed = make(chan struct{})
-}
-
-func (f *notifySched) setErr(err error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.err = err
 }
 
 func (f *notifySched) fire(point string) {
@@ -110,12 +337,8 @@ func (f *notifySched) ListWorkloads() (map[string]scheduler.Workload, error) {
 	for k, v := range f.wls {
 		out[k] = v
 	}
-	err := f.err
 	f.mu.Unlock()
 	f.fire("list")
-	if err != nil {
-		return nil, err
-	}
 	return out, nil
 }
 
@@ -188,7 +411,7 @@ func kubeResp(pcie ...string) *kube.ListPodResourcesResponse {
 
 // manualSource installs a seeded source with no goroutine on the GPU client,
 // so a test drives refresh itself (single goroutine, deterministic).
-func manualSource(e *oracleEnv) *workloadSource {
+func manualSource(e *workloadEnv) *workloadSource {
 	s := newWorkloadSource(e.ga, time.Hour)
 	s.refresh(true)
 	e.gpu.wlSource.Store(s)
@@ -197,7 +420,7 @@ func manualSource(e *oracleEnv) *workloadSource {
 
 // runningSource starts the real source with the given interval and stops it
 // at test end (the source otherwise lives for the process).
-func runningSource(t testing.TB, e *oracleEnv, interval time.Duration) *workloadSource {
+func runningSource(t testing.TB, e *workloadEnv, interval time.Duration) *workloadSource {
 	t.Helper()
 	e.gpu.wlInterval = interval
 	s := e.gpu.ensureWorkloadSource()
@@ -210,7 +433,7 @@ func runningSource(t testing.TB, e *oracleEnv, interval time.Duration) *workload
 // currentWorkloads, then the hr label cache (not started; tests drive it).
 // interval <= 0 installs a manual source (no goroutine) for tests that call
 // refresh themselves; refresh is refresher-owned and must not run twice at once.
-func (e *oracleEnv) startHRSource(t testing.TB, interval time.Duration) (*workloadLabelCache, *workloadSource) {
+func (e *workloadEnv) startHRSource(t testing.TB, interval time.Duration) (*workloadLabelCache, *workloadSource) {
 	t.Helper()
 	ga := e.gpu
 	getResp, pm, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
@@ -237,8 +460,9 @@ func (e *oracleEnv) startHRSource(t testing.TB, interval time.Duration) (*worklo
 	return c, src
 }
 
-// freshLabels builds the hr label map from scratch for wls (oracle of a cache).
-func (e *oracleEnv) freshLabels(wls map[string]scheduler.Workload, key func(*amdgpu.GPU) string) map[string]prometheus.Labels {
+// freshLabels builds the hr label map from scratch for wls (the expected
+// content of a cache).
+func (e *workloadEnv) freshLabels(wls map[string]scheduler.Workload, key func(*amdgpu.GPU) string) map[string]prometheus.Labels {
 	snap := e.gpu.hrSnapshot.Load()
 	out := map[string]prometheus.Labels{}
 	for _, g := range snap.gpus {
@@ -247,14 +471,15 @@ func (e *oracleEnv) freshLabels(wls map[string]scheduler.Workload, key func(*amd
 	return out
 }
 
-// writeSlurmJob writes a job file named name for gpus (comma list).
-func writeSlurmJob(t testing.TB, dir, name, id, gpus string) {
+// useSlurmDir makes the agent's slurm client constructor watch dir instead of
+// the system job directory.
+func useSlurmDir(t *testing.T, dir string) {
 	t.Helper()
-	b, err := json.Marshal(map[string]string{"SLURM_JOB_ID": id, "SLURM_JOB_USER": "u" + id,
-		"SLURM_JOB_PARTITION": "gpu", "SLURM_CLUSTER_NAME": "c1", "SLURM_JOB_ACCOUNT": "a" + id,
-		"CUDA_VISIBLE_DEVICES": gpus})
-	assert.NilError(t, err)
-	assert.NilError(t, os.WriteFile(filepath.Join(dir, name), b, 0o644))
+	orig := newSlurmScheduler
+	newSlurmScheduler = func(ctx context.Context) (scheduler.SchedulerClient, error) {
+		return scheduler.NewSlurmClientForDir(ctx, dir)
+	}
+	t.Cleanup(func() { newSlurmScheduler = orig })
 }
 
 // sourceGoroutines counts running workloadSource.run goroutines (immune to
@@ -263,6 +488,13 @@ func sourceGoroutines() int {
 	buf := make([]byte, 8<<20)
 	n := runtime.Stack(buf, true)
 	return strings.Count(string(buf[:n]), "(*workloadSource).run(")
+}
+
+// sourceGoroutinesOf counts running run goroutines of s.
+func sourceGoroutinesOf(s *workloadSource) int {
+	buf := make([]byte, 8<<20)
+	n := runtime.Stack(buf, true)
+	return strings.Count(string(buf[:n]), fmt.Sprintf("(*workloadSource).run(%p", s))
 }
 
 // waitWithin polls cond every 200us until it holds or d elapses.

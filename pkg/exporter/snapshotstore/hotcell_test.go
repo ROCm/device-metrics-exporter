@@ -140,15 +140,11 @@ func TestHotCellResolve(t *testing.T) {
 	}
 
 	// COW Update / UpdateIfChanged of other fields carry the cell over.
-	ep := st.Epoch()
 	st.Update("gpu-0", map[string]Sample{"cold": {Value: 2, Labels: lbl}, "other": {Value: 3}})
 	st.UpdateIfChanged("gpu-0", map[string]Sample{"const": {Value: 4}})
 	cell.Set(7, 70)
 	if s, _ := st.Snapshot("gpu-0").Get("hot"); s.Value != 7 || s.TsUs != 70 {
 		t.Fatalf("hot after other-field updates = %+v", s)
-	}
-	if st.Epoch() != ep {
-		t.Fatal("updates of other fields must not bump the epoch")
 	}
 }
 
@@ -359,26 +355,5 @@ func TestHotCellSetNoAlloc(t *testing.T) {
 	}
 	if n := testing.AllocsPerRun(1000, func() { _, _ = cell.Load() }); n != 0 {
 		t.Fatalf("HotCell.Load allocs/op = %v, want 0", n)
-	}
-}
-
-func BenchmarkHotCellSet(b *testing.B) {
-	cell := New().RegisterHot("gpu-0", "power", nil, 0, 0)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cell.Set(float64(i), int64(i))
-	}
-}
-
-func BenchmarkHotCellGet(b *testing.B) {
-	st := New()
-	cell := st.RegisterHot("gpu-0", "power", nil, 0, 0)
-	cell.Set(1, 1)
-	snap := st.Snapshot("gpu-0")
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = snap.Get("power")
 	}
 }

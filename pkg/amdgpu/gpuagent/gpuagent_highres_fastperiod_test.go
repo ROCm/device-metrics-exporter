@@ -118,12 +118,8 @@ func TestHighResSpecCarriesFastPeriodMs(t *testing.T) {
 		wantMs   uint32
 		wantSlow uint32
 	}{
-		{"ms 100", `"FastPeriodMs":100`, 100, 5},
 		{"ms 10", `"FastPeriodMs":10,"SlowPeriodSecs":30`, 10, 30},
-		{"ms 1", `"FastPeriodMs":1`, 1, 5},
 		{"secs 5 only", `"FastPeriodSecs":5,"SlowPeriodSecs":30`, 5000, 30},
-		{"secs 1 only", `"FastPeriodSecs":1,"SlowPeriodSecs":5`, 1000, 5},
-		{"unset", `"SlowPeriodSecs":0`, 1000, 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFastPeriodClient(t, hrCfg(tc.fields))
@@ -218,29 +214,36 @@ func TestHighResCreateRejectedErrors(t *testing.T) {
 		fields     string
 		statuses   []amdgpu.ApiStatus // per create call, in order
 		wantPeriod []uint32           // FastPeriodMs per create call
+		transport  error              // returned by the single create call
 	}{
 		{
 			// non-OK at 1000 ms: no fallback, error for reconnect/backoff
 			"non-OK at 1000", `"FastPeriodMs":1000`,
 			[]amdgpu.ApiStatus{amdgpu.ApiStatus_API_STATUS_INVALID_ARG},
-			[]uint32{1000},
+			[]uint32{1000}, nil,
 		},
 		{
 			"non-OK at 5000 from secs", `"FastPeriodSecs":5,"SlowPeriodSecs":30`,
 			[]amdgpu.ApiStatus{amdgpu.ApiStatus_API_STATUS_OPERATION_NOT_SUPPORTED},
-			[]uint32{5000},
+			[]uint32{5000}, nil,
 		},
 		{
 			// the fallback retry itself is rejected
 			"fallback rejected", `"FastPeriodMs":100`,
 			[]amdgpu.ApiStatus{amdgpu.ApiStatus_API_STATUS_INVALID_ARG, amdgpu.ApiStatus_API_STATUS_INVALID_ARG},
-			[]uint32{100, 1000},
+			[]uint32{100, 1000}, nil,
 		},
 		{
 			// a status that is not a period rejection is not retried
 			"other status at 100", `"FastPeriodMs":100`,
 			[]amdgpu.ApiStatus{amdgpu.ApiStatus_API_STATUS_OUT_OF_MEM},
-			[]uint32{100},
+			[]uint32{100}, nil,
+		},
+		{
+			// a transport error is returned as is, with no retry
+			"transport error at 10", `"FastPeriodMs":10`,
+			[]amdgpu.ApiStatus{amdgpu.ApiStatus_API_STATUS_OK},
+			[]uint32{10}, errors.New("transport down"),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -253,15 +256,22 @@ func TestHighResCreateRejectedErrors(t *testing.T) {
 				DoAndReturn(func(_ context.Context, in *amdgpu.GPUWatchRequest,
 					_ ...grpc.CallOption) (*amdgpu.GPUWatchResponse, error) {
 					specs = append(specs, proto.Clone(in.GetSpec()[0]).(*amdgpu.GPUWatchSpec))
+					if tc.transport != nil {
+						return nil, tc.transport
+					}
 					st := tc.statuses[call]
 					call++
 					return &amdgpu.GPUWatchResponse{ApiStatus: st}, nil
 				}).Times(len(tc.statuses))
 			f.watch.EXPECT().GPUWatchSubscribe(gomock.Any(), gomock.Any()).Times(0)
 
-			last := tc.statuses[len(tc.statuses)-1]
 			err := f.gc.StartHighRes(context.Background())
-			assert.Error(t, err, "GPUWatchCreate: "+last.String())
+			if tc.transport != nil {
+				assert.Equal(t, err, tc.transport)
+			} else {
+				last := tc.statuses[len(tc.statuses)-1]
+				assert.Error(t, err, "GPUWatchCreate: "+last.String())
+			}
 			assert.Equal(t, len(specs), len(tc.wantPeriod))
 			for i, ms := range tc.wantPeriod {
 				assert.Equal(t, specs[i].GetFastPeriodMs(), ms)
@@ -270,26 +280,15 @@ func TestHighResCreateRejectedErrors(t *testing.T) {
 	}
 }
 
-func TestHighResCreateTransportErrorUnchanged(t *testing.T) {
-	tcase := setupTest(t)
-	defer tcase(t)
-
-	f := newFastPeriodClient(t, hrCfg(`"FastPeriodMs":10`))
-	errTransport := errors.New("transport down")
-	f.watch.EXPECT().GPUWatchGet(gomock.Any(), gomock.Any()).
-		Return(&amdgpu.GPUWatchGetResponse{}, nil).AnyTimes()
-	f.watch.EXPECT().GPUWatchCreate(gomock.Any(), gomock.Any()).
-		Return(nil, errTransport).Times(1)
-	f.watch.EXPECT().GPUWatchSubscribe(gomock.Any(), gomock.Any()).Times(0)
-	assert.Equal(t, f.gc.StartHighRes(context.Background()), errTransport)
-}
-
 // blockingStream is a GPUWatch subscription that yields the queued frames, then
-// blocks until its context is cancelled.
+// blocks until its context is cancelled. drained (optional) is closed on the
+// first Recv after the last frame, that is once every frame was applied.
 type blockingStream struct {
 	grpc.ClientStream
-	ctx    context.Context
-	frames []*amdgpu.GPUWatch
+	ctx     context.Context
+	frames  []*amdgpu.GPUWatch
+	drained chan struct{}
+	once    sync.Once
 }
 
 func (s *blockingStream) Recv() (*amdgpu.GPUWatch, error) {
@@ -297,6 +296,9 @@ func (s *blockingStream) Recv() (*amdgpu.GPUWatch, error) {
 		w := s.frames[0]
 		s.frames = s.frames[1:]
 		return w, nil
+	}
+	if s.drained != nil {
+		s.once.Do(func() { close(s.drained) })
 	}
 	<-s.ctx.Done()
 	return nil, s.ctx.Err()

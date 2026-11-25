@@ -131,7 +131,7 @@ var onePodResp = &kube.ListPodResourcesResponse{PodResources: []*kube.PodResourc
 
 var onePodWant = map[string]Workload{"0000:01:00.0": podWl("pod0", "ns0", "ctr0")}
 
-// TestK8sListWorkloadsFakeServer (case 6): the map built from plugin and DRA
+// TestK8sListWorkloadsFakeServer: the map built from plugin and DRA
 // responses is unchanged: device ids lower-cased, non-AMD resources ignored,
 // and the first matching mode (plugin or DRA) locks out the other.
 func TestK8sListWorkloadsFakeServer(t *testing.T) {
@@ -224,11 +224,9 @@ func TestK8sNewClientNoSocket(t *testing.T) {
 	}
 }
 
-// TestK8sClientRecreatesClosedConn (case 85): a client whose connection was
-// closed (what gpuagent's Close() did on every reconnect) re-dials its socket
-// on the next List and returns the right map; a kubelet restart also recovers.
+// TestK8sClientRecreatesClosedConn: after a kubelet restart the client fails
+// while the kubelet is down and recovers once it is back.
 func TestK8sClientRecreatesClosedConn(t *testing.T) {
-	dials := countDials(t)
 	k := newFakeKubelet(t, onePodResp)
 	cl, err := newKubernetesClient(context.Background(), k.sock)
 	if err != nil {
@@ -239,25 +237,6 @@ func TestK8sClientRecreatesClosedConn(t *testing.T) {
 		t.Fatalf("ListWorkloads = %v, %v", got, err)
 	}
 
-	old := cl.conn()
-	if err := cl.Close(); err != nil {
-		t.Fatal(err)
-	}
-	got, err := cl.ListWorkloads()
-	if err != nil || !reflect.DeepEqual(got, onePodWant) {
-		t.Fatalf("ListWorkloads after Close = %v, %v; want %v", got, err, onePodWant)
-	}
-	if cl.conn() == old {
-		t.Error("connection was not re-created")
-	}
-	if d := dials.Load(); d != 2 {
-		t.Errorf("dials = %d; want 2 (create + one re-dial)", d)
-	}
-	if got, err := cl.ListWorkloads(); err != nil || !reflect.DeepEqual(got, onePodWant) {
-		t.Fatalf("ListWorkloads on re-created conn = %v, %v", got, err)
-	}
-
-	// kubelet restart: fails while down, recovers once it is back.
 	k.stop()
 	if _, err := cl.ListWorkloads(); err == nil {
 		t.Error("ListWorkloads succeeded with the kubelet down")
@@ -276,10 +255,11 @@ func TestK8sClientRecreatesClosedConn(t *testing.T) {
 	}
 }
 
-// TestK8sClientConcurrentReconnect (case 86): two borrowers (gpuagent workload
-// source and nicagent) share one client. Each time the connection is closed
-// under them, the concurrent failures re-dial exactly once and both get the
-// right map. Run with -race: clientConn is never written unsynchronized.
+// TestK8sClientConcurrentReconnect: two borrowers (gpuagent workload source
+// and nicagent) share one client. Each time the connection is closed under
+// them (Close, as a gpuagent reconnect used to do), the concurrent failures
+// re-dial exactly once on the next List and both get the right map. Run
+// with -race: clientConn is never written unsynchronized.
 func TestK8sClientConcurrentReconnect(t *testing.T) {
 	dials := countDials(t)
 	k := newFakeKubelet(t, onePodResp)

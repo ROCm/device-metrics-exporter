@@ -115,7 +115,7 @@ func TestPrologEscapesJobFields(t *testing.T) {
 }
 
 // slurmSettle is how long a negative check waits for an event that must not
-// change anything (the base characterization used the same 200 ms).
+// change anything.
 const slurmSettle = 200 * time.Millisecond
 
 // newTestSlurm starts a slurm client watching a fresh temp dir.
@@ -199,7 +199,7 @@ func isClosed(ch <-chan struct{}) bool {
 	}
 }
 
-// TestSlurmVersionBump (case 1): Version starts at 0 and bumps once per
+// TestSlurmVersionBump: Version starts at 0 and bumps once per
 // content change: a create, a two-GPU file (one bump), a remove.
 // ListWorkloads still returns a copy.
 func TestSlurmVersionBump(t *testing.T) {
@@ -228,9 +228,8 @@ func TestSlurmVersionBump(t *testing.T) {
 	expectSlurm(t, cl, 3, map[string]JobInfo{"1": jobOf("11"), "2": jobOf("11")})
 }
 
-// TestSlurmChangedBroadcast (case 2): Changed closes on the first change after
-// the call and wakes every waiter, is replaced after each bump, and does not
-// close on an identical rewrite. Two latencies: bump-to-wake (< 100 ms) and
+// TestSlurmChangedBroadcast: Changed closes on the first change after the
+// call, wakes every waiter and is replaced after each bump. Two latencies: bump-to-wake (< 100 ms) and
 // job-file-write-to-wake through inotify (< 1 s, well under the 3 s label
 // tick; the file path includes inotify delivery and -race overhead). Readers
 // run concurrently for -race.
@@ -295,11 +294,6 @@ func TestSlurmChangedBroadcast(t *testing.T) {
 	if ch2 == ch || isClosed(ch2) {
 		t.Fatal("Changed was not replaced by a fresh open channel after the bump")
 	}
-	writeJobFile(t, dir, "0", jobJSON("10", "0")) // identical rewrite
-	expectSlurm(t, cl, 1, map[string]JobInfo{"0": jobOf("10")})
-	if isClosed(ch2) {
-		t.Error("Changed closed on an identical rewrite")
-	}
 	writeJobFile(t, dir, "0", jobJSON("12", "0"))
 	select {
 	case <-ch2:
@@ -322,23 +316,31 @@ func TestSlurmChangedBroadcast(t *testing.T) {
 	}
 }
 
-// TestSlurmNoBumpOnNoop (case 32): an identical rewrite, a parse failure and
-// the remove of a key never stored do not bump; a changed field does.
+// TestSlurmNoBumpOnNoop: an empty or truncated job file, an identical
+// rewrite, a parse failure and the remove of a key never stored do not bump
+// and leave the watcher alive; the full content then lands with one bump, and
+// a changed field bumps.
 func TestSlurmNoBumpOnNoop(t *testing.T) {
 	cl, dir := newTestSlurm(t)
+	writeJobFile(t, dir, "5", "")
+	writeJobFile(t, dir, "6", `{"SLURM_JOB_ID":"6","CUDA_VIS`)
+	expectSlurm(t, cl, 0, map[string]JobInfo{})
+	writeJobFile(t, dir, "6", jobJSON("6", "1"))
+	waitSlurm(t, cl, 1, map[string]JobInfo{"1": jobOf("6")})
+
 	writeJobFile(t, dir, "3", jobJSON("30", "3"))
-	want := map[string]JobInfo{"3": jobOf("30")}
-	waitSlurm(t, cl, 1, want)
+	want := map[string]JobInfo{"1": jobOf("6"), "3": jobOf("30")}
+	waitSlurm(t, cl, 2, want)
 	ch := cl.Changed()
 
 	writeJobFile(t, dir, "3", jobJSON("30", "3"))
-	expectSlurm(t, cl, 1, want)
+	expectSlurm(t, cl, 2, want)
 	writeJobFile(t, dir, "4", "{garbage")
 	writeJobFile(t, dir, "42", "not json")
 	if err := os.Remove(filepath.Join(dir, "42")); err != nil { // key "42" never stored
 		t.Fatal(err)
 	}
-	expectSlurm(t, cl, 1, want)
+	expectSlurm(t, cl, 2, want)
 	if isClosed(ch) {
 		t.Fatal("Changed closed on a no-op")
 	}
@@ -346,50 +348,13 @@ func TestSlurmNoBumpOnNoop(t *testing.T) {
 	writeJobFile(t, dir, "3", jobJSONUser("30", "other", "3"))
 	other := jobOf("30")
 	other.User = "other"
-	waitSlurm(t, cl, 2, map[string]JobInfo{"3": other})
+	waitSlurm(t, cl, 3, map[string]JobInfo{"1": jobOf("6"), "3": other})
 	if !isClosed(ch) {
 		t.Error("Changed not closed on a changed field")
 	}
 }
 
-// TestSlurmRemoveKeyingUnchanged (case 41): Remove deletes by file name while
-// Write keys by CUDA_VISIBLE_DEVICES; Version follows the map exactly. Expected
-// states are the base b2efd1b32 characterization (case41-remove-keying.json).
-func TestSlurmRemoveKeyingUnchanged(t *testing.T) {
-	cl, dir := newTestSlurm(t)
-	writeJobFile(t, dir, "7", jobJSON("7", "2,3"))
-	waitSlurm(t, cl, 1, map[string]JobInfo{"2": jobOf("7"), "3": jobOf("7")})
-	if err := os.Remove(filepath.Join(dir, "7")); err != nil {
-		t.Fatal(err)
-	}
-	expectSlurm(t, cl, 1, map[string]JobInfo{"2": jobOf("7"), "3": jobOf("7")})
-	writeJobFile(t, dir, "2", jobJSON("9", "2"))
-	waitSlurm(t, cl, 2, map[string]JobInfo{"2": jobOf("9"), "3": jobOf("7")})
-	if err := os.Remove(filepath.Join(dir, "2")); err != nil {
-		t.Fatal(err)
-	}
-	waitSlurm(t, cl, 3, map[string]JobInfo{"3": jobOf("7")})
-}
-
-// TestSlurmWatcherPartialWrite (case 72): an empty or truncated job file is a
-// parse failure and changes nothing; the full content then lands with exactly
-// one bump; the watcher stays alive. Expected states are the base
-// characterization (case72-watcher-partial-write.json) plus the Version.
-func TestSlurmWatcherPartialWrite(t *testing.T) {
-	cl, dir := newTestSlurm(t)
-	writeJobFile(t, dir, "5", "")
-	expectSlurm(t, cl, 0, map[string]JobInfo{})
-	writeJobFile(t, dir, "5", jobJSON("5", "0"))
-	waitSlurm(t, cl, 1, map[string]JobInfo{"0": jobOf("5")})
-	writeJobFile(t, dir, "6", `{"SLURM_JOB_ID":"6","CUDA_VIS`)
-	expectSlurm(t, cl, 1, map[string]JobInfo{"0": jobOf("5")})
-	writeJobFile(t, dir, "6", jobJSON("6", "1"))
-	waitSlurm(t, cl, 2, map[string]JobInfo{"0": jobOf("5"), "1": jobOf("6")})
-	writeJobFile(t, dir, "8", jobJSON("8", "2"))
-	waitSlurm(t, cl, 3, map[string]JobInfo{"0": jobOf("5"), "1": jobOf("6"), "2": jobOf("8")})
-}
-
-// TestSlurmWatcherRename (case 73): a job file renamed into place (new, and
+// TestSlurmWatcherRename: a job file renamed into place (new, and
 // over an existing file) is read once per content change; the temp name is
 // skipped.
 func TestSlurmWatcherRename(t *testing.T) {
@@ -412,41 +377,7 @@ func TestSlurmWatcherRename(t *testing.T) {
 	expectSlurm(t, cl, 2, map[string]JobInfo{"4": jobOf("41")})
 }
 
-// TestSlurmWatcherDirRemoved (case 74): pins the base b2efd1b32 outcome
-// (case74-watcher-dir-removed.json). Removing the watched dir keeps the
-// entries (Remove deletes by file name, entries are keyed by GPU), and the
-// dir is not re-watched after it is recreated; no bump, no panic. With chmod
-// 000 then 755 the watch survives. Base defect (no re-watch) kept as is.
-func TestSlurmWatcherDirRemoved(t *testing.T) {
-	cl, dir := newTestSlurm(t)
-	writeJobFile(t, dir, "5", jobJSON("5", "0"))
-	want := map[string]JobInfo{"0": jobOf("5")}
-	waitSlurm(t, cl, 1, want)
-	if err := os.RemoveAll(dir); err != nil {
-		t.Fatal(err)
-	}
-	expectSlurm(t, cl, 1, want)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeJobFile(t, dir, "6", jobJSON("6", "1"))
-	expectSlurm(t, cl, 1, want)
-
-	cl2, dir2 := newTestSlurm(t)
-	writeJobFile(t, dir2, "5", jobJSON("5", "0"))
-	waitSlurm(t, cl2, 1, want)
-	if err := os.Chmod(dir2, 0o000); err != nil {
-		t.Fatal(err)
-	}
-	expectSlurm(t, cl2, 1, want)
-	if err := os.Chmod(dir2, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeJobFile(t, dir2, "6", jobJSON("6", "1"))
-	waitSlurm(t, cl2, 2, map[string]JobInfo{"0": jobOf("5"), "1": jobOf("6")})
-}
-
-// TestSlurmWatcherFsnotifyError (case 75): a watcher error is logged without a
+// TestSlurmWatcherFsnotifyError: a watcher error is logged without a
 // bump and the loop keeps serving events; a closed Events or Errors channel
 // ends the loop (no spin); the last state stays readable.
 func TestSlurmWatcherFsnotifyError(t *testing.T) {

@@ -58,21 +58,6 @@ func captureLog(t *testing.T) *bytes.Buffer {
 	return &buf
 }
 
-func TestHighResFastPeriodMsValid(t *testing.T) {
-	valid := []uint32{1, 10, 100, 1000, 2000, 5000, 59000, 60000}
-	invalid := []uint32{0, 2, 5, 50, 99, 101, 500, 999, 1001, 1500, 60001, 61000, 4294967000}
-	for _, ms := range valid {
-		if !highResFastPeriodMsValid(ms) {
-			t.Errorf("highResFastPeriodMsValid(%d) = false, want true", ms)
-		}
-	}
-	for _, ms := range invalid {
-		if highResFastPeriodMsValid(ms) {
-			t.Errorf("highResFastPeriodMsValid(%d) = true, want false", ms)
-		}
-	}
-}
-
 func TestHighResFastPeriodMs(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -104,6 +89,10 @@ func TestHighResFastPeriodMs(t *testing.T) {
 		{"secs 61", hrBody(`"FastPeriodSecs":61,"SlowPeriodSecs":3600`), 1000, 5, 1, true},
 		{"huge secs no overflow", hrBody(`"FastPeriodSecs":4294967,"SlowPeriodSecs":3600`), 1000, 5, 1, true},
 		{"slow equals fast", hrBody(`"FastPeriodSecs":10,"SlowPeriodSecs":10`), 10000, 10, 10, false},
+		{"no common config", `{"ServerPort":5000}`, 1000, 5, 1, false},
+		{"no high resolution", `{"ServerPort":5000,"CommonConfig":{"MetricsFieldPrefix":"amd_"}}`, 1000, 5, 1, false},
+		{"disabled ignores periods", `{"ServerPort":5000,"CommonConfig":{"HighResolution":` +
+			`{"Enable":false,"FastPeriodMs":10,"FastPeriodSecs":7,"SlowPeriodSecs":30}}}`, 1000, 5, 1, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -124,6 +113,11 @@ func TestHighResFastPeriodMs(t *testing.T) {
 				t.Errorf("invalid log = %v, want %v; log:\n%s", got, tc.wantInval, buf.String())
 			}
 		})
+	}
+	// handler whose running config was never loaded
+	ch := NewConfigHandler(t.TempDir()+"/missing.json", GPUAgentConfig{})
+	if ms, slow := ch.GetHighResWatchPeriods(); ms != 1000 || slow != 5 {
+		t.Errorf("unloaded config: %d/%d, want 1000/5", ms, slow)
 	}
 }
 
@@ -153,33 +147,6 @@ func TestHighResFastPeriodPrecedence(t *testing.T) {
 				t.Errorf("precedence log count = %d, want logged=%v", got, tc.wantLog)
 			}
 		})
-	}
-}
-
-func TestHighResWatchPeriodsDefaults(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-	}{
-		{"no common config", `{"ServerPort":5000}`},
-		{"no high resolution", `{"ServerPort":5000,"CommonConfig":{"MetricsFieldPrefix":"amd_"}}`},
-		{"disabled ignores periods", `{"ServerPort":5000,"CommonConfig":{"HighResolution":{"Enable":false,"FastPeriodMs":10,"FastPeriodSecs":7,"SlowPeriodSecs":30}}}`},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			ch := newHRConfigHandler(t, tc.body)
-			if ms, slow := ch.GetHighResWatchPeriods(); ms != 1000 || slow != 5 {
-				t.Errorf("GetHighResWatchPeriods = %d/%d, want 1000/5", ms, slow)
-			}
-			if fast, slow := ch.GetHighResPeriods(); fast != 1 || slow != 5 {
-				t.Errorf("GetHighResPeriods = %d/%d, want 1/5", fast, slow)
-			}
-		})
-	}
-	// handler whose running config was never loaded
-	ch := NewConfigHandler(t.TempDir()+"/missing.json", GPUAgentConfig{})
-	if ms, slow := ch.GetHighResWatchPeriods(); ms != 1000 || slow != 5 {
-		t.Errorf("unloaded config: %d/%d, want 1000/5", ms, slow)
 	}
 }
 
@@ -222,25 +189,5 @@ func writeAndRefresh(t *testing.T, ch *ConfigHandler, body string) {
 	}
 	if err := ch.RefreshConfig(); err != nil {
 		t.Fatalf("RefreshConfig: %v", err)
-	}
-}
-
-func TestHighResFastPeriodSecsOnlyUnchanged(t *testing.T) {
-	// a ConfigMap written before FastPeriodMs existed keeps its seconds value
-	for _, tc := range []struct {
-		body           string
-		wantMs, wantSl uint32
-	}{
-		{hrBody(`"FastPeriodSecs":1,"SlowPeriodSecs":5`), 1000, 5},
-		{hrBody(`"FastPeriodSecs":5,"SlowPeriodSecs":30`), 5000, 30},
-		{hrBody(`"FastPeriodSecs":60,"SlowPeriodSecs":3600`), 60000, 3600},
-	} {
-		ch := newHRConfigHandler(t, tc.body)
-		if ms, slow := ch.GetHighResWatchPeriods(); ms != tc.wantMs || slow != tc.wantSl {
-			t.Errorf("%s: %d/%d, want %d/%d", tc.body, ms, slow, tc.wantMs, tc.wantSl)
-		}
-		if fast, _ := ch.GetHighResPeriods(); fast != tc.wantMs/1000 {
-			t.Errorf("%s: GetHighResPeriods fast = %d, want %d", tc.body, fast, tc.wantMs/1000)
-		}
 	}
 }

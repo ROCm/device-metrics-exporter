@@ -259,7 +259,7 @@ func newK8sSchedulerMock() scheduler.SchedulerClient {
 	k8sSchedMockCl.EXPECT().ListWorkloads().Return(workload, nil).AnyTimes()
 	k8sSchedMockCl.EXPECT().CheckExportLabels(gomock.Any()).Return(true).AnyTimes()
 	k8sSchedMockCl.EXPECT().Type().Return(scheduler.Slurm).AnyTimes()
-	// GPUOP-1140: the k8s client is exporter-owned; gpuagent Close() never closes it.
+	// The k8s client is exporter-owned; gpuagent Close() never closes it.
 	k8sSchedMockCl.EXPECT().Close().Return(nil).Times(0)
 	return k8sSchedMockCl
 }
