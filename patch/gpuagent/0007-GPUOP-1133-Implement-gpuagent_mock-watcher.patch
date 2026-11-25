@@ -1,0 +1,843 @@
+From 0eb6624ce8b3ad9b1b126080bef3d342d556cadb Mon Sep 17 00:00:00 2001
+From: praveen <praveenkumar.shanmugam@amd.com>
+Date: Tue, 24 Nov 2026 17:55:22 -0800
+Subject: [PATCH] GPUOP-1133: Implement gpuagent_mock watcher
+
+gpuagent_mock gets the smi-watcher event thread (1 s timer, tick plan,
+synthetic FAST/SLOW/POWER sweep, DB update task, enqueue-only full frames),
+the GPUWatchSubscribe IPC handler with queue attach, power view rebuild and
+inactive cleanup (mirroring amdsmi), and the shared smi-power thread,
+started from smi_init and joined first in smi_teardown.
+
+Synthetic values are deterministic and monotonic per GPU: POWER
+accumulation counter +1 per read, energy += power x period, residency +1
+every 10 reads, power 300 + gpu + (n % 50) W, timestamps from
+CLOCK_MONOTONIC; FAST GPU_CLOCK = 1000 + sweep seq, UBB power on every FAST
+sweep (1 s floor, carried forward); SLOW ECC_CORRECT_TOTAL = slow seq.
+
+Test knobs: AGA_MOCK_POWER_NA_FIELDS, AGA_MOCK_WATCH_READ_DELAY_US,
+AGA_MOCK_WATCH_SWEEP_DELAY_MS (per GPU sweep sleep, + 100 ms per GPU on
+slow ticks) and AGA_MOCK_WATCH_TRACE_READS.
+
+Cleanup releases a failed stream from every watch it is on: the gRPC
+thread sets write_failed concurrently, so smi_watch_sub_reap can report
+only some of a multi-watch stream's pairs and the rest would keep a
+pointer to the freed client context.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ sw/nic/gpuagent/api/smi/smi_api_mock.cc | 755 +++++++++++++++++++++++-
+ 1 file changed, 732 insertions(+), 23 deletions(-)
+
+diff --git a/sw/nic/gpuagent/api/smi/smi_api_mock.cc b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
+index 13f3543404d..2e3358ccd8c 100644
+--- a/sw/nic/gpuagent/api/smi/smi_api_mock.cc
++++ b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
+@@ -20,8 +20,12 @@ limitations under the License.
+ ///
+ //----------------------------------------------------------------------------
+ 
++#include <ctime>
++#include <atomic>
+ #include <random>
++#include <cstdlib>
+ #include <sstream>
++#include <unistd.h>
+ #include <iomanip>
+ #include <iostream>
+ #include <boost/property_tree/ptree.hpp>
+@@ -34,6 +38,7 @@ limitations under the License.
+ #include "nic/gpuagent/api/aga_state.hpp"
+ #include "nic/gpuagent/api/include/aga_gpu.hpp"
+ #include "nic/gpuagent/api/include/aga_init.hpp"
++#include "nic/gpuagent/api/include/aga_task.hpp"
+ #include "nic/gpuagent/api/smi/smi_api.hpp"
+ #include "nic/gpuagent/api/smi/smi_watch.hpp"
+ #include "nic/gpuagent/api/smi/smi_events.hpp"
+@@ -43,6 +48,18 @@ limitations under the License.
+ #define AGA_SMI_EVENT_MONITOR_START_DELAY    10.0
+ /// event monitoring frequency (in seconds)
+ #define AGA_SMI_EVENT_MONITOR_INTERVAL       3.0
++/// initial delay after which watch field update starts (in seconds)
++#define AGA_MOCK_WATCHER_START_DELAY         10.0
++/// watch timer interval (in seconds), the smi-watcher tick
++#define AGA_MOCK_WATCHER_INTERVAL            1.0
++/// emulated violation status read per GPU on slow due ticks (in ms)
++#define AGA_MOCK_WATCH_SLOW_DELAY_MS         100
++/// interval of the AGA_MOCK_WATCH_TRACE_READS line (in ns)
++#define AGA_MOCK_WATCH_TRACE_NS              (10ull * 1000000000ull)
++/// largest AGA_MOCK_WATCH_READ_DELAY_US (1 s), keeps teardown bounded
++#define AGA_MOCK_WATCH_READ_DELAY_US_MAX     1000000
++/// largest AGA_MOCK_WATCH_SWEEP_DELAY_MS (10 s)
++#define AGA_MOCK_WATCH_SWEEP_DELAY_MS_MAX    10000
+ 
+ /// number of GPUs mocked; by default 16, when PLATFORM is set to be helios the
+ /// number of GPUs is 4
+@@ -662,9 +679,697 @@ spawn_event_monitor_thread (void)
+     return SDK_RET_OK;
+ }
+ 
++//----------------------------------------------------------------------------
++// mock watcher: smi-watcher thread (FAST/SLOW sweep, full frames, subscriber
++// map) and the shared smi-power thread, fed with deterministic, monotonic
++// synthetic values so cadence and freshness can be checked end to end
++//----------------------------------------------------------------------------
++
++/// \brief    mock watcher test knobs, read once from the environment
++typedef struct mock_watch_knobs_s {
++    /// AGA_MOCK_POWER_NA_FIELDS: bit i reads k_mock_power_fields[i] as NA
++    uint32_t na_mask;
++    /// AGA_MOCK_WATCH_READ_DELAY_US: busy wait per POWER read (smi-power)
++    uint32_t read_delay_us;
++    /// AGA_MOCK_WATCH_SWEEP_DELAY_MS: sleep per GPU per smi-watcher sweep
++    uint32_t sweep_delay_ms;
++    /// AGA_MOCK_WATCH_TRACE_READS=1: one read count INFO line every 10 s
++    bool trace_reads;
++} mock_watch_knobs_t;
++
++/// \brief    a POWER tier field and its gpu_metrics field name
++typedef struct mock_power_field_s {
++    /// gpu_metrics field name, as accepted by AGA_MOCK_POWER_NA_FIELDS
++    const char *name;
++    /// watch record field
++    uint64_t aga_gpu_watch_fields_t::*field;
++} mock_power_field_t;
++
++/// \brief    queue counters of a subscriber at the last trace line
++typedef struct mock_watch_sub_mark_s {
++    /// queue head (power frames enqueued so far)
++    uint32_t head;
++    /// queue dropped count
++    uint64_t dropped;
++} mock_watch_sub_mark_t;
++
++/// POWER tier fields, named after the gpu_metrics fields they come from
++static const mock_power_field_t k_mock_power_fields[] = {
++    { "current_socket_power",     &aga_gpu_watch_fields_t::gpu_power_usage },
++    { "voltage_gfx",              &aga_gpu_watch_fields_t::gfx_voltage },
++    { "voltage_soc",              &aga_gpu_watch_fields_t::soc_voltage },
++    { "voltage_mem",              &aga_gpu_watch_fields_t::mem_voltage },
++    { "energy_accumulator",       &aga_gpu_watch_fields_t::energy_consumed },
++    { "accumulation_counter",
++      &aga_gpu_watch_fields_t::viol_current_acc_counter },
++    { "prochot_residency_acc",
++      &aga_gpu_watch_fields_t::viol_proc_hot_residency_acc },
++    { "ppt_residency_acc",
++      &aga_gpu_watch_fields_t::viol_ppt_residency_acc },
++    { "socket_thm_residency_acc",
++      &aga_gpu_watch_fields_t::viol_socket_thermal_residency_acc },
++    { "vr_thm_residency_acc",
++      &aga_gpu_watch_fields_t::viol_vr_thermal_residency_acc },
++    { "hbm_thm_residency_acc",
++      &aga_gpu_watch_fields_t::viol_hbm_thermal_residency_acc },
++    { "firmware_timestamp",       &aga_gpu_watch_fields_t::firmware_timestamp },
++    { "system_clock_counter",
++      &aga_gpu_watch_fields_t::system_clock_counter },
++};
++
++/// smi-watcher thread instance
++static sdk::event_thread::event_thread *g_watcher_thread;
++/// gpu watch subscribers, smi-watcher thread only
++static gpu_watch_subscriber_db_t g_gpu_watch_subscriber_db;
++/// per GPU watch record, smi-watcher thread only; tiers not due on a tick
++/// carry forward their last value
++static aga_gpu_watch_fields_t g_watch_rec[AGA_MAX_GPU];
++/// FAST and SLOW sweep sequence numbers, smi-watcher thread only
++static uint64_t g_mock_fast_seq;
++static uint64_t g_mock_slow_seq;
++/// per GPU POWER read sequence and accumulated energy (in uJ); read by the
++/// smi-power thread or, while it does not sample the GPU, by the smi-watcher
++static std::atomic<uint64_t> g_mock_power_reads[AGA_MAX_GPU];
++static std::atomic<uint64_t> g_mock_power_energy[AGA_MAX_GPU];
++/// power ticks seen by the power read hook, for AGA_MOCK_WATCH_TRACE_READS
++static std::atomic<uint64_t> g_mock_power_ticks{0};
++/// read counts of the current trace window, smi-watcher thread only
++static uint64_t g_mock_trace_fast;
++static uint64_t g_mock_trace_slow;
++static uint64_t g_mock_trace_full;
++static uint64_t g_mock_trace_frames;
++static uint64_t g_mock_trace_drops;
++/// per subscriber queue counters at the last trace line, smi-watcher only
++static unordered_map<aga_gpu_watch_client_ctxt_t *,
++                     mock_watch_sub_mark_t> g_mock_sub_mark;
++
++/// \brief    CLOCK_MONOTONIC now, in ns
++static inline uint64_t
++mock_mono_ns_ (void)
++{
++    struct timespec ts;
++
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return ((uint64_t)ts.tv_sec * 1000000000ull) + (uint64_t)ts.tv_nsec;
++}
++
++/// \brief    parse a non-negative integer knob
++/// \param[in] name    environment variable name
++/// \param[in] max     largest accepted value; larger values are clamped
++/// \return   the value, 0 if unset or invalid
++static uint32_t
++mock_watch_knob_uint_ (const char *name, uint32_t max)
++{
++    char *end;
++    unsigned long val;
++    const char *env = std::getenv(name);
++
++    if ((env == NULL) || (*env == '\0')) {
++        return 0;
++    }
++    val = strtoul(env, &end, 10);
++    if ((*end != '\0') || (val > UINT32_MAX)) {
++        AGA_TRACE_WARN("Ignoring invalid {}={}", name, env);
++        return 0;
++    }
++    if (val > max) {
++        AGA_TRACE_WARN("Clamping {}={} to {}", name, env, max);
++        return max;
++    }
++    return (uint32_t)val;
++}
++
++/// \brief    parse AGA_MOCK_POWER_NA_FIELDS
++/// \return   bit mask over k_mock_power_fields[]
++static uint32_t
++mock_watch_knob_na_mask_ (void)
++{
++    std::string name;
++    uint32_t mask = 0;
++    std::stringstream list;
++    const char *env = std::getenv("AGA_MOCK_POWER_NA_FIELDS");
++    const uint32_t num_fields =
++        sizeof(k_mock_power_fields) / sizeof(k_mock_power_fields[0]);
++
++    if (env == NULL) {
++        return 0;
++    }
++    list.str(env);
++    while (std::getline(list, name, ',')) {
++        uint32_t i;
++
++        name.erase(0, name.find_first_not_of(" \t"));
++        name.erase(name.find_last_not_of(" \t") + 1);
++        for (i = 0; i < num_fields; i++) {
++            if (name == k_mock_power_fields[i].name) {
++                mask |= (1u << i);
++                break;
++            }
++        }
++        if ((i == num_fields) && !name.empty()) {
++            AGA_TRACE_WARN("Ignoring unknown AGA_MOCK_POWER_NA_FIELDS field {}",
++                           name.c_str());
++        }
++    }
++    return mask;
++}
++
++/// \brief    mock watcher knobs, parsed on first use
++/// \return   knobs
++static const mock_watch_knobs_t *
++mock_watch_knobs_ (void)
++{
++    static const mock_watch_knobs_t knobs = {
++        mock_watch_knob_na_mask_(),
++        mock_watch_knob_uint_("AGA_MOCK_WATCH_READ_DELAY_US",
++                              AGA_MOCK_WATCH_READ_DELAY_US_MAX),
++        mock_watch_knob_uint_("AGA_MOCK_WATCH_SWEEP_DELAY_MS",
++                              AGA_MOCK_WATCH_SWEEP_DELAY_MS_MAX),
++        (mock_watch_knob_uint_("AGA_MOCK_WATCH_TRACE_READS", 1) == 1),
++    };
++
++    return &knobs;
++}
++
++/// \brief    fill the POWER tier fields of one GPU with synthetic values
++/// NOTE:
++/// deterministic and monotonic per GPU: accumulation counter +1 per read,
++/// energy += power x period, residency +1 every 10 reads, power
++/// 300 + gpu + (read % 50) W, constant voltages, timestamps from
++/// CLOCK_MONOTONIC. fields named in AGA_MOCK_POWER_NA_FIELDS read NA
++/// \param[in]  gpu_idx      GPU index, below AGA_MAX_GPU
++/// \param[in]  period_ms    cadence of the caller, for the energy integral
++/// \param[out] fields       watch record whose POWER tier fields are filled
++static void
++mock_power_fill_ (uint32_t gpu_idx, uint32_t period_ms,
++                  aga_gpu_watch_fields_t *fields)
++{
++    uint64_t n;
++    uint64_t power;
++    uint64_t energy;
++    uint64_t mono_ns;
++    uint32_t na_mask = mock_watch_knobs_()->na_mask;
++
++    mono_ns = mock_mono_ns_();
++    n = g_mock_power_reads[gpu_idx].fetch_add(1, std::memory_order_relaxed) + 1;
++    power = 300 + gpu_idx + (n % 50);
++    // W x ms = mJ, x 1000 = uJ
++    energy = g_mock_power_energy[gpu_idx].fetch_add(power * period_ms * 1000,
++                                                    std::memory_order_relaxed);
++    fields->gpu_power_usage = power;
++    fields->gfx_voltage = 800;
++    fields->soc_voltage = 900;
++    fields->mem_voltage = 1100;
++    fields->energy_consumed = energy + (power * period_ms * 1000);
++    fields->viol_current_acc_counter = n;
++    fields->viol_proc_hot_residency_acc = n / 10;
++    fields->viol_ppt_residency_acc = n / 10;
++    fields->viol_socket_thermal_residency_acc = n / 10;
++    fields->viol_vr_thermal_residency_acc = n / 10;
++    fields->viol_hbm_thermal_residency_acc = n / 10;
++    fields->firmware_timestamp = mono_ns / 10;
++    fields->system_clock_counter = mono_ns;
++    for (uint32_t i = 0; na_mask != 0; i++, na_mask >>= 1) {
++        if (na_mask & 1) {
++            fields->*k_mock_power_fields[i].field = UINT64_MAX;
++        }
++    }
++}
++
++/// \brief    fill the FAST tier fields of one GPU with synthetic values
++/// NOTE:
++/// GPU_CLOCK = 1000 + FAST sweep sequence; the rest are the mock's GPU stats
++/// values. UBB node power is FAST (1 s floor) and every mock GPU is partition
++/// 0, so it is read on every FAST sweep and carried forward in between
++/// \param[in]  gpu_idx    GPU index
++/// \param[out] fields     watch record whose FAST tier fields are filled
++static void
++mock_watch_fill_fast_ (uint32_t gpu_idx, aga_gpu_watch_fields_t *fields)
++{
++    uint64_t seq = g_mock_fast_seq;
++
++    fields->gpu_clock = 1000 + seq;
++    fields->memory_clock = 900;
++    fields->gpu_temperature = 45 + gpu_idx;
++    fields->memory_temperature = 50 + gpu_idx;
++    fields->power_usage = 90 + gpu_idx;
++    fields->avg_power = 90 + gpu_idx;
++    fields->gpu_util = seq % 100;
++    fields->umc_activity = 30;
++    fields->mm_activity = 10;
++    fields->vram_max_bandwidth = 3276800;
++    fields->edge_temperature = 40 + gpu_idx;
++    fields->pcie_replay_count = seq;
++    fields->pcie_recovery_count = seq;
++    fields->pcie_replay_rollover_count = seq;
++    fields->pcie_nack_sent_count = seq;
++    fields->pcie_nack_received_count = seq;
++    fields->ubb_power = 2100 + (seq % 50);
++    fields->hbm_temperature_count = AGA_GPU_MAX_HBM;
++    fields->gfx_busy_inst_count = AGA_GPU_MAX_XCC;
++    for (uint32_t i = 0; i < AGA_GPU_MAX_XCC; i++) {
++        if (i < AGA_GPU_MAX_HBM) {
++            fields->hbm_temperature[i] = 50 + i;
++        }
++        fields->gfx_busy_inst[i] = (seq + i) % 100;
++    }
++}
++
++/// \brief    fill the SLOW tier fields of one GPU with synthetic values
++/// NOTE:
++/// ECC_CORRECT_TOTAL = SLOW sweep sequence; the rest are the mock's GPU
++/// stats values
++/// \param[in]  gpu_idx    GPU index
++/// \param[out] fields     watch record whose SLOW tier fields are filled
++static void
++mock_watch_fill_slow_ (uint32_t gpu_idx, aga_gpu_watch_fields_t *fields)
++{
++    uint64_t seq = g_mock_slow_seq;
++
++    fields->total_correctable_errors = seq;
++    fields->total_uncorrectable_errors = 0;
++    fields->total_deferred_errors = 0;
++    fields->pcie_tx_usage = 1000 + seq;
++    fields->pcie_rx_usage = 2000 + seq;
++    fields->pcie_bandwidth = 315;
++    fields->gpu_memory_usage = 1273;
++    fields->gpu_total_memory = 196592;
++    fields->total_vram = 196592;
++    fields->total_visible_vram = 196592;
++    fields->total_gtt = 128716;
++    fields->used_visible_vram = 1273;
++    fields->used_gtt = 20;
++    fields->free_vram = 196592 - 1273;
++    fields->free_visible_vram = 196592 - 1273;
++    fields->free_gtt = 128716 - 20;
++    fields->pcie_speed = 16;
++    fields->pcie_max_speed = 32;
++    fields->xgmi_neighbor0_tx_throughput = seq * 32;
++    fields->xgmi_neighbor1_tx_throughput = seq * 32;
++}
++
++/// \brief    smi-watcher sweep of every mock GPU into the watch db
++/// NOTE:
++/// mirrors the amdsmi sweep: tiers not due carry forward, FAST is reset to
++/// NA and refilled, POWER comes from the smi-power seqlock record while that
++/// thread samples the GPU and is read here otherwise.
++/// AGA_MOCK_WATCH_SWEEP_DELAY_MS sleeps per GPU, plus
++/// AGA_MOCK_WATCH_SLOW_DELAY_MS per GPU on slow due ticks, emulating the
++/// amdsmi FAST sweep and violation_status
++/// \param[out] watch_db    db to be updated
++/// \param[in]  plan        tiers due this tick
++static void
++mock_watch_sweep_ (aga_gpu_watch_db_t *watch_db,
++                   const gpu_watch_tick_plan_t *plan)
++{
++    uint32_t fast_ms;
++    aga_gpu_watch_fields_t *wi;
++    uint32_t num_gpu = AGA_MOCK_NUM_GPU;
++    uint32_t delay_ms = mock_watch_knobs_()->sweep_delay_ms;
++
++    fast_ms = smi_watch_fast_period_ms();
++    if (fast_ms < AGA_GPU_WATCH_FAST_TIER_MIN_MS) {
++        fast_ms = AGA_GPU_WATCH_FAST_TIER_MIN_MS;
++    }
++    if (num_gpu > AGA_MAX_GPU) {
++        num_gpu = AGA_MAX_GPU;
++    }
++    g_mock_fast_seq++;
++    g_mock_trace_fast++;
++    if (plan->slow_due) {
++        g_mock_slow_seq++;
++        g_mock_trace_slow++;
++    }
++    for (uint32_t gpu = 0; gpu < num_gpu; gpu++) {
++        wi = &watch_db->watch_info[gpu];
++        *wi = g_watch_rec[gpu];
++        aga_gpu_watch_reset_fast_fields(wi);
++        if (plan->power_by_watcher || !smi_watch_power_snapshot(gpu, wi)) {
++            aga_gpu_watch_reset_power_fields(wi);
++            mock_power_fill_(gpu, fast_ms, wi);
++        }
++        mock_watch_fill_fast_(gpu, wi);
++        if (plan->slow_due) {
++            mock_watch_fill_slow_(gpu, wi);
++        }
++        if (delay_ms) {
++            usleep(delay_ms * 1000);
++            if (plan->slow_due) {
++                usleep(AGA_MOCK_WATCH_SLOW_DELAY_MS * 1000);
++            }
++        }
++        g_watch_rec[gpu] = *wi;
++    }
++}
++
++/// \brief    rebuild the power view from the subscribed watches and publish
++///           it to the smi-power thread (smi-watcher thread only)
++static void
++mock_power_view_rebuild_ (void)
++{
++    gpu_entry *gpu;
++    aga_obj_key_t key;
++    gpu_watch_power_view_t::watch_t watch;
++    std::shared_ptr<gpu_watch_power_view_t> view;
++    // heap-allocated: aga_gpu_watch_info_t is large; only on (un)subscribe
++    std::unique_ptr<aga_gpu_watch_info_t> info(new aga_gpu_watch_info_t());
++
++    view = std::make_shared<gpu_watch_power_view_t>();
++    for (auto& it : g_gpu_watch_subscriber_db.gpu_watch_map) {
++        if (it.second.client_set.empty()) {
++            continue;
++        }
++        key = it.first;
++        memset(info.get(), 0, sizeof(aga_gpu_watch_info_t));
++        if (aga_gpu_watch_read(&key, info.get()) != SDK_RET_OK) {
++            continue;
++        }
++        watch = {};
++        watch.key = key;
++        for (uint32_t i = 0; i < info->spec.num_attrs; i++) {
++            if ((smi_watch_attr_tier(info->spec.attr_id[i]) ==
++                     GPU_WATCH_TIER_POWER) &&
++                (watch.num_attrs < AGA_GPU_WATCH_POWER_ATTRS_MAX)) {
++                watch.attr_id[watch.num_attrs++] = info->spec.attr_id[i];
++            }
++        }
++        for (uint32_t g = 0; g < info->spec.num_gpu; g++) {
++            gpu = gpu_db()->find(&info->spec.gpu[g]);
++            if ((gpu != NULL) && (gpu->id() < AGA_MOCK_NUM_GPU) &&
++                (gpu->id() < AGA_MAX_GPU)) {
++                watch.gpu_key[watch.num_gpu] = info->spec.gpu[g];
++                watch.gpu_idx[watch.num_gpu++] = gpu->id();
++            }
++        }
++        if ((watch.num_attrs == 0) || (watch.num_gpu == 0)) {
++            continue;
++        }
++        // every live subscriber gets a partial frame per power tick
++        for (auto client_ctxt : it.second.client_set) {
++            if (!client_ctxt->write_failed.load(std::memory_order_acquire)) {
++                watch.queues.push_back(client_ctxt->queue);
++            }
++        }
++        for (uint32_t g = 0; g < watch.num_gpu; g++) {
++            view->gpus.set(watch.gpu_idx[g]);
++        }
++        view->watches.push_back(watch);
++    }
++    AGA_TRACE_DEBUG("Power view rebuilt, {} watches, {} GPUs",
++                    view->watches.size(), view->gpus.count());
++    smi_watch_power_view_set(view);
++}
++
++/// \brief    add a subscriber's queue counters to the trace window
++/// \param[in] ctxt     subscriber client context
++/// \param[in] erase    forget the subscriber (it is being released)
++static void
++mock_watch_trace_sub_ (aga_gpu_watch_client_ctxt_t *ctxt, bool erase)
++{
++    uint32_t head;
++    uint64_t dropped;
++    auto it = g_mock_sub_mark.find(ctxt);
++
++    if ((it == g_mock_sub_mark.end()) || !ctxt->queue) {
++        return;
++    }
++    head = ctxt->queue->head.load(std::memory_order_acquire);
++    dropped = ctxt->queue->dropped.load(std::memory_order_relaxed);
++    // uint32 head wraps; the difference does not
++    g_mock_trace_frames += (uint32_t)(head - it->second.head);
++    g_mock_trace_drops += dropped - it->second.dropped;
++    if (erase) {
++        g_mock_sub_mark.erase(it);
++    } else {
++        it->second.head = head;
++        it->second.dropped = dropped;
++    }
++}
++
++/// \brief    AGA_MOCK_WATCH_TRACE_READS: every 10 s, one INFO line with the
++///           read and frame counts of the last 10 s (smi-watcher thread only)
++/// NOTE:
++/// drops is the subscribers' dropped count, which also counts an unsent full
++/// frame replaced by a newer one (rare: one full frame per second)
++static void
++mock_watch_trace_ (void)
++{
++    uint64_t power;
++    uint64_t now_ns;
++    uint64_t missed;
++    static uint64_t last_ns = 0;
++    static uint64_t last_power = 0;
++    static uint64_t last_missed = 0;
++
++    if (!mock_watch_knobs_()->trace_reads) {
++        return;
++    }
++    now_ns = mock_mono_ns_();
++    if (last_ns == 0) {
++        last_ns = now_ns;
++        last_power = g_mock_power_ticks.load(std::memory_order_relaxed);
++        last_missed = smi_watch_missed_ticks();
++        return;
++    }
++    if ((now_ns - last_ns) < AGA_MOCK_WATCH_TRACE_NS) {
++        return;
++    }
++    for (auto& it : g_mock_sub_mark) {
++        mock_watch_trace_sub_(it.first, false);
++    }
++    power = g_mock_power_ticks.load(std::memory_order_relaxed);
++    missed = smi_watch_missed_ticks();
++    AGA_TRACE_INFO("mock watcher reads power={} fast={} slow={} full={} "
++                   "frames={} drops={} overruns={}", power - last_power,
++                   g_mock_trace_fast, g_mock_trace_slow, g_mock_trace_full,
++                   g_mock_trace_frames, g_mock_trace_drops,
++                   missed - last_missed);
++    last_ns = now_ns;
++    last_power = power;
++    last_missed = missed;
++    g_mock_trace_fast = 0;
++    g_mock_trace_slow = 0;
++    g_mock_trace_full = 0;
++    g_mock_trace_frames = 0;
++    g_mock_trace_drops = 0;
++}
++
++/// \brief    remove inactive gpu watch subscribers and release them
++/// \param[in] subscribers    subscribers whose write failed
++static void
++mock_watch_cleanup_inactive_subscribers_ (
++    vector<gpu_watch_subscriber_info_t>& subscribers)
++{
++    sdk_ret_t ret;
++    set<aga_gpu_watch_client_ctxt_t *> client_set;
++
++    for (auto& subscriber : subscribers) {
++        client_set.insert(subscriber.client_ctxt);
++    }
++    // the gRPC thread sets write_failed at any time, so a stream subscribed
++    // to several watches may be reaped for only some of them; erase every
++    // membership of a released stream, else a watch keeps a pointer to a
++    // context its gRPC thread frees after the release below
++    for (auto& it : g_gpu_watch_subscriber_db.gpu_watch_map) {
++        for (auto client_ctxt : client_set) {
++            aga_task_spec_t task_spec = {};
++
++            if (it.second.client_set.erase(client_ctxt) == 0) {
++                continue;
++            }
++            // one task per erased membership decrements its refcount
++            task_spec.task = AGA_TASK_GPU_WATCH_SUBSCRIBE_DEL;
++            task_spec.subscriber_spec.num_gpu_watch_ids = 1;
++            task_spec.subscriber_spec.gpu_watch_ids[0] = it.first;
++            ret = aga_task_create(&task_spec);
++            if (unlikely(ret != SDK_RET_OK)) {
++                AGA_TRACE_ERR("Failed to create task to decrement subscriber "
++                              "count for GPU watch {}, client {}, client "
++                              "ctxt {}", it.first.str(),
++                              client_ctxt->client.c_str(),
++                              (void *)client_ctxt);
++            }
++        }
++    }
++    // the smi-power thread must stop sampling for erased subscribers
++    if (!subscribers.empty()) {
++        mock_power_view_rebuild_();
++    }
++    for (auto client_ctxt : client_set) {
++        AGA_TRACE_INFO("Signaling frontend gRPC thread to quit, client {}, "
++                       "client ctxt {}, stream {}",
++                       client_ctxt->client.c_str(), (void *)client_ctxt,
++                       client_ctxt->stream);
++        mock_watch_trace_sub_(client_ctxt, true);
++        // wakeup the front end thread so it can exit; ctxt is freed by it
++        smi_watch_sub_client_release(client_ctxt);
++    }
++}
++
++/// \brief    remove failed subscribers and, when the fast tier is due,
++///           enqueue a full frame to every subscriber
++/// \param[in] fast_due      the fast tier was sampled this tick
++/// \param[in] skip_power    leave the POWER tier attrs out of the full frames
++static void
++mock_watch_notify_subscribers_ (bool fast_due, bool skip_power)
++{
++    vector<gpu_watch_subscriber_info_t> failed_subscribers;
++
++    // subscribers whose gRPC thread failed to write are removed first
++    smi_watch_sub_reap(&g_gpu_watch_subscriber_db, &failed_subscribers);
++    mock_watch_cleanup_inactive_subscribers_(failed_subscribers);
++    if (!fast_due) {
++        return;
++    }
++    // the full frames are only enqueued here; each subscriber's own gRPC
++    // thread writes them
++    smi_watch_notify_full(&g_gpu_watch_subscriber_db, skip_power);
++    for (auto& it : g_gpu_watch_subscriber_db.gpu_watch_map) {
++        for (auto client_ctxt : it.second.client_set) {
++            if (!client_ctxt->write_failed.load(std::memory_order_acquire)) {
++                g_mock_trace_full++;
++            }
++        }
++    }
++}
++
++/// \brief    smi-watcher 1 s timer: tick plan, sweep, DB update task and
++///           enqueue-only notify, as in amdsmi
++/// \param[in] timer    watch timer
++static void
++mock_watch_timer_cb_ (sdk::event_thread::timer_t *timer)
++{
++    sdk_ret_t ret;
++    gpu_watch_tick_plan_t plan;
++    static aga_task_spec_t task_spec;
++
++    mock_watch_trace_();
++    // only start updating watch fields once at least one client has
++    // subscribed to a watch group
++    if (g_gpu_watch_subscriber_db.gpu_watch_map.empty()) {
++        return;
++    }
++    smi_watch_tick_plan(&plan);
++    if (!plan.fast_due) {
++        // failed subscribers are still removed every tick
++        mock_watch_notify_subscribers_(false, false);
++        return;
++    }
++    // the task embeds the whole watch db, so it is preallocated;
++    // aga_task_create() copies it
++    mock_watch_sweep_(&task_spec.watch_db, &plan);
++    task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
++    ret = aga_task_create(&task_spec);
++    if (unlikely(ret != SDK_RET_OK)) {
++        AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
++                      ret());
++    }
++    // POWER tier attrs are left out of the full frames while the smi-power
++    // thread publishes them in partial frames
++    mock_watch_notify_subscribers_(true, !plan.power_by_watcher);
++}
++
++/// \brief    process a gpu watch subscribe request (smi-watcher thread)
++/// \param[in] args    subscribe request
++/// \return   SDK_RET_OK or error code in case of failure
++static sdk_ret_t
++mock_watch_subscribe_ (aga_gpu_watch_subscribe_args_t *args)
++{
++    sdk_ret_t ret;
++    uint32_t num_gpu = AGA_MOCK_NUM_GPU;
++
++    if (num_gpu > AGA_MAX_GPU) {
++        num_gpu = AGA_MAX_GPU;
++    }
++    // the subscriber's frame queue; the writer loop dereferences it, so
++    // without it there is no subscriber
++    ret = smi_watch_sub_attach(args->client_ctxt, num_gpu);
++    if (unlikely(ret != SDK_RET_OK)) {
++        return ret;
++    }
++    for (auto& gpu_watch_id : args->gpu_watch_ids) {
++        AGA_TRACE_DEBUG("Rcvd GPU watch {} subscribe request, client {}, "
++                        "client ctxt {}, stream {}", gpu_watch_id.str(),
++                        args->client_ctxt->client.c_str(),
++                        (void *)args->client_ctxt,
++                        (void *)args->client_ctxt->stream);
++        // creates the entry on the first subscriber; a set ignores repeats
++        g_gpu_watch_subscriber_db.gpu_watch_map[gpu_watch_id].client_set.insert(
++            args->client_ctxt);
++    }
++    g_mock_sub_mark[args->client_ctxt] = { 0, 0 };
++    mock_power_view_rebuild_();
++    return SDK_RET_OK;
++}
++
++/// \brief    IPC handler of gpu watch subscribe requests
++/// \param[in] msg     received IPC message
++/// \param[in] ctxt    opaque context (unused)
++static void
++mock_watch_subscribe_ipc_cb_ (sdk::ipc::ipc_msg_ptr msg, const void *ctxt)
++{
++    sdk_ret_t ret;
++    aga_gpu_watch_subscribe_args_t *args;
++
++    args = *(aga_gpu_watch_subscribe_args_t **)msg->data();
++    if (args == NULL) {
++        AGA_TRACE_ERR("Ignoring NULL GPU watch subscribe request received");
++        return;
++    }
++    ret = mock_watch_subscribe_(args);
++    sdk::ipc::respond(msg, &ret, sizeof(ret));
++}
++
++static void
++mock_watcher_thread_init_ (void *ctxt)
++{
++    static sdk::event_thread::timer_t watch_timer;
++
++    // register for gpu watch subscribe messages
++    sdk::ipc::reg_request_handler(AGA_IPC_MSG_ID_GPU_WATCH_SUBSCRIBE,
++                                  mock_watch_subscribe_ipc_cb_, NULL);
++    // start watch timer
++    sdk::event_thread::timer_init(&watch_timer, mock_watch_timer_cb_,
++                                  AGA_MOCK_WATCHER_START_DELAY,
++                                  AGA_MOCK_WATCHER_INTERVAL);
++    sdk::event_thread::timer_start(&watch_timer);
++}
++
++static void
++mock_watcher_thread_exit_ (void *ctxt)
++{
++}
++
++/// \brief    spawn the smi-watcher thread
++/// \return   SDK_RET_OK or error code in case of failure
++static sdk_ret_t
++spawn_watcher_thread_ (void)
++{
++    g_watcher_thread =
++        sdk::event_thread::event_thread::factory(
++            "smi-watcher", AGA_THREAD_ID_WATCHER,
++            sdk::lib::THREAD_ROLE_CONTROL, 0x0, mock_watcher_thread_init_,
++            mock_watcher_thread_exit_, NULL, // message
++            sdk::lib::thread::priority_by_role(sdk::lib::THREAD_ROLE_CONTROL),
++            sdk::lib::thread::sched_policy_by_role(
++                sdk::lib::THREAD_ROLE_CONTROL),
++            (THREAD_YIELD_ENABLE | THREAD_SYNC_IPC_ENABLE));
++    SDK_ASSERT_TRACE_RETURN((g_watcher_thread != NULL), SDK_RET_ERR,
++                            "GPU watcher thread create failure");
++    g_watcher_thread->start(NULL);
++    return SDK_RET_OK;
++}
++
+ sdk_ret_t
+ smi_teardown (void)
+ {
++    // the smi-power thread goes first, before the smi-watcher that publishes
++    // its power view
++    smi_watch_power_thread_stop();
++    if (g_watcher_thread) {
++        g_watcher_thread->stop();
++        g_watcher_thread->wait();
++    }
+     return SDK_RET_OK;
+ }
+ 
+@@ -673,6 +1378,12 @@ smi_init (aga_api_init_params_t *init_params)
+ {
+     // spawn event monitor thread
+     spawn_event_monitor_thread();
++    // spawn watcher thread
++    spawn_watcher_thread_();
++    // power tier sampler, parked until a sub-second period is subscribed. GPUs
++    // are discovered after smi_init, so it is sized for AGA_MAX_GPU; it only
++    // reads the GPUs of the power view, which holds discovered GPUs only
++    smi_watch_power_thread_start(AGA_MAX_GPU);
+     return SDK_RET_OK;
+ }
+ 
+@@ -932,32 +1643,30 @@ smi_watch_period_check (uint32_t fast_ms)
+ sdk_ret_t
+ smi_watch_power_read (uint32_t gpu_idx, aga_gpu_watch_fields_t *fields)
+ {
+-    uint64_t n;
+-    uint64_t mono_ns;
+-    struct timespec ts;
+-    static uint64_t num_reads[AGA_MAX_GPU];
+-
++    uint64_t end_ns;
++    // last GPU read, smi-power thread only: the thread reads the GPUs of a
++    // tick in ascending order, so a GPU index not above it starts a tick
++    static uint32_t last_gpu_idx = UINT32_MAX;
++    uint32_t delay_us = mock_watch_knobs_()->read_delay_us;
++
++    // the power view holds discovered GPUs only; the GPU count itself is
++    // not read here, discovery may rewrite it while this thread runs
+     if (gpu_idx >= AGA_MAX_GPU) {
+         return SDK_RET_INVALID_ARG;
+     }
+-    // synthetic power tier values, monotonic per GPU; only the smi-power
+-    // thread calls this hook
+-    clock_gettime(CLOCK_MONOTONIC, &ts);
+-    mono_ns = ((uint64_t)ts.tv_sec * 1000000000ull) + (uint64_t)ts.tv_nsec;
+-    n = ++num_reads[gpu_idx];
+-    fields->gpu_power_usage = 300 + gpu_idx + (n % 50);
+-    fields->gfx_voltage = 800;
+-    fields->soc_voltage = 900;
+-    fields->mem_voltage = 1100;
+-    fields->energy_consumed = n * 300;
+-    fields->viol_current_acc_counter = n;
+-    fields->viol_proc_hot_residency_acc = n / 10;
+-    fields->viol_ppt_residency_acc = n / 10;
+-    fields->viol_socket_thermal_residency_acc = n / 10;
+-    fields->viol_vr_thermal_residency_acc = n / 10;
+-    fields->viol_hbm_thermal_residency_acc = n / 10;
+-    fields->firmware_timestamp = mono_ns / 10;
+-    fields->system_clock_counter = mono_ns;
++    // only the smi-power thread calls this hook
++    if (gpu_idx <= last_gpu_idx) {
++        g_mock_power_ticks.fetch_add(1, std::memory_order_relaxed);
++    }
++    last_gpu_idx = gpu_idx;
++    // AGA_MOCK_WATCH_READ_DELAY_US: a deterministically slow read, to force
++    // overruns
++    if (delay_us) {
++        end_ns = mock_mono_ns_() + ((uint64_t)delay_us * 1000);
++        while (mock_mono_ns_() < end_ns) {
++        }
++    }
++    mock_power_fill_(gpu_idx, smi_watch_fast_period_ms(), fields);
+     return SDK_RET_OK;
+ }
+ 
+-- 
+2.25.1
+
