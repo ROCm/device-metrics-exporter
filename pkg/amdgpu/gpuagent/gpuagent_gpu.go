@@ -238,7 +238,7 @@ type GPUAgentGPUClient struct {
 	hrPeriodsRunning [2]uint32
 	// hrFastMs is the fast period gpuagent accepted for the current watch
 	// (1000 after a sub-second rejection); written by the feed goroutine, read
-	// by the sub-second power-frame handling (GPUOP-1137).
+	// by the sub-second power-frame handling.
 	hrFastMs atomic.Uint32
 	// hrHot is the per-GPU state cache of the frame-apply pipeline, used by
 	// both GPUWatch frame kinds. Owned by the high-res feed goroutine; nil on
