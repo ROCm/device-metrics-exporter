@@ -56,6 +56,7 @@ func newPullWorkloadTestClient(t *testing.T) (*GPUAgentClient, *GPUAgentGPUClien
 		}
 	}
 	assert.Assert(t, gpu != nil, "no GPU client found")
+	t.Cleanup(gpu.stopWorkloadSource)
 	gpu.gpuclient = gpuMockCl
 	gpu.evtclient = eventMockCl
 	assert.NilError(t, gpu.InitConfigs())
@@ -79,12 +80,15 @@ func TestPullWorkloadCacheServesAfterRefresh(t *testing.T) {
 	ga, gpu, _ := newPullWorkloadTestClient(t)
 	defer ga.Close()
 
-	cache := newPullWorkloadCache(gpu)
+	// The gate reads the shared workload source; drive its refresh directly
+	// (no goroutine) in place of the old per-cache refreshOnce.
+	src := newWorkloadSource(gpu.gpuHandler, 0)
+	cache := newPullWorkloadCache(src)
 
 	_, ok := cache.get()
 	assert.Assert(t, !ok, "get must miss before first refresh")
 
-	cache.refreshOnce(context.Background())
+	src.refresh(true)
 	got, ok := cache.get()
 	assert.Assert(t, ok, "get must hit after refresh")
 
@@ -112,8 +116,9 @@ func TestGetMetricsAllUsesPullCache(t *testing.T) {
 	sentinelWls := map[string]scheduler.Workload{
 		"0": {Type: scheduler.Slurm, Info: scheduler.JobInfo{Id: sentinel}},
 	}
-	c := newPullWorkloadCache(gpu)
-	c.wls.Store(&sentinelWls)
+	src := newWorkloadSource(gpu.gpuHandler, 0)
+	src.lastOK.Store(&workloadSnap{wls: sentinelWls, gen: 1})
+	c := newPullWorkloadCache(src)
 	gpu.pullWLCache.Store(c)
 
 	// Non-high-res /metrics is served from the snapshot store (the single serving

@@ -346,6 +346,7 @@ func (ga *GPUAgentGPUClient) initLabelConfigs(config *exportermetrics.GPUMetricC
 	// rebuild; guard the write so the two cannot race.
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 
 	// list of mandatory labels
 	ga.exportLabels = make(map[string]bool)
@@ -421,6 +422,7 @@ func profilerStateLabel(enabled bool) string {
 func (ga *GPUAgentGPUClient) initCustomLabels(config *exportermetrics.GPUMetricConfig) {
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 	ga.customLabelMap = make(map[string]string)
 	disallowedLabels := []string{}
 	if config != nil && config.GetCustomLabels() != nil {
@@ -1906,7 +1908,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 		return fmt.Errorf("%v", resp.ApiStatus)
 	}
 	ga.initGPUMetadata(resp.Response)
-	wls, err := ga.gpuHandler.ListWorkloads()
+	wls, err := ga.currentWorkloads()
 	if err != nil {
 		logger.Log.Printf("Error listing workloads: %v", err)
 	}
@@ -1919,9 +1921,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 	podInfo, _ := ga.FetchPodInfoForNode()
 	// Guard the write: populateLabelsFromGPU reads k8PodInfoMap under
 	// labelMapMu.RLock from the concurrent high-res workload-label ticker.
-	ga.labelMapMu.Lock()
-	ga.k8PodInfoMap = podInfo
-	ga.labelMapMu.Unlock()
+	ga.setK8PodInfoMap(podInfo)
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will

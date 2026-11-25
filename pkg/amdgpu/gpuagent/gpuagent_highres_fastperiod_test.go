@@ -70,6 +70,7 @@ func newFastPeriodClient(t *testing.T, body string) *fpClient {
 		}
 	}
 	assert.Assert(t, gc != nil)
+	t.Cleanup(gc.stopWorkloadSource)
 	watch := mock_gen.NewMockGPUWatchSvcClient(mockCtl)
 	gc.gpuclient = gpuMockCl
 	gc.evtclient = eventMockCl

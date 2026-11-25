@@ -209,6 +209,7 @@ func (ga *GPUAgentGPUClient) applyPowerFrame(w *amdgpu.GPUWatch) {
 // are kept when the epoch and a GPU's labels are unchanged; otherwise they are
 // re-registered lazily on the GPU's next valid value.
 func (ga *GPUAgentGPUClient) rebuildHot(st snapshotstore.StoreWriter) *hrHotCache {
+	ga.hrHotRebuilds.Add(1)
 	epoch := st.Epoch()
 	wl := ga.hrWorkloadLabels()
 	old := ga.hrHot

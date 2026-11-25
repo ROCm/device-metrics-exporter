@@ -102,6 +102,17 @@ func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 	return cl, nil
 }
 
+// NewSlurmClientForDir creates a slurm scheduler client watching dir.
+// Production uses NewSlurmClient; tests in other packages use this with a temp
+// dir.
+func NewSlurmClientForDir(ctx context.Context, dir string) (SchedulerClient, error) {
+	cl, err := newSlurmClient(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
 // newSlurmClient watches dir for slurm job files (tests pass a temp dir).
 func newSlurmClient(ctx context.Context, dir string) (*client, error) {
 	ctx, cancel := context.WithCancel(ctx)

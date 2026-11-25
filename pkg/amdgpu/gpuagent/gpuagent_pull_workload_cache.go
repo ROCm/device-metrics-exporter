@@ -18,81 +18,48 @@ package gpuagent
 
 import (
 	"context"
-	"sync/atomic"
-	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
 
 // pullWorkloadCache keeps the non-high-res pull path's scheduler workload map off
-// the /metrics scrape hot path. ListWorkloads() can block on the K8s/slurm
-// scheduler, so refreshing it on a ticker lets getMetricsAll read the last
-// snapshot lock-free. Only built/started in flag-on non-high-res store-serving
-// mode, so flag-off /metrics keeps the per-scrape ListWorkloads call and stays
-// byte-identical. Shares the 3s refresh cadence with hrWorkloadLabelCache.
+// the /metrics scrape hot path. It is a thin gate over the shared workload
+// source: get() returns the last successfully fetched map, lock-free. Only
+// built in flag-on non-high-res store-serving mode, so flag-off /metrics keeps
+// the per-scrape ListWorkloads call and stays byte-identical.
 type pullWorkloadCache struct {
-	ga       *GPUAgentGPUClient
-	wls      atomic.Pointer[map[string]scheduler.Workload]
-	interval time.Duration
+	src *workloadSource
 }
 
-func newPullWorkloadCache(ga *GPUAgentGPUClient) *pullWorkloadCache {
-	return &pullWorkloadCache{ga: ga, interval: hrWorkloadLabelRefreshInterval}
+func newPullWorkloadCache(src *workloadSource) *pullWorkloadCache {
+	return &pullWorkloadCache{src: src}
 }
 
-// refreshOnce fetches the workload map and atomically swaps it in. The stored map
-// is never mutated after the Store, so get() is lock-free and never observes a
-// torn map. A fetch error leaves the previous snapshot in place.
-func (c *pullWorkloadCache) refreshOnce(_ context.Context) {
-	wls, err := c.ga.gpuHandler.ListWorkloads()
-	if err != nil {
-		return
-	}
-	c.wls.Store(&wls)
-}
-
-// start seeds the cache synchronously, then refreshes on a ticker until ctx is
-// done. Run in its own goroutine.
-func (c *pullWorkloadCache) start(ctx context.Context, interval time.Duration) {
-	if interval <= 0 {
-		interval = c.interval
-	}
-	c.refreshOnce(ctx)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			c.refreshOnce(ctx)
-		}
-	}
-}
-
-// get returns the latest cached workload map without locking. ok is false until
-// the first successful refresh, so the caller falls back to a synchronous fetch.
+// get returns the last successfully fetched workload map without locking. ok is
+// false until a fetch has succeeded, so the caller falls back to a synchronous
+// fetch; a later failed fetch keeps the last good map (as the cache's own
+// refresh did before the shared source).
 func (c *pullWorkloadCache) get() (map[string]scheduler.Workload, bool) {
-	m := c.wls.Load()
-	if m == nil {
+	ws := c.src.lastOK.Load()
+	if ws == nil {
 		return nil, false
 	}
-	return *m, true
+	return ws.wls, true
 }
 
-// startPullWorkloadCache builds and starts the async workload cache once, gated to
-// flag-on non-high-res store-serving mode (useSnapshotStoreServing already encodes
-// enabled && !high-res). No-op in flag-off/legacy and high-res, where getMetricsAll
-// keeps the synchronous per-scrape ListWorkloads. Idempotent: a second call while
-// a cache is already published is a no-op.
-func (ga *GPUAgentGPUClient) startPullWorkloadCache(ctx context.Context) {
+// startPullWorkloadCache publishes the pull gate once, gated to flag-on
+// non-high-res store-serving mode (useSnapshotStoreServing already encodes
+// enabled && !high-res). No-op in flag-off/legacy and high-res, where
+// getMetricsAll keeps the synchronous per-scrape ListWorkloads. Idempotent: a
+// second call while a cache is already published is a no-op. The gate has no
+// goroutine of its own; the shared source refreshes it and outlives a gpuagent
+// reconnect.
+func (ga *GPUAgentGPUClient) startPullWorkloadCache(_ context.Context) {
 	if !ga.useSnapshotStoreServing() {
 		return
 	}
 	if ga.pullWLCache.Load() != nil {
 		return
 	}
-	c := newPullWorkloadCache(ga)
-	ga.pullWLCache.Store(c)
-	go c.start(ctx, hrWorkloadLabelRefreshInterval)
+	ga.pullWLCache.Store(newPullWorkloadCache(ga.ensureWorkloadSource()))
 }

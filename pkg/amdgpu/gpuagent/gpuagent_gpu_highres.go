@@ -492,8 +492,10 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	// while high-res is active — it happens here with the watcher not yet started).
 	// The label caches reuse it so they never issue a concurrent getGPUs that would
 	// race the watcher's amd-smi access.
-	ga.hrSnapshot.Store(&hrGPUSnap{gpus: getResp.GetResponse(), partitionMap: partitionMap})
+	// Metadata first: a label cache woken between the two must not record the new
+	// snapshot pointer while building against the old gpuIDMap.
 	ga.initGPUMetadata(getResp.GetResponse())
+	ga.hrSnapshot.Store(&hrGPUSnap{gpus: getResp.GetResponse(), partitionMap: partitionMap})
 	ga.hrLabelsByUUID = make(map[string]prometheus.Labels)
 	ga.hrGPUIDByUUID = make(map[string]string)
 	// Store-serving only: seed the subscribe-time label set with real workloads so
@@ -502,7 +504,8 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	storeServing := ga.useHighResStoreServing()
 	var seedWls map[string]scheduler.Workload
 	if storeServing {
-		seedWls, _ = ga.gpuHandler.ListWorkloads()
+		ga.ensureWorkloadSource()
+		seedWls, _ = ga.currentWorkloads()
 	}
 	var gpuIDs [][]byte
 	for _, gpu := range getResp.GetResponse() {

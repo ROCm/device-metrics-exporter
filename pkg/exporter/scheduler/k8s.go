@@ -64,6 +64,17 @@ func NewKubernetesClient(ctx context.Context) (SchedulerClient, error) {
 	return cl, nil
 }
 
+// NewKubernetesClientForSocket creates a kubernetes scheduler client for the
+// PodResources socket at socket. Production uses NewKubernetesClient; tests in
+// other packages use this with a fake kubelet on a temp socket.
+func NewKubernetesClientForSocket(ctx context.Context, socket string) (SchedulerClient, error) {
+	cl, err := newKubernetesClient(ctx, socket)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
 // newKubernetesClient creates a client for the PodResources socket (tests pass
 // a temp socket).
 func newKubernetesClient(ctx context.Context, socket string) (*podResourcesClient, error) {

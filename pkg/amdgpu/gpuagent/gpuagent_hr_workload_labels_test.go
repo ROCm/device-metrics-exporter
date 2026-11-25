@@ -57,6 +57,7 @@ func newHRWorkloadTestClient(t *testing.T) (*GPUAgentClient, *GPUAgentGPUClient)
 		}
 	}
 	assert.Assert(t, gpu != nil, "no GPU client found")
+	t.Cleanup(gpu.stopWorkloadSource)
 	gpu.gpuclient = gpuMockCl
 	gpu.evtclient = eventMockCl
 	assert.NilError(t, gpu.InitConfigs())
@@ -109,8 +110,8 @@ func TestHRWorkloadLabelCacheParity(t *testing.T) {
 		"no GPU carried the slurm job_id label; workload labels were dropped (wls=nil)")
 }
 
-// TestHRWorkloadLabelCacheAtomicSwap asserts each refresh publishes a brand-new
-// map (copy-on-write, never mutated in place) and get() returns the latest.
+// TestHRWorkloadLabelCacheAtomicSwap asserts the published map is copy-on-write
+// (an unchanged refresh keeps it, never mutating it) and get() returns the latest.
 func TestHRWorkloadLabelCacheAtomicSwap(t *testing.T) {
 	teardown := setupTest(t)
 	defer teardown(t)
@@ -130,7 +131,9 @@ func TestHRWorkloadLabelCacheAtomicSwap(t *testing.T) {
 
 	cache.refreshOnce(context.Background())
 	p2 := cache.labels.Load()
-	assert.Assert(t, p2 != nil && p1 != p2, "refresh must swap in a new map pointer")
+	// GPUOP-1140: unchanged inputs keep the published map (a change swaps in a
+	// new one; see TestLabelCacheOneGPUChange).
+	assert.Assert(t, p2 != nil && p1 == p2, "unchanged refresh must keep the map pointer")
 
 	// Unknown UUID always misses; known UUID always hits.
 	_, ok = cache.get("does-not-exist")
