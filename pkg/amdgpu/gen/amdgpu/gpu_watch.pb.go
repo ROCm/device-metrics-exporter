@@ -880,7 +880,8 @@ type GPUWatchSpec struct {
 	// of 1000 up to 60000. 0 selects the default (1000). attributes refresh no
 	// faster than their supported minimum (power family 1 ms, other fast
 	// attributes 1000 ms). below 1000 ms the power family is also streamed
-	// every period as partial GPUWatch frames (Spec carries only Id)
+	// every period as partial GPUWatch frames, one per GPU, each sent right
+	// after that GPU is read (Spec carries only Id)
 	FastPeriodMs uint32 `protobuf:"varint,4,opt,name=FastPeriodMs,proto3" json:"FastPeriodMs,omitempty"`
 	// sampling period in seconds for slow moving attributes (ECC and XGMI
 	// counters). must be >= FastPeriodMs / 1000. 0 selects the default
@@ -1067,8 +1068,8 @@ func (x *GPUWatchStats) GetGPUWatchAttr() []*GPUWatchAttrs {
 // NOTE:
 // a full frame carries Spec with the watch's attribute list and the latest
 // value of every requested attribute. a partial (power) frame carries only
-// Spec.Id and the power attributes refreshed in that tick; attributes absent
-// from a frame keep their previous value
+// Spec.Id and the power attributes of one GPU refreshed in that tick;
+// attributes and GPUs absent from a frame keep their previous value
 type GPUWatch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
