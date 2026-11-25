@@ -76,7 +76,7 @@ func checkParity(t *testing.T, name string) {
 	t.Run("pull-cache", func(t *testing.T) {
 		e := newOracleEnv(t, oraclePullConfig, fx)
 		src := runningSource(t, e, time.Hour)
-		e.gpu.pullWLCache.Store(newPullWorkloadCache(src))
+		e.gpu.pullWLSource.Store(src)
 		assertGolden(t, name+".pull-cache.metrics", e.renderPull(t))
 	})
 	t.Run("hr", func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestMetricsParityK8sFailure(t *testing.T) {
 		t.Run(name+"/pull-cache", func(t *testing.T) {
 			e := newOracleEnv(t, oraclePullConfig, fx)
 			src := manualSource(e)
-			e.gpu.pullWLCache.Store(newPullWorkloadCache(src))
+			e.gpu.pullWLSource.Store(src)
 			e.k8s.set(fx.k8s, errOracleKubelet)
 			src.refresh(true)
 			assert.Assert(t, src.load().err != nil, "failed snapshot not published")
@@ -124,7 +124,7 @@ func TestMetricsParityK8sFailure(t *testing.T) {
 			hc, src := e.startHRSource(t, 0)
 			e.k8s.set(fx.k8s, errOracleKubelet)
 			src.refresh(true)
-			hc.refreshOnce(context.Background())
+			hc.refreshOnce()
 			assertGolden(t, name+"-k8sfail.hr.metrics", e.renderHR(t))
 			assertGolden(t, name+"-k8sfail.hr.labels.json", labelDump(t, hc.labels.Load()))
 		})
@@ -144,14 +144,14 @@ func TestK8sRecoveryRestoresLabels(t *testing.T) {
 			e.k8s.set(fx.k8s, errOracleKubelet)
 			src.refresh(true)
 			gen := src.load().gen
-			hc.refreshOnce(context.Background())
+			hc.refreshOnce()
 			e.gpu.applyPowerFrame(frame)
 			assert.Equal(t, e.gpu.hrHotRebuilds.Load(), hot+1, "hot cache must rebuild once for the drop")
 
 			e.k8s.set(fx.k8s, nil)
 			src.refresh(true)
 			assert.Equal(t, src.load().gen, gen+1, "recovery must bump gen")
-			hc.refreshOnce(context.Background())
+			hc.refreshOnce()
 			e.gpu.applyPowerFrame(frame)
 			e.gpu.applyPowerFrame(frame)
 			assert.Equal(t, e.gpu.hrHotRebuilds.Load(), hot+2, "hot cache must rebuild once for the restore")
@@ -189,7 +189,7 @@ func TestKubeletListCountOneSource(t *testing.T) {
 	go hc.start(ctx, hrWorkloadLabelRefreshInterval)
 	pc := newProfilerLabelCache(e.gpu)
 	go pc.start(ctx, hrWorkloadLabelRefreshInterval)
-	e.gpu.pullWLCache.Store(newPullWorkloadCache(src))
+	e.gpu.pullWLSource.Store(src)
 
 	base := fk.calls.Load()
 	srcBase := src.k8sCalls.Load()
@@ -199,7 +199,7 @@ func TestKubeletListCountOneSource(t *testing.T) {
 		// health (both sites read currentWorkloads), pull gate, slurm event
 		_, _ = e.gpu.currentWorkloads()
 		e.gpu.updateAllGPUsHealthState("healthy")
-		_, _ = e.gpu.pullWLCache.Load().get()
+		_, _ = e.gpu.pullWLSource.Load().lastGood()
 		slurm.set(map[string]scheduler.Workload{"3": oracleJob(fmt.Sprint(200+i), "dave")})
 		time.Sleep(interval)
 	}
@@ -246,7 +246,7 @@ func TestK8sLabelsSurviveReconnect(t *testing.T) {
 		assert.Equal(t, lists, before+1, "cycle %d: poll did not list", i)
 		assert.Assert(t, src.load().err == nil, "cycle %d: failed snapshot", i)
 		assert.Equal(t, src.load().gen, gen, "cycle %d: gen changed with unchanged content", i)
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		assert.Assert(t, hasPod(), "cycle %d: hr labels lost the pod", i)
 		assert.Assert(t, strings.Contains(e.renderPull(t), `pod="pod0"`), "cycle %d: pull /metrics lost the pod", i)
 	}
@@ -277,13 +277,13 @@ func TestSharedK8sClientSurvivesGPUReconnect(t *testing.T) {
 func TestWorkloadSourceSurvivesReconnect(t *testing.T) {
 	e := newOracleEnv(t, oraclePullConfig, fixtureByName("k8s"))
 	src := runningSource(t, e, 20*time.Millisecond)
-	e.gpu.pullWLCache.Store(newPullWorkloadCache(src))
+	e.gpu.pullWLSource.Store(src)
 	gen := src.load().gen
 	assert.NilError(t, e.ga.reconnect())
 	e.k8s.set(map[string]scheduler.Workload{"0000:01:00.0": oraclePod(7)}, nil)
 	assert.Assert(t, waitWithin(2*time.Second, func() bool { return src.load().gen == gen+1 }),
 		"source stopped after reconnect")
-	wls, ok := e.gpu.pullWLCache.Load().get()
+	wls, ok := e.gpu.pullWLSource.Load().lastGood()
 	assert.Assert(t, ok)
 	assert.Equal(t, wls["0000:01:00.0"].Info.(scheduler.PodResourceInfo).Pod, "pod7")
 }

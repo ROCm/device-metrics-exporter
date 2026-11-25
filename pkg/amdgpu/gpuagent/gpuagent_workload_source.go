@@ -235,6 +235,17 @@ func (s *workloadSource) slurmStale(slurm scheduler.SchedulerClient) bool {
 	return n.Version() != s.slurmVer
 }
 
+// lastGood returns the last successfully fetched workload map without
+// locking. ok is false until a fetch has succeeded, so the caller falls back to
+// a synchronous fetch; a later failed fetch keeps the last good map.
+func (s *workloadSource) lastGood() (map[string]scheduler.Workload, bool) {
+	ws := s.lastOK.Load()
+	if ws == nil {
+		return nil, false
+	}
+	return ws.wls, true
+}
+
 // stop cancels the source goroutine (tests only; the source lives for the
 // process). Idempotent.
 func (s *workloadSource) stop() {
@@ -309,4 +320,21 @@ func (ga *GPUAgentGPUClient) currentWorkloads() (map[string]scheduler.Workload, 
 		}
 	}
 	return ga.gpuHandler.ListWorkloads()
+}
+
+// startPullWorkloadCache publishes the shared source as the non-high-res pull
+// path's workload cache once, gated to flag-on non-high-res store-serving mode
+// (useSnapshotStoreServing already encodes enabled && !high-res), so the
+// scheduler fetch stays off the /metrics scrape hot path. No-op in
+// flag-off/legacy and high-res, where getMetricsAll keeps the synchronous
+// per-scrape ListWorkloads, so flag-off /metrics stays byte-identical.
+// Idempotent. The source outlives a gpuagent reconnect.
+func (ga *GPUAgentGPUClient) startPullWorkloadCache(_ context.Context) {
+	if !ga.useSnapshotStoreServing() {
+		return
+	}
+	if ga.pullWLSource.Load() != nil {
+		return
+	}
+	ga.pullWLSource.Store(ga.ensureWorkloadSource())
 }

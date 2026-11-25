@@ -246,7 +246,7 @@ func TestWorkloadSourceK8sErrorDropsLikeToday(t *testing.T) {
 	assert.Equal(t, ws.err.Error(), legacyErr.Error())
 	assert.Assert(t, ws.wls != nil && len(ws.wls) == 0 && reflect.DeepEqual(ws.wls, legacy))
 	assert.Equal(t, ws.gen, gen+1)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	pc.refreshOnce()
 	assert.Assert(t, reflect.DeepEqual(*hc.labels.Load(), e.freshLabels(map[string]scheduler.Workload{}, getGPUUUID)))
 	assert.Assert(t, reflect.DeepEqual(*pc.labels.Load(), e.freshLabels(map[string]scheduler.Workload{}, getGPURenderId)))
@@ -285,8 +285,8 @@ func TestWorkloadSourceSeedFailure(t *testing.T) {
 	src := manualSource(e) // the seed refresh ensureWorkloadSource runs
 	ws := src.load()
 	assert.Assert(t, ws != nil && ws.err != nil && len(ws.wls) == 0 && ws.gen == 1)
-	gate := newPullWorkloadCache(src)
-	_, ok := gate.get()
+	gate := src
+	_, ok := gate.lastGood()
 	assert.Assert(t, !ok, "pull gate must miss before a success")
 	wls, err := e.gpu.currentWorkloads()
 	assert.Assert(t, err != nil && len(wls) == 0)
@@ -294,7 +294,7 @@ func TestWorkloadSourceSeedFailure(t *testing.T) {
 	src.refresh(true)
 	assert.Equal(t, src.load().gen, uint64(2))
 	assert.Assert(t, src.load().err == nil)
-	got, ok := gate.get()
+	got, ok := gate.lastGood()
 	assert.Assert(t, ok && maps.Equal(got, fx.k8s))
 }
 
@@ -440,7 +440,7 @@ func TestWorkloadSourceNoFlapping(t *testing.T) {
 	hc, src := e.startHRSource(t, 0)
 	pc := newProfilerLabelCache(e.gpu)
 	pc.refreshOnce()
-	gate := newPullWorkloadCache(src)
+	gate := src
 	edges := 0
 	for i := 1; i < len(case82Pattern); i++ {
 		if case82Pattern[i] != case82Pattern[i-1] {
@@ -450,7 +450,7 @@ func TestWorkloadSourceNoFlapping(t *testing.T) {
 	gen0 := src.load().gen
 	calls0 := src.k8sCalls.Load()
 	hrPrev, pcPrev := hc.labels.Load(), pc.labels.Load()
-	pullPrev, _ := gate.get()
+	pullPrev, _ := gate.lastGood()
 	hrTrans, pcTrans, healthTrans, pullTrans := 0, 0, 0, 0
 	healthPrev, _ := e.gpu.currentWorkloads()
 	for _, ok := range case82Pattern {
@@ -460,7 +460,7 @@ func TestWorkloadSourceNoFlapping(t *testing.T) {
 			e.k8s.set(fx.k8s, errOracleKubelet)
 		}
 		src.refresh(true)
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		pc.refreshOnce()
 		if p := hc.labels.Load(); p != hrPrev {
 			hrTrans++
@@ -474,7 +474,7 @@ func TestWorkloadSourceNoFlapping(t *testing.T) {
 			healthTrans++
 			healthPrev = m
 		}
-		if m, _ := gate.get(); !reflect.DeepEqual(m, pullPrev) {
+		if m, _ := gate.lastGood(); !reflect.DeepEqual(m, pullPrev) {
 			pullTrans++
 			pullPrev = m
 		}
@@ -497,23 +497,23 @@ func TestPullGateKeepsLastGoodOnError(t *testing.T) {
 	e := newOracleEnv(t, oraclePullConfig, fx)
 	src := manualSource(e) // startPullWorkloadCache reuses it
 	e.gpu.startPullWorkloadCache(context.Background())
-	gate := e.gpu.pullWLCache.Load()
+	gate := e.gpu.pullWLSource.Load()
 	assert.Assert(t, gate != nil)
 	e.gpu.startPullWorkloadCache(context.Background()) // idempotent
-	assert.Assert(t, e.gpu.pullWLCache.Load() == gate)
-	good, ok := gate.get()
+	assert.Assert(t, e.gpu.pullWLSource.Load() == gate)
+	good, ok := gate.lastGood()
 	assert.Assert(t, ok && maps.Equal(good, fx.k8s))
 	e.k8s.set(fx.k8s, errOracleKubelet)
 	for i := 0; i < 3; i++ {
 		src.refresh(true)
-		got, ok := gate.get()
+		got, ok := gate.lastGood()
 		assert.Assert(t, ok && maps.Equal(got, good), "interval %d: lost the last good map", i)
 	}
 	assertGolden(t, "k8s-k8sfail.pull-cache.metrics", e.renderPull(t))
 	next := map[string]scheduler.Workload{"0000:01:00.0": oraclePod(5)}
 	e.k8s.set(next, nil)
 	src.refresh(true)
-	got, _ := gate.get()
+	got, _ := gate.lastGood()
 	assert.Assert(t, maps.Equal(got, next))
 }
 
@@ -876,7 +876,7 @@ func TestWorkloadSourceConcurrentReaders(t *testing.T) {
 	f := newNotifySched(map[string]scheduler.Workload{})
 	e.ga.slurmScheduler = f
 	src := runningSource(t, e, time.Millisecond)
-	gate := newPullWorkloadCache(src)
+	gate := src
 	var bad atomic.Int64
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -895,7 +895,7 @@ func TestWorkloadSourceConcurrentReaders(t *testing.T) {
 				if id := jobID(ws.wls, "0"); id != "" && id != fmt.Sprint(ws.gen-1) {
 					bad.Add(1)
 				}
-				_, _ = gate.get()
+				_, _ = gate.lastGood()
 			}
 		}()
 	}

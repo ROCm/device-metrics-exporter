@@ -83,13 +83,13 @@ func TestPullWorkloadCacheServesAfterRefresh(t *testing.T) {
 	// The gate reads the shared workload source; drive its refresh directly
 	// (no goroutine) in place of the old per-cache refreshOnce.
 	src := newWorkloadSource(gpu.gpuHandler, 0)
-	cache := newPullWorkloadCache(src)
+	cache := src
 
-	_, ok := cache.get()
+	_, ok := cache.lastGood()
 	assert.Assert(t, !ok, "get must miss before first refresh")
 
 	src.refresh(true)
-	got, ok := cache.get()
+	got, ok := cache.lastGood()
 	assert.Assert(t, ok, "get must hit after refresh")
 
 	want, err := ga.ListWorkloads()
@@ -118,8 +118,8 @@ func TestGetMetricsAllUsesPullCache(t *testing.T) {
 	}
 	src := newWorkloadSource(gpu.gpuHandler, 0)
 	src.lastOK.Store(&workloadSnap{wls: sentinelWls, gen: 1})
-	c := newPullWorkloadCache(src)
-	gpu.pullWLCache.Store(c)
+	c := src
+	gpu.pullWLSource.Store(c)
 
 	// Non-high-res /metrics is served from the snapshot store (the single serving
 	// path after the flag removal), so populate the GaugeVecs via the pull path and

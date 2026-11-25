@@ -33,6 +33,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	exportermetrics "github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
@@ -46,10 +47,56 @@ var highResWatchID = uuid.NewSHA1(uuid.NameSpaceOID,
 	[]byte("amd-device-metrics-exporter/highres-gpu-watch"))
 
 // highResWatchMetric pairs a GPUWatch attribute with the pull-path gauge name
-// it feeds. An empty name means subscribe but do not stream yet.
+// it feeds and how the frame-apply pipeline handles it. An empty name means
+// subscribe but do not stream yet.
 type highResWatchMetric struct {
 	id   amdgpu.GPUWatchAttrId
 	name string
+	hrAttrMeta
+}
+
+// hrTier is the GPUWatch frame kind an attribute arrives in at sub-second
+// periods.
+type hrTier uint8
+
+const (
+	// hrTierFull attributes arrive in full frames only.
+	hrTierFull hrTier = iota
+	// hrTierPower is the power family gpuagent refreshes every power tick at
+	// sub-second periods and streams in partial frames; full frames omit it
+	// at those periods and carry it at 1000 ms and above.
+	hrTierPower
+)
+
+// hrAttrMeta is the frame-apply pipeline's per-attribute metadata.
+type hrAttrMeta struct {
+	tier hrTier
+	// indexLabel is the per-element index label of an array-valued attribute,
+	// whose value rides GPUWatchAttrVal.IndexedVal and fans out one sample per
+	// element; empty for a scalar
+	indexLabel string
+	// hasSubType: the element's SubType feeds a clock_type label
+	hasSubType bool
+	// alias is the attribute whose metric this one also feeds at sub-second
+	// periods (see packagePowerRule); INVALID for none
+	alias amdgpu.GPUWatchAttrId
+}
+
+var (
+	scalarAttr = hrAttrMeta{}
+	powerAttr  = hrAttrMeta{tier: hrTierPower}
+	// current_socket_power (126) also feeds gpu_package_power at sub-second
+	// periods
+	packagePowerAttr = hrAttrMeta{tier: hrTierPower,
+		alias: amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE}
+	// clocks carry both clock_index and a clock_type sub-label (from SubType)
+	clockAttr = hrAttrMeta{indexLabel: "clock_index", hasSubType: true}
+)
+
+// indexedAttr is the metadata of an array-valued attribute whose elements
+// carry indexLabel.
+func indexedAttr(indexLabel string) hrAttrMeta {
+	return hrAttrMeta{indexLabel: indexLabel}
 }
 
 // highResWatchMetrics is the single source of truth for high-resolution mode:
@@ -65,208 +112,227 @@ var highResWatchMetrics = []highResWatchMetric{
 	// clocks are array-valued: one element per (clock_type, instance), carrying
 	// clock_index + clock_type labels matching the pull path. The legacy scalar
 	// GPU_CLOCK/MEM_CLOCK stay subscribed (no emit) so gpuagent keeps sampling.
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_CLOCK, ""},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEM_CLOCK, ""},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_CURRENT, "gpu_clock"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MIN, "gpu_min_clock"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MAX, "gpu_max_clock"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_CLOCK, "", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEM_CLOCK, "", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_CURRENT, "gpu_clock", clockAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MIN, "gpu_min_clock", clockAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MAX, "gpu_max_clock", clockAttr},
 
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP, "gpu_junction_temperature"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEMORY_TEMP, "gpu_memory_temperature"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, "gpu_package_power"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_UTIL, "gpu_gfx_activity"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UMC_ACTIVITY, "gpu_umc_activity"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MM_ACTIVITY, "gpu_mma_activity"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_AVG_POWER, "gpu_average_package_power"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_VOLTAGE, "gpu_gfx_voltage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_SOC_VOLTAGE, "gpu_voltage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEM_VOLTAGE, "gpu_memory_voltage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_BANDWIDTH, "pcie_bidirectional_bandwidth"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP, "gpu_junction_temperature", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEMORY_TEMP, "gpu_memory_temperature", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, "gpu_package_power", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_UTIL, "gpu_gfx_activity", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UMC_ACTIVITY, "gpu_umc_activity", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MM_ACTIVITY, "gpu_mma_activity", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_AVG_POWER, "gpu_average_package_power", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_VOLTAGE, "gpu_gfx_voltage", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_SOC_VOLTAGE, "gpu_voltage", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_MEM_VOLTAGE, "gpu_memory_voltage", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_BANDWIDTH, "pcie_bidirectional_bandwidth", scalarAttr},
 	// amdsmi reports VRAM usage in MB, matching the gauge's declared unit
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE, "gpu_used_vram"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_MEMORY_USAGE, "gpu_used_vram", scalarAttr},
 
 	// ECC: attribute suffix CE/UE maps to field infix CORRECT/UNCORRECT, and the
 	// PCIE_BIF attribute shortens to BIF in the field name
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL, "gpu_ecc_correct_total"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UNCORRECT_TOTAL, "gpu_ecc_uncorrect_total"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SDMA_CE, "gpu_ecc_correct_sdma"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SDMA_UE, "gpu_ecc_uncorrect_sdma"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_GFX_CE, "gpu_ecc_correct_gfx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_GFX_UE, "gpu_ecc_uncorrect_gfx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MMHUB_CE, "gpu_ecc_correct_mmhub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MMHUB_UE, "gpu_ecc_uncorrect_mmhub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_ATHUB_CE, "gpu_ecc_correct_athub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_ATHUB_UE, "gpu_ecc_uncorrect_athub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_CE, "gpu_ecc_correct_bif"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_UE, "gpu_ecc_uncorrect_bif"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_HDP_CE, "gpu_ecc_correct_hdp"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_HDP_UE, "gpu_ecc_uncorrect_hdp"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_CE, "gpu_ecc_correct_xgmi_wafl"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_UE, "gpu_ecc_uncorrect_xgmi_wafl"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DF_CE, "gpu_ecc_correct_df"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DF_UE, "gpu_ecc_uncorrect_df"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SMN_CE, "gpu_ecc_correct_smn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SMN_UE, "gpu_ecc_uncorrect_smn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SEM_CE, "gpu_ecc_correct_sem"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SEM_UE, "gpu_ecc_uncorrect_sem"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP0_CE, "gpu_ecc_correct_mp0"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP0_UE, "gpu_ecc_uncorrect_mp0"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP1_CE, "gpu_ecc_correct_mp1"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP1_UE, "gpu_ecc_uncorrect_mp1"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_FUSE_CE, "gpu_ecc_correct_fuse"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_FUSE_UE, "gpu_ecc_uncorrect_fuse"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UMC_CE, "gpu_ecc_correct_umc"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UMC_UE, "gpu_ecc_uncorrect_umc"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MCA_CE, "gpu_ecc_correct_mca"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MCA_UE, "gpu_ecc_uncorrect_mca"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_VCN_CE, "gpu_ecc_correct_vcn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_VCN_UE, "gpu_ecc_uncorrect_vcn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_JPEG_CE, "gpu_ecc_correct_jpeg"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_JPEG_UE, "gpu_ecc_uncorrect_jpeg"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_IH_CE, "gpu_ecc_correct_ih"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_IH_UE, "gpu_ecc_uncorrect_ih"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MPIO_CE, "gpu_ecc_correct_mpio"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MPIO_UE, "gpu_ecc_uncorrect_mpio"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_CORRECT_TOTAL, "gpu_ecc_correct_total", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UNCORRECT_TOTAL, "gpu_ecc_uncorrect_total", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SDMA_CE, "gpu_ecc_correct_sdma", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SDMA_UE, "gpu_ecc_uncorrect_sdma", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_GFX_CE, "gpu_ecc_correct_gfx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_GFX_UE, "gpu_ecc_uncorrect_gfx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MMHUB_CE, "gpu_ecc_correct_mmhub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MMHUB_UE, "gpu_ecc_uncorrect_mmhub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_ATHUB_CE, "gpu_ecc_correct_athub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_ATHUB_UE, "gpu_ecc_uncorrect_athub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_CE, "gpu_ecc_correct_bif", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_PCIE_BIF_UE, "gpu_ecc_uncorrect_bif", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_HDP_CE, "gpu_ecc_correct_hdp", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_HDP_UE, "gpu_ecc_uncorrect_hdp", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_CE, "gpu_ecc_correct_xgmi_wafl", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_XGMI_WAFL_UE, "gpu_ecc_uncorrect_xgmi_wafl", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DF_CE, "gpu_ecc_correct_df", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DF_UE, "gpu_ecc_uncorrect_df", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SMN_CE, "gpu_ecc_correct_smn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SMN_UE, "gpu_ecc_uncorrect_smn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SEM_CE, "gpu_ecc_correct_sem", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_SEM_UE, "gpu_ecc_uncorrect_sem", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP0_CE, "gpu_ecc_correct_mp0", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP0_UE, "gpu_ecc_uncorrect_mp0", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP1_CE, "gpu_ecc_correct_mp1", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MP1_UE, "gpu_ecc_uncorrect_mp1", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_FUSE_CE, "gpu_ecc_correct_fuse", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_FUSE_UE, "gpu_ecc_uncorrect_fuse", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UMC_CE, "gpu_ecc_correct_umc", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_UMC_UE, "gpu_ecc_uncorrect_umc", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MCA_CE, "gpu_ecc_correct_mca", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MCA_UE, "gpu_ecc_uncorrect_mca", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_VCN_CE, "gpu_ecc_correct_vcn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_VCN_UE, "gpu_ecc_uncorrect_vcn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_JPEG_CE, "gpu_ecc_correct_jpeg", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_JPEG_UE, "gpu_ecc_uncorrect_jpeg", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_IH_CE, "gpu_ecc_correct_ih", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_IH_UE, "gpu_ecc_uncorrect_ih", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MPIO_CE, "gpu_ecc_correct_mpio", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_MPIO_UE, "gpu_ecc_uncorrect_mpio", scalarAttr},
 
 	// ECC deferred counters (third category alongside correct/uncorrect)
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_TOTAL, "gpu_ecc_deferred_total"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SDMA, "gpu_ecc_deferred_sdma"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_GFX, "gpu_ecc_deferred_gfx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MMHUB, "gpu_ecc_deferred_mmhub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_ATHUB, "gpu_ecc_deferred_athub"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_PCIE_BIF, "gpu_ecc_deferred_bif"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_HDP, "gpu_ecc_deferred_hdp"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_XGMI_WAFL, "gpu_ecc_deferred_xgmi_wafl"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_DF, "gpu_ecc_deferred_df"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SMN, "gpu_ecc_deferred_smn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SEM, "gpu_ecc_deferred_sem"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MP0, "gpu_ecc_deferred_mp0"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MP1, "gpu_ecc_deferred_mp1"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_FUSE, "gpu_ecc_deferred_fuse"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_UMC, "gpu_ecc_deferred_umc"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MCA, "gpu_ecc_deferred_mca"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_VCN, "gpu_ecc_deferred_vcn"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_JPEG, "gpu_ecc_deferred_jpeg"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_IH, "gpu_ecc_deferred_ih"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MPIO, "gpu_ecc_deferred_mpio"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_TOTAL, "gpu_ecc_deferred_total", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SDMA, "gpu_ecc_deferred_sdma", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_GFX, "gpu_ecc_deferred_gfx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MMHUB, "gpu_ecc_deferred_mmhub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_ATHUB, "gpu_ecc_deferred_athub", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_PCIE_BIF, "gpu_ecc_deferred_bif", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_HDP, "gpu_ecc_deferred_hdp", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_XGMI_WAFL, "gpu_ecc_deferred_xgmi_wafl", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_DF, "gpu_ecc_deferred_df", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SMN, "gpu_ecc_deferred_smn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_SEM, "gpu_ecc_deferred_sem", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MP0, "gpu_ecc_deferred_mp0", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MP1, "gpu_ecc_deferred_mp1", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_FUSE, "gpu_ecc_deferred_fuse", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_UMC, "gpu_ecc_deferred_umc", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MCA, "gpu_ecc_deferred_mca", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_VCN, "gpu_ecc_deferred_vcn", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_JPEG, "gpu_ecc_deferred_jpeg", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_IH, "gpu_ecc_deferred_ih", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ECC_DEF_MPIO, "gpu_ecc_deferred_mpio", scalarAttr},
 
 	// PCIe accumulated counters + additional bulk scalars
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT, "pcie_replay_count"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_RECOVERY_COUNT, "pcie_recovery_count"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_REPLAY_ROLLOVER_COUNT, "pcie_replay_rollover_count"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_NACK_SENT_COUNT, "pcie_nack_sent_count"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_NACK_RECEIVED_COUNT, "pcie_nack_received_count"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE, "gpu_power_usage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH, "gpu_vram_max_bandwidth"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_EDGE_TEMP, "gpu_edge_temperature"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT, "pcie_replay_count", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_RECOVERY_COUNT, "pcie_recovery_count", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_REPLAY_ROLLOVER_COUNT, "pcie_replay_rollover_count", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_NACK_SENT_COUNT, "pcie_nack_sent_count", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_NACK_RECEIVED_COUNT, "pcie_nack_received_count", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE, "gpu_power_usage", packagePowerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH, "gpu_vram_max_bandwidth", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_EDGE_TEMP, "gpu_edge_temperature", scalarAttr},
 	// energy accumulator (uJ): fast-tier from the bulk gpu_metrics read, so it
 	// leaves the GPUGet non-watch carry set and updates every FastPeriodSecs
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED, "gpu_energy_consumed"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED, "gpu_energy_consumed", powerAttr},
 	// UBB node power (W): node-wide, partition 0 only, N/A elsewhere
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER, "gpu_ubb_power"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER, "gpu_ubb_power", scalarAttr},
 
 	// memory totals/used/free and PCIe link speed
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_VRAM, "gpu_total_vram"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_VISIBLE_VRAM, "gpu_total_visible_vram"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_GTT, "gpu_total_gtt"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_USED_VISIBLE_VRAM, "gpu_used_visible_vram"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_USED_GTT, "gpu_used_gtt"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_VRAM, "gpu_free_vram"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_VISIBLE_VRAM, "gpu_free_visible_vram"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_GTT, "gpu_free_gtt"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_SPEED, "pcie_speed"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED, "pcie_max_speed"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_VRAM, "gpu_total_vram", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_VISIBLE_VRAM, "gpu_total_visible_vram", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_TOTAL_GTT, "gpu_total_gtt", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_USED_VISIBLE_VRAM, "gpu_used_visible_vram", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_USED_GTT, "gpu_used_gtt", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_VRAM, "gpu_free_vram", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_VISIBLE_VRAM, "gpu_free_visible_vram", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_FREE_GTT, "gpu_free_gtt", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_SPEED, "pcie_speed", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_PCIE_MAX_SPEED, "pcie_max_speed", scalarAttr},
 
 	// XGMI: the attribute drops the NBR infix the field name carries, and the
 	// per-link throughput attribute spells TX after the index
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_NOP_TX, "gpu_xgmi_nbr_0_nop_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_REQ_TX, "gpu_xgmi_nbr_0_req_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_RESP_TX, "gpu_xgmi_nbr_0_resp_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_BEATS_TX, "gpu_xgmi_nbr_0_beats_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_NOP_TX, "gpu_xgmi_nbr_1_nop_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_REQ_TX, "gpu_xgmi_nbr_1_req_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_RESP_TX, "gpu_xgmi_nbr_1_resp_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_BEATS_TX, "gpu_xgmi_nbr_1_beats_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_THRPUT, "gpu_xgmi_nbr_0_tx_thrput"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_THRPUT, "gpu_xgmi_nbr_1_tx_thrput"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_2_THRPUT, "gpu_xgmi_nbr_2_tx_thrput"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_3_THRPUT, "gpu_xgmi_nbr_3_tx_thrput"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_4_THRPUT, "gpu_xgmi_nbr_4_tx_thrput"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_5_THRPUT, "gpu_xgmi_nbr_5_tx_thrput"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_NOP_TX, "gpu_xgmi_nbr_0_nop_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_REQ_TX, "gpu_xgmi_nbr_0_req_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_RESP_TX, "gpu_xgmi_nbr_0_resp_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_BEATS_TX, "gpu_xgmi_nbr_0_beats_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_NOP_TX, "gpu_xgmi_nbr_1_nop_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_REQ_TX, "gpu_xgmi_nbr_1_req_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_RESP_TX, "gpu_xgmi_nbr_1_resp_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_BEATS_TX, "gpu_xgmi_nbr_1_beats_tx", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_0_THRPUT, "gpu_xgmi_nbr_0_tx_thrput", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_1_THRPUT, "gpu_xgmi_nbr_1_tx_thrput", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_2_THRPUT, "gpu_xgmi_nbr_2_tx_thrput", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_3_THRPUT, "gpu_xgmi_nbr_3_tx_thrput", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_4_THRPUT, "gpu_xgmi_nbr_4_tx_thrput", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_5_THRPUT, "gpu_xgmi_nbr_5_tx_thrput", scalarAttr},
 
 	// flat (non-indexed) violation counters: scalar path, like ECC/XGMI above
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_CURRENT_ACC_COUNTER, "gpu_violation_current_accumulated_counter"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_ACC, "gpu_violation_processor_hot_residency_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_ACC, "gpu_violation_ppt_residency_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACC, "gpu_violation_socket_thermal_residency_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_ACC, "gpu_violation_vr_thermal_residency_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_ACC, "gpu_violation_hbm_thermal_residency_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT, "gpu_violation_processor_hot_residency_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_PCT, "gpu_violation_ppt_residency_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_PCT, "gpu_violation_socket_thermal_residency_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_PCT, "gpu_violation_vr_thermal_residency_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_PCT, "gpu_violation_hbm_thermal_residency_percentage"},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_CURRENT_ACC_COUNTER, "gpu_violation_current_accumulated_counter", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_ACC, "gpu_violation_processor_hot_residency_accumulated", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_ACC, "gpu_violation_ppt_residency_accumulated", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACC, "gpu_violation_socket_thermal_residency_accumulated", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_ACC, "gpu_violation_vr_thermal_residency_accumulated", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_ACC, "gpu_violation_hbm_thermal_residency_accumulated", powerAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT, "gpu_violation_processor_hot_residency_percentage", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_PCT, "gpu_violation_ppt_residency_percentage", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_PCT, "gpu_violation_socket_thermal_residency_percentage", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_VR_THERMAL_RESIDENCY_PCT, "gpu_violation_vr_thermal_residency_percentage", scalarAttr},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_PCT, "gpu_violation_hbm_thermal_residency_percentage", scalarAttr},
 
 	// array-valued (indexed) attributes: the value rides GPUWatchAttrVal.IndexedVal
-	// and applyWatchSnapshot fans out one sample per element, adding the family's
-	// *_index label (see highResIndexedMeta). Names equal the pull-path GaugeVec
-	// names so the series are identical whether scraped or streamed.
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_HBM_TEMP, "gpu_hbm_temperature"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_ACTIVITY, "gpu_vcn_activity"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_ACTIVITY, "gpu_jpeg_activity"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_RX, "gpu_xgmi_link_rx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_TX, "gpu_xgmi_link_tx"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_ACC, "gpu_violation_gfx_clock_below_host_limit_power_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_ACC, "gpu_violation_gfx_clock_below_host_limit_thermal_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_ACC, "gpu_violation_low_utilization_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_ACC, "gpu_violation_gfx_clock_below_host_limit_total_accumulated"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_PCT, "gpu_violation_gfx_clock_below_host_limit_power_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_PCT, "gpu_violation_gfx_clock_below_host_limit_thermal_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_PCT, "gpu_violation_low_utilization_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_PCT, "gpu_violation_gfx_clock_below_host_limit_total_percentage"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_BUSY_INST, "gpu_gfx_busy_instantaneous"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_BUSY_INST, "gpu_vcn_busy_instantaneous"},
-	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_BUSY_INST, "gpu_jpeg_busy_instantaneous"},
+	// and the frame-apply pipeline fans out one sample per element, adding the
+	// family's *_index label (see indexedAttr). Names equal the pull-path
+	// GaugeVec names so the series are identical whether scraped or streamed.
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_HBM_TEMP, "gpu_hbm_temperature", indexedAttr("hbm_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_ACTIVITY, "gpu_vcn_activity", indexedAttr("vcn_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_ACTIVITY, "gpu_jpeg_activity", indexedAttr("jpeg_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_RX, "gpu_xgmi_link_rx", indexedAttr("link_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_TX, "gpu_xgmi_link_tx", indexedAttr("link_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_ACC, "gpu_violation_gfx_clock_below_host_limit_power_accumulated", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_ACC, "gpu_violation_gfx_clock_below_host_limit_thermal_accumulated", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_ACC, "gpu_violation_low_utilization_accumulated", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_ACC, "gpu_violation_gfx_clock_below_host_limit_total_accumulated", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_PCT, "gpu_violation_gfx_clock_below_host_limit_power_percentage", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_PCT, "gpu_violation_gfx_clock_below_host_limit_thermal_percentage", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_PCT, "gpu_violation_low_utilization_percentage", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_PCT, "gpu_violation_gfx_clock_below_host_limit_total_percentage", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_BUSY_INST, "gpu_gfx_busy_instantaneous", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_BUSY_INST, "gpu_vcn_busy_instantaneous", indexedAttr("xcc_index")},
+	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_BUSY_INST, "gpu_jpeg_busy_instantaneous", indexedAttr("xcc_index")},
 }
 
-// highResIndexedMeta maps an array-valued attribute to the per-element index
-// label its pull-path GaugeVec carries, and whether SubType feeds a clock_type
-// label. Scalars are absent and resolve to ("", false), so applyWatchSnapshot
-// treats them on the scalar path.
-var highResIndexedMeta = map[amdgpu.GPUWatchAttrId]struct {
-	indexLabel string
-	hasSubType bool
-}{
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_HBM_TEMP:                                       {"hbm_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_ACTIVITY:                                   {"vcn_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_ACTIVITY:                                  {"jpeg_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_RX:                                   {"link_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_XGMI_LINK_TX:                                   {"link_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_ACC:   {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_ACC: {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_ACC:                         {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_ACC:   {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_POWER_PCT:   {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_THERMAL_PCT: {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_LOW_UTIL_PCT:                         {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_GFX_CLK_BELOW_HOST_LIMIT_TOTAL_PCT:   {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_BUSY_INST:                                  {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_BUSY_INST:                                  {"xcc_index", false},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_BUSY_INST:                                 {"xcc_index", false},
-	// clocks carry both clock_index and a clock_type sub-label (from SubType)
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_CURRENT: {"clock_index", true},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MIN:     {"clock_index", true},
-	amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_CLOCK_FREQ_MAX:     {"clock_index", true},
+// hrMaxAttrID bounds the GPUWatchAttrId values the pipeline indexes; the enum
+// stays below it.
+const hrMaxAttrID = 256
+
+const (
+	hrAttrPowerUsage    = amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE
+	hrAttrGPUPowerUsage = amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE
+)
+
+// hrPackagePowerField is the ga.fl / allowlist key of gpu_package_power, which
+// attr 126 (current_socket_power) feeds at sub-second periods.
+var hrPackagePowerField = exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String()
+
+// hrAttrInfo is one highResWatchMetrics row plus what the pipeline derives
+// from it.
+type hrAttrInfo struct {
+	highResWatchMetric
+	// field is the upper-cased name: the ga.fl and allowlist key, shared with
+	// the pull path so a field unsupported in one path is unsupported in both
+	field string
+	// aliasedBy is the attribute whose alias feeds this one's metric
+	aliasedBy amdgpu.GPUWatchAttrId
 }
+
+// hrAttrTable is highResWatchMetrics indexed by attribute id; an id absent
+// from it has an empty name.
+var hrAttrTable = func() (t [hrMaxAttrID]hrAttrInfo) {
+	for _, m := range highResWatchMetrics {
+		t[m.id] = hrAttrInfo{highResWatchMetric: m, field: strings.ToUpper(m.name)}
+	}
+	for _, m := range highResWatchMetrics {
+		if m.alias != amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_INVALID {
+			t[m.alias].aliasedBy = m.id
+		}
+	}
+	return t
+}()
+
+// hrPowerAttrIDs is the power tier of highResWatchMetrics.
+var hrPowerAttrIDs = func() []amdgpu.GPUWatchAttrId {
+	var ids []amdgpu.GPUWatchAttrId
+	for _, m := range highResWatchMetrics {
+		if m.tier == hrTierPower {
+			ids = append(ids, m.id)
+		}
+	}
+	return ids
+}()
 
 // watchAttrIndexLabel returns the per-element index label for an array-valued
 // attribute and whether it also carries a clock_type sub-label. Scalars return
 // ("", false).
 func watchAttrIndexLabel(id amdgpu.GPUWatchAttrId) (string, bool) {
-	m, ok := highResIndexedMeta[id]
-	if !ok {
+	if id < 0 || int(id) >= hrMaxAttrID {
 		return "", false
 	}
+	m := &hrAttrTable[id]
 	return m.indexLabel, m.hasSubType
 }
 
@@ -400,7 +466,7 @@ const highResCadenceLogInterval = 10 * time.Second
 // session starts, so two feeds never run concurrently. Exits on ctx cancellation.
 func (ga *GPUAgentGPUClient) runHighResFeed(ctx context.Context, done chan struct{}) {
 	defer close(done)
-	// the fast-path cache belongs to this goroutine; drop it on exit
+	// the per-GPU state cache belongs to this goroutine; drop it on exit
 	defer func() { ga.hrHot = nil }()
 	for ctx.Err() == nil {
 		err := ga.StartHighRes(ctx)
@@ -584,8 +650,8 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 		}
 	}
 	ga.hrFastMs.Store(spec.FastPeriodMs)
-	// new session: labels, GPU set and period may differ, so the first partial
-	// frame rebuilds the fast-path cache (and the gpu_package_power state)
+	// new session: labels, GPU set and period may differ, so the first frame
+	// rebuilds the per-GPU state cache (and the gpu_package_power state)
 	ga.hrHot = nil
 	stream, err := ga.watchclient.GPUWatchSubscribe(ctx,
 		&amdgpu.GPUWatchSubscribeRequest{Id: [][]byte{watchID[:]}})
@@ -647,11 +713,175 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	}
 }
 
-// applyWatchSnapshot applies one GPUWatch snapshot to the single-source store:
-// one Sample per (GPU/partition, attribute), keyed by the full label set. The
-// store feeds /metrics, which is the only data path out of the exporter (there
-// is no push stream). Returns the per-device deltas written (nil if nothing was
-// applied) so tests can assert what was stored.
+// hrHotField is the per-(GPU, attribute) state of the frame-apply pipeline.
+type hrHotField struct {
+	cell      *snapshotstore.HotCell // existing metric name for this attr
+	alias     *snapshotstore.HotCell // metric of the attr's alias (126 only)
+	skip      bool                   // not in allowlist, or unsupported (cached)
+	aliasSkip bool                   // the alias metric is not fed from this attr
+	naSeen    bool                   // first N/A already logged
+}
+
+// hrHotGPU is the per-GPU (or partition) state both frame kinds apply
+// against.
+type hrHotGPU struct {
+	// labels is shared, not cloned: hrLabelsByUUID and the workload-label
+	// cache maps are never mutated once published
+	labels    prometheus.Labels
+	deviceKey string
+	gpuID     string // ga.fl key
+	fields    [hrMaxAttrID]hrHotField
+	// pkgFrom126 is true while attr 126 last arrived valid with its alias
+	// gate open (see packagePowerRule)
+	pkgFrom126 bool
+}
+
+// cell returns the hot cell slot a value of attr id is written through: the
+// alias cell of the attribute feeding id's metric, else id's own cell.
+func (g *hrHotGPU) cell(id amdgpu.GPUWatchAttrId) **snapshotstore.HotCell {
+	if src := hrAttrTable[id].aliasedBy; src != amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_INVALID {
+		return &g.fields[src].alias
+	}
+	return &g.fields[id].cell
+}
+
+// packagePowerRule is the gpu_package_power rule. At sub-second periods (the
+// alias gate of 126 is open, see rebuildHot) a valid 126
+// (current_socket_power) feeds gpu_package_power, and POWER_USAGE (5), the
+// metric's own attribute, is not written while it does; an N/A 126 hands
+// gpu_package_power back to 5. At 1000 ms and above 126 never feeds it. For a
+// value of attr id (valid false: N/A) it updates g and reports whether the
+// value must not be written, and whether its N/A must not mark the field
+// unsupported (an N/A 5 while 126 may feed the metric).
+func (g *hrHotGPU) packagePowerRule(id amdgpu.GPUWatchAttrId, valid bool) (drop, keepSupported bool) {
+	src := &g.fields[hrAttrGPUPowerUsage]
+	switch id {
+	case hrAttrGPUPowerUsage:
+		g.pkgFrom126 = valid && !src.aliasSkip
+	case hrAttrPowerUsage:
+		return g.pkgFrom126 && !src.aliasSkip, !src.aliasSkip
+	}
+	return false, false
+}
+
+// hrHotCache is the per-GPU state cache with the inputs it was built from; a
+// change in any of them triggers a rebuild on the next frame.
+type hrHotCache struct {
+	epoch    uint64                        // store.Epoch() read before (re)building
+	wlLabels *map[string]prometheus.Labels // hrWLCache map seen
+	fieldGen uint64                        // ga.exportFieldGen seen
+	byGPU    map[[16]byte]*hrHotGPU
+	partial  hrPartialSink // reused by every partial frame (no allocation)
+}
+
+// hrSampleSink receives the values the frame-apply pipeline produces. The
+// two GPUWatch frame kinds differ only in their sink.
+type hrSampleSink interface {
+	// carries reports whether the frame applies attributes of tier t.
+	carries(t hrTier) bool
+	// scalar writes v under name for g, through *cell where the sink uses
+	// hot cells.
+	scalar(g *hrHotGPU, cell **snapshotstore.HotCell, name string, v float64)
+	// element stages one element of an array-valued attribute; the sink owns
+	// labels.
+	element(name string, labels prometheus.Labels, v float64)
+}
+
+// hrPartialSink applies a partial (power) frame: the power tier only, written
+// through per-(GPU, field) hot cells registered on first use, so a frame
+// costs no lock, no allocation and no logging in steady state.
+type hrPartialSink struct {
+	st   snapshotstore.StoreWriter
+	tsUs int64
+}
+
+func (s *hrPartialSink) carries(t hrTier) bool {
+	return t == hrTierPower
+}
+
+func (s *hrPartialSink) scalar(g *hrHotGPU, cell **snapshotstore.HotCell, name string, v float64) {
+	if *cell == nil {
+		*cell = s.st.RegisterHot(g.deviceKey, name, g.labels, v, s.tsUs)
+		return
+	}
+	(*cell).Set(v, s.tsUs)
+}
+
+// element is never reached: no array-valued attribute is in the power tier.
+func (s *hrPartialSink) element(string, prometheus.Labels, float64) {}
+
+// hrFullSink applies a full frame: one plain sample per (GPU/partition,
+// attribute) staged as per-device deltas, except that a field with a
+// registered hot cell is written through the cell, since a plain delta would
+// orphan it and bump the store epoch. At sub-second periods partial frames
+// own the power tier, so a full frame skips it.
+type hrFullSink struct {
+	sub    bool
+	tsUs   int64
+	skip   map[string]struct{} // workload label keys left out of the device key
+	deltas map[string]map[string]snapshotstore.Sample
+}
+
+func (s *hrFullSink) carries(t hrTier) bool {
+	return !s.sub || t != hrTierPower
+}
+
+func (s *hrFullSink) scalar(g *hrHotGPU, cell **snapshotstore.HotCell, name string, v float64) {
+	if *cell != nil {
+		(*cell).Set(v, s.tsUs)
+		return
+	}
+	addHRStoreSample(s.deltas, name, maps.Clone(g.labels), v, s.tsUs, s.skip)
+}
+
+func (s *hrFullSink) element(name string, labels prometheus.Labels, v float64) {
+	addHRStoreSample(s.deltas, name, labels, v, s.tsUs, s.skip)
+}
+
+// hrSubSecond reports whether the accepted watch period is below 1000 ms. Zero
+// (no watch created yet) is not sub-second.
+func (ga *GPUAgentGPUClient) hrSubSecond() bool {
+	ms := ga.hrFastMs.Load()
+	return ms != 0 && ms < highResFallbackFastPeriodMs
+}
+
+// hrWorkloadLabels returns the workload-label cache's current map pointer, nil
+// when no cache runs.
+func (ga *GPUAgentGPUClient) hrWorkloadLabels() *map[string]prometheus.Labels {
+	if ga.hrWLCache == nil {
+		return nil
+	}
+	return ga.hrWLCache.labels.Load()
+}
+
+// hrState returns the per-GPU state cache for st, rebuilding it when an input
+// changed.
+func (ga *GPUAgentGPUClient) hrState(st snapshotstore.StoreWriter) *hrHotCache {
+	c := ga.hrHot
+	if wl := ga.hrWorkloadLabels(); c == nil || st.Epoch() != c.epoch ||
+		wl != c.wlLabels || ga.exportFieldGen.Load() != c.fieldGen {
+		c = ga.rebuildHot(st)
+	}
+	return c
+}
+
+// applyPowerFrame applies one partial (power) frame through the hot cells.
+// Only the attributes present are written; N/A is never written (and never
+// 0).
+func (ga *GPUAgentGPUClient) applyPowerFrame(w *amdgpu.GPUWatch) {
+	st := ga.gpuHandler.mh.GetStore()
+	if st == nil || w == nil {
+		return
+	}
+	c := ga.hrState(st)
+	c.partial.st, c.partial.tsUs = st, time.Now().UnixMicro()
+	ga.applyFrame(w, c, &c.partial)
+}
+
+// applyWatchSnapshot applies one full GPUWatch frame to the single-source
+// store, keyed by the full label set. The store feeds /metrics, which is the
+// only data path out of the exporter (there is no push stream). Returns the
+// per-device deltas written (nil if none) so tests can assert what was stored.
 //
 // This must not touch the Prometheus registry: the legacy pull path resets and
 // refills every gauge under prometheusMiddlewareMu, which this goroutine cannot
@@ -664,132 +894,204 @@ func (ga *GPUAgentGPUClient) applyWatchSnapshot(w *amdgpu.GPUWatch) map[string]m
 	if st == nil {
 		return nil
 	}
-	var store snapshotstore.StoreWriter = st
-	now := time.Now().UnixMicro()
-	workloadSkip := ga.workloadLabelKeys()
-	storeByDevice := map[string]map[string]snapshotstore.Sample{}
-	// At sub-second periods partial frames own the power family; full frames
-	// write none of it, and POWER_USAGE (5) yields gpu_package_power to 126
-	// while hot.pkgFrom126 holds for the GPU.
-	sub := ga.hrSubSecond()
-	// hot cells are written through only while the cache matches the store
-	// epoch; after a bump they may be orphaned, so a plain delta is used
-	hotFresh := ga.hrHot != nil && ga.hrHot.epoch == st.Epoch()
-	for _, perGPU := range w.GetStats().GetGPUWatchAttr() {
-		guid, err := uuid.FromBytes(perGPU.GetGPU())
-		if err != nil {
-			continue
-		}
-		var hot *hrHotGPU
-		if ga.hrHot != nil {
-			hot = ga.hrHot.byGPU[guid]
-		}
-		uuidStr := guid.String()
-		// Prefer the async workload-label cache (live pod/slurm labels), falling
-		// back to the subscribe-time static set.
-		var labels prometheus.Labels
-		var ok bool
-		if ga.hrWLCache != nil {
-			labels, ok = ga.hrWLCache.get(uuidStr)
-		}
-		if !ok || labels == nil {
-			labels, ok = ga.hrLabelsByUUID[uuidStr]
-		}
-		if !ok || labels == nil {
-			continue
-		}
-		gpuid := ga.hrGPUIDByUUID[uuidStr]
-		if gpuid == "" {
-			// fall back to the UUID so the unsupported-field log/dedup key is
-			// distinct per GPU instead of an empty string shared across all
-			gpuid = uuidStr
-		}
-		for _, attr := range perGPU.GetAttr() {
-			id := attr.GetId()
-			base := watchAttrMetricName(id)
-			if base == "" {
-				continue
-			}
-			if sub && int(id) < hrMaxAttrID && hrPowerAttr[id] {
-				continue
-			}
-			if sub && id == hrAttrPowerUsage && hot != nil && hot.pkgFrom126 {
-				continue
-			}
-			// Gauge base names are the lowercased GPUMetricField enum names, so
-			// upcasing yields the same ga.fl key the pull path uses: a field
-			// unsupported in one path is then unsupported in both, logged once.
-			field := strings.ToUpper(base)
-			if ga.fl.checkUnsupportedFields(gpuid, field) {
-				continue
-			}
-			// Honor the config field-gate so a disabled field is absent from
-			// /metrics (the single output), matching the pull path.
-			if !ga.getExporterFieldState(field) {
-				continue
-			}
-			// array-valued attribute: fan out one sample per element, adding the
-			// family's *_index label (and clock_type for clocks). Branch before
-			// watchAttrFloat, whose scalar oneof would otherwise ignore IndexedVal.
-			if indexLabel, hasSubType := watchAttrIndexLabel(attr.GetId()); indexLabel != "" {
-				applicable := false
-				for _, e := range attr.GetValue().GetIndexedVal() {
-					v, ok := indexedValFloat(e)
-					if !ok {
-						continue
-					}
-					applicable = true
-					// Clone per element: labels aliases the shared cache entry, and
-					// the index (and clock_type) key must not leak across samples.
-					lbl := maps.Clone(labels)
-					lbl[indexLabel] = strconv.FormatUint(uint64(e.GetIndex()), 10)
-					if hasSubType {
-						if st := e.GetSubType(); st != "" {
-							lbl["clock_type"] = st
-						}
-					}
-					addHRStoreSample(storeByDevice, base, lbl, v, now, workloadSkip)
-				}
-				// no applicable element means the field is unsupported on this GPU;
-				// log once, exactly as the scalar NA path does
-				if !applicable {
-					ga.fl.logUnsupportedField(gpuid, field)
-				}
-				continue
-			}
-			val, ok := watchAttrFloat(attr.GetValue())
-			if !ok {
-				// at sub-second 126 may feed gpu_package_power: an N/A 5 must
-				// not mark GPU_PACKAGE_POWER unsupported for this GPU
-				if sub && id == hrAttrPowerUsage && hot != nil &&
-					!hot.fields[hrAttrGPUPowerUsage].aliasSkip {
-					continue
-				}
-				ga.fl.logUnsupportedField(gpuid, field)
-				continue
-			}
-			// a field with a registered hot cell is written through the cell;
-			// a plain delta would orphan it and bump the store epoch
-			if hot != nil && hotFresh {
-				if cell := hot.hotCell(id); cell != nil {
-					cell.Set(val, now)
-					continue
-				}
-			}
-			lbl := maps.Clone(labels)
-			addHRStoreSample(storeByDevice, base, lbl, val, now, workloadSkip)
-		}
+	sink := &hrFullSink{
+		sub:    ga.hrSubSecond(),
+		tsUs:   time.Now().UnixMicro(),
+		skip:   ga.workloadLabelKeys(),
+		deltas: map[string]map[string]snapshotstore.Sample{},
 	}
-	if len(storeByDevice) == 0 {
+	ga.applyFrame(w, ga.hrState(st), sink)
+	if len(sink.deltas) == 0 {
 		return nil
 	}
 	// Apply per-device deltas, keyed by the stable label set (same as the pull-path
 	// store writer) so indexed families stay distinct and a workload change reuses
 	// the slot.
-	for key, fields := range storeByDevice {
-		store.Update(key, fields)
+	for key, fields := range sink.deltas {
+		st.Update(key, fields)
 	}
-	return storeByDevice
+	return sink.deltas
+}
+
+// applyFrame is the frame-apply pipeline shared by both frame kinds: one pass
+// over the frame's (GPU, attribute) values, driven by hrAttrTable and the
+// per-GPU state in c, writing to sink. The first N/A per (GPU, attr) is logged
+// once through ga.fl, which the pull path shares.
+func (ga *GPUAgentGPUClient) applyFrame(w *amdgpu.GPUWatch, c *hrHotCache, sink hrSampleSink) {
+	carries := [...]bool{sink.carries(hrTierFull), sink.carries(hrTierPower)}
+	for _, perGPU := range w.GetStats().GetGPUWatchAttr() {
+		b := perGPU.GetGPU()
+		if len(b) != 16 {
+			continue
+		}
+		g := c.byGPU[[16]byte(b)]
+		if g == nil {
+			continue
+		}
+		for _, attr := range perGPU.GetAttr() {
+			id := attr.GetId()
+			if id < 0 || int(id) >= hrMaxAttrID {
+				continue
+			}
+			m := &hrAttrTable[id]
+			f := &g.fields[id]
+			if m.name == "" || !carries[m.tier] || (f.skip && f.aliasSkip) {
+				continue
+			}
+			if m.indexLabel != "" {
+				ga.applyIndexed(g, f, m, attr.GetValue(), sink)
+				continue
+			}
+			v, ok := watchAttrFloat(attr.GetValue())
+			drop, keepSupported := g.packagePowerRule(id, ok)
+			if !ok {
+				if !keepSupported {
+					ga.hrMarkNA(g, f, m.field)
+				}
+				continue
+			}
+			if drop {
+				continue
+			}
+			if !f.skip {
+				sink.scalar(g, g.cell(id), m.name, v)
+			}
+			if !f.aliasSkip {
+				sink.scalar(g, &f.alias, hrAttrTable[m.alias].name, v)
+			}
+		}
+	}
+}
+
+// applyIndexed fans an array-valued attribute out to one sample per element,
+// adding the family's *_index label (and clock_type for clocks). An attribute
+// with no applicable element is unsupported on this GPU, recorded as for a
+// scalar N/A.
+func (ga *GPUAgentGPUClient) applyIndexed(g *hrHotGPU, f *hrHotField, m *hrAttrInfo,
+	val *amdgpu.GPUWatchAttrVal, sink hrSampleSink) {
+	applicable := false
+	for _, e := range val.GetIndexedVal() {
+		v, ok := indexedValFloat(e)
+		if !ok {
+			continue
+		}
+		applicable = true
+		// Clone per element: labels aliases the shared cache entry, and the
+		// index (and clock_type) key must not leak across samples.
+		lbl := maps.Clone(g.labels)
+		lbl[m.indexLabel] = strconv.FormatUint(uint64(e.GetIndex()), 10)
+		if m.hasSubType {
+			if st := e.GetSubType(); st != "" {
+				lbl["clock_type"] = st
+			}
+		}
+		sink.element(m.name, lbl, v)
+	}
+	if !applicable {
+		ga.hrMarkNA(g, f, m.field)
+	}
+}
+
+// hrMarkNA records the first N/A of a (GPU, attr) in ga.fl, and stops applying
+// the attr once ga.fl holds it unsupported.
+func (ga *GPUAgentGPUClient) hrMarkNA(g *hrHotGPU, f *hrHotField, field string) {
+	if f.naSeen {
+		return
+	}
+	f.naSeen = true
+	ga.fl.logUnsupportedField(g.gpuID, field)
+	if ga.fl.checkUnsupportedFields(g.gpuID, field) {
+		f.skip, f.aliasSkip = true, true
+	}
+}
+
+// rebuildHot rebuilds the per-GPU state cache (slow path: feed start, store
+// epoch bump, workload-label swap, field-config reload). The store epoch is
+// read first, so a store change racing the rebuild is seen on the next frame.
+// Cells are kept when the epoch and a GPU's labels are unchanged; otherwise
+// they are re-registered lazily on the GPU's next valid value.
+func (ga *GPUAgentGPUClient) rebuildHot(st snapshotstore.StoreWriter) *hrHotCache {
+	ga.hrHotRebuilds.Add(1)
+	epoch := st.Epoch()
+	wl := ga.hrWorkloadLabels()
+	old := ga.hrHot
+	c := &hrHotCache{
+		epoch:    epoch,
+		wlLabels: wl,
+		fieldGen: ga.exportFieldGen.Load(),
+		byGPU:    make(map[[16]byte]*hrHotGPU, len(ga.hrLabelsByUUID)),
+	}
+	keepCells := old != nil && old.epoch == epoch
+	sameGen := old != nil && old.fieldGen == c.fieldGen
+	sub := ga.hrSubSecond()
+	skipKeys := ga.workloadLabelKeys()
+	// allowlist state is per field, not per GPU
+	var enabled [hrMaxAttrID]bool
+	for _, m := range highResWatchMetrics {
+		if m.name != "" {
+			enabled[m.id] = ga.getExporterFieldState(m.name)
+		}
+	}
+	for uuidStr, labels := range ga.hrLabelsByUUID {
+		if wl != nil {
+			if l, ok := (*wl)[uuidStr]; ok && l != nil {
+				labels = l
+			}
+		}
+		if labels == nil {
+			continue
+		}
+		gu, err := uuid.Parse(uuidStr)
+		if err != nil {
+			continue
+		}
+		gpuID := ga.hrGPUIDByUUID[uuidStr]
+		if gpuID == "" {
+			// fall back to the UUID so the unsupported-field log/dedup key is
+			// distinct per GPU instead of an empty string shared across all
+			gpuID = uuidStr
+		}
+		g := &hrHotGPU{
+			labels:    labels,
+			deviceKey: gpuStoreDeviceKey(labels, skipKeys),
+			gpuID:     gpuID,
+		}
+		var prev *hrHotGPU
+		if old != nil {
+			prev = old.byGPU[gu]
+		}
+		reuse := keepCells && prev != nil && prev.deviceKey == g.deviceKey &&
+			maps.Equal(prev.labels, labels)
+		for i := range g.fields {
+			g.fields[i].skip, g.fields[i].aliasSkip = true, true
+		}
+		for _, m := range highResWatchMetrics {
+			if m.name == "" {
+				continue
+			}
+			unsupported := ga.fl.checkUnsupportedFields(gpuID, hrAttrTable[m.id].field)
+			f := &g.fields[m.id]
+			f.skip = !enabled[m.id] || unsupported
+			// the alias metric's own unsupported mark comes from its own
+			// attribute (5, average power), so it must not stop 126 feeding it
+			if m.alias != amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_INVALID {
+				f.aliasSkip = !sub || !enabled[m.alias] || unsupported
+			}
+			// after a field-config reload (fl reset) the first N/A logs again
+			if prev != nil && sameGen {
+				f.naSeen = prev.fields[m.id].naSeen
+			}
+			if reuse {
+				f.cell, f.alias = prev.fields[m.id].cell, prev.fields[m.id].alias
+			}
+		}
+		if prev != nil {
+			g.pkgFrom126 = prev.pkgFrom126
+		}
+		c.byGPU[gu] = g
+	}
+	ga.hrHot = c
+	return c
 }
 
 // addHRStoreSample accumulates one stream sample into the per-device store delta

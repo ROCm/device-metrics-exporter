@@ -147,9 +147,8 @@ func hrGPU(ga *GPUAgentGPUClient, gpu []byte) *hrHotGPU {
 	return ga.hrHot.byGPU[[16]byte(gpu)]
 }
 
-// TestHighResFrameDispatch: a frame whose Spec has no Attribute takes the
-// fast path (hot cells, cache built); a full frame takes applyWatchSnapshot
-// and builds no cache.
+// TestHighResFrameDispatch: a frame whose Spec has no Attribute is applied
+// as a partial frame (hot cells); a full frame registers no hot cell.
 func TestHighResFrameDispatch(t *testing.T) {
 	// run consumes frames until the stream blocks, then stops the consumer;
 	// the frames are applied before Recv blocks, so all of them are in.
@@ -168,7 +167,8 @@ func TestHighResFrameDispatch(t *testing.T) {
 
 	ga, gpus := newHRFastClient(t, 1, 10)
 	run(ga, hrFull(gpus, hrAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP, 50)))
-	assert.Assert(t, ga.hrHot == nil, "full frame must not use the fast path")
+	assert.Assert(t, hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage].cell == nil,
+		"full frame must not register hot cells")
 	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_junction_temperature"), 50.0)
 
 	run(ga, hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 250)))
@@ -655,7 +655,7 @@ func TestHighResDispatchFullPathAt1000(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	cancel()
 	<-done
-	assert.Assert(t, ga.hrHot == nil)
+	assert.Assert(t, hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage].cell == nil)
 	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_junction_temperature"), 50.0)
 }
 

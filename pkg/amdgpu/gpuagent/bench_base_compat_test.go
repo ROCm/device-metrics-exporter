@@ -25,7 +25,6 @@ package gpuagent
 //	    -bench 'BenchmarkWorkloadLabelRefresh8GPU/legacy' -benchmem -count=10
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"testing"
@@ -83,7 +82,7 @@ func BenchmarkWorkloadLabelRefresh8GPU(b *testing.B) {
 			e.gpu.hrSnapshot.Store(&hrGPUSnap{gpus: gpus, partitionMap: pm})
 			src := manualSource(e) // no goroutine: the loop drives the refresh
 			c := newHRWorkloadLabelCache(e.gpu)
-			c.refreshOnce(context.Background())
+			c.refreshOnce()
 			var alt [2]map[string]scheduler.Workload
 			if tc.changed {
 				alt = [2]map[string]scheduler.Workload{fx.slurm, maps.Clone(fx.slurm)}
@@ -100,7 +99,7 @@ func BenchmarkWorkloadLabelRefresh8GPU(b *testing.B) {
 					b.StartTimer()
 				}
 				src.refresh(true)
-				c.refreshOnce(context.Background())
+				c.refreshOnce()
 			}
 		})
 	}
@@ -121,11 +120,11 @@ func benchWorkloadLabelRefreshLegacy(b *testing.B) {
 			e.gpu.initGPUMetadata(gpus)
 			e.gpu.hrSnapshot.Store(&hrGPUSnap{gpus: gpus, partitionMap: pm})
 			c := newHRWorkloadLabelCache(e.gpu)
-			c.refreshOnce(context.Background())
+			c.refreshOnce()
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				c.refreshOnce(context.Background())
+				c.refreshOnce()
 			}
 		})
 	}

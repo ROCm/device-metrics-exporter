@@ -90,7 +90,7 @@ func TestLabelInputGenPodInfoChange(t *testing.T) {
 			Labels: map[string]string{"app": v}}})
 		assert.Equal(t, e.gpu.labelInputGen.Load(), g+1)
 		hr, pr := hc.rebuilds.Load(), pc.rebuilds.Load()
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		pc.refreshOnce()
 		assert.Equal(t, hc.rebuilds.Load(), hr+1, "hr cache did not rebuild for %s", v)
 		assert.Equal(t, pc.rebuilds.Load(), pr+1, "profiler cache did not rebuild for %s", v)
@@ -128,7 +128,7 @@ func TestWorkloadSourceEmptyTransitions(t *testing.T) {
 	ws := src.load()
 	assert.Assert(t, ws.wls != nil && len(ws.wls) == 0 && ws.err == nil)
 	assert.Equal(t, ws.gen, gen+1)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	for k, l := range *hc.labels.Load() {
 		assert.Equal(t, l["job_id"], "", "GPU %s kept a job label", k)
 	}
@@ -221,7 +221,7 @@ func (e *oracleEnv) legacyNow() (map[string]scheduler.Workload, error) {
 
 // cachesMatch reports whether the hr and profiler caches equal a fresh build
 // from the legacy workload result.
-func (e *oracleEnv) cachesMatch(hc *hrWorkloadLabelCache, pc *profilerLabelCache) bool {
+func (e *oracleEnv) cachesMatch(hc *workloadLabelCache, pc *workloadLabelCache) bool {
 	wls, _ := e.legacyNow()
 	h, p := hc.labels.Load(), pc.labels.Load()
 	return h != nil && p != nil && reflect.DeepEqual(*h, e.freshLabels(wls, getGPUUUID)) &&
@@ -245,13 +245,13 @@ func TestWorkloadLabelsAllConsumers(t *testing.T) {
 	go hc.start(ctx, time.Hour)
 	pc := newProfilerLabelCache(e.gpu)
 	go pc.start(ctx, time.Hour)
-	e.gpu.pullWLCache.Store(newPullWorkloadCache(src))
+	e.gpu.pullWLSource.Store(src)
 
 	pe := newOracleEnv(t, oraclePullConfig, fx) // pull mode, gate over its source
 	pslurm := newNotifySched(fx.slurm)
 	pe.ga.slurmScheduler = pslurm
 	psrc := runningSource(t, pe, 20*time.Millisecond)
-	pe.gpu.pullWLCache.Store(newPullWorkloadCache(psrc))
+	pe.gpu.pullWLSource.Store(psrc)
 	le := newOracleEnv(t, oraclePullConfig, fx) // legacy: no gate, per-scrape ListWorkloads
 	lslurm := newNotifySched(fx.slurm)
 	le.ga.slurmScheduler = lslurm
@@ -280,7 +280,7 @@ func TestWorkloadLabelsAllConsumers(t *testing.T) {
 		assert.Assert(t, maps.Equal(cur, want), "%s: health workloads", st.name)
 		e.gpu.updateAllGPUsHealthState("healthy")
 		assert.NilError(t, e.gpu.processHealthValidation())
-		pull, ok := e.gpu.pullWLCache.Load().get()
+		pull, ok := e.gpu.pullWLSource.Load().lastGood()
 		assert.Assert(t, ok && maps.Equal(pull, want), "%s: pull gate", st.name)
 		hrOut := e.renderHR(t)
 		if st.want != "" {
@@ -289,7 +289,7 @@ func TestWorkloadLabelsAllConsumers(t *testing.T) {
 			assert.Assert(t, !strings.Contains(hrOut, `job_id="20`), "%s: hr /metrics kept the ended job", st.name)
 		}
 		assert.Assert(t, waitWithin(2*time.Second, func() bool {
-			w, ok := pe.gpu.pullWLCache.Load().get()
+			w, ok := pe.gpu.pullWLSource.Load().lastGood()
 			return ok && maps.Equal(w, want)
 		}), "%s: pull-mode gate", st.name)
 		pullOut, legacyOut := pe.renderPull(t), le.renderPull(t)
@@ -321,10 +321,10 @@ func TestWorkloadLabelsConfigMatrix(t *testing.T) {
 					e := newOracleEnv(t, oraclePullConfig, fx)
 					e.gpu.wlInterval = time.Hour
 					e.gpu.startPullWorkloadCache(ctx)
-					assert.Assert(t, e.gpu.pullWLCache.Load() != nil, "pull gate not started in pull mode")
+					assert.Assert(t, e.gpu.pullWLSource.Load() != nil, "pull gate not started in pull mode")
 					assert.Assert(t, e.gpu.hrWLCache == nil)
-					assert.Assert(t, e.gpu.pullWLCache.Load().src == e.gpu.ensureWorkloadSource())
-					srcPtr, gpu = e.gpu.pullWLCache.Load().src, e.gpu
+					assert.Assert(t, e.gpu.pullWLSource.Load() == e.gpu.ensureWorkloadSource())
+					srcPtr, gpu = e.gpu.pullWLSource.Load(), e.gpu
 					out = e.renderPull(t)
 					if mode != "none" {
 						assertGolden(t, mode+".pull-cache.metrics", out)
@@ -341,7 +341,7 @@ func TestWorkloadLabelsConfigMatrix(t *testing.T) {
 						assert.Assert(t, reflect.DeepEqual(*pc.labels.Load(), e.freshLabels(wls, getGPURenderId)))
 					}
 					e.gpu.startPullWorkloadCache(ctx) // gated off in high-res mode
-					assert.Assert(t, e.gpu.pullWLCache.Load() == nil, "pull gate started in high-res mode")
+					assert.Assert(t, e.gpu.pullWLSource.Load() == nil, "pull gate started in high-res mode")
 					assert.Assert(t, e.gpu.ensureWorkloadSource() == src)
 					srcPtr, gpu = src, e.gpu
 					out = e.renderHR(t)
@@ -451,7 +451,7 @@ func TestWorkloadLabelScale64GPU(t *testing.T) {
 			src := manualSource(e)
 			hc := newHRWorkloadLabelCache(e.gpu)
 			pc := newProfilerLabelCache(e.gpu)
-			hc.refreshOnce(context.Background())
+			hc.refreshOnce()
 			pc.refreshOnce()
 			assert.Equal(t, len(*hc.labels.Load()), 64)
 			assert.Assert(t, reflect.DeepEqual(*hc.labels.Load(), e.freshLabels(wls, getGPUUUID)))
@@ -463,7 +463,7 @@ func TestWorkloadLabelScale64GPU(t *testing.T) {
 			for i := 0; i < 100; i++ {
 				t0 := time.Now()
 				src.refresh(true)
-				hc.refreshOnce(context.Background())
+				hc.refreshOnce()
 				pc.refreshOnce()
 				if d := time.Since(t0); d > worst {
 					worst = d
@@ -477,10 +477,10 @@ func TestWorkloadLabelScale64GPU(t *testing.T) {
 			// cold label build cost at 64 GPUs (rebuildLabelMap from nil, maps.Equal reuse)
 			snap := e.gpu.hrSnapshot.Load()
 			t0 := time.Now()
-			fresh := e.gpu.rebuildLabelMap(nil, snap.gpus, snap.partitionMap, src.load().wls, getGPUUUID)
+			fresh := e.gpu.rebuildLabelMap(nil, snap.gpus, snap.partitionMap, src.load().wls, gpuUUIDKey{})
 			cold := time.Since(t0)
 			t0 = time.Now()
-			reuse := e.gpu.rebuildLabelMap(fresh, snap.gpus, snap.partitionMap, src.load().wls, getGPUUUID)
+			reuse := e.gpu.rebuildLabelMap(fresh, snap.gpus, snap.partitionMap, src.load().wls, gpuUUIDKey{})
 			warm := time.Since(t0)
 			assert.Assert(t, reuse == fresh)
 
@@ -495,7 +495,7 @@ func TestWorkloadLabelScale64GPU(t *testing.T) {
 			}
 			before := maps.Clone(*hc.labels.Load())
 			src.refresh(true)
-			hc.refreshOnce(context.Background())
+			hc.refreshOnce()
 			replaced := 0
 			for k, l := range *hc.labels.Load() {
 				if mapPtr(before[k]) != mapPtr(l) {
@@ -657,8 +657,8 @@ func TestRepeatedReconnectLoop(t *testing.T) {
 		st := allStacks()
 		h, p := 0, 0
 		for i := range hcs {
-			h += strings.Count(st, fmt.Sprintf("(*hrWorkloadLabelCache).start(%p", hcs[i]))
-			p += strings.Count(st, fmt.Sprintf("(*profilerLabelCache).start(%p", pcs[i]))
+			h += strings.Count(st, fmt.Sprintf("(*workloadLabelCache).start(%p", hcs[i]))
+			p += strings.Count(st, fmt.Sprintf("(*workloadLabelCache).start(%p", pcs[i]))
 		}
 		return strings.Count(st, fmt.Sprintf("(*workloadSource).run(%p", src)), h, p,
 			strings.Count(st, "scheduler.(*client).watch(") - w0

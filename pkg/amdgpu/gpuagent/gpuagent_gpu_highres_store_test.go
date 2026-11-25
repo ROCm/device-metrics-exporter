@@ -351,8 +351,15 @@ func TestHighResStoreStableKeyReusesSlotOnWorkloadChange(t *testing.T) {
 		return ""
 	}
 
+	// Workload labels reach the stream through the workload-label cache.
+	gpuclient.hrWLCache = newHRWorkloadLabelCache(gpuclient)
+	setPod := func(pod string) {
+		m := map[string]prometheus.Labels{uuidStr: {"gpu_uuid": uuidStr, "pod": pod}}
+		gpuclient.hrWLCache.labels.Store(&m)
+	}
+
 	// First workload assignment: pod=podA.
-	gpuclient.hrLabelsByUUID[uuidStr] = prometheus.Labels{"gpu_uuid": uuidStr, "pod": "podA"}
+	setPod("podA")
 	d1 := gpuclient.applyWatchSnapshot(hrSnapshot(gpuBytes,
 		hrLongAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, 100)))
 	assert.Assert(t, d1 != nil)
@@ -360,7 +367,7 @@ func TestHighResStoreStableKeyReusesSlotOnWorkloadChange(t *testing.T) {
 	assert.Equal(t, servedPod(), "podA")
 
 	// Pod reassignment: same GPU, pod=podB. The slot must be reused, not orphaned.
-	gpuclient.hrLabelsByUUID[uuidStr] = prometheus.Labels{"gpu_uuid": uuidStr, "pod": "podB"}
+	setPod("podB")
 	d2 := gpuclient.applyWatchSnapshot(hrSnapshot(gpuBytes,
 		hrLongAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, 110)))
 	assert.Assert(t, d2 != nil)

@@ -196,7 +196,7 @@ type GPUAgentGPUClient struct {
 	hrSnapshot atomic.Pointer[hrGPUSnap]
 	// hrWLCache keeps the stream's per-UUID label set (incl. dynamic workload
 	// labels) fresh off the stream hot path; only built/read in high-res mode.
-	hrWLCache *hrWorkloadLabelCache
+	hrWLCache *workloadLabelCache
 	// hrWLCancel stops the current hrWLCache goroutine. The high-res feed runs a
 	// reconnect loop; each (re)connect replaces the workload-label cache, so the
 	// prior one is cancelled first to avoid a goroutine leak / duplicate refresher.
@@ -212,11 +212,12 @@ type GPUAgentGPUClient struct {
 	labelInputGen atomic.Uint64
 	// hrHotRebuilds counts rebuildHot calls (test observability).
 	hrHotRebuilds atomic.Int64
-	// pullWLCache keeps the non-high-res pull path's workload map off the scrape
-	// hot path; only built/started in flag-on non-high-res store-serving mode, so
-	// flag-off pull labels stay per-scrape-fresh and unchanged. atomic.Pointer
-	// because StartMonitor publishes it concurrently with scrape-path reads.
-	pullWLCache atomic.Pointer[pullWorkloadCache]
+	// pullWLSource is set to wlSource once the non-high-res pull path reads its
+	// workload map from the source's last good snapshot (off the scrape hot
+	// path); only set in flag-on non-high-res store-serving mode, so flag-off
+	// pull labels stay per-scrape-fresh and unchanged. atomic.Pointer because
+	// StartMonitor publishes it concurrently with scrape-path reads.
+	pullWLSource atomic.Pointer[workloadSource]
 
 	// hrMu guards hrCancel. hrCancel cancels the high-resolution GPUWatch consumer
 	// goroutine and is non-nil only while high-res is running. reconcileHighRes
@@ -239,11 +240,12 @@ type GPUAgentGPUClient struct {
 	// (1000 after a sub-second rejection); written by the feed goroutine, read
 	// by the sub-second power-frame handling (GPUOP-1137).
 	hrFastMs atomic.Uint32
-	// hrHot is the partial-frame fast-path cache (applyPowerFrame). Owned by
-	// the high-res feed goroutine; nil on feed (re)start and exit.
+	// hrHot is the per-GPU state cache of the frame-apply pipeline, used by
+	// both GPUWatch frame kinds. Owned by the high-res feed goroutine; nil on
+	// feed (re)start and exit.
 	hrHot *hrHotCache
-	// exportFieldGen is bumped by initFieldConfig so the fast path re-reads the
-	// field allowlist after a config reload.
+	// exportFieldGen is bumped by initFieldConfig so the frame-apply pipeline
+	// re-reads the field allowlist after a config reload.
 	exportFieldGen atomic.Uint64
 
 	// Profiler high-res stream (P7): owns the long-lived `rocpctl --stream` child in
@@ -251,7 +253,7 @@ type GPUAgentGPUClient struct {
 	// hrMu, symmetric with the GPUWatch feed. profStreamOn is read lock-free by the
 	// slow-writer skip-mask, so it is atomic rather than hrMu-guarded.
 	profStreamMgr        *rocprofiler.ProfilerStreamManager
-	profLabelCache       *profilerLabelCache
+	profLabelCache       *workloadLabelCache
 	profLabelCancel      context.CancelFunc
 	profStreamIntervalMs uint64
 	profStreamOn         atomic.Bool
@@ -547,9 +549,9 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	// both fall back to the synchronous per-scrape fetch, so flag-off /metrics is
 	// byte-identical.
 	var wls map[string]scheduler.Workload
-	if c := ga.pullWLCache.Load(); c != nil {
+	if src := ga.pullWLSource.Load(); src != nil {
 		var ok bool
-		if wls, ok = c.get(); !ok {
+		if wls, ok = src.lastGood(); !ok {
 			wls, _ = ga.gpuHandler.ListWorkloads()
 		}
 	} else {

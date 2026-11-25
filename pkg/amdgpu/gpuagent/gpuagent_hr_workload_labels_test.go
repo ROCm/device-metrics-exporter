@@ -83,7 +83,7 @@ func TestHRWorkloadLabelCacheParity(t *testing.T) {
 	defer ga.Close()
 
 	cache := newHRWorkloadLabelCache(gpu)
-	cache.refreshOnce(context.Background())
+	cache.refreshOnce()
 
 	// Independently rebuild the expected label set exactly as the pull path does.
 	wls, err := ga.ListWorkloads()
@@ -125,11 +125,11 @@ func TestHRWorkloadLabelCacheAtomicSwap(t *testing.T) {
 	_, ok := cache.get("does-not-exist")
 	assert.Assert(t, !ok, "get must miss before first refresh")
 
-	cache.refreshOnce(context.Background())
+	cache.refreshOnce()
 	p1 := cache.labels.Load()
 	assert.Assert(t, p1 != nil, "labels nil after first refresh")
 
-	cache.refreshOnce(context.Background())
+	cache.refreshOnce()
 	p2 := cache.labels.Load()
 	// GPUOP-1140: unchanged inputs keep the published map (a change swaps in a
 	// new one; see TestLabelCacheOneGPUChange).
@@ -155,7 +155,7 @@ func TestHRWorkloadLabelCacheConcurrentGet(t *testing.T) {
 	defer ga.Close()
 
 	cache := newHRWorkloadLabelCache(gpu)
-	cache.refreshOnce(context.Background())
+	cache.refreshOnce()
 	// Grab a stable UUID to read throughout.
 	var uuidStr string
 	for u := range *cache.labels.Load() {
@@ -171,7 +171,7 @@ func TestHRWorkloadLabelCacheConcurrentGet(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for ctx.Err() == nil {
-			cache.refreshOnce(ctx)
+			cache.refreshOnce()
 		}
 	}()
 

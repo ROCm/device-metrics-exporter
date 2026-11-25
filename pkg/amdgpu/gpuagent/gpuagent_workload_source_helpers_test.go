@@ -210,7 +210,7 @@ func runningSource(t testing.TB, e *oracleEnv, interval time.Duration) *workload
 // currentWorkloads, then the hr label cache (not started; tests drive it).
 // interval <= 0 installs a manual source (no goroutine) for tests that call
 // refresh themselves; refresh is refresher-owned and must not run twice at once.
-func (e *oracleEnv) startHRSource(t testing.TB, interval time.Duration) (*hrWorkloadLabelCache, *workloadSource) {
+func (e *oracleEnv) startHRSource(t testing.TB, interval time.Duration) (*workloadLabelCache, *workloadSource) {
 	t.Helper()
 	ga := e.gpu
 	getResp, pm, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
@@ -233,7 +233,7 @@ func (e *oracleEnv) startHRSource(t testing.TB, interval time.Duration) (*hrWork
 	}
 	c := newHRWorkloadLabelCache(ga)
 	ga.hrWLCache = c
-	c.refreshOnce(context.Background())
+	c.refreshOnce()
 	return c, src
 }
 

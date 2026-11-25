@@ -30,6 +30,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestRebuildLabelMapReuse(t *testing.T) {
 	_, _ = e.startHRSource(t, 0)
 	snap := e.gpu.hrSnapshot.Load()
 	wls := fixtureByName("slurm").slurm
-	for _, key := range []func(*amdgpu.GPU) string{getGPUUUID, getGPURenderId} {
+	for _, key := range []labelCacheKey{gpuUUIDKey{}, renderIDKey{}} {
 		prev := e.gpu.rebuildLabelMap(nil, snap.gpus, snap.partitionMap, wls, key)
 		next := e.gpu.rebuildLabelMap(prev, snap.gpus, snap.partitionMap, maps.Clone(wls), key)
 		assert.Assert(t, next == prev, "equal content must return prev")
@@ -84,14 +85,14 @@ func TestLabelCacheNoRebuildWhenUnchanged(t *testing.T) {
 	hr, pr := hc.rebuilds.Load(), pc.rebuilds.Load()
 	for i := 0; i < 100; i++ {
 		src.refresh(true)
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		pc.refreshOnce()
 	}
 	assert.Assert(t, hc.labels.Load() == hp && pc.labels.Load() == pp)
 	assert.Equal(t, hc.rebuilds.Load(), hr)
 	assert.Equal(t, pc.rebuilds.Load(), pr)
 	allocs := testing.AllocsPerRun(100, func() {
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		pc.refreshOnce()
 	})
 	assert.Equal(t, allocs, float64(0))
@@ -109,7 +110,7 @@ func TestHotCacheNoRebuildUnchangedLabels(t *testing.T) {
 	base := e.gpu.hrHotRebuilds.Load()
 	for i := 0; i < 100; i++ {
 		src.refresh(true)
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 		e.gpu.applyPowerFrame(frame)
 	}
 	assert.Equal(t, e.gpu.hrHotRebuilds.Load(), base, "hot cache rebuilt with unchanged labels")
@@ -132,7 +133,7 @@ func TestLabelCacheOneGPUChange(t *testing.T) {
 	m["3"] = oracleJob("333", "zoe")
 	slurm.set(m)
 	src.refresh(false)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	after := *hc.labels.Load()
 	changed := []string{}
 	for k, l := range after {
@@ -258,7 +259,7 @@ func TestLabelInputGenConfigReload(t *testing.T) {
 		assert.Equal(t, e.gpu.labelInputGen.Load(), g+1, name)
 	}
 	e.gpu.initCustomLabels(cfg)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	pc.refreshOnce()
 	for _, l := range *hc.labels.Load() {
 		assert.Equal(t, l["cluster_name"], "reloaded")
@@ -276,43 +277,52 @@ func TestLabelInputGenPodInfo(t *testing.T) {
 	info := map[string]types.K8sPodInfo{"pod0": {}}
 	e.gpu.setK8PodInfoMap(info)
 	g := e.gpu.labelInputGen.Load()
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	r := hc.rebuilds.Load()
 	for i := 0; i < 1000; i++ {
 		e.gpu.setK8PodInfoMap(map[string]types.K8sPodInfo{"pod0": {}})
-		hc.refreshOnce(context.Background())
+		hc.refreshOnce()
 	}
 	assert.Equal(t, e.gpu.labelInputGen.Load(), g)
 	assert.Equal(t, hc.rebuilds.Load(), r)
 	e.gpu.setK8PodInfoMap(map[string]types.K8sPodInfo{"pod1": {}})
 	assert.Equal(t, e.gpu.labelInputGen.Load(), g+1)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	assert.Equal(t, hc.built.labelGen, g+1, "cache did not re-check after a pod-info change")
 }
 
 // TestProfilerCacheStartLoop (case 27): start seeds synchronously, wakes on a
-// source change and keeps calling dropProfilerFieldsIfDisabled on its tick.
+// source change and runs the render-id key's tick upkeep
+// (dropProfilerFieldsIfDisabled) on its tick.
 func TestProfilerCacheStartLoop(t *testing.T) {
 	e := newOracleEnv(t, oracleHRConfig, oracleFixture{name: "none"})
 	f := newNotifySched(map[string]scheduler.Workload{})
 	e.ga.slurmScheduler = f
 	_, _ = e.startHRSource(t, time.Hour)
 	pc := newProfilerLabelCache(e.gpu)
+	ticks := &atomic.Int64{}
+	pc.keys = tickHookKey{renderIDKey: renderIDKey{}, ticks: ticks}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { pc.start(ctx, 5*time.Millisecond); close(done) }()
 	assert.Assert(t, waitWithin(time.Second, func() bool { return pc.labels.Load() != nil }))
 	f.set(map[string]scheduler.Workload{"1": oracleJob("41", "u")})
 	assert.Assert(t, waitWithin(100*time.Millisecond, func() bool { l, _ := pc.get("129"); return l["job_id"] == "41" }))
+	assert.Assert(t, waitWithin(time.Second, func() bool { return ticks.Load() > 0 }),
+		"tick must run the render-id key's upkeep")
 	cancel()
 	<-done
-	src, err := os.ReadFile("gpuagent_gpu_profiler_stream.go")
-	assert.NilError(t, err)
-	body := string(src)
-	loop := body[strings.Index(body, "func (c *profilerLabelCache) start("):]
-	loop = loop[:strings.Index(loop, "\n}\n")]
-	assert.Assert(t, strings.Contains(loop, "case <-ticker.C:\n\t\t\tc.refreshOnce()\n\t\t\tc.ga.dropProfilerFieldsIfDisabled()"),
-		"tick must still drop disabled profiler fields")
+}
+
+// tickHookKey counts the render-id key's tick upkeep calls.
+type tickHookKey struct {
+	renderIDKey
+	ticks *atomic.Int64
+}
+
+func (k tickHookKey) tick(ga *GPUAgentGPUClient) {
+	k.ticks.Add(1)
+	k.renderIDKey.tick(ga)
 }
 
 // TestStartHighResMetadataBeforeSnapshot (case 22): order assertion on the
@@ -363,7 +373,7 @@ func TestLabelCacheFailedThenOK(t *testing.T) {
 	fx := fixtureByName("k8s")
 	e := newOracleEnv(t, oracleHRConfig, fx)
 	hc := newHRWorkloadLabelCache(e.gpu)
-	hc.refreshOnce(context.Background()) // no hrSnapshot yet
+	hc.refreshOnce() // no hrSnapshot yet
 	assert.Assert(t, hc.labels.Load() == nil)
 	e.k8s.set(fx.k8s, errOracleKubelet)
 	hc, src := e.startHRSource(t, 0)
@@ -371,7 +381,7 @@ func TestLabelCacheFailedThenOK(t *testing.T) {
 	assert.Assert(t, reflect.DeepEqual(*hc.labels.Load(), e.freshLabels(map[string]scheduler.Workload{}, getGPUUUID)))
 	e.k8s.set(fx.k8s, nil)
 	src.refresh(true)
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	assert.Assert(t, reflect.DeepEqual(*hc.labels.Load(), e.freshLabels(fx.k8s, getGPUUUID)))
 }
 
@@ -413,14 +423,14 @@ func raceLabelInputs(t *testing.T, write func(e *oracleEnv, i int)) {
 			case <-stop:
 				return
 			default:
-				hc.refreshOnce(context.Background())
+				hc.refreshOnce()
 			}
 		}
 	}()
 	wg.Wait()
 	close(stop)
 	<-done
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	ws := e.gpu.wlSource.Load().load()
 	assert.Assert(t, reflect.DeepEqual(*hc.labels.Load(), e.freshLabels(ws.wls, getGPUUUID)),
 		"cache labels stale after concurrent label-input writes")
@@ -433,13 +443,13 @@ func TestLabelCacheZeroOneGPU(t *testing.T) {
 	hc := newHRWorkloadLabelCache(e.gpu)
 	pc := newProfilerLabelCache(e.gpu)
 	e.gpu.hrSnapshot.Store(&hrGPUSnap{})
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	pc.refreshOnce()
 	assert.Assert(t, hc.labels.Load() == nil && pc.labels.Load() == nil)
 	assert.Equal(t, hc.built, labelInputs{})
 	one := oracleGPUResp(1).Response
 	e.gpu.hrSnapshot.Store(&hrGPUSnap{gpus: one, partitionMap: map[string]*amdgpu.GPU{}})
-	hc.refreshOnce(context.Background())
+	hc.refreshOnce()
 	pc.refreshOnce()
 	assert.Equal(t, len(*hc.labels.Load()), 1)
 	assert.Equal(t, len(*pc.labels.Load()), 1)

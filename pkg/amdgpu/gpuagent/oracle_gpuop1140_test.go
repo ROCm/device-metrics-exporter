@@ -263,7 +263,7 @@ func (e *oracleEnv) renderPull(t *testing.T) string {
 
 // startHR mirrors StartHighRes' store-serving label setup (subscribe-time seed
 // from ListWorkloads + hr workload-label cache) without the gpuagent watch.
-func (e *oracleEnv) startHR(t *testing.T) *hrWorkloadLabelCache {
+func (e *oracleEnv) startHR(t *testing.T) *workloadLabelCache {
 	t.Helper()
 	ga := e.gpu
 	getResp, pm, err := ga.getGPUs(ga.gCache.gpuGetFilter, &ga.gCache.metricsCache)
@@ -280,7 +280,7 @@ func (e *oracleEnv) startHR(t *testing.T) *hrWorkloadLabelCache {
 	}
 	c := newHRWorkloadLabelCache(ga)
 	ga.hrWLCache = c
-	c.refreshOnce(context.Background())
+	c.refreshOnce()
 	return c
 }
 
