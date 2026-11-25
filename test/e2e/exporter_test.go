@@ -35,6 +35,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gpuagent"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/test/utils"
 	testutils "github.com/ROCm/device-metrics-exporter/test/utils"
 )
@@ -584,6 +585,7 @@ func (s *E2ESuite) Test017SlurmWorkloadSim(c *C) {
 	assert.Nil(c, err)
 	defer os.Remove(jobFile)
 	_, _ = s.exporter.CopyFileTo("slurm_job.json", "/var/run/exporter/3")
+	defer s.clearSlurmJobs(c)
 	time.Sleep(5 * time.Second) // 5 second timer for job to be picked up
 
 	// Verify that job-related labels are present with correct values
@@ -1482,6 +1484,227 @@ func (s *E2ESuite) Test029MonitorCgroup(c *C) {
 	for _, label := range []string{`job_id="901"`, `job_user="user_e2e"`, `job_partition="part_e2e"`, `job_account="acct_e2e"`} {
 		assert.Contains(c, lines[2], label)
 	}
+}
+
+// Test030SlurmLabelsSurviveGpuagentRestart: in pull mode a slurm job's labels
+// are on its GPU's workload-labelled series and on no other GPU; they survive
+// a gpuagent restart (the exporter reconnects and re-creates its slurm
+// client), a job written after the restart is picked up, and removing the job
+// files clears the labels.
+func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
+	if len(discoveredGpuIds) < 2 {
+		c.Skip("needs two GPUs discovered in Test001FirstDeplymentDefaults")
+		return
+	}
+	gpuA, gpuB := discoveredGpuIds[0], discoveredGpuIds[len(discoveredGpuIds)-1]
+	s.clearSlurmJobs(c)
+	defer s.removeSlurmJobs()
+	assert.Nil(c, s.SetLabels([]string{"job_id", "job_user", "job_partition", "job_account"}))
+	time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
+
+	// a job file is named after its single GPU: the slurm client removes
+	// entries by file name
+	s.copySlurmJob(c, "742", gpuA)
+	assert.Eventually(c, func() bool {
+		return jobsMatch(s.jobIDsByGPU(), map[string]string{gpuA: "742"})
+	}, 30*time.Second, 1*time.Second, "job 742 labels on GPU %v only", gpuA)
+
+	const agentDownLog = "gpuagent (connection|health validation) failed"
+	// wait until the exporter saw the outage, so the restart below goes
+	// through its reconnect path
+	failures := s.exporterLogCount(agentDownLog)
+	_ = s.ExporterLocalCommandOutput("pkill gpuagent")
+	assert.Eventually(c, func() bool {
+		return s.exporterLogCount(agentDownLog) > failures
+	}, 60*time.Second, 2*time.Second, "exporter did not notice the gpuagent outage")
+	_ = s.ExporterLocalCommandOutput("gpuagent &")
+	assert.Eventually(c, func() bool {
+		return jobsMatch(s.jobIDsByGPU(), map[string]string{gpuA: "742"})
+	}, 60*time.Second, 2*time.Second, "job 742 labels after the gpuagent restart")
+
+	want := map[string]string{gpuA: "742", gpuB: "743"}
+	s.copySlurmJob(c, "743", gpuB)
+	assert.Eventually(c, func() bool {
+		return jobsMatch(s.jobIDsByGPU(), want)
+	}, 15*time.Second, 1*time.Second, "job 743 written after the restart not picked up")
+
+	s.removeSlurmJobs()
+	assert.Eventually(c, func() bool {
+		return jobsMatch(s.jobIDsByGPU(), map[string]string{})
+	}, 15*time.Second, 1*time.Second, "job labels not cleared after the job files were removed")
+}
+
+// Test031HighResSlurmLabels: with high-resolution store serving at 100 ms, the
+// power series of a slurm job's GPU carry the job labels, and lose them when
+// the job file is removed. Skipped when the mock gpuagent has no GPUWatch
+// watcher.
+func (s *E2ESuite) Test031HighResSlurmLabels(c *C) {
+	if !assert.NotEmpty(c, discoveredGpuIds, "expecting GPU IDs discovered in Test001FirstDeplymentDefaults") {
+		return
+	}
+	gpu := discoveredGpuIds[0]
+	s.clearSlurmJobs(c)
+	defer func() {
+		s.removeSlurmJobs()
+		config := s.ReadConfig()
+		if config.GetCommonConfig() != nil {
+			config.CommonConfig.HighResolution = nil
+		}
+		assert.Nil(c, s.WriteConfig(config))
+		time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
+	}()
+	config := s.ReadConfig()
+	if config.GetGPUConfig() == nil {
+		config.GPUConfig = &exportermetrics.GPUMetricConfig{}
+	}
+	config.GPUConfig.Labels = []string{"job_id", "job_user", "job_partition", "job_account"}
+	if config.GetCommonConfig() == nil {
+		config.CommonConfig = &exportermetrics.CommonConfig{}
+	}
+	config.CommonConfig.HighResolution = &exportermetrics.HighResolutionConfig{Enable: true, FastPeriodMs: 100}
+	assert.Nil(c, s.WriteConfig(config))
+	time.Sleep(5 * time.Second) // 5 second timer for config update to take effect
+
+	subscribed := false
+	for i := 0; i < 6 && !subscribed; i++ {
+		subscribed = s.exporterLogCount("high-res: GPUWatch subscribed") > 0
+		if !subscribed {
+			time.Sleep(5 * time.Second)
+		}
+	}
+	if !subscribed {
+		c.Skip("mock gpuagent has no GPUWatch watcher; high-res feed not running")
+		return
+	}
+
+	s.copySlurmJob(c, "742", gpu)
+	assert.Eventually(c, func() bool {
+		jobs, ok := s.powerJobIDs(gpu)
+		return ok && jobs["742"]
+	}, 30*time.Second, 1*time.Second, "high-res power series of GPU %v lack job 742", gpu)
+
+	s.removeSlurmJobs()
+	assert.Eventually(c, func() bool {
+		jobs, ok := s.powerJobIDs(gpu)
+		return ok && !jobs["742"]
+	}, 30*time.Second, 1*time.Second, "high-res power series of GPU %v kept job 742", gpu)
+}
+
+// copySlurmJob writes a slurm prolog job file for job id on gpu into the
+// exporter's job directory, named after the GPU.
+func (s *E2ESuite) copySlurmJob(c *C, id, gpu string) {
+	b, err := json.Marshal(map[string]string{
+		"CUDA_VISIBLE_DEVICES": gpu,
+		"SLURM_JOB_GPUS":       gpu,
+		"SLURM_CLUSTER_NAME":   "e2e",
+		"SLURM_JOB_ACCOUNT":    "acct_" + id,
+		"SLURM_JOB_ID":         id,
+		"SLURM_JOB_PARTITION":  "part_e2e",
+		"SLURM_JOB_USER":       "user_" + id,
+		"SLURM_SCRIPT_CONTEXT": "prolog_slurmd",
+	})
+	assert.Nil(c, err)
+	jobFile := filepath.Join(c.MkDir(), gpu)
+	assert.Nil(c, os.WriteFile(jobFile, b, 0644))
+	_, err = s.exporter.CopyFileTo(jobFile, "/var/run/exporter/"+gpu)
+	assert.Nil(c, err)
+}
+
+// clearSlurmJobs drops every slurm job entry, including one written by an
+// earlier test as a single file for all GPUs: the slurm client removes entries
+// by file name, so each GPU first gets its own job file, then all are removed.
+func (s *E2ESuite) clearSlurmJobs(c *C) {
+	for _, gpu := range discoveredGpuIds {
+		s.copySlurmJob(c, "0", gpu)
+	}
+	time.Sleep(2 * time.Second) // let the job-file watcher process the writes
+	s.removeSlurmJobs()
+}
+
+// exporterLogCount counts the exporter log lines matching the extended regexp
+// pattern.
+func (s *E2ESuite) exporterLogCount(pattern string) int {
+	out := s.tu.LocalCommandOutput(fmt.Sprintf(
+		"docker exec %v sh -c 'zcat -f /var/log/exporter.log* 2>/dev/null | grep -cE \"%v\" || true'",
+		s.e2eConfig.ContainerName, pattern))
+	n, _ := strconv.Atoi(strings.TrimSpace(out))
+	return n
+}
+
+// removeSlurmJobs deletes every per-GPU job file from the exporter's job
+// directory.
+func (s *E2ESuite) removeSlurmJobs() {
+	s.tu.LocalCommandOutput(fmt.Sprintf("docker exec %v sh -c 'rm -f /var/run/exporter/[0-9]*'",
+		s.e2eConfig.ContainerName))
+}
+
+// jobIDsByGPU maps each GPU in a scrape to the set of job_id values on its
+// series ("" for a series without a job). nil when the scrape has no GPU
+// series.
+func (s *E2ESuite) jobIDsByGPU() map[string]map[string]bool {
+	response, _ := s.getExporterResponse()
+	out := map[string]map[string]bool{}
+	for _, m := range testutils.ParseAllMetricSeries(response) {
+		id, ok := m.Labels["gpu_id"]
+		if !ok {
+			continue
+		}
+		id = strings.Trim(id, "\"")
+		if out[id] == nil {
+			out[id] = map[string]bool{}
+		}
+		out[id][strings.Trim(m.Labels["job_id"], "\"")] = true
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// jobsMatch reports whether the series of each GPU in want carry that job id
+// and no other, and the series of the other GPUs carry no job id. Series
+// without workload labels are ignored.
+func jobsMatch(got map[string]map[string]bool, want map[string]string) bool {
+	if got == nil {
+		return false
+	}
+	for gpu, jobs := range got {
+		ids := map[string]bool{}
+		for id := range jobs {
+			if id != "" {
+				ids[id] = true
+			}
+		}
+		w, ok := want[gpu]
+		if (ok && (len(ids) != 1 || !ids[w])) || (!ok && len(ids) != 0) {
+			log.Printf("GPU %v job_id values %v, want %q", gpu, ids, w)
+			return false
+		}
+	}
+	for gpu := range want {
+		if _, ok := got[gpu]; !ok {
+			log.Printf("GPU %v missing from the scrape", gpu)
+			return false
+		}
+	}
+	return true
+}
+
+// powerJobIDs returns the job_id values on the power series of gpu; ok is
+// false when the scrape has no power series for it.
+func (s *E2ESuite) powerJobIDs(gpu string) (map[string]bool, bool) {
+	response, _ := s.getExporterResponse()
+	jobs := map[string]bool{}
+	for _, m := range testutils.ParseAllMetricSeries(response) {
+		if strings.Trim(m.Labels["gpu_id"], "\"") != gpu {
+			continue
+		}
+		if !strings.HasSuffix(m.Name, "gpu_package_power") && !strings.HasSuffix(m.Name, "gpu_power_usage") {
+			continue
+		}
+		jobs[strings.Trim(m.Labels["job_id"], "\"")] = true
+	}
+	return jobs, len(jobs) > 0
 }
 
 func (s *E2ESuite) restartExporter(c *C, args []string) bool {
