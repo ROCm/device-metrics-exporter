@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
@@ -50,6 +51,7 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 )
 
 const testGPUCount = 4
@@ -256,6 +258,12 @@ func (e *workloadEnv) render(t *testing.T) string {
 	t.Helper()
 	mfs, err := e.gpu.gpuHandler.mh.GetRegistry().Gather()
 	assert.NilError(t, err)
+	return e.encode(t, mfs)
+}
+
+// encode renders the prefixed families as sorted exposition lines.
+func (e *workloadEnv) encode(t *testing.T, mfs []*dto.MetricFamily) string {
+	t.Helper()
 	prefix := e.gpu.gpuHandler.mh.GetPrefix()
 	var buf bytes.Buffer
 	enc := expfmt.NewEncoder(&buf, expfmt.NewFormat(expfmt.TypeTextPlain))
@@ -269,12 +277,18 @@ func (e *workloadEnv) render(t *testing.T) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-// renderPull runs one pull-path scrape (getMetricsAll + store publish).
+// renderPull runs one store-serving pull scrape (fetchMetricsOnce) and renders
+// what /metrics serves from the store.
 func (e *workloadEnv) renderPull(t *testing.T) string {
 	t.Helper()
-	assert.NilError(t, e.gpu.getMetricsAll(context.Background()))
-	assert.NilError(t, e.gpu.publishGPUMetricsToStore(e.gpu.gpuHandler.mh.GetStore()))
-	return e.render(t)
+	assert.NilError(t, e.gpu.fetchMetricsOnce(context.Background()))
+	descs, err := e.gpu.gpuStoreFieldDescs()
+	assert.NilError(t, err)
+	reg := prometheus.NewRegistry()
+	assert.NilError(t, reg.Register(snapshotstore.NewStoreCollector(e.gpu.gpuHandler.mh.GetStore(), descs)))
+	mfs, err := reg.Gather()
+	assert.NilError(t, err)
+	return e.encode(t, mfs)
 }
 
 // notifySched is a slurm-like SchedulerClient that implements

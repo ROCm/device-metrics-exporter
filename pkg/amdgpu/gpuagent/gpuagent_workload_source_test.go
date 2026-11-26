@@ -485,10 +485,11 @@ func TestGetMetricsAllUsesPullCache(t *testing.T) {
 			name string
 			wls  map[string]scheduler.Workload
 			want string
+			gone string
 		}{
-			{"start", map[string]scheduler.Workload{"0000:03:00.0": testPod(2)}, `pod="pod2"`},
-			{"change", map[string]scheduler.Workload{"0000:03:00.0": testPod(4)}, `pod="pod4"`},
-			{"end", map[string]scheduler.Workload{}, ""},
+			{"start", map[string]scheduler.Workload{"0000:03:00.0": testPod(2)}, `pod="pod2"`, ""},
+			{"change", map[string]scheduler.Workload{"0000:03:00.0": testPod(4)}, `pod="pod4"`, `pod="pod2"`},
+			{"end", map[string]scheduler.Workload{}, "", `pod="pod4"`},
 		} {
 			gated.k8s.set(st.wls, nil)
 			ungated.k8s.set(st.wls, nil)
@@ -497,6 +498,9 @@ func TestGetMetricsAllUsesPullCache(t *testing.T) {
 			assert.Equal(t, out, ungated.renderPull(t), "%s: gated /metrics differs from the per-scrape path", st.name)
 			if st.want != "" {
 				assert.Assert(t, strings.Contains(out, st.want), "%s: /metrics lacks %s", st.name, st.want)
+			}
+			if st.gone != "" {
+				assert.Assert(t, !strings.Contains(out, st.gone), "%s: /metrics still serves %s", st.name, st.gone)
 			}
 		}
 	})
