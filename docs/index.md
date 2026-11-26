@@ -2,7 +2,7 @@
 
 AMD Device Metrics Exporter enables Prometheus-format metrics collection for AMD GPUs and NICs in HPC and AI environments. It provides detailed telemetry, including temperature, utilization, memory usage, and power consumption.
 
-# Features
+## Features
 
 - Prometheus-compatible metrics endpoint
 - Rich GPU telemetry data including:
