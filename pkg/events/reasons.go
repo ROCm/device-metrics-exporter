@@ -27,6 +27,9 @@ const (
 	ProfilerDisabled       EventReason = "ProfilerDisabled"
 	ProfilerStateChanged   EventReason = "ProfilerStateChanged"
 	RocpctlFatalExit       EventReason = "RocpctlFatalExit"
+	// HighResDiagnosticTier: high-res runs at an accepted fast period below
+	// 100 ms (10 ms, or the experimental 1 ms)
+	HighResDiagnosticTier EventReason = "HighResDiagnosticTier"
 
 	// Exporter
 	HTTPServerFailed       EventReason = "HTTPServerFailed"

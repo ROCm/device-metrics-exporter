@@ -19,6 +19,7 @@ package gpuagent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -1130,4 +1131,36 @@ func hrStoreFields(ga *GPUAgentGPUClient) []string {
 		})
 	}
 	return out
+}
+
+// TestHighResArrivalIntervalStats: per-GPU partial-frame arrival intervals of
+// 1..100 ms give p50 50 ms, p99 99 ms, max 100 ms and a population standard
+// deviation of sqrt((100^2-1)/12) ms; recording a known GPU does not allocate,
+// and a new window starts empty.
+func TestHighResArrivalIntervalStats(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 2, 10)
+	a := newHRArrivals(ga.hrGPUIDByUUID)
+	w0 := hrPartial(gpus[:1], hrPowerTick(1)...)
+	w1 := hrPartial(gpus[1:], hrPowerTick(1)...)
+	now := time.Unix(1000, 0)
+	a.record(w0, now)
+	for i := 1; i <= 100; i++ {
+		now = now.Add(time.Duration(i) * time.Millisecond)
+		a.record(w0, now)
+	}
+	a.record(w1, now)
+
+	got := a.summary(10 * time.Second)
+	want := fmt.Sprintf("; gpu 0: 10.1 frames/s interval p50=50.000ms p99=99.000ms max=100.000ms jitter=%.3fms n=100"+
+		"; gpu 1: 0.1 frames/s", math.Sqrt((100*100-1)/12.0))
+	assert.Equal(t, got, want)
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		now = now.Add(time.Millisecond)
+		a.record(w0, now)
+	})
+	assert.Equal(t, allocs, 0.0)
+
+	a.reset()
+	assert.Equal(t, a.summary(10*time.Second), "; gpu 0: 0.0 frames/s; gpu 1: 0.0 frames/s")
 }

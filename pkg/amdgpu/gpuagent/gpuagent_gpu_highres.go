@@ -25,14 +25,18 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	exportermetrics "github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
@@ -427,6 +431,8 @@ func (ga *GPUAgentGPUClient) reconcileHighRes() {
 	case !desired && running:
 		ga.teardownHighResLocked()
 		logger.Log.Printf("high-resolution DISABLED: GPUWatch feed stopped, watch deleted (gpuagent returns to lazy SMI)")
+		// the feed goroutine has exited, so hrTierMs is ours to update
+		ga.signalHighResTier(ga.gpuHandler.ctx, 0)
 	}
 	// Reconcile the profiler stream under the same lock, symmetric with the watch
 	// feed: its gate additionally requires profiler enabled and a non-PTL platform.
@@ -455,6 +461,57 @@ const highResMissedTicksLogInterval = time.Minute
 
 // highResCadenceLogInterval rate-limits the frames/s debug line.
 const highResCadenceLogInterval = 10 * time.Second
+
+// highResDiagnosticPeriodMs bounds the diagnostic tiers: an accepted fast
+// period below it (10 ms, 1 ms) is opt-in, diagnostic only, and announced by
+// signalHighResTier.
+const highResDiagnosticPeriodMs uint32 = 100
+
+// highResDiagnosticTierMsg is the log and K8s event text for an accepted
+// diagnostic fast period.
+func highResDiagnosticTierMsg(ms uint32) string {
+	msg := fmt.Sprintf("high-resolution fast period %d ms is a diagnostic tier (below %d ms): "+
+		"exporter and gpuagent CPU cost is much higher than at 100 ms or 1 s; use it for "+
+		"short diagnostic runs only", ms, highResDiagnosticPeriodMs)
+	if ms == 1 {
+		msg += "; 1 ms is experimental"
+	}
+	return msg
+}
+
+// signalHighResTier announces a change of the accepted fast period acceptedMs
+// (0: high-res off) into or out of the diagnostic tiers: entering one, or
+// moving between 10 ms and 1 ms, logs a warning and emits a K8s Warning event
+// (a no-op off-cluster); leaving them logs that the tier ended. Only a change
+// of the accepted period fires, so a reconnect or a config reload at the same
+// period stays silent, and a period gpuagent rejected (fallback to 1000 ms)
+// never announces a diagnostic tier.
+func (ga *GPUAgentGPUClient) signalHighResTier(ctx context.Context, acceptedMs uint32) {
+	prev := ga.hrTierMs
+	ga.hrTierMs = acceptedMs
+	if acceptedMs == prev {
+		return
+	}
+	isDiag := func(ms uint32) bool { return ms != 0 && ms < highResDiagnosticPeriodMs }
+	switch {
+	case isDiag(acceptedMs):
+		msg := highResDiagnosticTierMsg(acceptedMs)
+		// the embedded logrus logger: EnhancedLogger.Warnf drops warnings
+		// at the default Info level
+		logger.Log.Logger.Warnf("high-res: %s", msg)
+		if ga.hrEvents != nil {
+			ga.hrEvents.EmitWarning(ctx, events.HighResDiagnosticTier, msg)
+		} else {
+			events.EmitWarning(ctx, events.HighResDiagnosticTier, msg)
+		}
+	case isDiag(prev):
+		now := "high-resolution disabled"
+		if acceptedMs != 0 {
+			now = fmt.Sprintf("fast period now %d ms", acceptedMs)
+		}
+		logger.Log.Printf("high-res: diagnostic tier %d ms ended (%s)", prev, now)
+	}
+}
 
 // runHighResFeed owns the high-resolution GPUWatch feed for one enable session.
 // It (re)establishes the watch and consumes it until the stream fails, then evicts
@@ -650,6 +707,7 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 		}
 	}
 	ga.hrFastMs.Store(spec.FastPeriodMs)
+	ga.signalHighResTier(ctx, spec.FastPeriodMs)
 	// new session: labels, GPU set and period may differ, so the first frame
 	// rebuilds the per-GPU state cache (and the gpu_package_power state)
 	ga.hrHot = nil
@@ -677,6 +735,7 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	stream amdgpu.GPUWatchSvc_GPUWatchSubscribeClient) {
 	var winStart, missedLogged time.Time
 	var winFrames, missed uint64
+	arrivals := newHRArrivals(ga.hrGPUIDByUUID)
 	for ctx.Err() == nil {
 		w, err := stream.Recv()
 		if err != nil {
@@ -699,18 +758,134 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 		if winStart.IsZero() {
 			winStart = now
 		} else if d := now.Sub(winStart); d >= highResCadenceLogInterval {
-			logger.Log.Debugf("high-res: GPUWatch %.1f frames/s over %v",
-				float64(winFrames)/d.Seconds(), d)
+			if logger.Log.IsLevelEnabled(logrus.DebugLevel) {
+				logger.Log.Debugf("high-res: GPUWatch %.1f frames/s over %v, missed_ticks=%d%s",
+					float64(winFrames)/d.Seconds(), d, missed, arrivals.summary(d))
+			}
+			arrivals.reset()
 			winStart, winFrames = now, 0
 		}
 		// partial frames exist only at sub-second periods; at 1000 ms and
 		// above every frame keeps today's path
 		if ga.hrSubSecond() && len(w.GetSpec().GetAttribute()) == 0 {
+			arrivals.record(w, now)
 			ga.applyPowerFrame(w)
 		} else {
 			ga.applyWatchSnapshot(w)
 		}
 	}
+}
+
+// hrArrivalRing is the number of per-GPU partial-frame arrival intervals kept
+// per cadence window; the percentiles cover the most recent ones when more
+// arrive in a window.
+const hrArrivalRing = 4096
+
+// hrArrivalGPU is one GPU's partial-frame arrival intervals over the current
+// cadence window. count, sum, sumSq and max cover every interval in the
+// window; ring holds the most recent hrArrivalRing of them.
+type hrArrivalGPU struct {
+	name   string
+	last   time.Time
+	frames uint64
+	count  uint64
+	maxUs  uint32
+	sum    float64
+	sumSq  float64
+	ring   [hrArrivalRing]uint32 // microseconds
+}
+
+// hrArrivals is the exporter-side evidence of the per-GPU partial-frame
+// cadence, reported in the frames/s debug line. It is touched only by the
+// feed goroutine, and record does not allocate once a GPU has been seen.
+type hrArrivals struct {
+	names   map[string]string // GPU UUID -> gpu_id, for the summary
+	byGPU   map[[16]byte]*hrArrivalGPU
+	order   []*hrArrivalGPU
+	scratch [hrArrivalRing]uint32
+}
+
+func newHRArrivals(names map[string]string) *hrArrivals {
+	return &hrArrivals{names: names, byGPU: map[[16]byte]*hrArrivalGPU{}}
+}
+
+// record notes the arrival at now of a partial frame for each GPU it carries.
+func (a *hrArrivals) record(w *amdgpu.GPUWatch, now time.Time) {
+	for _, perGPU := range w.GetStats().GetGPUWatchAttr() {
+		b := perGPU.GetGPU()
+		if len(b) != 16 {
+			continue
+		}
+		g := a.byGPU[[16]byte(b)]
+		if g == nil {
+			g = a.add(b)
+		}
+		g.frames++
+		if !g.last.IsZero() {
+			us := now.Sub(g.last).Microseconds()
+			if us < 0 {
+				us = 0
+			}
+			v := uint32(min(us, int64(^uint32(0))))
+			g.ring[g.count%hrArrivalRing] = v
+			g.count++
+			g.maxUs = max(g.maxUs, v)
+			f := float64(v)
+			g.sum += f
+			g.sumSq += f * f
+		}
+		g.last = now
+	}
+}
+
+// add starts tracking GPU b (slow path, once per GPU per feed session).
+func (a *hrArrivals) add(b []byte) *hrArrivalGPU {
+	u := utils.UUIDToString(b)
+	name := a.names[u]
+	if name == "" {
+		name = u
+	}
+	g := &hrArrivalGPU{name: name}
+	a.byGPU[[16]byte(b)] = g
+	a.order = append(a.order, g)
+	return g
+}
+
+// reset starts a new window; the last arrival is kept so the first interval
+// of the next window is measured too.
+func (a *hrArrivals) reset() {
+	for _, g := range a.order {
+		g.frames, g.count, g.maxUs, g.sum, g.sumSq = 0, 0, 0, 0, 0
+	}
+}
+
+// summary formats, per GPU, the window's partial frames/s and arrival
+// interval p50, p99, max and jitter (standard deviation), d being the window
+// length. Empty when no partial frame arrived (1000 ms and above).
+func (a *hrArrivals) summary(d time.Duration) string {
+	var sb strings.Builder
+	for _, g := range a.order {
+		fmt.Fprintf(&sb, "; gpu %s: %.1f frames/s", g.name, float64(g.frames)/d.Seconds())
+		if g.count == 0 {
+			continue
+		}
+		n := int(min(g.count, hrArrivalRing))
+		s := a.scratch[:n]
+		copy(s, g.ring[:n])
+		slices.Sort(s)
+		mean := g.sum / float64(g.count)
+		std := math.Sqrt(max(0, g.sumSq/float64(g.count)-mean*mean))
+		fmt.Fprintf(&sb, " interval p50=%.3fms p99=%.3fms max=%.3fms jitter=%.3fms n=%d",
+			float64(hrNearestRank(s, 0.50))/1e3, float64(hrNearestRank(s, 0.99))/1e3,
+			float64(g.maxUs)/1e3, std/1e3, g.count)
+	}
+	return sb.String()
+}
+
+// hrNearestRank is the nearest-rank p-quantile of the sorted, non-empty s.
+func hrNearestRank(s []uint32, p float64) uint32 {
+	i := int(math.Ceil(p*float64(len(s)))) - 1
+	return s[max(0, min(i, len(s)-1))]
 }
 
 // hrHotField is the per-(GPU, attribute) state of the frame-apply pipeline.

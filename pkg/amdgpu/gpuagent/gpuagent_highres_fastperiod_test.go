@@ -35,6 +35,7 @@ import (
 
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
+	"github.com/ROCm/device-metrics-exporter/pkg/events"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
@@ -458,4 +459,104 @@ func (b *syncBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+func TestHighResDiagnosticTierSignal(t *testing.T) {
+	tcase := setupTest(t)
+	defer tcase(t)
+
+	f := newFastPeriodClient(t, hrCfg(`"FastPeriodMs":10`))
+	rec := &events.RecordingEmitter{}
+	f.gc.hrEvents = rec
+	subscribed := make(chan uint32, 16)
+	f.watch.EXPECT().GPUWatchGet(gomock.Any(), gomock.Any()).
+		Return(&amdgpu.GPUWatchGetResponse{}, nil).AnyTimes()
+	f.watch.EXPECT().GPUWatchCreate(gomock.Any(), gomock.Any()).
+		DoAndReturn(createOK).AnyTimes()
+	f.watch.EXPECT().GPUWatchSubscribe(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *amdgpu.GPUWatchSubscribeRequest,
+			_ ...grpc.CallOption) (amdgpu.GPUWatchSvc_GPUWatchSubscribeClient, error) {
+			// the tier is signalled before subscribing, so this orders the
+			// recorder writes before the test reads them
+			subscribed <- f.gc.hrFastMs.Load()
+			return &blockingStream{ctx: ctx}, nil
+		}).AnyTimes()
+
+	agentCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f.gc.gpuHandler.ctx = agentCtx
+	defer f.gc.teardownHighRes()
+
+	apply := func(body string, wantMs uint32) {
+		t.Helper()
+		if body != "" {
+			f.reload(t, body)
+		}
+		f.gc.reconcileHighRes()
+		if wantMs == 0 {
+			return
+		}
+		select {
+		case ms := <-subscribed:
+			assert.Equal(t, ms, wantMs)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("feed not started at %d ms", wantMs)
+		}
+	}
+	buf := captureExporterLog(t, logrus.InfoLevel)
+
+	apply("", 10)
+	assert.Equal(t, len(rec.Events), 1)
+	assert.Equal(t, rec.Events[0].Reason, events.HighResDiagnosticTier)
+	assert.Assert(t, strings.Contains(rec.Events[0].Msg, "10 ms is a diagnostic tier"), rec.Events[0].Msg)
+	assert.Assert(t, !strings.Contains(rec.Events[0].Msg, "experimental"), rec.Events[0].Msg)
+	assert.Equal(t, strings.Count(buf.String(), "level=warning"), 1, buf.String())
+
+	// a reload at the same period neither restarts nor signals again
+	f.reload(t, hrCfg(`"FastPeriodMs":10,"FastPeriodSecs":0`))
+	apply("", 0)
+	assert.Equal(t, len(rec.Events), 1)
+
+	// 1 ms is announced again, as experimental
+	apply(hrCfg(`"FastPeriodMs":1`), 1)
+	assert.Equal(t, len(rec.Events), 2)
+	assert.Assert(t, strings.Contains(rec.Events[1].Msg, "1 ms is experimental"), rec.Events[1].Msg)
+
+	// 100 ms ends the tier: logged, no event
+	apply(hrCfg(`"FastPeriodMs":100`), 100)
+	assert.Equal(t, len(rec.Events), 2)
+	assert.Assert(t, strings.Contains(buf.String(), "diagnostic tier 1 ms ended (fast period now 100 ms)"), buf.String())
+
+	// disabling ends a running diagnostic tier
+	apply(hrCfg(`"FastPeriodMs":10`), 10)
+	assert.Equal(t, len(rec.Events), 3)
+	apply(`{"CommonConfig":{"HighResolution":{"Enable":false,"FastPeriodMs":10}}}`, 0)
+	assert.Assert(t, strings.Contains(buf.String(), "diagnostic tier 10 ms ended (high-resolution disabled)"), buf.String())
+	assert.Equal(t, len(rec.Events), 3)
+}
+
+func TestHighResDiagnosticTierNotSignalledOnFallback(t *testing.T) {
+	tcase := setupTest(t)
+	defer tcase(t)
+
+	f := newFastPeriodClient(t, hrCfg(`"FastPeriodMs":10`))
+	rec := &events.RecordingEmitter{}
+	f.gc.hrEvents = rec
+	var specs []*amdgpu.GPUWatchSpec
+	f.watch.EXPECT().GPUWatchGet(gomock.Any(), gomock.Any()).
+		Return(&amdgpu.GPUWatchGetResponse{}, nil).AnyTimes()
+	gomock.InOrder(
+		f.watch.EXPECT().GPUWatchCreate(gomock.Any(), gomock.Any()).
+			DoAndReturn(createStatus(amdgpu.ApiStatus_API_STATUS_OPERATION_NOT_SUPPORTED, &specs)),
+		f.watch.EXPECT().GPUWatchCreate(gomock.Any(), gomock.Any()).
+			DoAndReturn(createStatus(amdgpu.ApiStatus_API_STATUS_OK, &specs)),
+	)
+	f.watch.EXPECT().GPUWatchSubscribe(gomock.Any(), gomock.Any()).
+		Return(nil, errStopAfterCreate)
+
+	buf := captureExporterLog(t, logrus.InfoLevel)
+	assert.Equal(t, f.gc.StartHighRes(context.Background()), errStopAfterCreate)
+	assert.Equal(t, f.gc.hrFastMs.Load(), uint32(1000))
+	assert.Equal(t, len(rec.Events), 0)
+	assert.Assert(t, !strings.Contains(buf.String(), "diagnostic tier"), buf.String())
 }
