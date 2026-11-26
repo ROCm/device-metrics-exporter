@@ -1512,12 +1512,15 @@ func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
 	const agentDownLog = "gpuagent (connection|health validation) failed"
 	// wait until the exporter saw the outage, so the restart below goes
 	// through its reconnect path
+	// no -t on docker exec: there is no TTY here, and with -it the command
+	// never runs
+	name := s.e2eConfig.ContainerName
 	failures := s.exporterLogCount(agentDownLog)
-	_ = s.ExporterLocalCommandOutput("pkill gpuagent")
+	s.tu.LocalCommandOutput(fmt.Sprintf("docker exec %v pkill gpuagent", name))
 	assert.Eventually(c, func() bool {
 		return s.exporterLogCount(agentDownLog) > failures
 	}, 60*time.Second, 2*time.Second, "exporter did not notice the gpuagent outage")
-	_ = s.ExporterLocalCommandOutput("gpuagent &")
+	s.tu.LocalCommandOutput(fmt.Sprintf("docker exec -d %v gpuagent -s /var/run/gpuagent.sock", name))
 	assert.Eventually(c, func() bool {
 		return jobsMatch(s.jobIDsByGPU(), map[string]string{gpuA: "742"})
 	}, 60*time.Second, 2*time.Second, "job 742 labels after the gpuagent restart")
@@ -1606,8 +1609,12 @@ func (s *E2ESuite) copySlurmJob(c *C, id, gpu string) {
 	assert.Nil(c, err)
 	jobFile := filepath.Join(c.MkDir(), gpu)
 	assert.Nil(c, os.WriteFile(jobFile, b, 0644))
-	_, err = s.exporter.CopyFileTo(jobFile, "/var/run/exporter/"+gpu)
-	assert.Nil(c, err)
+	// docker cp prints nothing on success, which CopyFileTo reports as an
+	// error; check that the file landed instead
+	_, _ = s.exporter.CopyFileTo(jobFile, "/var/run/exporter/"+gpu)
+	assert.Equal(c, "ok", s.tu.LocalCommandOutput(fmt.Sprintf(
+		"docker exec %v test -f /var/run/exporter/%v && echo ok", s.e2eConfig.ContainerName, gpu)),
+		"job file for GPU %v not copied", gpu)
 }
 
 // clearSlurmJobs drops every slurm job entry, including one written by an
