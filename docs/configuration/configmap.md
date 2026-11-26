@@ -32,7 +32,7 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     - `EnableAPI`: Boolean flag to expose the debug interfaces (the pprof/expvar profiling endpoints on the metrics port and the error-injection gRPC API). Default is `false`, meaning these interfaces are disabled. The value is read at runtime and applied on config reload.
   - `HighResolution`: High-resolution sampling profile for GPU and [workload cgroup](workload-cgroup-metrics.md) metrics. When enabled, these metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape.
     - `Enable`: Boolean flag to enable the high-resolution profile. Default is `false`.
-    - `FastPeriodMs` (preview): Sampling period, in milliseconds, for fast-moving attributes. Allowed values are `1`, `10`, `100`, or a multiple of `1000` up to `60000`. `0` (unset) defers to `FastPeriodSecs`. A sub-second period (`1`, `10`, `100`) applies only to the power tier (current socket power, energy, GFX/SoC/memory voltage, violation residency accumulators and the accumulation counter); all other fast-moving attributes refresh at most once per second.
+    - `FastPeriodMs` (preview): Sampling period, in milliseconds, for fast-moving attributes. Allowed values are `1`, `10`, `100`, or a multiple of `1000` up to `60000`. `0` (unset) defers to `FastPeriodSecs`. A sub-second period (`1`, `10`, `100`) applies only to the power tier (current socket power, energy, GFX/SoC/memory voltage, violation residency accumulators and the accumulation counter); all other fast-moving attributes refresh at most once per second. `100` is an opt-in sub-second tier; `10` is a diagnostic tier and `1` is an EXPERIMENTAL diagnostic tier (see **Diagnostic tiers** below).
     - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes (temperatures, power, utilization, energy). Valid range `1`–`60`. `0` selects the default (`1`). Still supported; superseded by `FastPeriodMs` when that is set.
     - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage, clocks). Must be ≥ the effective fast period. Valid range `5`–`3600`. `0` selects the default (`5`).
 
@@ -42,7 +42,33 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
 
     If gpuagent rejects a sub-second period, the exporter logs it and continues at `1000` ms for that session (the configured period is tried again on the next reconnect). For example, gpuagent rejects sub-second periods on GIM (SR-IOV) and WSL hosts, when its power sampling thread failed to start, and when the amdsmi GPU metrics cache is longer than the requested period. That cache is set by the `AMDSMI_GPU_METRICS_CACHE_MS` environment variable of the gpuagent process, read once when the amdsmi library loads; the default is `1` ms. If you set it, it must be ≤ the requested period.
 
-    `1 s` (`FastPeriodSecs: 1` or `FastPeriodMs: 1000`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU. `1` / `10` / `100` ms are guaranteed only on non-partitioned GPUs and are pending hardware validation on MI350X/MI355X; partitioned GPUs are supported at 1 s / 5 s. The exporter and gpuagent must be upgraded together: GPU watch field 4 is now in milliseconds.
+    `1 s` (`FastPeriodSecs: 1` or `FastPeriodMs: 1000`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU. The exporter and gpuagent must be upgraded together: GPU watch field 4 is now in milliseconds.
+
+    Sub-second periods (`100`, `10`, `1` ms) are opt-in and apply to Linux bare metal only. The only validated cadence is the one measured on MI350X bare metal: the power-tier values (current socket power, energy, PPT residency, accumulation counter) change on every read at 100 ms and 10 ms, and at 1 ms the shortest interval between value changes is about 6 ms (mostly 6–7 ms). AMD SMI guarantees a 500 ms refresh and promises no per-field firmware sampling rate, so the exporter cannot guarantee that a value changes at every sub-second tick. Sub-second tiers are not validated on virtual machines (including SR-IOV guests) or on partitioned GPUs.
+
+    **Diagnostic tiers (10 ms and 1 ms).** A fast period below 100 ms is a diagnostic mode for short troubleshooting runs, not for continuous monitoring; its CPU cost is much higher (see [High-resolution resource guidelines](#high-resolution-resource-guidelines)). `1` ms is EXPERIMENTAL: gpuagent reads the GPUs one after another, about 0.5 ms per GPU per read, so with N GPUs each GPU is refreshed about every N × 0.5 ms at best (about 4 ms on 8 GPUs), not every 1 ms. When gpuagent accepts a period below 100 ms, the exporter logs a warning and, on Kubernetes, emits a `Warning` event with reason `HighResDiagnosticTier` on the exporter pod, for example:
+
+    ```text
+    high-resolution fast period 10 ms is a diagnostic tier (below 100 ms): exporter and gpuagent CPU cost is much higher than at 100 ms or 1 s; use it for short diagnostic runs only
+    ```
+
+    At 1 ms the message ends with `1 ms is experimental`. The warning and the event are emitted once per change of the accepted period: a reconnect or a config reload at the same period does not repeat them, and nothing is emitted when gpuagent rejects the period and the exporter falls back to `1000` ms. When the period returns to 100 ms or more, or high-resolution mode is disabled, the exporter logs `diagnostic tier <N> ms ended`. Outside Kubernetes only the log lines are written. List the events with:
+
+    ```bash
+    kubectl get events -n <exporter-namespace> --field-selector reason=HighResDiagnosticTier
+    ```
+
+    **Cadence evidence (debug log).** With `LoggingConfig.Level` set to `DEBUG`, the exporter logs a GPU watch summary every 10 s. At sub-second periods the same line carries, per GPU, the partial (power) frames per second received and the distribution of the intervals between them, measured on arrival at the exporter:
+
+    ```text
+    high-res: GPUWatch 812.4 frames/s over 10.0012s, missed_ticks=0; gpu 0: 101.5 frames/s interval p50=9.812ms p99=10.403ms max=12.115ms jitter=0.297ms n=1015; gpu 1: ...
+    ```
+
+    - `frames/s` (first value): all frames received from gpuagent; `missed_ticks`: cumulative power ticks gpuagent reports as not delivered to the exporter (sampler overruns or frames dropped for a slow subscriber).
+    - Per GPU: `frames/s` is the partial frames per second for that GPU; `p50`, `p99` and `max` are the arrival intervals; `jitter` is their standard deviation; `n` is the number of intervals in the window. `max`, `jitter` and `n` cover the whole window; `p50` and `p99` cover the last 4096 intervals of the window.
+    - These values describe how often the exporter receives a fresh reading, not how often the firmware value changes. To see value changes, compare successive scrapes of `/metrics`.
+
+    The summary is computed every 10 s off the per-frame path; the exporter never logs per frame.
 
     While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
 
@@ -99,6 +125,81 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `Labels`: `HOSTNAME`, `GPU_UUID`, `IFOE_STATION_UUID`, `IFOE_PORT_NAME` are mandatory labels that are always set and cannot be removed. These labels provide identification of IFOE components at the host, GPU, station, port, and device levels. Labels supported are available in the provided example `configmap.yaml`.
   - `CustomLabels`: A map of user-defined labels and their values. Users can set up to 10 custom labels. These labels will be exported with every IFOE metric, ensuring consistent metadata across all metrics. Custom labels allow you to add deployment-specific information such as cluster identifiers, data center locations, or other organizational metadata.
   - `ExtraPodLabels`: Similar to GPUConfig, this defines a map that links Prometheus label names to Kubernetes pod labels for IFOE metrics. This allows you to expose pod metadata as Prometheus labels for easier correlation between IFOE network metrics and workload information.
+
+## High-resolution resource guidelines
+
+The faster the high-resolution fast period, the more CPU the exporter and gpuagent use. The table gives the recommended CPU and memory for each mode, for the exporter and gpuagent together (in Kubernetes both run in the exporter container). Use the same value for the request and the limit.
+
+| Mode | `HighResolution` setting | CPU | Memory |
+| --- | --- | --- | --- |
+| 1 s (default) | `FastPeriodMs: 1000` or `FastPeriodSecs: 1` | 0.25 CPU | 256Mi |
+| 100 ms | `FastPeriodMs: 100` | 0.5 CPU | 384Mi |
+| 10 ms (diagnostic) | `FastPeriodMs: 10` | 2 CPU | 512Mi |
+| 1 ms (EXPERIMENTAL diagnostic) | `FastPeriodMs: 1` | 3 CPU | 512Mi |
+
+- CPU use grows with the number of GPUs on the node and with profiler metrics (`gpu_prof_*`) enabled; size up from these values for larger nodes or when profiler metrics are on.
+- A CPU limit below the guideline throttles the GPU watch feed. The exporter then falls behind gpuagent and the throttling shows up as a growing `missed_ticks` value in the debug summary (see **Cadence evidence** under `HighResolution`).
+- Return to 1 s or 100 ms after a diagnostic run at 10 ms or 1 ms.
+
+### Kubernetes
+
+The Helm chart sets the exporter container resources from the top-level `resources` value (default: requests `500m` / `512M`, limits `2` / `4Gi`). For example, for a 10 ms diagnostic run, in `values.yaml`:
+
+```yaml
+resources:
+  requests:
+    cpu: "2"
+    memory: "512Mi"
+  limits:
+    cpu: "2"
+    memory: "512Mi"
+```
+
+Or on the command line:
+
+```bash
+helm upgrade exporter exporter/device-metrics-exporter-charts \
+  -n metrics-exporter \
+  --reuse-values \
+  --set resources.requests.cpu=2 \
+  --set resources.requests.memory=512Mi \
+  --set resources.limits.cpu=2 \
+  --set resources.limits.memory=512Mi
+```
+
+If the exporter is deployed by the AMD GPU Operator, set the metrics exporter container resources in the operator's `DeviceConfig`; see the GPU Operator documentation for the field.
+
+### Debian package (systemd)
+
+The Debian package runs gpuagent and the exporter as two services, `gpuagent.service` and `amd-metrics-exporter.service`. Their unit files cap CPU at `CPUQuota=50%` (gpuagent) and `CPUQuota=100%` (exporter), which is enough for 1 s and 100 ms but throttles the 10 ms and 1 ms tiers. Raise both with a drop-in. `CPUQuota=100%` is one CPU, so the 10 ms guideline of 2 CPU is `CPUQuota=200%`:
+
+```bash
+sudo systemctl edit amd-metrics-exporter.service
+```
+
+```ini
+[Service]
+CPUQuota=200%
+MemoryMax=512M
+```
+
+```bash
+sudo systemctl edit gpuagent.service
+```
+
+```ini
+[Service]
+CPUQuota=200%
+```
+
+Then reload systemd and restart the services:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart gpuagent.service amd-metrics-exporter.service
+```
+
+Use `CPUQuota=300%` for 1 ms. The guideline covers both services together; each drop-in gets the full value because how the load splits between gpuagent and the exporter depends on the node. Remove the drop-ins (`sudo systemctl revert <service>`) after the diagnostic run.
 
 ## CLI flags
 

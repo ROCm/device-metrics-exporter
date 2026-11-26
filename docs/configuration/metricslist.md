@@ -65,9 +65,13 @@ The fast period is set by `FastPeriodMs` (or, for existing configs, `FastPeriodS
 the slow period by `SlowPeriodSecs`. See [CommonConfig.HighResolution](configmap.md) for
 the allowed values, defaults, and precedence.
 
-> **Note:** 1 ms / 10 ms / 100 ms are guaranteed only on non-partitioned GPUs and are
-> pending hardware validation on MI350X/MI355X; partitioned GPUs are supported at
-> 1 s / 5 s.
+> **Note:** 100 ms, 10 ms and 1 ms are opt-in and apply to Linux bare metal only. 10 ms
+> is a diagnostic tier and 1 ms is an EXPERIMENTAL diagnostic tier. The only validated
+> sub-second cadence is the one measured on MI350X bare metal (last column below); AMD SMI
+> guarantees a 500 ms refresh and no per-field firmware sampling rate. Virtual machines
+> and partitioned GPUs are not validated at sub-second periods. See
+> [CommonConfig.HighResolution](configmap.md) for the diagnostic-tier event and the
+> resource guidelines.
 
 Each column is a refresh cadence a metric can reach: 1 ms, 10 ms and 100 ms (with
 `FastPeriodMs` set to that value), 1 s (the default fast period), and 5 s (the default
@@ -77,36 +81,38 @@ longer fast period), and slow-tier metrics refresh every `SlowPeriodSecs`.
 
 Legend: **T** = target metric of the sub-second tier, **C** = captured at the same tick
 for correlation, &check; = refreshes at that cadence, blank = never refreshes at that
-cadence.
+cadence. The last column is how often the value itself changed when read through AMD SMI
+on MI350X bare metal; the exporter refreshes a metric at its tier, but a value can only
+change as often as the firmware updates it.
 
 <!-- doc-audit:skip-start -->
-| Metric | 1 ms | 10 ms | 100 ms | 1 s | 5 s |
-| --- | --- | --- | --- | --- | --- |
-| `GPU_PACKAGE_POWER` | T | T | T | &check; | |
-| `GPU_POWER_USAGE` | T | T | T | &check; | |
-| `GPU_ENERGY_CONSUMED` | T | T | T | &check; | |
-| `GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED` | T | T | T | &check; | |
-| `GPU_GFX_VOLTAGE` | C | C | C | &check; | |
-| `GPU_VOLTAGE` | C | C | C | &check; | |
-| `GPU_MEMORY_VOLTAGE` | C | C | C | &check; | |
-| `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
-| `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
-| `GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
-| `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | |
-| `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` | C | C | C | &check; | |
-| `GPU_AVERAGE_PACKAGE_POWER` | | | | &check; | |
-| `GPU_UBB_POWER` (see [Power Metrics](#power-metrics)) | | | | &check; | |
-| Temperature: `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` | | | | &check; | |
-| Activity: `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY`, `GPU_*_BUSY_INSTANTANEOUS` | | | | &check; | |
-| PCIe counters: `PCIE_REPLAY_COUNT`, `PCIE_RECOVERY_COUNT`, `PCIE_REPLAY_ROLLOVER_COUNT`, `PCIE_NACK_SENT_COUNT`, `PCIE_NACK_RECEIVED_COUNT` | | | | &check; | |
-| XGMI link: `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` | | | | &check; | |
-| Bandwidth: `GPU_VRAM_MAX_BANDWIDTH` | | | | &check; | |
-| ECC / RAS counters: `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) | | | | | &check; |
-| Memory usage: `GPU_TOTAL_VRAM`, `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_*_VISIBLE_VRAM`, `GPU_*_GTT` | | | | | &check; |
-| PCIe bandwidth and speed: `PCIE_BIDIRECTIONAL_BANDWIDTH`, `PCIE_SPEED`, `PCIE_MAX_SPEED` | | | | | &check; |
-| Clocks and clock limits: `GPU_CLOCK`, `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` | | | | | &check; |
-| XGMI neighbour counters: `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT` | | | | | &check; |
-| Violation status counters: `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_*_ACCUMULATED`, `GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED` | | | | | &check; |
+| Metric | 1 ms | 10 ms | 100 ms | 1 s | 5 s | MI350X bare metal |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GPU_PACKAGE_POWER` | T | T | T | &check; | | Changes every read at 100 ms and 10 ms; at 1 ms about every 6 ms |
+| `GPU_POWER_USAGE` | T | T | T | &check; | | Changes every read at 100 ms and 10 ms; at 1 ms about every 6 ms |
+| `GPU_ENERGY_CONSUMED` | T | T | T | &check; | | Changes every read at 100 ms and 10 ms; at 1 ms about every 6 ms |
+| `GPU_VIOLATION_PPT_RESIDENCY_ACCUMULATED` | T | T | T | &check; | | Changes every read at 100 ms and 10 ms; at 1 ms about every 6 ms |
+| `GPU_GFX_VOLTAGE` | C | C | C | &check; | | Not populated on MI350X/MI355X |
+| `GPU_VOLTAGE` | C | C | C | &check; | | Not populated on MI350X/MI355X |
+| `GPU_MEMORY_VOLTAGE` | C | C | C | &check; | | Not populated on MI350X/MI355X |
+| `GPU_VIOLATION_PROCESSOR_HOT_RESIDENCY_ACCUMULATED` | C | C | C | &check; | | Reported; 0 in testing, not validated |
+| `GPU_VIOLATION_SOCKET_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | | Reported; 0 in testing, not validated |
+| `GPU_VIOLATION_VR_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | | Reported; 0 in testing, not validated |
+| `GPU_VIOLATION_HBM_THERMAL_RESIDENCY_ACCUMULATED` | C | C | C | &check; | | Reported; 0 in testing, not validated |
+| `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` | C | C | C | &check; | | Changes every read at 100 ms and 10 ms; at 1 ms about every 6 ms |
+| `GPU_AVERAGE_PACKAGE_POWER` | | | | &check; | | |
+| `GPU_UBB_POWER` (see [Power Metrics](#power-metrics)) | | | | &check; | | Source refreshes every ~5–14 s whatever the period; MI350X/MI355X OAM only, not on PCIe cards |
+| Temperature: `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` | | | | &check; | | |
+| Activity: `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY`, `GPU_*_BUSY_INSTANTANEOUS` | | | | &check; | | |
+| PCIe counters: `PCIE_REPLAY_COUNT`, `PCIE_RECOVERY_COUNT`, `PCIE_REPLAY_ROLLOVER_COUNT`, `PCIE_NACK_SENT_COUNT`, `PCIE_NACK_RECEIVED_COUNT` | | | | &check; | | |
+| XGMI link: `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` | | | | &check; | | |
+| Bandwidth: `GPU_VRAM_MAX_BANDWIDTH` | | | | &check; | | |
+| ECC / RAS counters: `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) | | | | | &check; | |
+| Memory usage: `GPU_TOTAL_VRAM`, `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_*_VISIBLE_VRAM`, `GPU_*_GTT` | | | | | &check; | |
+| PCIe bandwidth and speed: `PCIE_BIDIRECTIONAL_BANDWIDTH`, `PCIE_SPEED`, `PCIE_MAX_SPEED` | | | | | &check; | |
+| Clocks and clock limits: `GPU_CLOCK`, `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` | | | | | &check; | |
+| XGMI neighbour counters: `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT` | | | | | &check; | |
+| Violation status counters: `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_*_ACCUMULATED`, `GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED` | | | | | &check; | |
 <!-- doc-audit:skip-end -->
 
 Notes:
@@ -124,8 +130,10 @@ Notes:
   update at the achieved sampling cadence. Intermediate samples between scrapes are not
   stored, so the freshness of a scraped series still depends on the Prometheus scrape
   interval.
-- At 1 ms the exporter processes up to about 1000 power updates per second per watch
-  (fewer if gpuagent drops frames for a slow subscriber). See the
+- At 1 ms (EXPERIMENTAL) gpuagent reads the GPUs one after another, about 0.5 ms per GPU
+  per read, so with N GPUs each GPU is refreshed about every N × 0.5 ms at best rather
+  than every 1 ms. The exporter's DEBUG summary reports the per-GPU arrival intervals it
+  actually observes (see [CommonConfig.HighResolution](configmap.md)). See the
   [release notes](../releasenotes.md) for the preview status.
 - Known behaviour: in high-resolution mode, the first N/A a field reports on a GPU marks
   that field unsupported for the GPU, and it is no longer exported until the next config
@@ -164,7 +172,7 @@ Notes:
 | &cross; | &check; | GPU_AVERAGE_PACKAGE_POWER `[MI2xx, Radeon]` | Average socket power in Watts; not available on guest VM |
 | &cross; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
 | &cross; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
-| &cross; | &check; | GPU_UBB_POWER `[MI35x OAM]` | UBB (node) power in Watts. Node-wide value, identical on every GPU of the UBB; **do not sum across GPUs**. Reported on the primary partition (`partition_id=0`) only; other partitions omit it. Absent on non-OAM platforms. Refresh tier: 1 s only (pull / high-res fast tier); not available at 1 / 10 / 100 ms. See the [high-resolution tier table](#high-resolution-sampling-tiers) |
+| &cross; | &check; | GPU_UBB_POWER `[MI35x OAM]` | UBB (node) power in Watts. Node-wide value, identical on every GPU of the UBB; **do not sum across GPUs**. Reported on the primary partition (`partition_id=0`) only; other partitions omit it. Absent on non-OAM platforms, including PCIe cards such as MI350P. Refresh tier: 1 s only (pull / high-res fast tier); not available at 1 / 10 / 100 ms. The source value is refreshed by the baseboard every ~5–14 s on MI350X/MI355X, whatever the period. See the [high-resolution tier table](#high-resolution-sampling-tiers) |
 
 ### Activity Metrics
 
