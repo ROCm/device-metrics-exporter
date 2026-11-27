@@ -1,6 +1,6 @@
-From f2941979e4894e3d2fa21c42fdb100e4b203a964 Mon Sep 17 00:00:00 2001
+From 290330f54ef8addc8a06d882221db9eff3ce835e Mon Sep 17 00:00:00 2001
 From: praveen <praveenkumar.shanmugam@amd.com>
-Date: Thu, 26 Nov 2026 20:56:39 -0800
+Date: Thu, 26 Nov 2026 21:36:29 -0800
 Subject: [PATCH] gpu-watch: millisecond power tier and UBB power
 
 Extend the existing GPUWatch create/subscribe API (no new RPC):
@@ -31,21 +31,21 @@ Co-Authored-By: Claude <noreply@anthropic.com>
  sw/nic/gpuagent/api/include/aga_gpu_watch.hpp |  80 +-
  .../gpuagent/api/internal/aga_gpu_watch.hpp   |  93 +-
  sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc     |  92 ++
- sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc   | 312 +++---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc   | 358 +++----
  sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc  |  19 +
- .../gpuagent/api/smi/gimamdsmi/smi_state.cc   | 120 ++-
- sw/nic/gpuagent/api/smi/smi_api_mock.cc       | 746 +++++++++++++++
+ .../gpuagent/api/smi/gimamdsmi/smi_state.cc   | 134 ++-
+ sw/nic/gpuagent/api/smi/smi_api_mock.cc       | 748 ++++++++++++++-
  sw/nic/gpuagent/api/smi/smi_state.hpp         |  40 +-
  sw/nic/gpuagent/api/smi/smi_watch.cc          | 891 +++++++++++++++++-
  sw/nic/gpuagent/api/smi/smi_watch.hpp         | 297 +++++-
  sw/nic/gpuagent/api/smi/wslamdsmi/smi_api.cc  |  19 +
- .../gpuagent/api/smi/wslamdsmi/smi_state.cc   | 130 +--
+ .../gpuagent/api/smi/wslamdsmi/smi_state.cc   | 176 ++--
  sw/nic/gpuagent/core/aga_core.hpp             |   2 +
  sw/nic/gpuagent/protos/gpu_watch.proto        |  29 +-
  sw/nic/gpuagent/svc/gpu_watch_svc.hpp         |  30 +-
  sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp    |  56 ++
  sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp     |  34 +-
- 20 files changed, 2660 insertions(+), 388 deletions(-)
+ 20 files changed, 2719 insertions(+), 437 deletions(-)
 
 diff --git a/sw/nic/gpuagent/api/gpu.cc b/sw/nic/gpuagent/api/gpu.cc
 index 8548a6cadbe..4ea2711ddc7 100644
@@ -612,7 +612,7 @@ index 12e5971b442..548d675b49b 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
-index c8af80bde53..88c22ee8ad0 100644
+index c8af80bde53..836f0e910c9 100644
 --- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
 @@ -22,6 +22,7 @@ limitations under the License.
@@ -702,7 +702,74 @@ index c8af80bde53..88c22ee8ad0 100644
      if (refresh_slow) {
          amdsmi_ret = amdsmi_get_violation_status(gpu_handle, &violation_status);
          if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
-@@ -457,6 +469,10 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -364,6 +376,21 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         uint32_t global_idx = 0, cc = 0;
+         amdsmi_clk_info_t clk_info = {};
+         amdsmi_frequencies_t soc_freq = {};
++        uint64_t lo = UINT64_MAX, hi = UINT64_MAX;
++        struct { amdsmi_clk_type_t t; uint32_t ctype; } tail_clocks[] = {
++            { AMDSMI_CLK_TYPE_DF,   AGA_GPU_CLOCK_TYPE_FABRIC },
++            { AMDSMI_CLK_TYPE_DCEF, AGA_GPU_CLOCK_TYPE_DCE },
++            { AMDSMI_CLK_TYPE_PCIE, AGA_GPU_CLOCK_TYPE_PCIE },
++        };
++        auto clk_lo_hi = [&](amdsmi_clk_type_t t, uint64_t *lo, uint64_t *hi) {
++            clk_info = {};
++            *lo = *hi = UINT64_MAX;
++            if (amdsmi_get_clock_info(gpu_handle, t, &clk_info) ==
++                    AMDSMI_STATUS_SUCCESS) {
++                *lo = clk_info.min_clk;
++                *hi = clk_info.max_clk;
++            }
++        };
+         auto store_clock = [&](uint32_t ctype, uint64_t cur, uint64_t lo,
+                                uint64_t hi) {
+             if (((cur != UINT64_MAX) || (lo != UINT64_MAX) ||
+@@ -377,16 +404,7 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+             }
+             global_idx++;
+         };
+-        auto clk_lo_hi = [&](amdsmi_clk_type_t t, uint64_t *lo, uint64_t *hi) {
+-            clk_info = {};
+-            *lo = *hi = UINT64_MAX;
+-            if (amdsmi_get_clock_info(gpu_handle, t, &clk_info) ==
+-                    AMDSMI_STATUS_SUCCESS) {
+-                *lo = clk_info.min_clk;
+-                *hi = clk_info.max_clk;
+-            }
+-        };
+-        uint64_t lo = UINT64_MAX, hi = UINT64_MAX;
++
+         // gfx -> SYSTEM
+         clk_lo_hi(AMDSMI_CLK_TYPE_GFX, &lo, &hi);
+         for (uint32_t i = 0; i < AMDSMI_MAX_NUM_GFX_CLKS; i++) {
+@@ -427,22 +445,19 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         // fabric (DF), DCE, PCIe clocks: single instance each, current from
+         // the freq table, added only when the current freq is applicable (the
+         // pull path advances the clock index only on add for these types)
+-        struct { amdsmi_clk_type_t t; uint32_t ctype; } tail_clocks[] = {
+-            { AMDSMI_CLK_TYPE_DF,   AGA_GPU_CLOCK_TYPE_FABRIC },
+-            { AMDSMI_CLK_TYPE_DCEF, AGA_GPU_CLOCK_TYPE_DCE },
+-            { AMDSMI_CLK_TYPE_PCIE, AGA_GPU_CLOCK_TYPE_PCIE },
+-        };
+         for (auto &tc : tail_clocks) {
++            uint64_t cur;
++            uint32_t tlo = 0, thi = 0;
+             amdsmi_frequencies_t tf = {};
++
+             if (amdsmi_get_clk_freq(gpu_handle, tc.t, &tf) !=
+                     AMDSMI_STATUS_SUCCESS) {
+                 continue;
+             }
+-            uint64_t cur = current_frequency_hz(&tf);
++            cur = current_frequency_hz(&tf);
+             if (cur == UINT32_MAX) {
+                 continue;
+             }
+-            uint32_t tlo = 0, thi = 0;
+             find_low_high_frequency(&tf, &tlo, &thi);
+             store_clock(tc.ctype, cur / 1000000, tlo, thi);
+         }
+@@ -457,6 +472,10 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
              (g_watch_field_list[i].tier == GPU_WATCH_TIER_SLOW)) {
              continue;
          }
@@ -713,7 +780,7 @@ index c8af80bde53..88c22ee8ad0 100644
          switch (g_watch_field_list[i].id) {
          case AGA_GPU_WATCH_ATTR_ID_GPU_CLOCK:
              if (bulk_get_succeeded) {
-@@ -623,40 +639,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -623,40 +642,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                                          UINT64_MAX);
              }
              break;
@@ -754,7 +821,7 @@ index c8af80bde53..88c22ee8ad0 100644
          case AGA_GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT:
              if (bulk_get_succeeded) {
                  watch_db->watch_info[gpu_id].pcie_replay_count =
-@@ -687,13 +669,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -687,13 +672,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                      gpu_metrics.pcie_nak_rcvd_count_acc;
              }
              break;
@@ -768,7 +835,7 @@ index c8af80bde53..88c22ee8ad0 100644
          case AGA_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH:
              if (bulk_get_succeeded) {
                  watch_db->watch_info[gpu_id].vram_max_bandwidth =
-@@ -842,42 +817,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -842,42 +820,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  watch_db->watch_info[gpu_id].jpeg_busy_inst_count = n;
              }
              break;
@@ -811,7 +878,7 @@ index c8af80bde53..88c22ee8ad0 100644
          case AGA_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT:
              if (violation_get_succeeded) {
                  watch_db->watch_info[gpu_id].viol_proc_hot_residency_pct =
-@@ -1262,24 +1201,39 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -1262,24 +1204,39 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  }
              }
              break;
@@ -856,7 +923,7 @@ index c8af80bde53..88c22ee8ad0 100644
      }
      return SDK_RET_OK;
  }
-@@ -1319,54 +1273,36 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
+@@ -1319,54 +1276,36 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
          }
          client_set.insert(subscriber.client_ctxt);
      }
@@ -927,7 +994,7 @@ index c8af80bde53..88c22ee8ad0 100644
      return SDK_RET_OK;
  }
  
-@@ -1374,34 +1310,24 @@ static void
+@@ -1374,34 +1313,24 @@ static void
  watch_timer_cb_ (event::timer_t *timer)
  {
      sdk_ret_t ret;
@@ -972,7 +1039,7 @@ index c8af80bde53..88c22ee8ad0 100644
  
      // post task to api thread
      task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
-@@ -1410,7 +1336,9 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1410,7 +1339,9 @@ watch_timer_cb_ (event::timer_t *timer)
          AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
                        ret());
      }
@@ -983,7 +1050,7 @@ index c8af80bde53..88c22ee8ad0 100644
  }
  
  /// \brief process an gpu watch subscribe request from client
-@@ -1419,8 +1347,14 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1419,19 +1350,26 @@ watch_timer_cb_ (event::timer_t *timer)
  sdk_ret_t
  smi_state::process_gpu_watch_subscribe_req(
                 aga_gpu_watch_subscribe_args_t *args) {
@@ -996,9 +1063,25 @@ index c8af80bde53..88c22ee8ad0 100644
 +        return ret;
 +    }
      for (size_t i = 0; i < args->gpu_watch_ids.size(); i++) {
++        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
++        // check if this watch was of interest to any client
++        // already
++        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
++
          AGA_TRACE_DEBUG("Rcvd GPU watch {} subscribe request, client {}, "
                          "client ctxt {}, stream {}",
-@@ -1450,9 +1384,64 @@ smi_state::process_gpu_watch_subscribe_req(
+                         args->gpu_watch_ids[i].str(),
+                         args->client_ctxt->client.c_str(),
+                         (void *)args->client_ctxt,
+                         (void *)args->client_ctxt->stream);
+-        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
+-        // check if this watch was of interest to any client
+-        // already
+-        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
+         if (it == gpu_watch_map.end()) {
+             // 1st time anyone is subscribing to this gpu watch
+             client_info.client_set.insert(args->client_ctxt);
+@@ -1450,9 +1388,64 @@ smi_state::process_gpu_watch_subscribe_req(
              }
          }
      }
@@ -1063,7 +1146,7 @@ index c8af80bde53..88c22ee8ad0 100644
  static void
  gpu_watch_subscribe_ipc_cb_ (sdk::ipc::ipc_msg_ptr msg, const void *ctxt)
  {
-@@ -1699,6 +1688,8 @@ watcher_thread_init_ (void *ctxt)
+@@ -1699,6 +1692,8 @@ watcher_thread_init_ (void *ctxt)
      static event::timer_t watch_timer;
  
      g_smi_state.watcher_init();
@@ -1072,7 +1155,7 @@ index c8af80bde53..88c22ee8ad0 100644
      // register for gpu watch subscribe messages
      sdk::ipc::reg_request_handler(AGA_IPC_MSG_ID_GPU_WATCH_SUBSCRIBE,
                                    gpu_watch_subscribe_ipc_cb_, NULL);
-@@ -2189,8 +2180,10 @@ smi_state::teardown (void)
+@@ -2189,8 +2184,10 @@ smi_state::teardown (void)
      if (!initialized_) {
          return SDK_RET_OK;
      }
@@ -1085,7 +1168,7 @@ index c8af80bde53..88c22ee8ad0 100644
      if (watcher_thread_) {
          watcher_thread_->stop();
          watcher_thread_->wait();
-@@ -2203,6 +2196,25 @@ smi_state::teardown (void)
+@@ -2203,6 +2200,25 @@ smi_state::teardown (void)
      return SDK_RET_OK;
  }
  
@@ -1140,7 +1223,7 @@ index 728e7ee516d..e81ef32aa5b 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
-index d45aee7c7ea..4ca8cada814 100644
+index d45aee7c7ea..a9fb691a02e 100644
 --- a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
 @@ -82,20 +82,24 @@ smi_state g_smi_state;
@@ -1172,7 +1255,24 @@ index d45aee7c7ea..4ca8cada814 100644
  
      // get correctable and uncorrectable total error count beforehand
      // ECC is slow tier, so the per block reads are skipped entirely on fast
-@@ -336,21 +340,32 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -242,7 +246,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         amdsmi_ret = amdsmi_get_gpu_metrics(gpu_handle, &metric_count,
+                                             metrics.data());
+         if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
+-            metrics.resize(metric_count);
+             auto &wi = watch_db->watch_info[gpu_id];
+             std::map<amdsmi_metric_name_t, uint64_t> mval;
+             auto set_field = [&](amdsmi_metric_name_t n, uint64_t *dst) {
+@@ -261,6 +264,8 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+                     *dst = AGA_WIDEN_UINT16_NA((uint16_t)it->second, UINT64_MAX);
+                 }
+             };
++
++            metrics.resize(metric_count);
+             for (const auto &m : metrics) {
+                 // keep GPU-level aggregates only (skip per-XCP/AID instances)
+                 if (m.res_group == AMDSMI_METRIC_RES_GROUP_GPU) {
+@@ -336,21 +341,32 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
          case AGA_GPU_WATCH_ATTR_ID_XGMI_4_THRPUT:
          case AGA_GPU_WATCH_ATTR_ID_XGMI_5_THRPUT:
              // not supported
@@ -1209,7 +1309,7 @@ index d45aee7c7ea..4ca8cada814 100644
  } watcher_walk_ctxt_t;
  
  /// walk callback: for each gpu_entry, re-resolve the live amdsmi handle
-@@ -376,14 +391,14 @@ watcher_walk_cb_ (void *obj, void *ctxt)
+@@ -376,20 +392,20 @@ watcher_walk_cb_ (void *obj, void *ctxt)
          return false;    // continue walk; skip this gpu this tick
      }
      wctx->state->smi_watcher_update_all_watch_fields_(
@@ -1223,11 +1323,18 @@ index d45aee7c7ea..4ca8cada814 100644
 -                                   bool refresh_slow) {
 -    watcher_walk_ctxt_t ctxt = { this, watch_db, refresh_slow };
 +                                   const gpu_watch_tick_plan_t *plan) {
++    std::unique_ptr<smi_session> sess;
 +    watcher_walk_ctxt_t ctxt = { this, watch_db, plan };
  
      // acquire amdsmi session if in lazy init mode; the session is held only
      // for the duration of the tick, then released so /dev/gim-smi0 can be
-@@ -443,51 +458,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
+     // reclaimed when idle. Multiple concurrent sessions (gRPC handlers +
+     // watcher) coexist on the same refcount-gated amdsmi init.
+-    std::unique_ptr<smi_session> sess;
+     if (lazy_init_) {
+         sess = std::make_unique<smi_session>();
+         if (!sess->ok()) {
+@@ -443,51 +459,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
  
      for (auto it = client_set.begin(); it!= client_set.end(); it++) {
          client_ctxt = *it;
@@ -1291,7 +1398,7 @@ index d45aee7c7ea..4ca8cada814 100644
      return SDK_RET_OK;
  }
  
-@@ -495,34 +488,25 @@ static void
+@@ -495,34 +489,25 @@ static void
  watch_timer_cb_ (event::timer_t *timer)
  {
      sdk_ret_t ret;
@@ -1335,7 +1442,7 @@ index d45aee7c7ea..4ca8cada814 100644
  
      // post task to api thread
      task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
-@@ -531,7 +515,9 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -531,7 +516,9 @@ watch_timer_cb_ (event::timer_t *timer)
          AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
                        ret());
      }
@@ -1346,7 +1453,7 @@ index d45aee7c7ea..4ca8cada814 100644
  }
  
  /// \brief process an gpu watch subscribe request from client
-@@ -540,8 +526,14 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -540,19 +527,26 @@ watch_timer_cb_ (event::timer_t *timer)
  sdk_ret_t
  smi_state::process_gpu_watch_subscribe_req(
                 aga_gpu_watch_subscribe_args_t *args) {
@@ -1359,10 +1466,26 @@ index d45aee7c7ea..4ca8cada814 100644
 +        return ret;
 +    }
      for (size_t i = 0; i < args->gpu_watch_ids.size(); i++) {
++        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
++        // check if this watch was of interest to any client
++        // already
++        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
++
          AGA_TRACE_DEBUG("Rcvd GPU watch {} subscribe request, client {}, "
                          "client ctxt {}, stream {}",
+                         args->gpu_watch_ids[i].str(),
+                         args->client_ctxt->client.c_str(),
+                         (void *)args->client_ctxt,
+                         (void *)args->client_ctxt->stream);
+-        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
+-        // check if this watch was of interest to any client
+-        // already
+-        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
+         if (it == gpu_watch_map.end()) {
+             // 1st time anyone is subscribing to this gpu watch
+             client_info.client_set.insert(args->client_ctxt);
 diff --git a/sw/nic/gpuagent/api/smi/smi_api_mock.cc b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
-index ad4a70b55d7..40ac88329f6 100644
+index ad4a70b55d7..2b07c3a9648 100644
 --- a/sw/nic/gpuagent/api/smi/smi_api_mock.cc
 +++ b/sw/nic/gpuagent/api/smi/smi_api_mock.cc
 @@ -20,8 +20,12 @@ limitations under the License.
@@ -1407,7 +1530,16 @@ index ad4a70b55d7..40ac88329f6 100644
  
  /// number of GPUs mocked; by default 16, when PLATFORM is set to be helios the
  /// number of GPUs is 4
-@@ -298,6 +316,9 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+@@ -290,14 +308,17 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+                     aga_gpu_stats_t *stats,
+                     const aga_gpu_get_filter_t *filter)
+ {
++    std::uniform_int_distribution<> distr(0, 90);
+     std::random_device rd; // obtain a random number from hardware
+     std::mt19937 gen(rd()); // seed the generator
+-    std::uniform_int_distribution<> distr(0, 90);
+ 
+     // fill the avg package power
      stats->avg_package_power = 90 + distr(gen) - distr(gen);
      // fill the current package power
      stats->package_power = 90 + distr(gen) - distr(gen);
@@ -3596,7 +3728,7 @@ index f9f7fc03c85..e79f9ad270a 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
-index b793cf035c1..8b129f84a7c 100644
+index b793cf035c1..03ea89e7b51 100644
 --- a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
 @@ -82,7 +82,8 @@ smi_state g_smi_state;
@@ -3652,7 +3784,74 @@ index b793cf035c1..8b129f84a7c 100644
  
      // get GPU metrics, which can be used to bulk fill a few fields
      amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &gpu_metrics);
-@@ -1274,24 +1295,34 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -376,6 +397,21 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         uint32_t global_idx = 0, cc = 0;
+         amdsmi_clk_info_t clk_info = {};
+         amdsmi_frequencies_t soc_freq = {};
++        uint64_t lo = UINT64_MAX, hi = UINT64_MAX;
++        struct { amdsmi_clk_type_t t; uint32_t ctype; } tail_clocks[] = {
++            { AMDSMI_CLK_TYPE_DF,   AGA_GPU_CLOCK_TYPE_FABRIC },
++            { AMDSMI_CLK_TYPE_DCEF, AGA_GPU_CLOCK_TYPE_DCE },
++            { AMDSMI_CLK_TYPE_PCIE, AGA_GPU_CLOCK_TYPE_PCIE },
++        };
++        auto clk_lo_hi = [&](amdsmi_clk_type_t t, uint64_t *lo, uint64_t *hi) {
++            clk_info = {};
++            *lo = *hi = UINT64_MAX;
++            if (amdsmi_get_clock_info(gpu_handle, t, &clk_info) ==
++                    AMDSMI_STATUS_SUCCESS) {
++                *lo = clk_info.min_clk;
++                *hi = clk_info.max_clk;
++            }
++        };
+         auto store_clock = [&](uint32_t ctype, uint64_t cur, uint64_t lo,
+                                uint64_t hi) {
+             if (((cur != UINT64_MAX) || (lo != UINT64_MAX) ||
+@@ -389,16 +425,7 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+             }
+             global_idx++;
+         };
+-        auto clk_lo_hi = [&](amdsmi_clk_type_t t, uint64_t *lo, uint64_t *hi) {
+-            clk_info = {};
+-            *lo = *hi = UINT64_MAX;
+-            if (amdsmi_get_clock_info(gpu_handle, t, &clk_info) ==
+-                    AMDSMI_STATUS_SUCCESS) {
+-                *lo = clk_info.min_clk;
+-                *hi = clk_info.max_clk;
+-            }
+-        };
+-        uint64_t lo = UINT64_MAX, hi = UINT64_MAX;
++
+         // gfx -> SYSTEM
+         clk_lo_hi(AMDSMI_CLK_TYPE_GFX, &lo, &hi);
+         for (uint32_t i = 0; i < AMDSMI_MAX_NUM_GFX_CLKS; i++) {
+@@ -439,22 +466,19 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+         // fabric (DF), DCE, PCIe clocks: single instance each, current from
+         // the freq table, added only when the current freq is applicable (the
+         // pull path advances the clock index only on add for these types)
+-        struct { amdsmi_clk_type_t t; uint32_t ctype; } tail_clocks[] = {
+-            { AMDSMI_CLK_TYPE_DF,   AGA_GPU_CLOCK_TYPE_FABRIC },
+-            { AMDSMI_CLK_TYPE_DCEF, AGA_GPU_CLOCK_TYPE_DCE },
+-            { AMDSMI_CLK_TYPE_PCIE, AGA_GPU_CLOCK_TYPE_PCIE },
+-        };
+         for (auto &tc : tail_clocks) {
++            uint64_t cur;
++            uint32_t tlo = 0, thi = 0;
+             amdsmi_frequencies_t tf = {};
++
+             if (amdsmi_get_clk_freq(gpu_handle, tc.t, &tf) !=
+                     AMDSMI_STATUS_SUCCESS) {
+                 continue;
+             }
+-            uint64_t cur = current_frequency_hz(&tf);
++            cur = current_frequency_hz(&tf);
+             if (cur == UINT32_MAX) {
+                 continue;
+             }
+-            uint32_t tlo = 0, thi = 0;
+             find_low_high_frequency(&tf, &tlo, &thi);
+             store_clock(tc.ctype, cur / 1000000, tlo, thi);
+         }
+@@ -1274,24 +1298,34 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  }
              }
              break;
@@ -3690,7 +3889,7 @@ index b793cf035c1..8b129f84a7c 100644
      }
      return SDK_RET_OK;
  }
-@@ -1334,51 +1365,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
+@@ -1334,51 +1368,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
  
      for (auto it = client_set.begin(); it!= client_set.end(); it++) {
          client_ctxt = *it;
@@ -3754,7 +3953,7 @@ index b793cf035c1..8b129f84a7c 100644
      return SDK_RET_OK;
  }
  
-@@ -1386,34 +1395,25 @@ static void
+@@ -1386,34 +1398,25 @@ static void
  watch_timer_cb_ (event::timer_t *timer)
  {
      sdk_ret_t ret;
@@ -3798,7 +3997,7 @@ index b793cf035c1..8b129f84a7c 100644
  
      // post task to api thread
      task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
-@@ -1422,7 +1422,9 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1422,7 +1425,9 @@ watch_timer_cb_ (event::timer_t *timer)
          AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
                        ret());
      }
@@ -3809,7 +4008,7 @@ index b793cf035c1..8b129f84a7c 100644
  }
  
  /// \brief process an gpu watch subscribe request from client
-@@ -1431,8 +1433,14 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1431,19 +1436,26 @@ watch_timer_cb_ (event::timer_t *timer)
  sdk_ret_t
  smi_state::process_gpu_watch_subscribe_req(
                 aga_gpu_watch_subscribe_args_t *args) {
@@ -3822,8 +4021,24 @@ index b793cf035c1..8b129f84a7c 100644
 +        return ret;
 +    }
      for (size_t i = 0; i < args->gpu_watch_ids.size(); i++) {
++        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
++        // check if this watch was of interest to any client
++        // already
++        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
++
          AGA_TRACE_DEBUG("Rcvd GPU watch {} subscribe request, client {}, "
                          "client ctxt {}, stream {}",
+                         args->gpu_watch_ids[i].str(),
+                         args->client_ctxt->client.c_str(),
+                         (void *)args->client_ctxt,
+                         (void *)args->client_ctxt->stream);
+-        auto& gpu_watch_map = gpu_watch_subscriber_db_.gpu_watch_map;
+-        // check if this watch was of interest to any client
+-        // already
+-        auto it = gpu_watch_map.find(args->gpu_watch_ids[i]);
+         if (it == gpu_watch_map.end()) {
+             // 1st time anyone is subscribing to this gpu watch
+             client_info.client_set.insert(args->client_ctxt);
 diff --git a/sw/nic/gpuagent/core/aga_core.hpp b/sw/nic/gpuagent/core/aga_core.hpp
 index c8068b244e9..9ce2cd93c8f 100644
 --- a/sw/nic/gpuagent/core/aga_core.hpp
