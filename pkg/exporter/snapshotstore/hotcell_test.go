@@ -18,6 +18,7 @@ package snapshotstore
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -327,6 +328,10 @@ func TestHotCellScrapeNotBlocked(t *testing.T) {
 	case <-scraped:
 	case <-time.After(30 * time.Second):
 		t.Fatalf("scraper blocked: %d scrapes done", scrapes.Load())
+	}
+	// On one CPU the scraper can finish before the writer is first scheduled.
+	for deadline := time.Now().Add(5 * time.Second); writes.Load() == 0 && time.Now().Before(deadline); {
+		runtime.Gosched()
 	}
 	done.Store(true)
 	wg.Wait()
