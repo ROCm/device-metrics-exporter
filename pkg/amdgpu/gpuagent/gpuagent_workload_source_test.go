@@ -26,6 +26,7 @@ import (
 	"maps"
 	"math/rand"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -893,4 +894,39 @@ func TestWorkloadSourceSurvivesReconnect(t *testing.T) {
 	wls, ok := e.gpu.pullWLSource.Load().lastGood()
 	assert.Assert(t, ok)
 	assert.Equal(t, wls["0000:01:00.0"].Info.(scheduler.PodResourceInfo).Pod, "pod7")
+}
+
+// TestStoreScrapeDuringRefresh: a /metrics collect that runs while a pull
+// refresh resets and refills the GPU gauges still serves every GPU.
+func TestStoreScrapeDuringRefresh(t *testing.T) {
+	e := newWorkloadEnv(t, pullTestConfig, fixtureByName("k8s"))
+	gpuIDs := regexp.MustCompile(`gpu_id="[^"]*"`)
+	count := func(out string) int {
+		ids := map[string]bool{}
+		for _, id := range gpuIDs.FindAllString(out, -1) {
+			ids[id] = true
+		}
+		return len(ids)
+	}
+	want := count(e.renderPull(t))
+	assert.Assert(t, want > 0, "no GPUs in the baseline scrape")
+
+	var stop atomic.Bool
+	done := make(chan error, 1)
+	go func() {
+		var err error
+		for !stop.Load() && err == nil {
+			err = e.gpu.fetchMetricsOnce(context.Background())
+		}
+		done <- err
+	}()
+	for i := 0; i < 500; i++ {
+		if got := count(e.renderStore(t)); got != want {
+			stop.Store(true)
+			<-done
+			t.Fatalf("scrape %d during refresh served %d GPUs, want %d", i, got, want)
+		}
+	}
+	stop.Store(true)
+	assert.NilError(t, <-done)
 }

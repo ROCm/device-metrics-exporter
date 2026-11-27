@@ -279,6 +279,12 @@ func (e *workloadEnv) encode(t *testing.T, mfs []*dto.MetricFamily) string {
 func (e *workloadEnv) renderPull(t *testing.T) string {
 	t.Helper()
 	assert.NilError(t, e.gpu.fetchMetricsOnce(context.Background()))
+	return e.renderStore(t)
+}
+
+// renderStore renders what /metrics serves from the store, without a fetch.
+func (e *workloadEnv) renderStore(t *testing.T) string {
+	t.Helper()
 	descs, err := e.gpu.gpuStoreFieldDescs()
 	assert.NilError(t, err)
 	reg := prometheus.NewRegistry()

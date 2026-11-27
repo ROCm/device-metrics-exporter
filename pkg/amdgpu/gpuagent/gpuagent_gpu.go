@@ -155,6 +155,9 @@ type hrGPUSnap struct {
 
 type GPUAgentGPUClient struct {
 	sync.Mutex
+	// pullMu: write-held while a pull refresh resets and refills the GPU
+	// gauges; read-held while /metrics builds descriptors from them
+	pullMu                sync.RWMutex
 	metrics               *GpuMetrics // client specific metrics
 	enableAfidMetrics     bool
 	enableProfileMetrics  bool

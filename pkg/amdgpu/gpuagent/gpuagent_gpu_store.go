@@ -281,7 +281,9 @@ func (ga *GPUAgentGPUClient) gatherGPUFamilies() ([]*dto.MetricFamily, error) {
 // label names. gpu_nodes_total is appended explicitly, gated on nodeTotalEnabled.
 func (ga *GPUAgentGPUClient) gpuStoreFieldDescs() ([]snapshotstore.FieldDesc, error) {
 	prefix := ga.gpuHandler.mh.GetPrefix()
+	ga.pullMu.RLock()
 	fams, err := ga.gatherGPUFamilies()
+	ga.pullMu.RUnlock()
 	if err != nil {
 		return nil, err
 	}
@@ -504,9 +506,13 @@ func (ga *GPUAgentClient) NeedsPerScrapePull() bool {
 func (ga *GPUAgentGPUClient) fetchMetricsOnce(ctx context.Context) error {
 	return gpuPullDeduper.FetchOnce(gpuFetchKey, func() error {
 		// reset before refill: a GaugeVec keeps old label sets, so a finished
-		// job would stay on its GPU's series
+		// job would stay on its GPU's series. Hold pullMu so a concurrent
+		// scrape never sees the gauges half refilled.
+		ga.pullMu.Lock()
 		_ = ga.ResetMetrics()
-		if err := ga.getMetricsAll(ctx); err != nil {
+		err := ga.getMetricsAll(ctx)
+		ga.pullMu.Unlock()
+		if err != nil {
 			// GPUGet failed: drop stale device telemetry so /metrics serves only
 			// gpu_nodes_total + gpu_health until the agent reconnects and the next
 			// successful fetch repopulates the full field set.
