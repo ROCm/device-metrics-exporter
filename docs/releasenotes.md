@@ -14,14 +14,9 @@
   - GPU metrics now carry `job_account` alongside the other job labels. The bundled Slurm prolog fills it from `SLURM_JOB_ACCOUNT` (or `SPUR_JOB_ACCOUNT`); it is empty when the scheduler does not pass the account to the prolog. The prolog now also writes a per-job file for CPU-only jobs. See [Slurm integration](integrations/slurm-integration.md).
 
 - **Sub-second power telemetry (preview)**
-  - New `CommonConfig.HighResolution.FastPeriodMs` sets the high-resolution fast period in milliseconds: `1`, `10` or `100` ms for the power tier (current socket power, energy, GFX/SoC/memory voltage, violation residency accumulators and the accumulation counter), or a multiple of `1000` up to `60000`. `FastPeriodSecs` is still honoured; `FastPeriodMs` takes precedence when both are set. Other fast-moving attributes still refresh at most once per second, and slow-moving ones every `SlowPeriodSecs`.
-  - Metrics keep their existing names. `/metrics` serves the latest value, updated at the achieved sampling cadence; intermediate samples between scrapes are not stored.
-  - At a sub-second period, `gpu_package_power` reports the current socket power (the same value as `gpu_power_usage`), falling back to its existing (1 s) value when current socket power is not available. At 1 s and above it prefers the average socket power, as before.
-  - Sub-second periods are opt-in and apply to Linux bare metal only; virtual machines and partitioned GPUs are not validated at sub-second periods. 10 ms is a diagnostic tier and 1 ms an EXPERIMENTAL diagnostic tier. The only validated cadence is the one measured on MI350X bare metal; there is no firmware sampling guarantee below the 500 ms AMD SMI refresh. See the [high-resolution tier table](configuration/metricslist.md#high-resolution-sampling-tiers).
-  - When a period below 100 ms is active, the exporter logs a warning and, on Kubernetes, emits a `HighResDiagnosticTier` Warning event. At `DEBUG` log level the periodic GPU watch summary reports per-GPU power frames per second and arrival-interval p50, p99, max and standard deviation.
-  - Recommended CPU and memory per mode, and how to set them with Helm or systemd, are in [High-resolution resource guidelines](configuration/configmap.md#high-resolution-resource-guidelines).
-  - If gpuagent rejects a sub-second period (for example on GIM/SR-IOV hosts), the exporter continues at 1000 ms.
-  - The exporter and gpuagent must be upgraded together: GPU watch field 4 is now in milliseconds.
+  - New `CommonConfig.HighResolution.FastPeriodMs` refreshes power metrics every `1`, `10` or `100` ms; it overrides `FastPeriodSecs`. Other metrics keep their existing refresh rate.
+  - Opt-in and supported on Linux bare metal only; 10 ms and 1 ms are for diagnostics. Where a sub-second period is not supported, the exporter uses 1 s.
+  - Upgrade the exporter and gpuagent together.
   - See [Configuration](configuration/configmap.md) and the [high-resolution tier table](configuration/metricslist.md#high-resolution-sampling-tiers).
 
 ### Issues Fixed
