@@ -86,10 +86,10 @@ Stable performance at each fast period requires at least this CPU and memory for
 
 | Fast period | CPU | Memory | Memory with profiler metrics |
 | --- | --- | --- | --- |
-| 1 s (default) | 0.5 | 256Mi | 1.5Gi |
-| 100 ms | 1 | 256Mi | 1.5Gi |
-| 10 ms | 3 | 256Mi | 1.5Gi |
-| 1 ms | 4 | 256Mi | 1.5Gi |
+| 1 s (default) | 0.5 | `256Mi` | `1.5Gi` |
+| 100 ms | 1 | `256Mi` | `1.5Gi` |
+| 10 ms | 3 | `256Mi` | `1.5Gi` |
+| 1 ms | 4 | `256Mi` | `1.5Gi` |
 
 - **Kubernetes (Helm):** set the top-level `resources` value, for example for 10 ms: `--set resources.limits.cpu=3 --set resources.limits.memory=256Mi`.
 - **Debian package:** `gpuagent.service` and `amd-metrics-exporter.service` limit CPU with `CPUQuota`. Raise it with `sudo systemctl edit <service>` (for example `[Service]` and `CPUQuota=300%` for 3 CPUs), then `sudo systemctl restart <service>`.
