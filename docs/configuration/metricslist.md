@@ -71,7 +71,7 @@ settings.
 | --- | --- | --- | --- |
 | Power: `GPU_PACKAGE_POWER`, `GPU_POWER_USAGE` | &check; | &check; | |
 | Energy: `GPU_ENERGY_CONSUMED` | &check; | &check; | |
-| Voltage: `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` | &check; | &check; | |
+| Voltage: `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` | | &check; | |
 | Violation residency: `GPU_VIOLATION_*_RESIDENCY_ACCUMULATED`, `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` | &check; | &check; | |
 | `GPU_AVERAGE_PACKAGE_POWER`, `GPU_UBB_POWER` | | &check; | |
 | Temperature: `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` | | &check; | |

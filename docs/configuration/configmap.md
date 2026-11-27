@@ -36,7 +36,7 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes. Valid range `1`–`60`. `0` selects the default (`1`).
     - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage, clocks). Must be ≥ the fast period. Valid range `5`–`3600`. `0` selects the default (`5`).
 
-    `1 s` is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU. Sub-second periods are opt-in and supported on Linux bare metal with full GPUs (SPX) only. `10` ms and `1` ms are for short diagnostic runs, and `1` ms is experimental; below 100 ms the exporter logs a warning and, on Kubernetes, emits a `HighResDiagnosticTier` event. An invalid or unsupported period falls back to 1 s.
+    Sub-second periods are opt-in. `10` ms and `1` ms are for short diagnostic runs, and `1` ms is experimental; below 100 ms the exporter logs a warning and, on Kubernetes, emits a `HighResDiagnosticTier` event. An invalid or unsupported period falls back to 1 s. Set the CPU and memory in [High-resolution resource guidelines](#high-resolution-resource-guidelines) for the period you use.
 
     While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
 
@@ -82,19 +82,17 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
 
 ## High-resolution resource guidelines
 
-Recommended CPU and memory for the exporter and gpuagent together:
+Stable performance at each fast period requires at least this CPU and memory for the exporter and gpuagent together, on a node with up to 8 GPUs:
 
-| Fast period | CPU | Memory |
-| --- | --- | --- |
-| 1 s (default) | 0.25 | 256Mi |
-| 100 ms | 0.5 | 384Mi |
-| 10 ms | 2 | 512Mi |
-| 1 ms | 3 | 512Mi |
+| Fast period | CPU | Memory | Memory with profiler metrics |
+| --- | --- | --- | --- |
+| 1 s (default) | 0.5 | 256Mi | 1.5Gi |
+| 100 ms | 1 | 256Mi | 1.5Gi |
+| 10 ms | 3 | 256Mi | 1.5Gi |
+| 1 ms | 4 | 256Mi | 1.5Gi |
 
-Increase these for nodes with more GPUs or with profiler metrics enabled.
-
-- **Kubernetes (Helm):** set the top-level `resources` value, for example `--set resources.limits.cpu=2 --set resources.limits.memory=512Mi`.
-- **Debian package:** `gpuagent.service` and `amd-metrics-exporter.service` limit CPU with `CPUQuota`. Raise it with `sudo systemctl edit <service>` (for example `[Service]` and `CPUQuota=200%` for 2 CPUs), then `sudo systemctl restart <service>`.
+- **Kubernetes (Helm):** set the top-level `resources` value, for example for 10 ms: `--set resources.limits.cpu=3 --set resources.limits.memory=256Mi`.
+- **Debian package:** `gpuagent.service` and `amd-metrics-exporter.service` limit CPU with `CPUQuota`. Raise it with `sudo systemctl edit <service>` (for example `[Service]` and `CPUQuota=300%` for 3 CPUs), then `sudo systemctl restart <service>`.
 
 ## CLI flags
 

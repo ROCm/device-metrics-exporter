@@ -15,7 +15,7 @@
 
 - **Sub-second power telemetry (preview)**
   - New `CommonConfig.HighResolution.FastPeriodMs` refreshes power metrics every `1`, `10` or `100` ms; it overrides `FastPeriodSecs`. Other metrics keep their existing refresh rate.
-  - Opt-in and supported on Linux bare metal only; 10 ms and 1 ms are for diagnostics. Where a sub-second period is not supported, the exporter uses 1 s.
+  - Supported on AMD Instinct MI3xx GPUs on Linux bare metal, with full GPUs (SPX); not supported on partitioned GPUs or virtual machines. Opt-in; 10 ms and 1 ms are for diagnostics, and 1 ms is experimental. Where a sub-second period is not supported, the exporter uses 1 s.
   - See [Configuration](configuration/configmap.md) and the [high-resolution tier table](configuration/metricslist.md#high-resolution-sampling-tiers).
 
 ### Issues Fixed
