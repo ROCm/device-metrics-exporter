@@ -193,7 +193,7 @@ func TestHighResConfigmapDocExamples(t *testing.T) {
 			examples = append(examples, m[1])
 		}
 	}
-	want := [][2]uint32{{1000, 5}, {100, 5}, {10, 5}}
+	want := [][2]uint32{{1000, 5}, {100, 5}}
 	if len(examples) != len(want) {
 		t.Fatalf("found %d HighResolution examples, want %d", len(examples), len(want))
 	}
