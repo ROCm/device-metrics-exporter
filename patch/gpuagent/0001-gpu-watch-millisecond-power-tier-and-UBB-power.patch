@@ -1,6 +1,6 @@
-From 67d8827b6678d748b75e52bfbc16667e3a000ccb Mon Sep 17 00:00:00 2001
+From f2941979e4894e3d2fa21c42fdb100e4b203a964 Mon Sep 17 00:00:00 2001
 From: praveen <praveenkumar.shanmugam@amd.com>
-Date: Wed, 25 Nov 2026 14:29:37 -0800
+Date: Thu, 26 Nov 2026 20:56:39 -0800
 Subject: [PATCH] gpu-watch: millisecond power tier and UBB power
 
 Extend the existing GPUWatch create/subscribe API (no new RPC):
@@ -30,22 +30,22 @@ Co-Authored-By: Claude <noreply@anthropic.com>
  sw/nic/gpuagent/api/gpu_watch_api.cc          |  23 +-
  sw/nic/gpuagent/api/include/aga_gpu_watch.hpp |  80 +-
  .../gpuagent/api/internal/aga_gpu_watch.hpp   |  93 +-
- sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc     |  99 ++
- sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc   | 330 ++++---
+ sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc     |  92 ++
+ sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc   | 312 +++---
  sw/nic/gpuagent/api/smi/gimamdsmi/smi_api.cc  |  19 +
  .../gpuagent/api/smi/gimamdsmi/smi_state.cc   | 120 ++-
- sw/nic/gpuagent/api/smi/smi_api_mock.cc       | 746 ++++++++++++++
+ sw/nic/gpuagent/api/smi/smi_api_mock.cc       | 746 +++++++++++++++
  sw/nic/gpuagent/api/smi/smi_state.hpp         |  40 +-
- sw/nic/gpuagent/api/smi/smi_watch.cc          | 914 +++++++++++++++++-
- sw/nic/gpuagent/api/smi/smi_watch.hpp         | 301 +++++-
+ sw/nic/gpuagent/api/smi/smi_watch.cc          | 891 +++++++++++++++++-
+ sw/nic/gpuagent/api/smi/smi_watch.hpp         | 297 +++++-
  sw/nic/gpuagent/api/smi/wslamdsmi/smi_api.cc  |  19 +
- .../gpuagent/api/smi/wslamdsmi/smi_state.cc   | 132 +--
+ .../gpuagent/api/smi/wslamdsmi/smi_state.cc   | 130 +--
  sw/nic/gpuagent/core/aga_core.hpp             |   2 +
  sw/nic/gpuagent/protos/gpu_watch.proto        |  29 +-
  sw/nic/gpuagent/svc/gpu_watch_svc.hpp         |  30 +-
  sw/nic/gpuagent/svc/gpu_watch_to_proto.hpp    |  56 ++
  sw/nic/gpuagent/svc/gpu_watch_to_spec.hpp     |  34 +-
- 20 files changed, 2714 insertions(+), 388 deletions(-)
+ 20 files changed, 2660 insertions(+), 388 deletions(-)
 
 diff --git a/sw/nic/gpuagent/api/gpu.cc b/sw/nic/gpuagent/api/gpu.cc
 index 8548a6cadbe..4ea2711ddc7 100644
@@ -469,7 +469,7 @@ index 36dca3739a0..cee71f6aeb0 100644
  
  /// \brief    GPU watch subscribe request from a gRPC client
 diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
-index 12e5971b442..807c60e92b0 100644
+index 12e5971b442..548d675b49b 100644
 --- a/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
 +++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_api.cc
 @@ -20,6 +20,7 @@ limitations under the License.
@@ -490,13 +490,11 @@ index 12e5971b442..807c60e92b0 100644
  /// counter resolution in uJ; this is a constant value that we get once during
  /// init time and use whenever we want to calculate energy accumalated
  float g_energy_counter_resolution;
-@@ -260,6 +264,36 @@ smi_gpu_init_config_ (aga_gpu_handle_t gpu_handle, aga_gpu_spec_t *spec,
+@@ -260,6 +264,33 @@ smi_gpu_init_config_ (aga_gpu_handle_t gpu_handle, aga_gpu_spec_t *spec,
      }
  }
  
-+/// \brief    decide UBB node power support once at create time; only partition
-+///           0 (or a non-partitioned GPU) is probed since UBB power is node
-+///           wide; amdsmi_get_power_info reads sysfs only (no render node)
++/// \brief    decide UBB node power support once at create time
 +/// \param[in] gpu_handle    GPU handle
 +/// \param[in] status        GPU status (partition id)
 +static void
@@ -511,9 +509,8 @@ index 12e5971b442..807c60e92b0 100644
 +        (status->partition_id != AGA_GPU_INVALID_PARTITION_ID)) {
 +        return;
 +    }
-+    // probe once; never amdsmi_get_node_handle/npm_info (render node waker,
-+    // ROCM-26020). The return code is not gated on: it carries the
-+    // gpu_metrics status (can be BUSY) while ubb_power is still filled
++    // never amdsmi_get_node_handle/npm_info, it wakes runtime-suspended GPUs;
++    // ignore the return code, it can be BUSY while ubb_power is still filled
 +    power_info.ubb_power = UINT32_MAX;
 +    amdsmi_ret = amdsmi_get_power_info(gpu_handle, &power_info);
 +    if ((power_info.ubb_power != UINT32_MAX) && (power_info.ubb_power != 0)) {
@@ -527,7 +524,7 @@ index 12e5971b442..807c60e92b0 100644
  /// \brief     function to get name for amdsmi firmware block enum
  /// \param[in] block    amdsmi firmware block enum
  /// \return    firmware block name
-@@ -1347,6 +1381,7 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+@@ -1347,6 +1378,7 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
                      const aga_gpu_get_filter_t *filter)
  {
      amdsmi_status_t amdsmi_ret;
@@ -535,12 +532,11 @@ index 12e5971b442..807c60e92b0 100644
      uint64_t sent, received, max_pkt_size;
      amdsmi_gpu_metrics_t metrics_info = {};
      amdsmi_gpu_metrics_t cached_metrics = {};
-@@ -1587,6 +1622,14 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
+@@ -1587,6 +1619,13 @@ smi_gpu_fill_stats (aga_gpu_handle_t gpu_handle,
                  AGA_WIDEN_UINT16_NA(cached_metrics.average_umc_activity, UINT32_MAX);
          }
      }
-+    // UBB node power: only on partition 0 handles probed at create time;
-+    // never amdsmi_get_node_handle/npm_info (render node waker, ROCM-26020)
++    // UBB node power, partition 0 handles probed at create only
 +    if (g_ubb_power_gpus.count(gpu_handle)) {
 +        power_info.ubb_power = UINT32_MAX;
 +        amdsmi_get_power_info(gpu_handle, &power_info);
@@ -550,7 +546,7 @@ index 12e5971b442..807c60e92b0 100644
      return SDK_RET_OK;
  }
  
-@@ -2390,6 +2433,8 @@ smi_gpu_init_attrs (aga_gpu_handle_t gpu_handle, const aga_obj_key_t *gpu_key,
+@@ -2390,6 +2429,8 @@ smi_gpu_init_attrs (aga_gpu_handle_t gpu_handle, const aga_obj_key_t *gpu_key,
      smi_gpu_fill_spec(gpu_handle, gpu_key, spec);
      // read the config attributes
      smi_gpu_init_config_(gpu_handle, spec, status);
@@ -559,20 +555,17 @@ index 12e5971b442..807c60e92b0 100644
      return SDK_RET_OK;
  }
  
-@@ -2501,4 +2546,58 @@ smi_gpu_get_cper_entries (aga_gpu_handle_t gpu_handle,
+@@ -2501,4 +2542,55 @@ smi_gpu_get_cper_entries (aga_gpu_handle_t gpu_handle,
      return SDK_RET_OK;
  }
  
-+/// default of amdsmi's gpu metrics cache, verified in the shipped
-+/// libamd_smi.so 27.1.0+4c2f7505: AMDSMI_GPU_METRICS_CACHE_MS is read with
-+/// getenv() once, at library static init, with a 1 ms default
++/// amdsmi gpu metrics cache default; the library reads
++/// AMDSMI_GPU_METRICS_CACHE_MS once at load
 +#define AGA_AMDSMI_GPU_METRICS_CACHE_DFLT_MS    1
 +
 +/// \brief    effective amdsmi gpu metrics cache duration, in ms
 +/// NOTE:
-+/// mirrors amdsmi's own parsing (max(0, stoi(env)), the default if no number
-+/// parses); the library read the same process environment at load, so an
-+/// operator override is honoured
++/// mirrors amdsmi's own parsing (max(0, stoi(env)), default if unparsable)
 +static uint32_t
 +smi_gpu_metrics_cache_ms_ (void)
 +{
@@ -619,7 +612,7 @@ index 12e5971b442..807c60e92b0 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
-index c8af80bde53..cbe87bc02cd 100644
+index c8af80bde53..88c22ee8ad0 100644
 --- a/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/amdsmi/smi_state.cc
 @@ -22,6 +22,7 @@ limitations under the License.
@@ -664,7 +657,7 @@ index c8af80bde53..cbe87bc02cd 100644
      bool violation_get_succeeded = false;
      amdsmi_pcie_info_t pcie_info = { 0 };
      uint64_t total_correctable_count = 0;
-@@ -108,12 +111,21 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -108,12 +111,17 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
      amdsmi_counter_value_t counter_value = { 0 };
      amdsmi_violation_status_t violation_status = {};
  
@@ -673,16 +666,12 @@ index c8af80bde53..cbe87bc02cd 100644
 -    // reads, then reset fast tier fields to NA so a failed read this tick is
 -    // reported not-applicable rather than as a stale carried-forward value
 -    watch_db->watch_info[gpu_id] = slow_cache_[gpu_id];
-+    // seed every field from this GPU's watch record so the tiers not due this
-+    // tick (SLOW counters, clocks, memory) carry forward, then reset the
-+    // FAST tier, and the POWER tier when this sweep owns it,
-+    // to NA so a failed read this tick is reported not-applicable rather than
-+    // as a stale carried-forward value
++    // seed from the watch record so tiers not due carry forward, then reset
++    // the tiers read here to NA so a failed read is not reported stale
 +    watch_db->watch_info[gpu_id] = watch_rec_[gpu_id];
      aga_gpu_watch_reset_fast_fields(&watch_db->watch_info[gpu_id]);
-+    // while the smi-power thread owns the POWER tier, take this GPU's latest
-+    // POWER values from its seqlock record; a GPU it does not sample is
-+    // read by this sweep as before
++    // take POWER from the smi-power seqlock record if that thread samples
++    // this GPU, else read it here
 +    power_by_watcher = plan->power_by_watcher ||
 +        !smi_watch_power_snapshot(gpu_id, &watch_db->watch_info[gpu_id]);
 +    if (power_by_watcher) {
@@ -691,12 +680,11 @@ index c8af80bde53..cbe87bc02cd 100644
  
      // get GPU metrics, which can be used to bulk fill a few fields
      amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &gpu_metrics);
-@@ -121,6 +133,12 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -121,6 +129,11 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
          // mark bulk get as succeeded
          bulk_get_succeeded = true;
      }
-+    // the POWER tier (incl. violation accumulators 90-95) fills from this one
-+    // bulk read through the shared power tier conversion
++    // the POWER tier, incl. the violation accumulators, fills from this read
 +    if (power_by_watcher && bulk_get_succeeded) {
 +        smi_watch_fill_power_fields(&gpu_metrics,
 +                                    &watch_db->watch_info[gpu_id]);
@@ -704,31 +692,28 @@ index c8af80bde53..cbe87bc02cd 100644
  
      // get correctable and uncorrectable total error count beforehand
      // ECC is slow tier, so the per block reads are skipped entirely on fast
-@@ -295,8 +313,9 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -295,8 +308,7 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
          }
      }
  
 -    // violations are slow tier; fetch the status once per slow refresh so all
 -    // violation attrs below fill from a single call rather than one call each
-+    // violation percentages and per-XCC counters are slow tier; fetch the
-+    // status once per slow refresh so they fill from a single call rather
-+    // than one call each (the 90-95 accumulators come from the bulk read)
++    // violation percentages and per-XCC counters: one call per slow refresh
      if (refresh_slow) {
          amdsmi_ret = amdsmi_get_violation_status(gpu_handle, &violation_status);
          if (amdsmi_ret == AMDSMI_STATUS_SUCCESS) {
-@@ -457,6 +476,11 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -457,6 +469,10 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
              (g_watch_field_list[i].tier == GPU_WATCH_TIER_SLOW)) {
              continue;
          }
-+        // the power tier was filled from the bulk read above (or is owned by
-+        // another reader)
++        // the power tier was filled above or by the smi-power thread
 +        if (g_watch_field_list[i].tier == GPU_WATCH_TIER_POWER) {
 +            continue;
 +        }
          switch (g_watch_field_list[i].id) {
          case AGA_GPU_WATCH_ATTR_ID_GPU_CLOCK:
              if (bulk_get_succeeded) {
-@@ -623,40 +647,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -623,40 +639,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                                          UINT64_MAX);
              }
              break;
@@ -769,7 +754,7 @@ index c8af80bde53..cbe87bc02cd 100644
          case AGA_GPU_WATCH_ATTR_ID_PCIE_REPLAY_COUNT:
              if (bulk_get_succeeded) {
                  watch_db->watch_info[gpu_id].pcie_replay_count =
-@@ -687,13 +677,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -687,13 +669,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                      gpu_metrics.pcie_nak_rcvd_count_acc;
              }
              break;
@@ -783,7 +768,7 @@ index c8af80bde53..cbe87bc02cd 100644
          case AGA_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH:
              if (bulk_get_succeeded) {
                  watch_db->watch_info[gpu_id].vram_max_bandwidth =
-@@ -842,42 +825,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -842,42 +817,6 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  watch_db->watch_info[gpu_id].jpeg_busy_inst_count = n;
              }
              break;
@@ -826,17 +811,13 @@ index c8af80bde53..cbe87bc02cd 100644
          case AGA_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT:
              if (violation_get_succeeded) {
                  watch_db->watch_info[gpu_id].viol_proc_hot_residency_pct =
-@@ -1262,24 +1209,43 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -1262,24 +1201,39 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  }
              }
              break;
 +        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
-+            // node wide; read only on partition 0 handles probed at create;
-+            // never amdsmi_get_node_handle/npm_info (render node waker,
-+            // ROCM-26020). 1 s supported cadence floor: FAST tier, so read at
-+            // most once per FAST tick (never on power ticks); the last value
-+            // is carried forward in watch_rec_ and set to NA only when the
-+            // read is attempted and fails
++            // node wide, partition 0 handles probed at create only; never
++            // amdsmi_get_node_handle/npm_info, it wakes runtime-suspended GPUs
 +            if (g_ubb_power_gpus.count(gpu_handle)) {
 +                power_info.ubb_power = UINT32_MAX;
 +                amdsmi_ret = amdsmi_get_power_info(gpu_handle, &power_info);
@@ -875,7 +856,7 @@ index c8af80bde53..cbe87bc02cd 100644
      }
      return SDK_RET_OK;
  }
-@@ -1319,54 +1285,36 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
+@@ -1319,54 +1273,36 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
          }
          client_set.insert(subscriber.client_ctxt);
      }
@@ -937,8 +918,8 @@ index c8af80bde53..cbe87bc02cd 100644
 +    // subscribers whose gRPC thread failed to write are removed first
 +    smi_watch_sub_reap(&gpu_watch_subscriber_db_, &failed_subscribers);
 +    cleanup_gpu_watch_inactive_subscribers_(failed_subscribers);
-+    // the full frames are only enqueued here; each subscriber's own gRPC
-+    // thread writes them
++    // full frames are only enqueued here, each subscriber's gRPC thread
++    // writes them
 +    if (fast_due) {
 +        smi_watch_notify_full(&gpu_watch_subscriber_db_, skip_power);
      }
@@ -946,7 +927,7 @@ index c8af80bde53..cbe87bc02cd 100644
      return SDK_RET_OK;
  }
  
-@@ -1374,34 +1322,28 @@ static void
+@@ -1374,34 +1310,24 @@ static void
  watch_timer_cb_ (event::timer_t *timer)
  {
      sdk_ret_t ret;
@@ -968,9 +949,7 @@ index c8af80bde53..cbe87bc02cd 100644
 -    fast_ticks += uint16_t(AGA_WATCHER_INTERVAL);
 -    slow_ticks += uint16_t(AGA_WATCHER_INTERVAL);
 -    if (fast_ticks < smi_watch_fast_period()) {
-+    // the timer fires every AGA_WATCHER_INTERVAL seconds; the tick plan says
-+    // which tiers are due: FAST once per max(fast period, 1 s), SLOW once per
-+    // slow period
++    // FAST is due once per max(fast period, 1 s), SLOW once per slow period
 +    smi_watch_tick_plan(&plan);
 +    if (!plan.fast_due) {
 +        // failed subscribers are still removed every tick
@@ -987,15 +966,13 @@ index c8af80bde53..cbe87bc02cd 100644
 -    }
 -    // get latest values of all watch fields
 -    g_smi_state.watcher_update_watch_db(&task_spec.watch_db, refresh_slow);
-+    // get latest values of all watch fields into the preallocated task spec
-+    // (the task embeds the whole watch db, ~1.1 MB, so it is not rebuilt on
-+    // the stack every tick; aga_task_create() copies it); only this thread
-+    // touches it
++    // static: the task spec embeds the whole watch db (~1.1 MB);
++    // aga_task_create() copies it
 +    g_smi_state.watcher_update_watch_db(&task_spec.watch_db, &plan);
  
      // post task to api thread
      task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
-@@ -1410,7 +1352,9 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1410,7 +1336,9 @@ watch_timer_cb_ (event::timer_t *timer)
          AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
                        ret());
      }
@@ -1006,7 +983,7 @@ index c8af80bde53..cbe87bc02cd 100644
  }
  
  /// \brief process an gpu watch subscribe request from client
-@@ -1419,8 +1363,14 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1419,8 +1347,14 @@ watch_timer_cb_ (event::timer_t *timer)
  sdk_ret_t
  smi_state::process_gpu_watch_subscribe_req(
                 aga_gpu_watch_subscribe_args_t *args) {
@@ -1021,7 +998,7 @@ index c8af80bde53..cbe87bc02cd 100644
      for (size_t i = 0; i < args->gpu_watch_ids.size(); i++) {
          AGA_TRACE_DEBUG("Rcvd GPU watch {} subscribe request, client {}, "
                          "client ctxt {}, stream {}",
-@@ -1450,9 +1400,64 @@ smi_state::process_gpu_watch_subscribe_req(
+@@ -1450,9 +1384,64 @@ smi_state::process_gpu_watch_subscribe_req(
              }
          }
      }
@@ -1086,30 +1063,29 @@ index c8af80bde53..cbe87bc02cd 100644
  static void
  gpu_watch_subscribe_ipc_cb_ (sdk::ipc::ipc_msg_ptr msg, const void *ctxt)
  {
-@@ -1699,6 +1704,9 @@ watcher_thread_init_ (void *ctxt)
+@@ -1699,6 +1688,8 @@ watcher_thread_init_ (void *ctxt)
      static event::timer_t watch_timer;
  
      g_smi_state.watcher_init();
-+    // power tier sampler, parked until a sub-second period is subscribed;
-+    // a failure is logged and the POWER tier stays with this thread
++    // on failure the POWER tier stays with this thread
 +    smi_watch_power_thread_start(g_smi_state.num_gpu());
      // register for gpu watch subscribe messages
      sdk::ipc::reg_request_handler(AGA_IPC_MSG_ID_GPU_WATCH_SUBSCRIBE,
                                    gpu_watch_subscribe_ipc_cb_, NULL);
-@@ -2189,8 +2197,10 @@ smi_state::teardown (void)
+@@ -2189,8 +2180,10 @@ smi_state::teardown (void)
      if (!initialized_) {
          return SDK_RET_OK;
      }
 -    // stop the watcher thread before shutting down the SMI library to
 -    // avoid racing with the watcher timer callback which calls SMI APIs
 +    // stop the watcher threads before shutting down the SMI library to
-+    // avoid racing with their SMI calls; the smi-power thread goes first,
-+    // before the smi-watcher that publishes its power view
++    // avoid racing with their SMI calls; smi-power first, the smi-watcher
++    // publishes its power view
 +    smi_watch_power_thread_stop();
      if (watcher_thread_) {
          watcher_thread_->stop();
          watcher_thread_->wait();
-@@ -2203,6 +2213,26 @@ smi_state::teardown (void)
+@@ -2203,6 +2196,25 @@ smi_state::teardown (void)
      return SDK_RET_OK;
  }
  
@@ -1122,8 +1098,7 @@ index c8af80bde53..cbe87bc02cd 100644
 +    if (gpu_idx >= g_smi_state.num_gpu()) {
 +        return SDK_RET_INVALID_ARG;
 +    }
-+    // one bulk read and nothing else: no other SMI, sysfs or PMFW call and
-+    // no fallback, so the power tick stays short
++    // one bulk read only, no fallback, so the power tick stays short
 +    amdsmi_ret = amdsmi_get_gpu_metrics_info(g_smi_state.gpu_handle(gpu_idx),
 +                                             &gpu_metrics);
 +    if (amdsmi_ret != AMDSMI_STATUS_SUCCESS) {
@@ -1165,7 +1140,7 @@ index 728e7ee516d..e81ef32aa5b 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
-index d45aee7c7ea..ce8b99b5117 100644
+index d45aee7c7ea..4ca8cada814 100644
 --- a/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/gimamdsmi/smi_state.cc
 @@ -82,20 +82,24 @@ smi_state g_smi_state;
@@ -1203,7 +1178,7 @@ index d45aee7c7ea..ce8b99b5117 100644
              // not supported
 +            break;
 +        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
-+            // not supported (SR-IOV UBB deferred)
++            // not supported
 +            watch_db->watch_info[gpu_id].ubb_power = UINT64_MAX;
 +            break;
 +        case AGA_GPU_WATCH_ATTR_ID_FIRMWARE_TIMESTAMP:
@@ -2282,10 +2257,10 @@ index 2a8293dff2d..6ce9cb472a3 100644
  
  /// global singleton smi state class instance
 diff --git a/sw/nic/gpuagent/api/smi/smi_watch.cc b/sw/nic/gpuagent/api/smi/smi_watch.cc
-index 1dc8bdf1182..24d62307004 100644
+index 1dc8bdf1182..1f079e07006 100644
 --- a/sw/nic/gpuagent/api/smi/smi_watch.cc
 +++ b/sw/nic/gpuagent/api/smi/smi_watch.cc
-@@ -21,21 +21,65 @@ limitations under the License.
+@@ -21,21 +21,62 @@ limitations under the License.
  ///
  //----------------------------------------------------------------------------
  
@@ -2350,14 +2325,11 @@ index 1dc8bdf1182..24d62307004 100644
 +}
 +
 +/// \brief    fast period default in ms, overridable by the environment
-+/// NOTE:
-+/// retained for deployments that tune the watcher without an RPC; the
-+/// variable is in whole seconds. an explicit non-zero period in the GPU watch
-+/// spec always wins
++/// (whole seconds); a non-zero period in the watch spec always wins
  static uint32_t
  smi_watch_fast_period_dflt_ (void)
  {
-@@ -43,27 +87,29 @@ smi_watch_fast_period_dflt_ (void)
+@@ -43,27 +84,29 @@ smi_watch_fast_period_dflt_ (void)
  
      if (env != nullptr) {
          int val = atoi(env);
@@ -2396,7 +2368,7 @@ index 1dc8bdf1182..24d62307004 100644
  }
  
  uint32_t
-@@ -72,7 +118,45 @@ smi_watch_slow_period (void)
+@@ -72,7 +115,42 @@ smi_watch_slow_period (void)
      return g_slow_period_secs;
  }
  
@@ -2409,14 +2381,11 @@ index 1dc8bdf1182..24d62307004 100644
 +    static uint32_t fast_elapsed_ms = 0;
 +    static uint32_t slow_elapsed_ms = 0;
 +
-+    // the POWER tier stays with the smi-watcher sweep unless the smi-power
-+    // thread has taken it over (sub-second fast period and a subscribed
-+    // watch with a POWER tier attr)
++    // the POWER tier stays with the smi-watcher unless smi-power is active
 +    plan->fast_due = false;
 +    plan->slow_due = false;
 +    plan->power_by_watcher = !g_power_active.load(std::memory_order_acquire);
-+    // the smi-watcher timer fires every AGA_GPU_WATCH_FAST_TIER_MIN_MS; the
-+    // FAST tier is never sampled faster than that floor
++    // the timer fires every AGA_GPU_WATCH_FAST_TIER_MIN_MS, the FAST floor
 +    fast_ms = smi_watch_fast_period_ms();
 +    if (fast_ms < AGA_GPU_WATCH_FAST_TIER_MIN_MS) {
 +        fast_ms = AGA_GPU_WATCH_FAST_TIER_MIN_MS;
@@ -2443,7 +2412,7 @@ index 1dc8bdf1182..24d62307004 100644
  static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
      AGA_GPU_WATCH_ATTR_ID_GPU_CLOCK,
      AGA_GPU_WATCH_ATTR_ID_MEM_CLOCK,
-@@ -83,10 +167,6 @@ static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
+@@ -83,10 +161,6 @@ static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
      AGA_GPU_WATCH_ATTR_ID_UMC_ACTIVITY,
      AGA_GPU_WATCH_ATTR_ID_MM_ACTIVITY,
      AGA_GPU_WATCH_ATTR_ID_AVG_POWER,
@@ -2454,22 +2423,18 @@ index 1dc8bdf1182..24d62307004 100644
      // array-valued attrs, all served by the same bulk gpu metrics read
      AGA_GPU_WATCH_ATTR_ID_HBM_TEMP,
      AGA_GPU_WATCH_ATTR_ID_VCN_ACTIVITY,
-@@ -102,9 +182,31 @@ static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
+@@ -102,9 +176,27 @@ static const aga_gpu_watch_attr_id_t k_fast_attrs[] = {
      AGA_GPU_WATCH_ATTR_ID_PCIE_REPLAY_ROLLOVER_COUNT,
      AGA_GPU_WATCH_ATTR_ID_PCIE_NACK_SENT_COUNT,
      AGA_GPU_WATCH_ATTR_ID_PCIE_NACK_RECEIVED_COUNT,
 -    AGA_GPU_WATCH_ATTR_ID_GPU_POWER_USAGE,
      AGA_GPU_WATCH_ATTR_ID_VRAM_MAX_BANDWIDTH,
      AGA_GPU_WATCH_ATTR_ID_EDGE_TEMP,
-+    // UBB node power: own amdsmi_get_power_info call, partition 0 only; 1 s
-+    // supported cadence floor, so it stays in the FAST tier and its last
-+    // value is carried forward between FAST ticks
++    // UBB node power: own amdsmi_get_power_info call, 1 s floor
 +    AGA_GPU_WATCH_ATTR_ID_UBB_POWER,
 +};
 +
-+/// gpu metrics power family: all from one amdsmi_get_gpu_metrics_info read
-+/// (smi_watch_fill_power_fields); 1 ms supported floor, sampled with the FAST
-+/// tier while the smi-watcher sweep owns it
++/// gpu metrics power family, all from one gpu metrics read; 1 ms floor
 +static const aga_gpu_watch_attr_id_t k_power_attrs[] = {
 +    AGA_GPU_WATCH_ATTR_ID_GFX_VOLTAGE,
 +    AGA_GPU_WATCH_ATTR_ID_SOC_VOLTAGE,
@@ -2487,7 +2452,7 @@ index 1dc8bdf1182..24d62307004 100644
  };
  
  /// attrs that each cost their own smi call and so are sampled less often
-@@ -190,14 +292,8 @@ static const aga_gpu_watch_attr_id_t k_slow_attrs[] = {
+@@ -190,14 +282,8 @@ static const aga_gpu_watch_attr_id_t k_slow_attrs[] = {
      AGA_GPU_WATCH_ATTR_ID_XGMI_3_THRPUT,
      AGA_GPU_WATCH_ATTR_ID_XGMI_4_THRPUT,
      AGA_GPU_WATCH_ATTR_ID_XGMI_5_THRPUT,
@@ -2504,7 +2469,7 @@ index 1dc8bdf1182..24d62307004 100644
      AGA_GPU_WATCH_ATTR_ID_VIOLATION_PROC_HOT_RESIDENCY_PCT,
      AGA_GPU_WATCH_ATTR_ID_VIOLATION_PPT_RESIDENCY_PCT,
      AGA_GPU_WATCH_ATTR_ID_VIOLATION_SOCKET_THERMAL_RESIDENCY_PCT,
-@@ -238,9 +334,769 @@ smi_watch_field_list_init (void)
+@@ -238,9 +324,756 @@ smi_watch_field_list_init (void)
      for (auto attr_id : k_fast_attrs) {
          g_watch_field_list.push_back({attr_id, GPU_WATCH_TIER_FAST});
      }
@@ -2692,11 +2657,9 @@ index 1dc8bdf1182..24d62307004 100644
 +/// \brief    smi-power thread body
 +/// NOTE:
 +/// active only while the fast period is sub-second and the power view has a
-+/// watch, parked otherwise. while active: one pass per tick on absolute
-+/// deadlines, reading the needed GPUs one at a time (one SMI call in flight)
-+/// and publishing each GPU's frame right after its read; overrun deadlines
-+/// are counted and skipped, never caught up in a burst. no allocation, task,
-+/// proto or Write per tick
++/// watch, parked otherwise. one pass per tick on absolute deadlines, one SMI
++/// call in flight; overrun ticks are counted and skipped, never caught up.
++/// no allocation per tick
 +static void *
 +smi_watch_power_thread_run_ (void *ctxt)
 +{
@@ -2751,10 +2714,7 @@ index 1dc8bdf1182..24d62307004 100644
 +            smi_watch_power_read(gpu, &fields);
 +            smi_watch_power_rec_write_(gpu, &fields);
 +            g_power_owned[gpu].store(true, std::memory_order_release);
-+            // publish this GPU now instead of after the pass, so its values
-+            // are one read old: a partial frame with only this GPU to every
-+            // subscriber of each watch on it; a slow subscriber only loses
-+            // its own frames
++            // publish this GPU right after its read, not after the pass
 +            for (const auto& watch : view->watches) {
 +                for (pos = 0; pos < watch.num_gpu; pos++) {
 +                    if (watch.gpu_idx[pos] == gpu) {
@@ -3136,9 +3096,7 @@ index 1dc8bdf1182..24d62307004 100644
 +            AGA_TRACE_ERR("GPU watch {} frame allocation failure", key.str());
 +            continue;
 +        }
-+        // a frame without the watch spec would look like a partial frame to
-+        // the consumer, so a failed (transient: the watch can't be deleted
-+        // while subscribed) read sends nothing this period
++        // a frame without the spec would look partial, so send nothing
 +        if (aga_gpu_watch_read(&key, info.get()) != SDK_RET_OK) {
 +            continue;
 +        }
@@ -3165,10 +3123,8 @@ index 1dc8bdf1182..24d62307004 100644
 +    unordered_map<aga_gpu_watch_client_ctxt_t *, bool> failed_of;
 +
 +    now_ns = smi_watch_mono_ns_();
-+    // the gRPC thread sets write_failed at any time, so it is read once per
-+    // subscriber per pass: a stream on several watches is then listed with
-+    // all of its (watch, ctxt) pairs or none, and the caller can erase every
-+    // membership before it releases the context
++    // read write_failed once per subscriber, so a stream on several watches
++    // is listed with all of its (watch, ctxt) pairs or none
 +    for (auto& it : db->gpu_watch_map) {
 +        for (auto client_ctxt : it.second.client_set) {
 +            auto res = failed_of.emplace(client_ctxt, false);
@@ -3243,11 +3199,7 @@ index 1dc8bdf1182..24d62307004 100644
 +            full.swap(q->full);
 +        }
 +        // full frames first: at sub-second periods they carry no POWER tier
-+        // attrs, so they can never overwrite a newer power value. only on a
-+        // period switch from sub-second to >= 1 s can power frames queued
-+        // before the switch follow the first full frame with POWER values
-+        // (one wake-up, at most AGA_GPU_WATCH_SUB_QUEUE_DEPTH passes of older
-+        // frames)
++        // attrs, so they never overwrite a newer power value
 +        for (const auto& info : full) {
 +            dropped = q->dropped.load(std::memory_order_relaxed);
 +            ret = ctxt->write_cb(info.get(), dropped, ctxt);
@@ -3275,10 +3227,10 @@ index 1dc8bdf1182..24d62307004 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/smi_watch.hpp b/sw/nic/gpuagent/api/smi/smi_watch.hpp
-index 8e0d58f6a84..dbe3366f32e 100644
+index 8e0d58f6a84..6e1cca3ffe1 100644
 --- a/sw/nic/gpuagent/api/smi/smi_watch.hpp
 +++ b/sw/nic/gpuagent/api/smi/smi_watch.hpp
-@@ -25,16 +25,64 @@ limitations under the License.
+@@ -25,16 +25,63 @@ limitations under the License.
  #define __AGA_SMI_WATCH_HPP__
  
  #include <set>
@@ -3319,9 +3271,8 @@ index 8e0d58f6a84..dbe3366f32e 100644
 +    std::atomic<uint32_t> head;
 +    /// next slot to drain, written by the gRPC thread only
 +    std::atomic<uint32_t> tail;
-+    /// power ticks with a dropped power frame (counted once per tick, however
-+    /// many of its one-GPU frames were dropped) and replaced full frames,
-+    /// for this subscriber so far
++    /// power ticks with a dropped frame (once per tick) plus replaced full
++    /// frames, for this subscriber so far
 +    std::atomic<uint64_t> dropped;
 +    /// seq of the last power tick counted in dropped, smi-power only
 +    uint64_t drop_seq;
@@ -3343,7 +3294,7 @@ index 8e0d58f6a84..dbe3366f32e 100644
  /// \defgroup AGA_SMI_WATCH global state for rdc interactions
  /// \ingroup AGA
  /// @{
-@@ -67,12 +115,57 @@ typedef struct gpu_watch_subscriber_info_s {
+@@ -67,12 +114,57 @@ typedef struct gpu_watch_subscriber_info_s {
  
  /// \brief    sampling tier of a watch attribute
  typedef enum gpu_watch_tier_e {
@@ -3404,7 +3355,7 @@ index 8e0d58f6a84..dbe3366f32e 100644
  /// \brief    a watchable GPU attr and the tier it is sampled at
  /// NOTE:
  /// the tier is carried per entry because it does not follow attr id order,
-@@ -90,17 +183,209 @@ extern vector<gpu_watch_field_t> g_watch_field_list;
+@@ -90,17 +182,206 @@ extern vector<gpu_watch_field_t> g_watch_field_list;
  /// \brief    populate the watchable GPU attr list, called once at watcher init
  void smi_watch_field_list_init(void);
  
@@ -3430,13 +3381,10 @@ index 8e0d58f6a84..dbe3366f32e 100644
 +///           those tiers, GPU_WATCH_TIER_FAST otherwise
 +gpu_watch_tier_t smi_watch_attr_tier(aga_gpu_watch_attr_id_t id);
 +
-+/// \brief    plan one smi-watcher timer tick
++/// \brief    plan one smi-watcher timer tick (smi-watcher thread only)
 +/// NOTE:
-+/// called once per smi-watcher timer tick (every
-+/// AGA_GPU_WATCH_FAST_TIER_MIN_MS), only from the smi-watcher thread and only
-+/// while a watch has subscribers. the FAST tier is due once every
-+/// max(fast period, AGA_GPU_WATCH_FAST_TIER_MIN_MS) ms, the SLOW tier on the
-+/// first fast due tick and then once every slow period
++/// FAST is due once every max(fast period, AGA_GPU_WATCH_FAST_TIER_MIN_MS)
++/// ms, SLOW on the first fast due tick and then once every slow period
 +/// \param[out] plan    tiers due this tick
 +void smi_watch_tick_plan(gpu_watch_tick_plan_t *plan);
 +
@@ -3648,7 +3596,7 @@ index f9f7fc03c85..e79f9ad270a 100644
 +
  }    // namespace aga
 diff --git a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
-index b793cf035c1..b0925527ae5 100644
+index b793cf035c1..8b129f84a7c 100644
 --- a/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
 +++ b/sw/nic/gpuagent/api/smi/wslamdsmi/smi_state.cc
 @@ -82,7 +82,8 @@ smi_state g_smi_state;
@@ -3669,7 +3617,7 @@ index b793cf035c1..b0925527ae5 100644
      bool violation_get_succeeded = false;
      amdsmi_pcie_info_t pcie_info = { 0 };
      uint64_t total_correctable_count = 0;
-@@ -110,11 +112,32 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -110,11 +112,30 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
      amdsmi_violation_status_t violation_status = {};
  
      // seed slow tier fields (ECC/XGMI/violation counters, clocks, memory) from
@@ -3685,10 +3633,8 @@ index b793cf035c1..b0925527ae5 100644
 +    watch_db->watch_info[gpu_id] = watch_rec_[gpu_id];
      aga_gpu_watch_reset_fast_fields(&watch_db->watch_info[gpu_id]);
 +    aga_gpu_watch_reset_power_fields(&watch_db->watch_info[gpu_id]);
-+    // the power tier violation accumulators come from the slow tier
-+    // amdsmi_get_violation_status call on this backend; carry them forward
-+    // from the last slow snapshot between slow refreshes (a failed slow read
-+    // reports NA until the next slow refresh)
++    // the violation accumulators come from the slow violation status read
++    // here, so carry them forward between slow refreshes
 +    if (!refresh_slow) {
 +        watch_db->watch_info[gpu_id].viol_current_acc_counter =
 +            watch_rec_[gpu_id].viol_current_acc_counter;
@@ -3706,12 +3652,12 @@ index b793cf035c1..b0925527ae5 100644
  
      // get GPU metrics, which can be used to bulk fill a few fields
      amdsmi_ret = amdsmi_get_gpu_metrics_info(gpu_handle, &gpu_metrics);
-@@ -1274,24 +1297,34 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
+@@ -1274,24 +1295,34 @@ smi_state::smi_watcher_update_all_watch_fields_(uint32_t gpu_id,
                  }
              }
              break;
 +        case AGA_GPU_WATCH_ATTR_ID_UBB_POWER:
-+            // not supported (WSL UBB deferred)
++            // not supported
 +            watch_db->watch_info[gpu_id].ubb_power = UINT64_MAX;
 +            break;
 +        case AGA_GPU_WATCH_ATTR_ID_FIRMWARE_TIMESTAMP:
@@ -3744,7 +3690,7 @@ index b793cf035c1..b0925527ae5 100644
      }
      return SDK_RET_OK;
  }
-@@ -1334,51 +1367,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
+@@ -1334,51 +1365,29 @@ smi_state::cleanup_gpu_watch_inactive_subscribers_(
  
      for (auto it = client_set.begin(); it!= client_set.end(); it++) {
          client_ctxt = *it;
@@ -3808,7 +3754,7 @@ index b793cf035c1..b0925527ae5 100644
      return SDK_RET_OK;
  }
  
-@@ -1386,34 +1397,25 @@ static void
+@@ -1386,34 +1395,25 @@ static void
  watch_timer_cb_ (event::timer_t *timer)
  {
      sdk_ret_t ret;
@@ -3852,7 +3798,7 @@ index b793cf035c1..b0925527ae5 100644
  
      // post task to api thread
      task_spec.task = AGA_TASK_GPU_WATCH_DB_UPDATE;
-@@ -1422,7 +1424,9 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1422,7 +1422,9 @@ watch_timer_cb_ (event::timer_t *timer)
          AGA_TRACE_ERR("Failed to create GPU watch db update task, err {}",
                        ret());
      }
@@ -3863,7 +3809,7 @@ index b793cf035c1..b0925527ae5 100644
  }
  
  /// \brief process an gpu watch subscribe request from client
-@@ -1431,8 +1435,14 @@ watch_timer_cb_ (event::timer_t *timer)
+@@ -1431,8 +1433,14 @@ watch_timer_cb_ (event::timer_t *timer)
  sdk_ret_t
  smi_state::process_gpu_watch_subscribe_req(
                 aga_gpu_watch_subscribe_args_t *args) {
