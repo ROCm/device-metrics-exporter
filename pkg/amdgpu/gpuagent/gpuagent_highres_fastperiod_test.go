@@ -433,10 +433,10 @@ func captureExporterLog(t *testing.T, level logrus.Level) *syncBuffer {
 	buf := &syncBuffer{}
 	prevOut, prevLevel := logger.Log.Out, logger.Log.GetLevel()
 	logger.Log.SetOutput(buf)
-	logger.Log.SetLevel(level)
+	logger.Log.SetLogLevel(level)
 	t.Cleanup(func() {
 		logger.Log.SetOutput(prevOut)
-		logger.Log.SetLevel(prevLevel)
+		logger.Log.SetLogLevel(prevLevel)
 	})
 	return buf
 }

@@ -481,8 +481,7 @@ func (ga *GPUAgentGPUClient) signalHighResTier(ctx context.Context, acceptedMs u
 	switch {
 	case isDiag(acceptedMs):
 		msg := highResDiagnosticTierMsg(acceptedMs)
-		// EnhancedLogger.Warnf drops warnings at the default Info level
-		logger.Log.Logger.Warnf("high-res: %s", msg)
+		logger.Log.Warnf("high-res: %s", msg)
 		if ga.hrEvents != nil {
 			ga.hrEvents.EmitWarning(ctx, events.HighResDiagnosticTier, msg)
 		} else {

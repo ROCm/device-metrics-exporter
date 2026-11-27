@@ -150,56 +150,56 @@ func (e *EnhancedLogger) SetLogRotation(maxSize, maxBackups, maxAge int, disable
 
 // Debug logs a debug message
 func (e *EnhancedLogger) Debug(args ...interface{}) {
-	if e.currentLevel <= logrus.DebugLevel {
+	if e.currentLevel >= logrus.DebugLevel {
 		e.logWithCaller(3).Debug(args...)
 	}
 }
 
 // Debugf logs a formatted debug message
 func (e *EnhancedLogger) Debugf(format string, args ...interface{}) {
-	if e.currentLevel <= logrus.DebugLevel {
+	if e.currentLevel >= logrus.DebugLevel {
 		e.logWithCaller(3).Debugf(format, args...)
 	}
 }
 
 // Info logs an info message
 func (e *EnhancedLogger) Info(args ...interface{}) {
-	if e.currentLevel <= logrus.InfoLevel {
+	if e.currentLevel >= logrus.InfoLevel {
 		e.logWithCaller(3).Info(args...)
 	}
 }
 
 // Infof logs a formatted info message
 func (e *EnhancedLogger) Infof(format string, args ...interface{}) {
-	if e.currentLevel <= logrus.InfoLevel {
+	if e.currentLevel >= logrus.InfoLevel {
 		e.logWithCaller(3).Infof(format, args...)
 	}
 }
 
 // Warn logs a warning message
 func (e *EnhancedLogger) Warn(args ...interface{}) {
-	if e.currentLevel <= logrus.WarnLevel {
+	if e.currentLevel >= logrus.WarnLevel {
 		e.logWithCaller(3).Warn(args...)
 	}
 }
 
 // Warnf logs a formatted warning message
 func (e *EnhancedLogger) Warnf(format string, args ...interface{}) {
-	if e.currentLevel <= logrus.WarnLevel {
+	if e.currentLevel >= logrus.WarnLevel {
 		e.logWithCaller(3).Warnf(format, args...)
 	}
 }
 
 // Error logs an error message
 func (e *EnhancedLogger) Error(args ...interface{}) {
-	if e.currentLevel <= logrus.ErrorLevel {
+	if e.currentLevel >= logrus.ErrorLevel {
 		e.logWithCaller(3).Error(args...)
 	}
 }
 
 // Errorf logs a formatted error message
 func (e *EnhancedLogger) Errorf(format string, args ...interface{}) {
-	if e.currentLevel <= logrus.ErrorLevel {
+	if e.currentLevel >= logrus.ErrorLevel {
 		e.logWithCaller(3).Errorf(format, args...)
 	}
 }
