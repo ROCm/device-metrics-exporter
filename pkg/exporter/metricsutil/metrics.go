@@ -248,6 +248,12 @@ func (mh *MetricsHandler) GetHighResPeriods() (uint32, uint32) {
 	return mh.runConf.GetHighResPeriods()
 }
 
+// GetHighResWatchPeriods returns the GPUWatch fast period (ms) and slow period
+// (s) for the gpuagent watch spec.
+func (mh *MetricsHandler) GetHighResWatchPeriods() (uint32, uint32) {
+	return mh.runConf.GetHighResWatchPeriods()
+}
+
 func (mh *MetricsHandler) GetGPUMetricsConfig() *exportermetrics.GPUMetricConfig {
 	config := mh.runConf.GetConfig()
 	if config != nil {

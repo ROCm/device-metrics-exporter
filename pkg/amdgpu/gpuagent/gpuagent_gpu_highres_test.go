@@ -19,13 +19,19 @@ package gpuagent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"gotest.tools/assert"
@@ -33,7 +39,9 @@ import (
 	amdgpu "github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/config"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/globals"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/logger"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/metricsutil"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/utils"
@@ -177,7 +185,7 @@ func TestHighResSpecCarriesConfiguredPeriods(t *testing.T) {
 	err := gpuclient.StartHighRes(ctx)
 	assert.Equal(t, err, errStop)
 	assert.Assert(t, gotSpec != nil)
-	assert.Equal(t, gotSpec.GetFastPeriodSecs(), uint32(5))
+	assert.Equal(t, gotSpec.GetFastPeriodMs(), uint32(5000))
 	assert.Equal(t, gotSpec.GetSlowPeriodSecs(), uint32(30))
 }
 
@@ -569,4 +577,571 @@ func TestHighResSeedCarriesWorkloadLabelKeys(t *testing.T) {
 			t.Errorf("store delta sample missing mandatory workload label key %q", k)
 		}
 	}
+}
+
+// TestHighResFrameApply: sub-second partial frames update hot cells; full
+// frames, and any frame at 1000 ms, take the full write.
+func TestHighResFrameApply(t *testing.T) {
+	temp := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP
+	for _, tc := range []struct {
+		name     string
+		fastMs   uint32
+		full     bool
+		attr     amdgpu.GPUWatchAttrId
+		field    string
+		wantCell bool
+	}{
+		{"full frame at 10 ms", 10, true, temp, "gpu_junction_temperature", false},
+		{"partial frame at 10 ms", 10, false, hrAttrGPUPowerUsage, "gpu_power_usage", true},
+		{"partial-shaped frame at 1000 ms", 1000, false, temp, "gpu_junction_temperature", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 1, tc.fastMs)
+			w := hrPartial(gpus, hrAttr(tc.attr, 50))
+			if tc.full {
+				w = hrFull(gpus, hrAttr(tc.attr, 50))
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			s := &blockingStream{ctx: ctx, frames: []*amdgpu.GPUWatch{w}, drained: make(chan struct{})}
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				ga.consumeWatchStream(ctx, s)
+			}()
+			<-s.drained // every queued frame has been applied
+			cancel()
+			<-done
+			assert.Equal(t, hrMustGet(t, ga, gpus[0], tc.field), 50.0)
+			assert.Equal(t, hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage].cell != nil, tc.wantCell)
+		})
+	}
+}
+
+// TestHighResNAHandling: N/A is never stored or written as 0; a partial frame
+// keeps the prior value, a full frame keeps UBB suppressed.
+func TestHighResNAHandling(t *testing.T) {
+	t.Run("partial frame", func(t *testing.T) {
+		ga, gpus := newHRFastClient(t, 1, 10)
+		volt := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_VOLTAGE
+		ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, hrNA), hrAttr(volt, 800)))
+		_, ok := hrGet(ga, gpus[0], "gpu_power_usage")
+		assert.Assert(t, !ok, "N/A must not be stored")
+		_, ok = hrGet(ga, gpus[0], "gpu_package_power")
+		assert.Assert(t, !ok, "N/A must not feed gpu_package_power")
+		assert.Assert(t, ga.fl.checkUnsupportedFields("0", "GPU_POWER_USAGE"))
+		f := hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage]
+		assert.Assert(t, f.naSeen && f.skip && f.aliasSkip)
+		assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_gfx_voltage"), 800.0)
+
+		// valid then N/A after the filter pass: prior value kept, nothing written
+		ga.fl.SetFilterDone()
+		ga.applyPowerFrame(hrPartial(gpus, hrAttr(volt, hrNA)))
+		assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_gfx_voltage"), 800.0)
+		ga.applyPowerFrame(hrPartial(gpus, hrAttr(volt, 810)))
+		assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_gfx_voltage"), 810.0)
+	})
+	t.Run("full frame UBB", func(t *testing.T) {
+		tcase := setupTest(t)
+		defer tcase(t)
+
+		gc, gpuBytes := newHighResStoreClient(t, `{"CommonConfig":{"HighResolution":{"Enable":true}}}`)
+		ubb := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER
+		pkg := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE
+		tick := func(u, p uint64) map[string]bool {
+			return hrDeltaFieldSet(gc.applyWatchSnapshot(hrSnapshot(gpuBytes, hrLongAttr(ubb, u), hrLongAttr(pkg, p))))
+		}
+		f := tick(1500, 1500)
+		assert.Assert(t, f["gpu_ubb_power"] && f["gpu_package_power"])
+		f = tick(hrNA, 100)
+		assert.DeepEqual(t, f, map[string]bool{"gpu_package_power": true})
+		assert.Equal(t, gc.fl.checkUnsupportedFields(hrGPUID, ubbField), true)
+		f = tick(1600, hrNA)
+		assert.Equal(t, f["gpu_ubb_power"], false, "UBB must stay suppressed after N/A")
+		assert.Equal(t, f["gpu_package_power"], false)
+	})
+}
+
+// TestHighResPackagePowerRule: the gpu_package_power rule across frame kinds
+// and periods.
+func TestHighResPackagePowerRule(t *testing.T) {
+	temp := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP
+	for _, tc := range []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		// a valid 126 drives gpu_package_power over 5; an N/A 126 hands it back
+		{"126 drives, N/A hands back to 5", func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 2, 10)
+			st := ga.gpuHandler.mh.GetStore()
+			a, b := gpus[0], gpus[1]
+			ga.fl.SetFilterDone() // a transient N/A must not mark 126 unsupported here
+			frame := &amdgpu.GPUWatch{
+				Spec: &amdgpu.GPUWatchSpec{},
+				Stats: &amdgpu.GPUWatchStats{GPUWatchAttr: []*amdgpu.GPUWatchAttrs{
+					{GPU: a, Attr: []*amdgpu.GPUWatchAttr{hrAttr(hrAttrGPUPowerUsage, 500)}},
+					{GPU: b, Attr: []*amdgpu.GPUWatchAttr{hrAttr(hrAttrGPUPowerUsage, hrNA)}},
+				}},
+			}
+			ga.applyPowerFrame(frame)
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 500.0)
+			assert.Assert(t, hrGPU(ga, a).pkgFrom126)
+			assert.Assert(t, !hrGPU(ga, b).pkgFrom126)
+			_, ok := hrGet(ga, b, "gpu_package_power")
+			assert.Assert(t, !ok)
+
+			ga.applyWatchSnapshot(hrFull(gpus, hrAttr(hrAttrPowerUsage, 450)))
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 500.0, "5 must be skipped while 126 is valid")
+			assert.Equal(t, hrMustGet(t, ga, b, "gpu_package_power"), 450.0, "126 N/A: 5 feeds gpu_package_power")
+
+			ga.applyPowerFrame(hrPartial([][]byte{a}, hrAttr(hrAttrGPUPowerUsage, hrNA)))
+			assert.Assert(t, !hrGPU(ga, a).pkgFrom126)
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 500.0, "N/A keeps the prior value")
+			epoch := st.Epoch()
+			ga.applyWatchSnapshot(hrFull([][]byte{a}, hrAttr(hrAttrPowerUsage, 440)))
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 440.0)
+			assert.Equal(t, st.Epoch(), epoch, "write-through must not orphan the alias cell")
+
+			ga.applyPowerFrame(hrPartial([][]byte{a}, hrAttr(hrAttrGPUPowerUsage, 520)))
+			ga.applyWatchSnapshot(hrFull([][]byte{a}, hrAttr(hrAttrPowerUsage, 430)))
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 520.0)
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_power_usage"), 520.0)
+		}},
+		// at 1000 ms 126 never feeds gpu_package_power and 5 does.
+		{"inert at 1000 ms", func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 1, 1000)
+			ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 500)))
+			assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_power_usage"), 500.0)
+			_, ok := hrGet(ga, gpus[0], "gpu_package_power")
+			assert.Assert(t, !ok)
+			assert.Assert(t, !hrGPU(ga, gpus[0]).pkgFrom126)
+			ga.applyWatchSnapshot(hrFull(gpus, hrAttr(hrAttrPowerUsage, 450)))
+			assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_package_power"), 450.0)
+		}},
+		// sub-second full frames write no power-family name; 1000 ms ones do
+		{"full frame power names by period", func(t *testing.T) {
+			attrs := append(hrPowerTick(7), hrAttr(temp, 50))
+			ga, gpus := newHRFastClient(t, 1, 10)
+			got := hrDeltaFieldSet(ga.applyWatchSnapshot(hrFull(gpus, attrs...)))
+			assert.DeepEqual(t, got, map[string]bool{"gpu_junction_temperature": true})
+
+			ga, gpus = newHRFastClient(t, 1, 1000)
+			got = hrDeltaFieldSet(ga.applyWatchSnapshot(hrFull(gpus, attrs...)))
+			for _, id := range hrPowerAttrIDs {
+				if name := highResWatchNames[id]; name != "" {
+					assert.Assert(t, got[name], "%s not written at 1000 ms", name)
+				}
+			}
+		}},
+		// 126 keeps feeding gpu_package_power when 5 is N/A or unsupported
+		{"126 when 5 is N/A or unsupported", func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 2, 10)
+			a, b := gpus[0], gpus[1]
+			ga.fl.markUnsupportedFields("0", hrPackagePowerField)
+			ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 500)))
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 500.0)
+			ga.applyWatchSnapshot(hrFull([][]byte{b}, hrAttr(hrAttrPowerUsage, hrNA)))
+			assert.Assert(t, !ga.fl.checkUnsupportedFields("1", hrPackagePowerField))
+			ga.exportFieldGen.Add(1) // a rebuild keeps 126 as the source
+			ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 510)))
+			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 510.0)
+			assert.Equal(t, hrMustGet(t, ga, b, "gpu_package_power"), 510.0)
+		}},
+		// alternating partial and full frames keep the rule and the store epoch
+		{"alternating frames do not churn", func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 1, 1)
+			st := ga.gpuHandler.mh.GetStore()
+			ga.fl.SetFilterDone()
+			steps := []struct {
+				w    *amdgpu.GPUWatch
+				want float64
+			}{
+				{hrPartial(gpus, append(hrPowerTick(9), hrAttr(hrAttrGPUPowerUsage, 350))...), 350},
+				{hrFull(gpus, hrAttr(hrAttrPowerUsage, 300), hrAttr(temp, 40)), 350},
+				{hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, hrNA)), 350},
+				{hrFull(gpus, hrAttr(hrAttrPowerUsage, 310), hrAttr(temp, 41)), 310},
+				{hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 360)), 360},
+				{hrFull(gpus, hrAttr(hrAttrPowerUsage, 320), hrAttr(temp, 42)), 360},
+			}
+			var epoch uint64
+			var cell *snapshotstore.HotCell
+			for round := 0; round < 3; round++ {
+				for i, s := range steps {
+					if s.w.Spec.Attribute == nil {
+						ga.applyPowerFrame(s.w)
+					} else {
+						ga.applyWatchSnapshot(s.w)
+					}
+					assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_package_power"), s.want, "round %d step %d", round, i)
+				}
+				if round == 0 {
+					epoch, cell = st.Epoch(), hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage].alias
+					continue
+				}
+				assert.Equal(t, st.Epoch(), epoch)
+				assert.Assert(t, hrGPU(ga, gpus[0]).fields[hrAttrGPUPowerUsage].alias == cell)
+			}
+		}},
+	} {
+		t.Run(tc.name, tc.run)
+	}
+}
+
+// TestHighResAllowlist: the GPUConfig.Fields allowlist is honoured on either
+// power name (partial frames) and on gpu_ubb_power (full frames).
+func TestHighResAllowlist(t *testing.T) {
+	volt := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_VOLTAGE
+	for _, tc := range []struct {
+		field string
+		want  map[string]bool
+	}{
+		{"GPU_POWER_USAGE", map[string]bool{"gpu_power_usage": true}},
+		{"GPU_PACKAGE_POWER", map[string]bool{"gpu_package_power": true}},
+		{"GPU_GFX_VOLTAGE", map[string]bool{"gpu_gfx_voltage": true}},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			ga, gpus := newHRFastClient(t, 1, 10, tc.field)
+			ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 500), hrAttr(volt, 800)))
+			got := map[string]bool{}
+			for _, f := range hrStoreFields(ga) {
+				got[f] = true
+			}
+			assert.DeepEqual(t, got, tc.want)
+		})
+	}
+	for _, tc := range []struct {
+		name    string
+		fields  string
+		present bool
+	}{
+		{"UBB excluded", `["GPU_PACKAGE_POWER"]`, false},
+		{"UBB included", `["GPU_PACKAGE_POWER","GPU_UBB_POWER"]`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tcase := setupTest(t)
+			defer tcase(t)
+
+			hc, gpuBytes := newHighResStoreClient(t,
+				`{"CommonConfig":{"HighResolution":{"Enable":true}},"GPUConfig":{"Fields":`+tc.fields+`}}`)
+			deltas := hc.applyWatchSnapshot(hrSnapshot(gpuBytes,
+				hrLongAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER, 1500),
+				hrLongAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, 100)))
+			fnames := hrDeltaFieldSet(deltas)
+			assert.Equal(t, fnames["gpu_ubb_power"], tc.present)
+			assert.Assert(t, fnames["gpu_package_power"])
+			prefix := hc.gpuHandler.mh.GetPrefix()
+			assert.Equal(t, hrStoreMetricNames(t, hc)[prefix+"gpu_ubb_power"], tc.present)
+		})
+	}
+}
+
+// TestHighResFrameMalformed: malformed or out-of-family frame content writes
+// nothing and never panics.
+func TestHighResFrameMalformed(t *testing.T) {
+	t.Run("partial frame", func(t *testing.T) {
+		ga, gpus := newHRFastClient(t, 1, 10)
+		unknown := make([]byte, 16)
+		ga.applyPowerFrame(&amdgpu.GPUWatch{})
+		ga.applyPowerFrame(hrPartial(nil))
+		ga.applyPowerFrame(hrPartial([][]byte{unknown}, hrAttr(hrAttrGPUPowerUsage, 1)))
+		ga.applyPowerFrame(hrPartial([][]byte{gpus[0][:8]}, hrAttr(hrAttrGPUPowerUsage, 1)))
+		ga.applyPowerFrame(hrPartial(gpus, hrAttr(amdgpu.GPUWatchAttrId(300), 1),
+			&amdgpu.GPUWatchAttr{Id: amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GFX_VOLTAGE}))
+		ga.applyPowerFrame(hrPartial(gpus))
+		ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrPowerUsage, 1),
+			hrAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP, 1)))
+		assert.Equal(t, len(hrStoreFields(ga)), 0)
+	})
+	t.Run("full frame UBB", func(t *testing.T) {
+		tcase := setupTest(t)
+		defer tcase(t)
+
+		gc, gpuBytes := newHighResStoreClient(t, `{"CommonConfig":{"HighResolution":{"Enable":true}}}`)
+		pkg := hrLongAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_POWER_USAGE, 100)
+		nilVal := &amdgpu.GPUWatchAttr{Id: amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER}
+		for _, attrs := range [][]*amdgpu.GPUWatchAttr{{pkg}, {nilVal, pkg}} {
+			deltas := gc.applyWatchSnapshot(hrSnapshot(gpuBytes, attrs...))
+			assert.DeepEqual(t, hrSampleNames(deltas), []string{"gpu_package_power"})
+		}
+	})
+}
+
+// TestHighResPartialFrameUpdatesOnlyPresent: a partial frame writes only its
+// attrs in place; other fields and the store epoch are unchanged.
+func TestHighResPartialFrameUpdatesOnlyPresent(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 1, 10)
+	st := ga.gpuHandler.mh.GetStore()
+	ga.applyWatchSnapshot(hrFull(gpus, hrAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP, 50)))
+	ga.applyPowerFrame(hrPartial(gpus,
+		hrAttr(hrAttrGPUPowerUsage, 200),
+		hrAttr(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_ENERGY_CONSUMED, 1000)))
+	epoch := st.Epoch()
+	key := hrGPU(ga, gpus[0]).deviceKey
+	n := st.Snapshot(key).Len()
+
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 300)))
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_power_usage"), 300.0)
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_energy_consumed"), 1000.0)
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_junction_temperature"), 50.0)
+	_, volt := hrGet(ga, gpus[0], "gpu_gfx_voltage")
+	assert.Assert(t, !volt, "absent attr must not be written")
+	assert.Equal(t, st.Snapshot(key).Len(), n)
+	assert.Equal(t, st.Epoch(), epoch)
+	// the store timestamp advances with the frames
+	s1, _ := hrGet(ga, gpus[0], "gpu_power_usage")
+	time.Sleep(2 * time.Millisecond)
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 301)))
+	s2, _ := hrGet(ga, gpus[0], "gpu_power_usage")
+	assert.Assert(t, s2.TsUs > s1.TsUs)
+}
+
+// TestHighResHotCacheInvalidation: epoch bumps, label swaps and field reloads
+// rebuild the cache; cells are re-registered only when needed.
+func TestHighResHotCacheInvalidation(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 1, 10)
+	st := ga.gpuHandler.mh.GetStore()
+	pw := hrAttrGPUPowerUsage
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 100)))
+	c0 := ga.hrHot
+	cell0 := hrGPU(ga, gpus[0]).fields[pw].cell
+
+	// steady state: no rebuild
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 101)))
+	assert.Assert(t, ga.hrHot == c0)
+
+	// unrelated epoch bump (cgroup agent ReplaceOwned): rebuild, re-register
+	st.ReplaceOwned("cgroup:", nil)
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 102)))
+	assert.Assert(t, ga.hrHot != c0)
+	cell1 := hrGPU(ga, gpus[0]).fields[pw].cell
+	assert.Assert(t, cell1 != nil && cell1 != cell0)
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_power_usage"), 102.0)
+
+	// stream failure drops the fields (epoch bump): re-registered, value back
+	st.DropFields(highResWatchFieldSet)
+	_, ok := hrGet(ga, gpus[0], "gpu_power_usage")
+	assert.Assert(t, !ok)
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 103)))
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_power_usage"), 103.0)
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_package_power"), 103.0)
+
+	// workload-label swap with equal labels: rebuild, cells kept
+	u := utils.UUIDToString(gpus[0])
+	cache := newHRWorkloadLabelCache(ga)
+	same := map[string]prometheus.Labels{u: ga.hrLabelsByUUID[u]}
+	cache.labels.Store(&same)
+	ga.hrWLCache = cache
+	cell2 := hrGPU(ga, gpus[0]).fields[pw].cell
+	c2 := ga.hrHot
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 104)))
+	assert.Assert(t, ga.hrHot != c2)
+	assert.Assert(t, hrGPU(ga, gpus[0]).fields[pw].cell == cell2)
+
+	// workload-label swap with a new pod: same slot, new labels on /metrics
+	changed := map[string]prometheus.Labels{u: {}}
+	for k, v := range ga.hrLabelsByUUID[u] {
+		changed[u][k] = v
+	}
+	changed[u]["pod"] = "podB"
+	cache.labels.Store(&changed)
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 105)))
+	assert.Assert(t, hrGPU(ga, gpus[0]).fields[pw].cell != cell2)
+	s, ok := hrGet(ga, gpus[0], "gpu_power_usage")
+	assert.Assert(t, ok)
+	assert.Equal(t, s.Value, 105.0)
+	assert.Equal(t, s.Labels["pod"], "podB")
+	assert.Equal(t, len(st.Snapshots()), 1, "workload labels must not split the device slot")
+
+	// field-config reload drops GPU_POWER_USAGE from the allowlist
+	ga.initFieldConfig(&exportermetrics.GPUMetricConfig{Fields: []string{"GPU_PACKAGE_POWER"}})
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(pw, 106)))
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_power_usage"), 105.0)
+	assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_package_power"), 106.0)
+}
+
+// TestHighResFeedRestartResetsHotCache: a new session drops the fast-path
+// cache, so the gpu_package_power state starts over.
+func TestHighResFeedRestartResetsHotCache(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 1, 10)
+	ga.applyPowerFrame(hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, 100)))
+	assert.Assert(t, ga.hrHot != nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	done := make(chan struct{})
+	ga.runHighResFeed(ctx, done)
+	<-done
+	assert.Assert(t, ga.hrHot == nil)
+}
+
+// TestApplyPowerFrameNoAlloc: steady state is allocation-free.
+func TestApplyPowerFrameNoAlloc(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 8, 1)
+	w := hrPartial(gpus, hrPowerTick(100)...)
+	ga.applyPowerFrame(w) // registers the cells
+	allocs := testing.AllocsPerRun(1000, func() { ga.applyPowerFrame(w) })
+	assert.Equal(t, allocs, 0.0)
+}
+
+// TestHighResPowerFrameNoHotPathLogging: repeated N/A logs once, valid frames
+// log nothing.
+func TestHighResPowerFrameNoHotPathLogging(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 1, 10)
+	buf := captureExporterLog(t, logrus.DebugLevel)
+	na := hrPartial(gpus, hrAttr(hrAttrGPUPowerUsage, hrNA))
+	for i := 0; i < 10000; i++ {
+		ga.applyPowerFrame(na)
+	}
+	assert.Equal(t, strings.Count(buf.String(), "doesn't support field"), 1, buf.String())
+	assert.Assert(t, strings.Contains(buf.String(), "GPU_POWER_USAGE"))
+	assert.Assert(t, !strings.Contains(buf.String(), hrPackagePowerField))
+
+	ga2, gpus2 := newHRFastClient(t, 8, 1)
+	ok := hrPartial(gpus2, hrPowerTick(5)...)
+	ga2.applyPowerFrame(ok)
+	n := len(buf.String())
+	for i := 0; i < 10000; i++ {
+		ga2.applyPowerFrame(ok)
+	}
+	assert.Equal(t, len(buf.String()), n, buf.String()[n:])
+}
+
+// hrNA is gpuagent's N/A sentinel for a uint64 attribute.
+const hrNA = math.MaxUint64
+
+var hrLoggerOnce sync.Once
+
+// newHRFastClient builds a minimal high-res GPU client to drive the frame
+// apply paths without gRPC mocks.
+func newHRFastClient(tb testing.TB, n int, fastMs uint32, fields ...string) (*GPUAgentGPUClient, [][]byte) {
+	tb.Helper()
+	hrLoggerOnce.Do(func() { logger.Init(true) })
+	cfgPath := filepath.Join(tb.TempDir(), "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"CommonConfig":{"HighResolution":{"Enable":true}}}`), 0644); err != nil {
+		tb.Fatal(err)
+	}
+	cfg := config.NewConfigHandler(cfgPath, config.GPUAgentConfig{GrpcPort: globals.GPUAgentPort})
+	mh, err := metricsutil.NewMetrics(cfg)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	ga := &GPUAgentGPUClient{
+		gpuHandler:     &GPUAgentClient{mh: mh},
+		fl:             NewFieldLogger(),
+		hrLabelsByUUID: map[string]prometheus.Labels{},
+		hrGPUIDByUUID:  map[string]string{},
+	}
+	ga.initFieldConfig(&exportermetrics.GPUMetricConfig{Fields: fields})
+	ga.hrFastMs.Store(fastMs)
+	gpus := make([][]byte, n)
+	for i := range gpus {
+		b := make([]byte, 16)
+		for j := range b {
+			b[j] = byte(16*i + j + 1)
+		}
+		gpus[i] = b
+		u := utils.UUIDToString(b)
+		ga.hrLabelsByUUID[u] = prometheus.Labels{
+			"gpu_id":           strconv.Itoa(i),
+			"gpu_uuid":         u,
+			"serial_number":    "SN" + strconv.Itoa(i),
+			"card_model":       "MI300X",
+			"hostname":         "node0",
+			"gpu_partition_id": "0",
+		}
+		ga.hrGPUIDByUUID[u] = strconv.Itoa(i)
+	}
+	return ga, gpus
+}
+
+func hrAttr(id amdgpu.GPUWatchAttrId, v uint64) *amdgpu.GPUWatchAttr {
+	return hrLongAttr(id, v)
+}
+
+// hrPartial builds a partial (power) frame: Spec carries only Id, and every
+// listed GPU carries attrs.
+func hrPartial(gpus [][]byte, attrs ...*amdgpu.GPUWatchAttr) *amdgpu.GPUWatch {
+	id := highResWatchID
+	w := &amdgpu.GPUWatch{Spec: &amdgpu.GPUWatchSpec{Id: id[:]}, Stats: &amdgpu.GPUWatchStats{}}
+	for _, g := range gpus {
+		w.Stats.GPUWatchAttr = append(w.Stats.GPUWatchAttr, &amdgpu.GPUWatchAttrs{GPU: g, Attr: attrs})
+	}
+	return w
+}
+
+// hrFull builds a full frame: Spec carries the attribute list.
+func hrFull(gpus [][]byte, attrs ...*amdgpu.GPUWatchAttr) *amdgpu.GPUWatch {
+	w := hrPartial(gpus, attrs...)
+	w.Spec.Attribute = highResWatchAttrs
+	return w
+}
+
+// hrPowerTick is one power tick's payload as gpuagent sends it.
+func hrPowerTick(v uint64) []*amdgpu.GPUWatchAttr {
+	attrs := make([]*amdgpu.GPUWatchAttr, 0, len(hrPowerAttrIDs))
+	for _, id := range hrPowerAttrIDs {
+		attrs = append(attrs, hrAttr(id, v))
+	}
+	return attrs
+}
+
+// hrGet returns the stored value of field for gpu.
+func hrGet(ga *GPUAgentGPUClient, gpu []byte, field string) (snapshotstore.Sample, bool) {
+	u := utils.UUIDToString(gpu)
+	for _, snap := range ga.gpuHandler.mh.GetStore().Snapshots() {
+		if s, ok := snap.Get(field); ok && s.Labels["gpu_uuid"] == u {
+			return s, true
+		}
+	}
+	return snapshotstore.Sample{}, false
+}
+
+func hrMustGet(t *testing.T, ga *GPUAgentGPUClient, gpu []byte, field string) float64 {
+	t.Helper()
+	s, ok := hrGet(ga, gpu, field)
+	assert.Assert(t, ok, "%s missing from store", field)
+	return s.Value
+}
+
+func hrGPU(ga *GPUAgentGPUClient, gpu []byte) *hrHotGPU {
+	return ga.hrHot.byGPU[[16]byte(gpu)]
+}
+
+func hrStoreFields(ga *GPUAgentGPUClient) []string {
+	var out []string
+	for _, snap := range ga.gpuHandler.mh.GetStore().Snapshots() {
+		snap.Range(func(f string, _ snapshotstore.Sample) bool {
+			out = append(out, f)
+			return true
+		})
+	}
+	return out
+}
+
+// TestHighResArrivalIntervalStats: arrival intervals of 1..100 ms give the
+// expected p50/p99/max/stddev without allocating.
+func TestHighResArrivalIntervalStats(t *testing.T) {
+	ga, gpus := newHRFastClient(t, 2, 10)
+	a := newHRArrivals(ga.hrGPUIDByUUID)
+	w0 := hrPartial(gpus[:1], hrPowerTick(1)...)
+	w1 := hrPartial(gpus[1:], hrPowerTick(1)...)
+	now := time.Unix(1000, 0)
+	a.record(w0, now)
+	for i := 1; i <= 100; i++ {
+		now = now.Add(time.Duration(i) * time.Millisecond)
+		a.record(w0, now)
+	}
+	a.record(w1, now)
+
+	got := a.summary(10 * time.Second)
+	want := fmt.Sprintf("; gpu 0: 10.1 frames/s interval p50=50.000ms p99=99.000ms max=100.000ms jitter=%.3fms n=100"+
+		"; gpu 1: 0.1 frames/s", math.Sqrt((100*100-1)/12.0))
+	assert.Equal(t, got, want)
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		now = now.Add(time.Millisecond)
+		a.record(w0, now)
+	})
+	assert.Equal(t, allocs, 0.0)
+
+	a.reset()
+	assert.Equal(t, a.summary(10*time.Second), "; gpu 0: 0.0 frames/s; gpu 1: 0.0 frames/s")
 }

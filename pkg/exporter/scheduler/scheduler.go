@@ -38,6 +38,14 @@ type SchedulerClient interface {
 	Type() SchedulerType
 }
 
+// ChangeNotifier is implemented by scheduler clients that track their own
+// workload changes (slurm); clients without it are polled. Obtain Changed()
+// before reading the state it guards, so a change in between is not missed.
+type ChangeNotifier interface {
+	Version() uint64
+	Changed() <-chan struct{}
+}
+
 type PodResourceInfo struct {
 	Pod       string
 	Namespace string

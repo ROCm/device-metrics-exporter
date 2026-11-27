@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // deviceSlot holds one device's current snapshot plus a writer-only mutex.
@@ -36,6 +38,8 @@ type deviceSlot struct {
 type Store struct {
 	growMu  sync.Mutex
 	devices atomic.Pointer[map[string]*deviceSlot]
+	// epoch is bumped when registered hot cells may be orphaned (see Epoch)
+	epoch atomic.Uint64
 }
 
 func New() *Store {
@@ -58,6 +62,12 @@ type StoreWriter interface {
 	// exactly slots, for writers whose devices come and go (one slot per
 	// workload cgroup).
 	ReplaceOwned(prefix string, slots map[string]map[string]Sample)
+	// RegisterHot publishes a hot sample for (deviceKey, field) and returns its
+	// cell; the caller then updates the value in place with HotCell.Set.
+	RegisterHot(deviceKey, field string, labels prometheus.Labels, v float64, tsUs int64) *HotCell
+	// Epoch changes whenever previously registered hot cells may no longer be
+	// referenced by the store; the hot-cell writer must then re-register.
+	Epoch() uint64
 }
 
 // StoreReader is the read side — the seam used by the StoreCollector that renders
@@ -123,9 +133,27 @@ func (s *Store) acquireSlot(uuid string) *deviceSlot {
 	}
 }
 
+// Epoch returns a counter bumped whenever hot cells may be orphaned (Reset,
+// DropFields, ReplaceOwned, or a hot sample replaced by a plain one); the
+// hot-cell writer must then re-register. Read it before registering: the bump
+// follows the store swap, so a racing registration sees a newer epoch.
+func (s *Store) Epoch() uint64 {
+	return s.epoch.Load()
+}
+
+// RegisterHot publishes a hot-cell-backed sample for field on deviceKey (one
+// snapshot copy) and returns the cell. Call it from the cell's single writer.
+func (s *Store) RegisterHot(deviceKey, field string, labels prometheus.Labels, v float64, tsUs int64) *HotCell {
+	cell := &HotCell{}
+	cell.Set(v, tsUs)
+	s.Update(deviceKey, map[string]Sample{field: {Labels: labels, hot: cell}})
+	return cell
+}
+
 // Update builds a new snapshot = current + deltas and atomically swaps it in.
 // Writers serialize per device on the slot mutex; readers are never blocked and
-// only ever observe a complete snapshot.
+// only ever observe a complete snapshot. Replacing a hot sample with a plain
+// one bumps Epoch.
 func (s *Store) Update(uuid string, deltas map[string]Sample) {
 	slot := s.acquireSlot(uuid)
 	defer slot.writeMu.Unlock()
@@ -134,14 +162,21 @@ func (s *Store) Update(uuid string, deltas map[string]Sample) {
 	if cur := slot.ptr.Load(); cur != nil {
 		base = cur.fields
 	}
+	replacedHot := false
 	nf := make(map[string]Sample, len(base)+len(deltas))
 	for k, v := range base {
 		nf[k] = v
 	}
 	for k, v := range deltas {
+		if old, ok := nf[k]; ok && old.hot != nil && v.hot == nil {
+			replacedHot = true
+		}
 		nf[k] = v
 	}
 	slot.ptr.Store(newDeviceSnapshot(nf))
+	if replacedHot {
+		s.epoch.Add(1)
+	}
 }
 
 // UpdateIfChanged merges deltas like Update but skips any field whose Value already
@@ -158,19 +193,27 @@ func (s *Store) UpdateIfChanged(uuid string, deltas map[string]Sample) {
 		base = cur.fields
 	}
 	changed := false
+	replacedHot := false
 	nf := make(map[string]Sample, len(base)+len(deltas))
 	for k, v := range base {
 		nf[k] = v
 	}
 	for k, v := range deltas {
-		if old, ok := nf[k]; ok && old.Value == v.Value {
+		old, ok := nf[k]
+		if ok && old.resolve().Value == v.Value {
 			continue
+		}
+		if ok && old.hot != nil && v.hot == nil {
+			replacedHot = true
 		}
 		nf[k] = v
 		changed = true
 	}
 	if changed {
 		slot.ptr.Store(newDeviceSnapshot(nf))
+	}
+	if replacedHot {
+		s.epoch.Add(1)
 	}
 }
 
@@ -186,6 +229,7 @@ func (s *Store) Reset() {
 	defer s.growMu.Unlock()
 	m := map[string]*deviceSlot{}
 	s.devices.Store(&m)
+	s.epoch.Add(1)
 }
 
 // DropFields removes the named fields from every device slot and drops any slot
@@ -202,6 +246,7 @@ func (s *Store) DropFields(drop map[string]struct{}) {
 	}
 	s.growMu.Lock()
 	defer s.growMu.Unlock()
+	removed := false
 	old := *s.devices.Load()
 	nm := make(map[string]*deviceSlot, len(old))
 	for key, slot := range old {
@@ -219,6 +264,9 @@ func (s *Store) DropFields(drop map[string]struct{}) {
 			}
 			nf[f] = v
 		}
+		if len(nf) != len(cur.fields) {
+			removed = true
+		}
 		switch {
 		case len(nf) == len(cur.fields):
 			// Nothing dropped from this slot (e.g. a NIC/IFOE slot, or the node
@@ -235,6 +283,9 @@ func (s *Store) DropFields(drop map[string]struct{}) {
 		slot.writeMu.Unlock()
 	}
 	s.devices.Store(&nm)
+	if removed {
+		s.epoch.Add(1)
+	}
 }
 
 // ReplaceOwned swaps in one new device map where the keys under prefix are
@@ -258,6 +309,7 @@ func (s *Store) ReplaceOwned(prefix string, slots map[string]map[string]Sample) 
 		nm[k] = slot
 	}
 	s.devices.Store(&nm)
+	s.epoch.Add(1)
 }
 
 // Devices returns the known device UUIDs (unordered).

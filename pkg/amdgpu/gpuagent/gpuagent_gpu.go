@@ -20,6 +20,7 @@ package gpuagent
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -154,6 +155,9 @@ type hrGPUSnap struct {
 
 type GPUAgentGPUClient struct {
 	sync.Mutex
+	// pullMu: write-held while a pull refresh resets and refills the GPU
+	// gauges; read-held while /metrics builds descriptors from them
+	pullMu                sync.RWMutex
 	metrics               *GpuMetrics // client specific metrics
 	enableAfidMetrics     bool
 	enableProfileMetrics  bool
@@ -195,16 +199,23 @@ type GPUAgentGPUClient struct {
 	hrSnapshot atomic.Pointer[hrGPUSnap]
 	// hrWLCache keeps the stream's per-UUID label set (incl. dynamic workload
 	// labels) fresh off the stream hot path; only built/read in high-res mode.
-	hrWLCache *hrWorkloadLabelCache
+	hrWLCache *workloadLabelCache
 	// hrWLCancel stops the current hrWLCache goroutine. The high-res feed runs a
 	// reconnect loop; each (re)connect replaces the workload-label cache, so the
 	// prior one is cancelled first to avoid a goroutine leak / duplicate refresher.
 	hrWLCancel context.CancelFunc
-	// pullWLCache keeps the non-high-res pull path's workload map off the scrape
-	// hot path; only built/started in flag-on non-high-res store-serving mode, so
-	// flag-off pull labels stay per-scrape-fresh and unchanged. atomic.Pointer
-	// because StartMonitor publishes it concurrently with scrape-path reads.
-	pullWLCache atomic.Pointer[pullWorkloadCache]
+	// wlSource is the shared workload source, created on first use;
+	// wlInterval overrides its poll interval (0: default).
+	wlSource   atomic.Pointer[workloadSource]
+	wlInterval time.Duration
+	// labelInputGen bumps (under labelMapMu) when a non-workload label input
+	// changes, so the label caches can skip rebuilds.
+	labelInputGen atomic.Uint64
+	// hrHotRebuilds counts rebuildHot calls (test observability).
+	hrHotRebuilds atomic.Int64
+	// pullWLSource is set only in non-high-res store-serving mode, where the
+	// pull path reads workloads from the source's last snapshot.
+	pullWLSource atomic.Pointer[workloadSource]
 
 	// hrMu guards hrCancel. hrCancel cancels the high-resolution GPUWatch consumer
 	// goroutine and is non-nil only while high-res is running. reconcileHighRes
@@ -219,13 +230,30 @@ type GPUAgentGPUClient struct {
 	// high-res connection state) is fully stopped before a subsequent enable spawns
 	// a new one — no two reconnect goroutines ever touch that state concurrently.
 	hrDone chan struct{}
+	// hrPeriodsRunning is the running feed's (fastMs, slowSecs); guarded by
+	// hrMu.
+	hrPeriodsRunning [2]uint32
+	// hrFastMs is the fast period gpuagent accepted (1000 after a sub-second
+	// rejection).
+	hrFastMs atomic.Uint32
+	// hrTierMs is the period last announced by signalHighResTier (0: off);
+	// the diagnostic-tier log and event fire only on a change.
+	hrTierMs uint32
+	// hrEvents overrides the events singleton for the diagnostic-tier event
+	// (tests); nil uses events.EmitWarning.
+	hrEvents events.EventEmitter
+	// hrHot is the per-GPU frame-apply cache, owned by the feed goroutine.
+	hrHot *hrHotCache
+	// exportFieldGen is bumped by initFieldConfig so the frame-apply pipeline
+	// re-reads the field allowlist after a config reload.
+	exportFieldGen atomic.Uint64
 
 	// Profiler high-res stream (P7): owns the long-lived `rocpctl --stream` child in
 	// high-res non-PTL mode, feeding gpu_prof_* into the store continuously. Guarded by
 	// hrMu, symmetric with the GPUWatch feed. profStreamOn is read lock-free by the
 	// slow-writer skip-mask, so it is atomic rather than hrMu-guarded.
 	profStreamMgr        *rocprofiler.ProfilerStreamManager
-	profLabelCache       *profilerLabelCache
+	profLabelCache       *workloadLabelCache
 	profLabelCancel      context.CancelFunc
 	profStreamIntervalMs uint64
 	profStreamOn         atomic.Bool
@@ -333,6 +361,7 @@ func (ga *GPUAgentGPUClient) InitPodExtraLabels(config *exportermetrics.GPUMetri
 	// concurrently with this reload-time rebuild; guard the writes so they cannot race.
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 	// initialize pod labels maps
 	ga.k8PodInfoMap = make(map[string]types.K8sPodInfo)
 	if config != nil {
@@ -359,6 +388,14 @@ func (ga *GPUAgentGPUClient) initGPUMetadata(gpus []*amdgpu.GPU) {
 	logger.Debugf("Initializing GPU metadata for %d GPUs", len(gpus))
 	ga.gpuIDMapMu.Lock()
 	defer ga.gpuIDMapMu.Unlock()
+	changed := false
+	defer func() {
+		// gpuIDMap feeds workload matching in the label caches: a content
+		// change must rebuild them even when workloads are unchanged.
+		if changed {
+			ga.labelInputGen.Add(1)
+		}
+	}()
 	for _, gpu := range gpus {
 		gpuID := fmt.Sprintf("%v", getGPUInstanceID(gpu))
 		renderID := getGPURenderId(gpu)
@@ -377,6 +414,9 @@ func (ga *GPUAgentGPUClient) initGPUMetadata(gpus []*amdgpu.GPU) {
 			DRAKey:     utils.GetDRAKey(cardID, renderID),
 			UUID:       guuidStr,
 		}
+		if old, ok := ga.gpuIDMap[gpuID]; !ok || old != gpuIDMeta {
+			changed = true
+		}
 		ga.gpuIDMap[gpuID] = gpuIDMeta
 	}
 }
@@ -392,9 +432,21 @@ func (ga *GPUAgentGPUClient) GetGPUMeta(gpuID string) (*GPUIDMeta, error) {
 	return &gpuMeta, nil
 }
 
+// setK8PodInfoMap stores the per-scrape pod info under labelMapMu and bumps
+// labelInputGen only on a content change (this runs on every scrape).
+func (ga *GPUAgentGPUClient) setK8PodInfoMap(podInfo map[string]types.K8sPodInfo) {
+	ga.labelMapMu.Lock()
+	defer ga.labelMapMu.Unlock()
+	if !reflect.DeepEqual(ga.k8PodInfoMap, podInfo) {
+		ga.labelInputGen.Add(1)
+	}
+	ga.k8PodInfoMap = podInfo
+}
+
 func (ga *GPUAgentGPUClient) PopulateStaticHostLabels() error {
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 	ga.staticHostLabels = map[string]string{}
 	hostname, err := utils.GetHostName()
 	if err != nil {
@@ -497,9 +549,9 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	// both fall back to the synchronous per-scrape fetch, so flag-off /metrics is
 	// byte-identical.
 	var wls map[string]scheduler.Workload
-	if c := ga.pullWLCache.Load(); c != nil {
+	if src := ga.pullWLSource.Load(); src != nil {
 		var ok bool
-		if wls, ok = c.get(); !ok {
+		if wls, ok = src.lastGood(); !ok {
 			wls, _ = ga.gpuHandler.ListWorkloads()
 		}
 	} else {
@@ -528,9 +580,7 @@ func (ga *GPUAgentGPUClient) getMetricsAll(ctx context.Context) error {
 	}
 	// k8PodInfoMap is read under labelMapMu.RLock by populateLabelsFromGPU, which
 	// the high-res workload-label ticker drives concurrently; guard the write.
-	ga.labelMapMu.Lock()
-	ga.k8PodInfoMap = podInfo
-	ga.labelMapMu.Unlock()
+	ga.setK8PodInfoMap(podInfo)
 
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))

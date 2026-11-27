@@ -195,6 +195,12 @@ enum GPUWatchAttrId {
   // accumulated GPU energy in uJ (energy_accumulator scaled by the counter
   // resolution); fast-tier, sourced from the one bulk gpu_metrics read
   GPU_WATCH_ATTR_ID_ENERGY_CONSUMED     = 139;
+  // UBB node power in W, MI350X+ OAM; partition 0 only, N/A elsewhere
+  GPU_WATCH_ATTR_ID_UBB_POWER           = 140;
+  // PMFW attached gpu_metrics timestamp, in 10 ns units
+  GPU_WATCH_ATTR_ID_FIRMWARE_TIMESTAMP   = 141;
+  // gpu_metrics system clock counter, in ns
+  GPU_WATCH_ATTR_ID_SYSTEM_CLOCK_COUNTER = 142;
 }
 
 // one element of an array-valued (indexed) watch attribute, e.g. one HBM
@@ -254,12 +260,15 @@ message GPUWatchSpec {
   // NOTE:
   // atleast one GPU watch attribute must be specified
   repeated GPUWatchAttrId Attribute = 3;
-  // sampling period in seconds for fast moving attributes (clocks,
-  // temperatures, power, utilization), also the subscriber notify period.
-  // 0 selects the default
-  uint32                  FastPeriodSecs = 4;
+  // watcher fast sampling period in milliseconds: 1, 10, 100, or a multiple
+  // of 1000 up to 60000. 0 selects the default (1000). attributes refresh no
+  // faster than their supported minimum (power family 1 ms, other fast
+  // attributes 1000 ms). below 1000 ms the power family is also streamed
+  // every period as partial GPUWatch frames, one per GPU, each sent right
+  // after that GPU is read (Spec carries only Id)
+  uint32                  FastPeriodMs   = 4;
   // sampling period in seconds for slow moving attributes (ECC and XGMI
-  // counters). must be >= FastPeriodSecs. 0 selects the default
+  // counters). must be >= FastPeriodMs / 1000. 0 selects the default
   uint32                  SlowPeriodSecs = 5;
 }
 
@@ -267,6 +276,10 @@ message GPUWatchSpec {
 message GPUWatchStatus {
   // number of subscribers of the GPU watch object
   uint32 NumSubscribers = 1;
+  // power ticks whose values did not reach this receiver: power sampler
+  // overruns since gpuagent start, plus, in a subscribed stream, the frames
+  // dropped for this subscriber
+  uint64 MissedTicks    = 2;
 }
 
 // list of stats being watched
@@ -276,6 +289,11 @@ message GPUWatchStats {
 }
 
 // GPUWatch captures the config, operational status and stats of GPUWatch object
+// NOTE:
+// a full frame carries Spec with the watch's attribute list and the latest
+// value of every requested attribute. a partial (power) frame carries only
+// Spec.Id and the power attributes of one GPU refreshed in that tick;
+// attributes and GPUs absent from a frame keep their previous value
 message GPUWatch {
   // GPUWatch config specification
   GPUWatchSpec   Spec   = 1;

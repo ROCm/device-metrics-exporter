@@ -92,6 +92,14 @@ metrics:
     notes: "not emitted on hypervisor (verified leto)"
 
   # -- Activity --
+  - name: GPU_UBB_POWER
+    category: power
+    platforms: [MI3xx]
+    baremetal: true
+    hypervisor_host: false
+    hypervisor_guest: false
+    class: C
+    notes: "MI350X+ OAM only; node-wide; partition 0 only"
   - name: GPU_GFX_ACTIVITY
     category: activity
     platforms: [MI2xx, MI3xx]

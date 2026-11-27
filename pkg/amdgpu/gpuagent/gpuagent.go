@@ -39,6 +39,9 @@ import (
 
 type GPUAgentClient struct {
 	sync.Mutex
+	// schedMu guards the scheduler fields; take it after the embedded mutex,
+	// never call a scheduler while holding it.
+	schedMu              sync.RWMutex
 	conn                 *grpc.ClientConn
 	mh                   *metricsutil.MetricsHandler
 	k8sApiClient         *k8sclient.K8sClient
@@ -98,9 +101,11 @@ func WithSRIOV(enableSriov bool) GPUAgentClientOptions {
 func WithK8sSchedulerClient(k8sScheduler scheduler.SchedulerClient) GPUAgentClientOptions {
 	return func(ga *GPUAgentClient) {
 		if utils.IsKubernetes() {
+			ga.schedMu.Lock()
 			ga.isKubernetes = true
-			logger.Log.Printf("K8sSchedulerClient option set")
 			ga.k8sScheduler = k8sScheduler
+			ga.schedMu.Unlock()
+			logger.Log.Printf("K8sSchedulerClient option set")
 		}
 	}
 }
@@ -292,17 +297,39 @@ func (ga *GPUAgentClient) InitConfigs() error {
 	return nil
 }
 
+// newSlurmScheduler is a variable so tests can swap it.
+var newSlurmScheduler = scheduler.NewSlurmClient
+
+// initalizeScheduler creates at most one slurm client; the k8s client is
+// injected by the exporter.
 func (ga *GPUAgentClient) initalizeScheduler() error {
-	if ga.enableSlurmScl {
-		slurmScl, err := scheduler.NewSlurmClient(ga.ctx)
-		if err != nil {
-			events.EmitWarning(ga.ctx, events.SlurmWatcherFailed,
-				fmt.Sprintf("slurm scheduler init failed: %v; slurm job labels will be unavailable.", err))
-			return err
-		}
-		ga.slurmScheduler = slurmScl
+	if !ga.enableSlurmScl {
+		return nil
 	}
+	ga.schedMu.RLock()
+	exists := ga.slurmScheduler != nil
+	ga.schedMu.RUnlock()
+	if exists {
+		return nil
+	}
+	slurmScl, err := newSlurmScheduler(ga.ctx)
+	if err != nil {
+		events.EmitWarning(ga.ctx, events.SlurmWatcherFailed,
+			fmt.Sprintf("slurm scheduler init failed: %v; slurm job labels will be unavailable.", err))
+		return err
+	}
+	ga.schedMu.Lock()
+	ga.slurmScheduler = slurmScl
+	ga.schedMu.Unlock()
 	return nil
+}
+
+// schedulers returns the scheduler clients under schedMu. Callers make their
+// scheduler calls after it returns, never under the lock.
+func (ga *GPUAgentClient) schedulers() (k8sOn bool, k8s, slurm scheduler.SchedulerClient) {
+	ga.schedMu.RLock()
+	defer ga.schedMu.RUnlock()
+	return ga.isKubernetes, ga.k8sScheduler, ga.slurmScheduler
 }
 
 func (ga *GPUAgentClient) Init() error {
@@ -544,33 +571,21 @@ func strDoubleToFloat(strValue string) float64 {
 	return floatValue
 }
 
-// ListWorkloads - get all workloads from every client , lock must be taken by
-// the caller
-func (ga *GPUAgentClient) ListWorkloads() (wls map[string]scheduler.Workload, err error) {
-	wls = make(map[string]scheduler.Workload)
-	if ga.isKubernetes && ga.k8sScheduler != nil {
-		var k8sWls map[string]scheduler.Workload
-		k8sWls, err = ga.k8sScheduler.ListWorkloads()
-		if err != nil {
-			return
-		}
-		for k, wl := range k8sWls {
-			wls[k] = wl
-		}
+// ListWorkloads - get all workloads from every scheduler (synchronous; the
+// workload source's mergeWorkloads gives the same result)
+func (ga *GPUAgentClient) ListWorkloads() (map[string]scheduler.Workload, error) {
+	var k8sWls, swls map[string]scheduler.Workload
+	var k8sErr, slurmErr error
+	k8sOn, k8s, slurm := ga.schedulers()
+	k8sUse := k8sOn && k8s != nil
+	if k8sUse {
+		k8sWls, k8sErr = k8s.ListWorkloads()
 	}
-	if ga.slurmScheduler == nil {
-		return wls, nil
+	// on a k8s error slurm is not consulted (mergeWorkloads returns early)
+	if slurm != nil && k8sErr == nil {
+		swls, slurmErr = slurm.ListWorkloads()
 	}
-	var swls map[string]scheduler.Workload
-	swls, err = ga.slurmScheduler.ListWorkloads()
-	if err != nil {
-		return
-	}
-	// return combined list
-	for k, wl := range swls {
-		wls[k] = wl
-	}
-	return
+	return mergeWorkloads(k8sUse, k8sWls, k8sErr, slurm != nil, swls, slurmErr)
 }
 
 func (ga *GPUAgentClient) Close() {
@@ -581,16 +596,14 @@ func (ga *GPUAgentClient) Close() {
 		ga.conn.Close()
 		ga.conn = nil
 	}
-	if ga.k8sScheduler != nil {
-		logger.Log.Printf("gpuagent k8s scheduler closing")
-		ga.k8sScheduler.Close()
-		ga.k8sScheduler = nil
-	}
-
-	if ga.slurmScheduler != nil {
+	// the k8s client is owned by the exporter, so it survives a reconnect
+	ga.schedMu.Lock()
+	slurm := ga.slurmScheduler
+	ga.slurmScheduler = nil
+	ga.schedMu.Unlock()
+	if slurm != nil {
 		logger.Log.Printf("gpuagent slurm scheduler closing")
-		ga.slurmScheduler.Close()
-		ga.slurmScheduler = nil
+		slurm.Close()
 	}
 
 	for _, client := range ga.clients {

@@ -7,6 +7,7 @@ The following document contains a full list of GPU Metrics that are available us
 ### MI3xx-Only Metrics
 
 - GPU_PACKAGE_POWER
+- GPU_UBB_POWER
 - GPU_VRAM_MAX_BANDWIDTH
 - PCIE_BANDWIDTH
 - PCIE_REPLAY_COUNT
@@ -57,36 +58,40 @@ The following document contains a full list of GPU Metrics that are available us
 
 All metrics are collected the same way — by scraping `/metrics`. These tiers describe only
 how often the data behind `/metrics` is refreshed when high-resolution mode is enabled
-(`CommonConfig.HighResolution.Enable=true`): fast-moving fields refresh at `FastPeriodSecs`,
-slow-moving and more expensive fields at `SlowPeriodSecs`. When the mode is disabled (the
-default), all metrics refresh once per scrape.
+(`CommonConfig.HighResolution.Enable=true`). When the mode is disabled (the default), all
+metrics refresh once per scrape. See [CommonConfig.HighResolution](configmap.md) for the
+settings.
 
-See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for the
-`FastPeriodSecs` / `SlowPeriodSecs` ranges, defaults, and supported rate.
+> **Note:** Sub-second periods (`FastPeriodMs` `100`, `10`, `1`) are opt-in and supported on
+> Linux bare metal with full GPUs (SPX) only. 10 ms and 1 ms are diagnostic; 1 ms is
+> experimental. A metric cannot change faster than the GPU firmware updates it.
 
-### Fast tier (`FastPeriodSecs`, default 1 s)
+<!-- doc-audit:skip-start -->
+| Metric | Sub-second (`FastPeriodMs` 1/10/100) | Fast (1 s default) | Slow (5 s default) |
+| --- | --- | --- | --- |
+| Power: `GPU_PACKAGE_POWER`, `GPU_POWER_USAGE` | &check; | &check; | |
+| Energy: `GPU_ENERGY_CONSUMED` | &check; | &check; | |
+| Voltage: `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` | | &check; | |
+| Violation residency: `GPU_VIOLATION_*_RESIDENCY_ACCUMULATED`, `GPU_VIOLATION_CURRENT_ACCUMULATED_COUNTER` | &check; | &check; | |
+| `GPU_AVERAGE_PACKAGE_POWER`, `GPU_UBB_POWER` | | &check; | |
+| Temperature: `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` | | &check; | |
+| Activity: `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY`, `GPU_*_BUSY_INSTANTANEOUS` | | &check; | |
+| PCIe counters: `PCIE_REPLAY_COUNT`, `PCIE_RECOVERY_COUNT`, `PCIE_REPLAY_ROLLOVER_COUNT`, `PCIE_NACK_SENT_COUNT`, `PCIE_NACK_RECEIVED_COUNT` | | &check; | |
+| XGMI link: `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` | | &check; | |
+| Bandwidth: `GPU_VRAM_MAX_BANDWIDTH` | | &check; | |
+| ECC / RAS counters: `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` | | | &check; |
+| Memory usage: `GPU_TOTAL_VRAM`, `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_*_VISIBLE_VRAM`, `GPU_*_GTT` | | | &check; |
+| PCIe bandwidth and speed: `PCIE_BIDIRECTIONAL_BANDWIDTH`, `PCIE_SPEED`, `PCIE_MAX_SPEED` | | | &check; |
+| Clocks: `GPU_CLOCK`, `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` | | | &check; |
+| XGMI neighbour counters: `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT` | | | &check; |
+| Violation status: `GPU_VIOLATION_GFX_CLOCK_BELOW_HOST_LIMIT_*_ACCUMULATED`, `GPU_VIOLATION_LOW_UTILIZATION_ACCUMULATED` | | | &check; |
+<!-- doc-audit:skip-end -->
 
-| Family | Metrics |
-| --- | --- |
-| Clocks | `GPU_CLOCK`, `GPU_MEM_CLOCK` |
-| Temperature | `GPU_EDGE_TEMPERATURE`, `GPU_JUNCTION_TEMPERATURE`, `GPU_MEMORY_TEMPERATURE`, `GPU_HBM_TEMPERATURE` |
-| Power | `GPU_PACKAGE_POWER`, `GPU_AVERAGE_PACKAGE_POWER`, `GPU_POWER_USAGE` |
-| Energy | `GPU_ENERGY_CONSUMED` |
-| Activity | `GPU_GFX_ACTIVITY`, `GPU_UMC_ACTIVITY`, `GPU_MMA_ACTIVITY`, `GPU_VCN_ACTIVITY`, `GPU_JPEG_ACTIVITY` |
-| Voltage | `GPU_GFX_VOLTAGE`, `GPU_VOLTAGE`, `GPU_MEMORY_VOLTAGE` |
-| PCIe | `GPU_PCIE_SPEED`, `GPU_PCIE_REPLAY_COUNT`, `GPU_PCIE_NACK_SENT_COUNT`, `GPU_PCIE_NACK_RECEIVED_COUNT` |
-| XGMI | `GPU_XGMI_NBR_*_{NOP,REQ,RESP,BEATS}_TX`, `GPU_XGMI_NBR_*_TX_THRPUT`, `GPU_XGMI_LINK_RX`, `GPU_XGMI_LINK_TX` |
-| Throttle / violation residency | `GPU_VIOLATION_PROCESSOR_HOT_*`, `GPU_VIOLATION_PPT_*`, `GPU_VIOLATION_SOCKET_THERMAL_*`, `GPU_VIOLATION_VR_THERMAL_*`, `GPU_VIOLATION_HBM_THERMAL_*` |
-| Bandwidth | `GPU_VRAM_MAX_BANDWIDTH` |
-
-### Slow tier (`SlowPeriodSecs`, default 5 s)
-
-| Family | Metrics |
-| --- | --- |
-| ECC / RAS counters | `GPU_ECC_CORRECT_*`, `GPU_ECC_UNCORRECT_*`, `GPU_ECC_DEFERRED_*` (per block) |
-| Memory usage | `GPU_USED_VRAM`, `GPU_FREE_VRAM`, `GPU_TOTAL_VRAM` |
-| PCIe bandwidth | `GPU_PCIE_BANDWIDTH` |
-| Clock limits | `GPU_MIN_CLOCK`, `GPU_MAX_CLOCK` |
+- At a sub-second period, `GPU_PACKAGE_POWER` reports the current socket power (same as
+  `GPU_POWER_USAGE`).
+- `/metrics` serves the latest value; samples between scrapes are not stored.
+- In high-resolution mode, a field that reports N/A on a GPU is no longer exported for that
+  GPU until the next config reload.
 
 ### Unsupported fields
 
@@ -120,6 +125,7 @@ See [`CommonConfig.HighResolution`](configmap.md) for enabling the mode and for 
 | &cross; | &check; | GPU_AVERAGE_PACKAGE_POWER `[MI2xx, Radeon]` | Average socket power in Watts; not available on guest VM |
 | &cross; | &check; | GPU_POWER_USAGE `[MI2xx, MI3xx]` | GPU power usage in Watts. In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); all other partitions report 0 (no per-XCD power sensor) |
 | &cross; | &check; | GPU_ENERGY_CONSUMED `[MI2xx, MI3xx]` | Accumulated energy consumed by the GPU in Micro Joules (uJ). In partitioned mode (CPX/DPX/QPX) applicable for primary partition (`partition_id=0`); suppressed for all other partitions (physical GPU sensor) |
+| &cross; | &check; | GPU_UBB_POWER `[MI35x OAM]` | UBB (node) power in Watts. Node-wide value, identical on every GPU of the UBB; **do not sum across GPUs**. Reported on the primary partition (`partition_id=0`) only; other partitions omit it. Absent on non-OAM platforms, including PCIe cards such as MI350P. Refresh tier: 1 s only (pull / high-res fast tier); not available at 1 / 10 / 100 ms. The source value is refreshed by the baseboard every ~5–14 s on MI350X/MI355X, whatever the period. See the [high-resolution tier table](#high-resolution-sampling-tiers) |
 
 ### Activity Metrics
 

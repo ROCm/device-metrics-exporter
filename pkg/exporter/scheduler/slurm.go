@@ -85,20 +85,45 @@ type client struct {
 	GpuJobs map[string]JobInfo
 	ctx     context.Context
 	cancel  context.CancelFunc
+	// version and changed are guarded by the embedded mutex. version counts
+	// GpuJobs content changes; changed is closed and replaced on each one.
+	version uint64
+	changed chan struct{}
 }
+
+var _ ChangeNotifier = (*client)(nil)
 
 // NewSlurmClient creates a slurm scheduler client; watcher setup failures return an error.
 func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
+	cl, err := newSlurmClient(ctx, globals.SlurmDir)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
+// NewSlurmClientForDir creates a slurm scheduler client watching dir (tests).
+func NewSlurmClientForDir(ctx context.Context, dir string) (SchedulerClient, error) {
+	cl, err := newSlurmClient(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
+// newSlurmClient watches dir for slurm job files (tests pass a temp dir).
+func newSlurmClient(ctx context.Context, dir string) (*client, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	cl := &client{
 		GpuJobs: make(map[string]JobInfo),
 		ctx:     ctx,
 		cancel:  cancel,
+		changed: make(chan struct{}),
 	}
 
-	if err := os.MkdirAll(path.Dir(globals.SlurmDir), 0644); err != nil {
-		logger.Log.Printf("error creating slurm dir %v err: %v", globals.SlurmDir, err)
+	if err := os.MkdirAll(path.Dir(dir), 0644); err != nil {
+		logger.Log.Printf("error creating slurm dir %v err: %v", dir, err)
 	}
 
 	// Create new watcher.
@@ -109,62 +134,67 @@ func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 	}
 
 	// Add a path.
-	if err := watcher.Add(globals.SlurmDir); err != nil {
+	if err := watcher.Add(dir); err != nil {
 		watcher.Close()
 		cancel()
-		return nil, fmt.Errorf("slurm fsnotify watcher failed to watch %q: %v. Check directory permissions.", globals.SlurmDir, err)
+		return nil, fmt.Errorf("slurm fsnotify watcher failed to watch %q: %v. Check directory permissions.", dir, err)
 	}
 
 	// Start listening for events.
 	go func() {
 		defer watcher.Close()
-		for cl.ctx.Err() == nil {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-
-				if _, err := strconv.Atoi(path.Base(event.Name)); err != nil {
-					logger.Log.Printf("skip event: %+v", event)
-					continue
-				}
-				logger.Log.Printf("event: %+v", event)
-
-				if event.Has(fsnotify.Create | fsnotify.Write) {
-					logger.Log.Printf("modified file: %v", event.Name)
-					data, err := os.ReadFile(event.Name)
-					if err != nil {
-						logger.Log.Printf("failed to read %v, %v", event.Name, err)
-						continue
-					}
-					cl.processSlurm(fsnotify.Write, path.Base(event.Name), data)
-
-				} else if event.Has(fsnotify.Remove) {
-					logger.Log.Printf("deleted file: %v", event.Name)
-					cl.processSlurm(fsnotify.Remove, path.Base(event.Name), nil)
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				logger.Log.Printf("error: %v", err)
-			case <-cl.ctx.Done():
-				logger.Log.Printf("slurm job watcher stopped")
-				return
-			}
-		}
+		cl.watch(watcher.Events, watcher.Errors)
 	}()
 
 	// read existing
-	if fds, err := os.ReadDir(globals.SlurmDir); err == nil {
+	if fds, err := os.ReadDir(dir); err == nil {
 		for _, f := range fds {
-			watcher.Events <- fsnotify.Event{Name: globals.SlurmDir + "/" + f.Name(), Op: fsnotify.Write}
+			watcher.Events <- fsnotify.Event{Name: dir + "/" + f.Name(), Op: fsnotify.Write}
 		}
 	}
 
 	logger.Log.Printf("created slurm scheduler client")
 	return cl, nil
+}
+
+// watch handles job file events until ctx is done or a channel is closed.
+func (cl *client) watch(events <-chan fsnotify.Event, errs <-chan error) {
+	for cl.ctx.Err() == nil {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+
+			if _, err := strconv.Atoi(path.Base(event.Name)); err != nil {
+				logger.Log.Printf("skip event: %+v", event)
+				continue
+			}
+			logger.Log.Printf("event: %+v", event)
+
+			if event.Has(fsnotify.Create | fsnotify.Write) {
+				logger.Log.Printf("modified file: %v", event.Name)
+				data, err := os.ReadFile(event.Name)
+				if err != nil {
+					logger.Log.Printf("failed to read %v, %v", event.Name, err)
+					continue
+				}
+				cl.processSlurm(fsnotify.Write, path.Base(event.Name), data)
+
+			} else if event.Has(fsnotify.Remove) {
+				logger.Log.Printf("deleted file: %v", event.Name)
+				cl.processSlurm(fsnotify.Remove, path.Base(event.Name), nil)
+			}
+		case err, ok := <-errs:
+			if !ok {
+				return
+			}
+			logger.Log.Printf("error: %v", err)
+		case <-cl.ctx.Done():
+			logger.Log.Printf("slurm job watcher stopped")
+			return
+		}
+	}
 }
 
 func (cl *client) processSlurm(op fsnotify.Op, name string, buff []byte) {
@@ -178,20 +208,53 @@ func (cl *client) processSlurm(op fsnotify.Op, name string, buff []byte) {
 
 		logger.Log.Printf("received job env %+v", jobEnv)
 		if gpus, ok := jobEnv["CUDA_VISIBLE_DEVICES"]; ok {
+			info := jobInfoFromEnv(jobEnv)
+			dirty := false
 			cl.Lock()
 			for _, allocGPU := range strings.Split(gpus, ",") {
-				cl.GpuJobs[allocGPU] = jobInfoFromEnv(jobEnv)
+				if old, ok := cl.GpuJobs[allocGPU]; !ok || old != info {
+					cl.GpuJobs[allocGPU] = info
+					dirty = true
+				}
+			}
+			if dirty {
+				cl.bumpLocked()
 			}
 			cl.Unlock()
 			logger.Log.Printf("updated %v", cl.GpuJobs)
 		}
 	} else {
+		key := fmt.Sprintf("%v", name)
 		cl.Lock()
-		delete(cl.GpuJobs, fmt.Sprintf("%v", name))
-
+		if _, ok := cl.GpuJobs[key]; ok {
+			delete(cl.GpuJobs, key)
+			cl.bumpLocked()
+		}
 		cl.Unlock()
 		logger.Log.Printf("updated gpu %v jobs %v", name, cl.GpuJobs)
 	}
+}
+
+// bumpLocked bumps the version and wakes Changed() waiters without blocking.
+// Caller holds the lock.
+func (cl *client) bumpLocked() {
+	cl.version++
+	close(cl.changed)
+	cl.changed = make(chan struct{})
+}
+
+// Version returns the GpuJobs content version; it increases on every change.
+func (cl *client) Version() uint64 {
+	cl.Lock()
+	defer cl.Unlock()
+	return cl.version
+}
+
+// Changed returns a channel closed on the next GpuJobs content change.
+func (cl *client) Changed() <-chan struct{} {
+	cl.Lock()
+	defer cl.Unlock()
+	return cl.changed
 }
 
 // ListWorkloads - returns the list of workloads

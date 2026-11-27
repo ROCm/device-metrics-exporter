@@ -44,7 +44,7 @@ func profilerSample(renderID string, aliasVals map[string]string) *amdgpu.GpuPro
 }
 
 // seedProfilerLabelCache builds a renderID→labels cache for the synthetic GPU.
-func seedProfilerLabelCache(ga *GPUAgentGPUClient, renderID string, gpuBytes []byte) (*profilerLabelCache, prometheus.Labels) {
+func seedProfilerLabelCache(ga *GPUAgentGPUClient, renderID string, gpuBytes []byte) (*workloadLabelCache, prometheus.Labels) {
 	gpu := &amdgpu.GPU{Spec: &amdgpu.GPUSpec{Id: gpuBytes}, Status: &amdgpu.GPUStatus{Index: 0}}
 	labels := prometheus.Labels(ga.populateLabelsFromGPU(nil, gpu, nil))
 	lc := newProfilerLabelCache(ga)

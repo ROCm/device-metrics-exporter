@@ -329,7 +329,7 @@ func isRestartableFailure(err error) bool {
 }
 
 func (ga *GPUAgentGPUClient) processHealthValidation() error {
-	wls, err := ga.gpuHandler.ListWorkloads()
+	wls, err := ga.currentWorkloads()
 	if err != nil {
 		logger.Log.Printf("Error listing workloads: %v", err)
 	}
@@ -530,7 +530,7 @@ func (ga *GPUAgentGPUClient) updateAllGPUsHealthState(healthStr string) {
 
 	logger.Log.Printf("fetch GPUs and set health state")
 	// If health state is not set, fetch GPUs and mark them as unhealthy
-	wls, _ := ga.gpuHandler.ListWorkloads()
+	wls, _ := ga.currentWorkloads()
 	ga.gpuIDMapMu.RLock()
 	gpuIDMapCopy := make(map[string]GPUIDMeta, len(ga.gpuIDMap))
 	for k, v := range ga.gpuIDMap {

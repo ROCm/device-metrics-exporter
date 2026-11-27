@@ -608,3 +608,32 @@ func TestConfigureFromConfigWithLogRotationDisable(t *testing.T) {
 		t.Error("Expected log file to contain message after enabling rotation")
 	}
 }
+
+// TestEnhancedLoggerLevelFilter: a message is written when its level is at or
+// above the configured severity (warnings and errors at INFO, no debug).
+func TestEnhancedLoggerLevelFilter(t *testing.T) {
+	for _, tc := range []struct {
+		level logrus.Level
+		want  map[string]bool
+	}{
+		{logrus.InfoLevel, map[string]bool{"debug": false, "info": true, "warn": true, "error": true}},
+		{logrus.WarnLevel, map[string]bool{"debug": false, "info": false, "warn": true, "error": true}},
+		{logrus.ErrorLevel, map[string]bool{"debug": false, "info": false, "warn": false, "error": true}},
+		{logrus.DebugLevel, map[string]bool{"debug": true, "info": true, "warn": true, "error": true}},
+	} {
+		var buf bytes.Buffer
+		l := NewEnhancedLogger()
+		l.SetOutput(&buf)
+		l.SetLogLevel(tc.level)
+		buf.Reset()
+		l.Debugf("msg-debug")
+		l.Infof("msg-info")
+		l.Warnf("msg-warn")
+		l.Errorf("msg-error")
+		for name, want := range tc.want {
+			if got := strings.Contains(buf.String(), "msg-"+name); got != want {
+				t.Errorf("level %s: %s written = %v, want %v", tc.level, name, got, want)
+			}
+		}
+	}
+}

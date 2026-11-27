@@ -19,13 +19,71 @@
 // immutable per-device snapshot via copy-on-write; readers load it lock-free.
 package snapshotstore
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"math"
+	"runtime"
+	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+// hotLoadSpins is how many times Load retries while a Set is in flight before
+// yielding the processor.
+const hotLoadSpins = 16
+
+// HotCell is a single-writer, multi-reader value slot for high-rate fields,
+// updated in place without lock, allocation or snapshot copy; a seqlock over
+// atomics keeps readers from seeing a torn value/ts pair.
+type HotCell struct {
+	seq atomic.Uint64 // odd while a Set is in progress
+	val atomic.Uint64 // math.Float64bits(value)
+	ts  atomic.Int64  // TsUs
+}
+
+// Set publishes v with sample time tsUs. Single writer only.
+func (c *HotCell) Set(v float64, tsUs int64) {
+	c.seq.Add(1)
+	c.val.Store(math.Float64bits(v))
+	c.ts.Store(tsUs)
+	c.seq.Add(1)
+}
+
+// Load returns the latest value and sample time, retrying only while a Set is
+// in flight.
+func (c *HotCell) Load() (v float64, tsUs int64) {
+	for spins := 0; ; spins++ {
+		s1 := c.seq.Load()
+		if s1&1 == 0 {
+			bits := c.val.Load()
+			ts := c.ts.Load()
+			if c.seq.Load() == s1 {
+				return math.Float64frombits(bits), ts
+			}
+		}
+		if spins >= hotLoadSpins {
+			runtime.Gosched()
+			spins = 0
+		}
+	}
+}
 
 // Sample is one field's value, label set, and sample time (microseconds).
 type Sample struct {
 	Value  float64
 	Labels prometheus.Labels
 	TsUs   int64
+	// hot, when set, holds the live Value/TsUs; the fields above are then
+	// ignored. Only Store.RegisterHot sets it.
+	hot *HotCell
+}
+
+// resolve returns s as a plain sample, with Value/TsUs from its hot cell.
+func (s Sample) resolve() Sample {
+	if s.hot != nil {
+		s.Value, s.TsUs = s.hot.Load()
+		s.hot = nil
+	}
+	return s
 }
 
 // DeviceSnapshot is an immutable set of samples for one device. It is built
@@ -39,13 +97,14 @@ func newDeviceSnapshot(fields map[string]Sample) *DeviceSnapshot {
 	return &DeviceSnapshot{fields: fields}
 }
 
-// Get returns the sample for field and whether it is present.
+// Get returns the sample for field and whether it is present. A hot sample is
+// returned with its cell's current Value/TsUs.
 func (d *DeviceSnapshot) Get(field string) (Sample, bool) {
 	if d == nil {
 		return Sample{}, false
 	}
 	s, ok := d.fields[field]
-	return s, ok
+	return s.resolve(), ok
 }
 
 // Len returns the number of fields.
@@ -56,13 +115,14 @@ func (d *DeviceSnapshot) Len() int {
 	return len(d.fields)
 }
 
-// Range calls fn for every field, stopping early if fn returns false.
+// Range calls fn for every field, stopping early if fn returns false. Hot
+// fields are loaded independently, so they may come from different updates.
 func (d *DeviceSnapshot) Range(fn func(field string, s Sample) bool) {
 	if d == nil {
 		return
 	}
 	for f, s := range d.fields {
-		if !fn(f, s) {
+		if !fn(f, s.resolve()) {
 			return
 		}
 	}

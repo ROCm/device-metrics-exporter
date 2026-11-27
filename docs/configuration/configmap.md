@@ -30,12 +30,13 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     - `PtlDelay`: Delay in milliseconds to wait after setting PTL states before collecting metrics. Default is `0` (no delay). This setting is useful for platforms that support Peaks Top Limiter (PTL) mode to ensure that the PTL states are properly applied before metrics collection begins.
   - `Debug`: Configuration for optional debug interfaces.
     - `EnableAPI`: Boolean flag to expose the debug interfaces (the pprof/expvar profiling endpoints on the metrics port and the error-injection gRPC API). Default is `false`, meaning these interfaces are disabled. The value is read at runtime and applied on config reload.
-  - `HighResolution`: High-resolution sampling profile for GPU and [workload cgroup](workload-cgroup-metrics.md) metrics. When enabled, these metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape. Workload cgroup metrics are sampled every `FastPeriodSecs`.
+  - `HighResolution`: High-resolution sampling profile for GPU and [workload cgroup](workload-cgroup-metrics.md) metrics. When enabled, these metrics are refreshed faster than the `/metrics` scrape interval, and `/metrics` always serves the most recent sample. When disabled (the default), metrics are refreshed once per scrape.
     - `Enable`: Boolean flag to enable the high-resolution profile. Default is `false`.
-    - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes (clocks, temperatures, power, utilization, energy). Valid range `1`–`60`. `0` selects the default (`1`).
-    - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage). Must be ≥ `FastPeriodSecs`. Valid range `5`–`3600`. `0` selects the default (`5`).
+    - `FastPeriodMs` (preview): Fast sampling period in milliseconds: `1`, `10`, `100`, or a multiple of `1000` up to `60000`. Overrides `FastPeriodSecs` when set. Periods below 1 s apply to power metrics only; other metrics refresh at most once per second.
+    - `FastPeriodSecs`: Sampling period, in seconds, for fast-moving attributes. Valid range `1`–`60`. `0` selects the default (`1`).
+    - `SlowPeriodSecs`: Sampling period, in seconds, for slow-moving attributes (ECC/XGMI counters, PCIe bandwidth, memory usage, clocks). Must be ≥ the fast period. Valid range `5`–`3600`. `0` selects the default (`5`).
 
-    `1 s` (`FastPeriodSecs: 1`, `SlowPeriodSecs: 5`) is the supported high-resolution rate, validated across all MI325X compute-partition modes and single-GPU.
+    Sub-second periods are opt-in. `10` ms and `1` ms are for short diagnostic runs, and `1` ms is experimental; below 100 ms the exporter logs a warning and, on Kubernetes, emits a `HighResDiagnosticTier` event. An invalid or unsupported period falls back to 1 s. With the Debian package, 10 ms and 1 ms need a higher gpuagent CPU quota; see [High-resolution resource guidelines](#high-resolution-resource-guidelines).
 
     While high-resolution mode is enabled, the following are not available: in-band-RAS/CPER-based health checks (basic ECC-based health is still reported), the `/gpumetrics` live query (a cached snapshot is served instead), the `KFD_PROCESS_ID` label, and the `gpu_afid_errors` metric.
 
@@ -53,6 +54,19 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
     }
     ```
 
+    **Example** (`config.json`, 100 ms power metrics):
+
+    ```json
+    {
+      "CommonConfig": {
+        "HighResolution": {
+          "Enable": true,
+          "FastPeriodMs": 100
+        }
+      }
+    }
+    ```
+
     See [High-Resolution Sampling Tiers](metricslist.md) for which metrics land in the fast and slow tiers.
 
 - `NICConfig`:
@@ -65,6 +79,17 @@ When deploying AMD Device Metrics Exporter on Kubernetes, a `ConfigMap` is deplo
   - `Labels`: `HOSTNAME`, `GPU_UUID`, `IFOE_STATION_UUID`, `IFOE_PORT_NAME` are mandatory labels that are always set and cannot be removed. These labels provide identification of IFOE components at the host, GPU, station, port, and device levels. Labels supported are available in the provided example `configmap.yaml`.
   - `CustomLabels`: A map of user-defined labels and their values. Users can set up to 10 custom labels. These labels will be exported with every IFOE metric, ensuring consistent metadata across all metrics. Custom labels allow you to add deployment-specific information such as cluster identifiers, data center locations, or other organizational metadata.
   - `ExtraPodLabels`: Similar to GPUConfig, this defines a map that links Prometheus label names to Kubernetes pod labels for IFOE metrics. This allows you to expose pod metadata as Prometheus labels for easier correlation between IFOE network metrics and workload information.
+
+## High-resolution resource guidelines
+
+The default resources of the Helm chart and of the Debian package's `amd-metrics-exporter.service` cover every fast period. With the Debian package, stable performance at the diagnostic periods requires a higher CPU quota for `gpuagent.service` (default `CPUQuota=50%`), on a node with up to 8 GPUs:
+
+| Fast period | `gpuagent.service` `CPUQuota` |
+| --- | --- |
+| 10 ms | `100%` |
+| 1 ms | `200%` |
+
+Set it with `sudo systemctl edit gpuagent.service` (`[Service]` and `CPUQuota=100%`), then `sudo systemctl restart gpuagent.service`.
 
 ## CLI flags
 

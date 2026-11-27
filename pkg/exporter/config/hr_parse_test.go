@@ -19,6 +19,8 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
@@ -173,5 +175,48 @@ func TestHighResExampleFiles(t *testing.T) {
 				t.Errorf("periods = %d/%d, want 1/5", fast, slow)
 			}
 		})
+	}
+}
+
+// TestHighResConfigmapDocExamples parses the HighResolution JSON examples in
+// docs/configuration/configmap.md and checks the effective watch periods, so
+// the documented examples cannot drift from the config handler.
+func TestHighResConfigmapDocExamples(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/configuration/configmap.md")
+	if err != nil {
+		t.Skipf("configmap.md not found: %v", err)
+	}
+	var examples []string
+	re := regexp.MustCompile("(?s)```json\n(.*?)```")
+	for _, m := range re.FindAllStringSubmatch(string(data), -1) {
+		if strings.Contains(m[1], "\"HighResolution\"") {
+			examples = append(examples, m[1])
+		}
+	}
+	want := [][2]uint32{{1000, 5}, {100, 5}}
+	if len(examples) != len(want) {
+		t.Fatalf("found %d HighResolution examples, want %d", len(examples), len(want))
+	}
+	for i, ex := range examples {
+		var c exportermetrics.MetricConfig
+		if err := json.Unmarshal([]byte(ex), &c); err != nil {
+			t.Fatalf("example %d: unmarshal: %v", i, err)
+		}
+		cfgPath := t.TempDir() + "/config.json"
+		if err := os.WriteFile(cfgPath, []byte(ex), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		ch := NewConfigHandler(cfgPath, GPUAgentConfig{})
+		if err := ch.RefreshConfig(); err != nil {
+			t.Fatalf("example %d: RefreshConfig: %v", i, err)
+		}
+		if !ch.GetHighResolutionState() {
+			t.Errorf("example %d: high-res not enabled", i)
+		}
+		fastMs, slow := ch.GetHighResWatchPeriods()
+		if fastMs != want[i][0] || slow != want[i][1] {
+			t.Errorf("example %d: periods %d ms / %d s, want %d ms / %d s",
+				i, fastMs, slow, want[i][0], want[i][1])
+		}
 	}
 }

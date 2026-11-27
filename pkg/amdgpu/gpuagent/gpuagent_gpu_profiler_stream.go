@@ -26,10 +26,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
-	"sync/atomic"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/gen/amdgpu"
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/rocprofiler"
@@ -162,7 +159,7 @@ func profilerStoreFields(aliasVals map[string]float64) map[string]float64 {
 // across the manager goroutine.
 type profilerStreamSink struct {
 	ga     *GPUAgentGPUClient
-	labels *profilerLabelCache
+	labels *workloadLabelCache
 }
 
 func (s *profilerStreamSink) Publish(p *amdgpu.GpuProfiler) {
@@ -175,7 +172,7 @@ func (s *profilerStreamSink) Publish(p *amdgpu.GpuProfiler) {
 // so a disabled profiler field is absent from the store, matching the pull surface.
 // GPUs whose labels are not yet cached are skipped (transient, self-heals), as the
 // watch writer does.
-func (ga *GPUAgentGPUClient) publishProfilerSample(p *amdgpu.GpuProfiler, lc *profilerLabelCache) {
+func (ga *GPUAgentGPUClient) publishProfilerSample(p *amdgpu.GpuProfiler, lc *workloadLabelCache) {
 	if p == nil || lc == nil {
 		return
 	}
@@ -210,72 +207,6 @@ func (ga *GPUAgentGPUClient) publishProfilerSample(p *amdgpu.GpuProfiler, lc *pr
 			continue
 		}
 		store.Update(gpuStoreDeviceKey(labels, workloadSkip), deltas)
-	}
-}
-
-// profilerLabelCache holds the per-GPU full label set keyed by DRM render id (the
-// key a decoded profiler sample carries). It is refreshed off the stream hot path
-// on the same cadence as the workload-label cache, since ListWorkloads can block on
-// the scheduler. atomic.Pointer makes get() lock-free and race-free across the
-// manager goroutine.
-type profilerLabelCache struct {
-	ga     *GPUAgentGPUClient
-	labels atomic.Pointer[map[string]prometheus.Labels]
-}
-
-func newProfilerLabelCache(ga *GPUAgentGPUClient) *profilerLabelCache {
-	return &profilerLabelCache{ga: ga}
-}
-
-// refreshOnce rebuilds the renderID→label map from the same inputs as the pull
-// path (workloads + GPUGet), so streamed profiler series carry labels 1-1 with the
-// per-scrape profiler series. The new map is never mutated after Store.
-func (c *profilerLabelCache) refreshOnce() {
-	// Reuse the subscribe-time snapshot (sole-amd-smi-caller invariant); only the
-	// scheduler-sourced workload labels change at runtime.
-	snap := c.ga.hrSnapshot.Load()
-	if snap == nil || len(snap.gpus) == 0 {
-		return
-	}
-	gpus := snap.gpus
-	partitionMap := snap.partitionMap
-	wls, _ := c.ga.gpuHandler.ListWorkloads()
-	next := make(map[string]prometheus.Labels, len(gpus))
-	for _, gpu := range gpus {
-		rid := getGPURenderId(gpu)
-		if rid == "" {
-			continue
-		}
-		next[rid] = prometheus.Labels(c.ga.populateLabelsFromGPU(wls, gpu, partitionMap))
-	}
-	c.labels.Store(&next)
-}
-
-func (c *profilerLabelCache) get(renderID string) (prometheus.Labels, bool) {
-	m := c.labels.Load()
-	if m == nil {
-		return nil, false
-	}
-	l, ok := (*m)[renderID]
-	return l, ok
-}
-
-// start seeds the cache synchronously, then refreshes on a ticker until ctx is
-// done. Each tick also clears stale profiler fields if the stream has hit the
-// failure-disable threshold, so a terminally-disabled profiler stops serving
-// last-known gpu_prof_* values instead of leaving them frozen.
-func (c *profilerLabelCache) start(ctx context.Context, interval time.Duration) {
-	c.refreshOnce()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			c.refreshOnce()
-			c.ga.dropProfilerFieldsIfDisabled()
-		}
 	}
 }
 

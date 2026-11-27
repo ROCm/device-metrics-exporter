@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/gen/exportermetrics"
@@ -38,31 +39,69 @@ var KubernetesLabels = map[string]bool{
 	exportermetrics.MetricLabel_CONTAINER.String(): true,
 }
 
+// podResourcesClient is shared by the gpu and nic agents; mu guards
+// clientConn, which is re-dialed when broken.
 type podResourcesClient struct {
+	mu         sync.Mutex
 	clientConn *grpc.ClientConn
+	socket     string
 	ctx        context.Context // parent context
+}
+
+// dialKubelet creates the PodResources connection; a variable so tests can
+// count dials.
+var dialKubelet = func(socket string) (*grpc.ClientConn, error) {
+	return grpc.NewClient("unix://"+socket, grpc.WithTransportCredentials(insecure.NewCredentials()))
 }
 
 // NewKubernetesClient - creates a kubernetes schedler client
 func NewKubernetesClient(ctx context.Context) (SchedulerClient, error) {
-	if _, err := os.Stat(globals.PodResourceSocket); err != nil {
+	cl, err := newKubernetesClient(ctx, globals.PodResourceSocket)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
+// NewKubernetesClientForSocket creates a kubernetes scheduler client for the
+// given PodResources socket (tests use a fake kubelet).
+func NewKubernetesClientForSocket(ctx context.Context, socket string) (SchedulerClient, error) {
+	cl, err := newKubernetesClient(ctx, socket)
+	if err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
+// newKubernetesClient creates a client for the PodResources socket (tests pass
+// a temp socket).
+func newKubernetesClient(ctx context.Context, socket string) (*podResourcesClient, error) {
+	if _, err := os.Stat(socket); err != nil {
 		logger.Log.Printf("no kubelet found")
 		return nil, fmt.Errorf("no kubelet, %v", err)
 	}
-	client, err := grpc.NewClient("unix://"+globals.PodResourceSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	client, err := dialKubelet(socket)
 	if err != nil {
 		logger.Log.Printf("kubelet socket err: %v", err)
 		return nil, fmt.Errorf("kubelet socket error, %v", err)
 	}
 	logger.Log.Printf("created k8s scheduler client")
-	return &podResourcesClient{clientConn: client, ctx: ctx}, nil
+	return &podResourcesClient{clientConn: client, socket: socket, ctx: ctx}, nil
+}
+
+// conn returns the current connection.
+func (cl *podResourcesClient) conn() *grpc.ClientConn {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	return cl.clientConn
 }
 
 // ListWorkloads - list all the workloads
 // This function will return a map of device id to workload
 // The device id is the device id (pcie id or partition xcd string) of the GPU
 func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
-	prCl := kube.NewPodResourcesListerClient(cl.clientConn)
+	conn := cl.conn()
+	prCl := kube.NewPodResourcesListerClient(conn)
 	ctx, cancel := context.WithTimeout(cl.ctx, time.Second*10)
 	defer cancel()
 	resp, err := prCl.List(ctx, &kube.ListPodResourcesRequest{})
@@ -70,12 +109,13 @@ func (cl *podResourcesClient) ListWorkloads() (map[string]Workload, error) {
 		logger.Log.Printf("failed to list pod resources, %v", err)
 		if cl.isConnectionError(err) {
 			logger.Log.Printf("attempting to reconnect to kubelet socket...")
-			if recErr := cl.reconnect(); recErr != nil {
+			newConn, recErr := cl.reconnect(conn)
+			if recErr != nil {
 				return nil, fmt.Errorf("failed to reconnect: %v (original error: %v)", recErr, err)
 			}
 
 			// Retry once after reconnect
-			prCl = kube.NewPodResourcesListerClient(cl.clientConn)
+			prCl = kube.NewPodResourcesListerClient(newConn)
 			ctx, cancel = context.WithTimeout(cl.ctx, time.Second*10)
 			defer cancel()
 
@@ -143,7 +183,11 @@ func (cl *podResourcesClient) CheckExportLabels(labels map[string]bool) bool {
 	return false
 }
 
+// Close closes the current connection (process shutdown only; borrowers such
+// as the gpu agent must not call it).
 func (cl *podResourcesClient) Close() error {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
 	return cl.clientConn.Close()
 }
 
@@ -151,26 +195,34 @@ func (cl *podResourcesClient) Type() SchedulerType {
 	return Kubernetes
 }
 
-// reconnect tries to close the existing connection and dial again.
-// You can call this if you detect the connection is broken during usage.
-func (cl *podResourcesClient) reconnect() error {
-	if cl.clientConn != nil {
-		_ = cl.clientConn.Close()
+// reconnect replaces the broken connection old and returns the new one;
+// concurrent callers failing on the same connection dial once.
+func (cl *podResourcesClient) reconnect(old *grpc.ClientConn) (*grpc.ClientConn, error) {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	if cl.clientConn != old {
+		return cl.clientConn, nil
+	}
+	if old != nil {
+		_ = old.Close()
 	}
 
-	var err error
-	cl.clientConn, err = grpc.NewClient("unix://"+globals.PodResourceSocket, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := dialKubelet(cl.socket)
 	if err != nil {
 		logger.Log.Printf("failed to reconnect to kubelet socket: %v", err)
-		return err
+		return nil, err
 	}
+	cl.clientConn = conn
 	logger.Log.Printf("reconnected to kubelet socket")
-	return nil
+	return conn, nil
 }
 
-// isConnectionError checks if the error is related to connection issues
+// isConnectionError checks if the error is related to connection issues,
+// including a closed connection (matched by text, ErrClientConnClosing is
+// deprecated).
 func (cl *podResourcesClient) isConnectionError(err error) bool {
 	return strings.Contains(err.Error(), "connection refused") ||
 		strings.Contains(err.Error(), "connection reset") ||
-		strings.Contains(err.Error(), "transport is closing")
+		strings.Contains(err.Error(), "transport is closing") ||
+		strings.Contains(err.Error(), "client connection is closing")
 }

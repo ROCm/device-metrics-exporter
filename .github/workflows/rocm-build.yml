@@ -23,6 +23,7 @@ on:
       - 'Makefile.compile'
       - 'Makefile.package'
       - 'helm-charts/**'
+      - 'patch/gpuagent/**'
 
   workflow_dispatch:
     inputs:

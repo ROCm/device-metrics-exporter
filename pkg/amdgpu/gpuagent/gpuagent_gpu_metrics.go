@@ -68,6 +68,7 @@ type GpuMetrics struct {
 	gpuNodesTotal              prometheus.GaugeVec
 	gpuPackagePower            prometheus.GaugeVec
 	gpuAvgPkgPower             prometheus.GaugeVec
+	gpuUbbPower                prometheus.GaugeVec
 	gpuEdgeTemp                prometheus.GaugeVec
 	gpuJunctionTemp            prometheus.GaugeVec
 	gpuMemoryTemp              prometheus.GaugeVec
@@ -345,6 +346,7 @@ func (ga *GPUAgentGPUClient) initLabelConfigs(config *exportermetrics.GPUMetricC
 	// rebuild; guard the write so the two cannot race.
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 
 	// list of mandatory labels
 	ga.exportLabels = make(map[string]bool)
@@ -420,6 +422,7 @@ func profilerStateLabel(enabled bool) string {
 func (ga *GPUAgentGPUClient) initCustomLabels(config *exportermetrics.GPUMetricConfig) {
 	ga.labelMapMu.Lock()
 	defer ga.labelMapMu.Unlock()
+	ga.labelInputGen.Add(1)
 	ga.customLabelMap = make(map[string]string)
 	disallowedLabels := []string{}
 	if config != nil && config.GetCustomLabels() != nil {
@@ -499,6 +502,7 @@ func (ga *GPUAgentGPUClient) getExporterFieldState(field string) bool {
 func (ga *GPUAgentGPUClient) initFieldConfig(config *exportermetrics.GPUMetricConfig) {
 	ga.exportFieldMapMu.Lock()
 	defer ga.exportFieldMapMu.Unlock()
+	defer ga.exportFieldGen.Add(1)
 	ga.exportFieldMap = make(map[string]bool)
 	// setup metric fields in map to be monitored
 	// init the map with all supported strings from enum
@@ -552,6 +556,7 @@ func (ga *GPUAgentGPUClient) initFieldMetricsMap() {
 		exportermetrics.GPUMetricField_GPU_NODES_TOTAL.String():                                              FieldMeta{Metric: ga.metrics.gpuNodesTotal},
 		exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.String():                                            FieldMeta{Metric: ga.metrics.gpuPackagePower},
 		exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String():                                    FieldMeta{Metric: ga.metrics.gpuAvgPkgPower},
+		exportermetrics.GPUMetricField_GPU_UBB_POWER.String():                                                FieldMeta{Metric: ga.metrics.gpuUbbPower},
 		exportermetrics.GPUMetricField_GPU_EDGE_TEMPERATURE.String():                                         FieldMeta{Metric: ga.metrics.gpuEdgeTemp},
 		exportermetrics.GPUMetricField_GPU_JUNCTION_TEMPERATURE.String():                                     FieldMeta{Metric: ga.metrics.gpuJunctionTemp},
 		exportermetrics.GPUMetricField_GPU_MEMORY_TEMPERATURE.String():                                       FieldMeta{Metric: ga.metrics.gpuMemoryTemp},
@@ -815,6 +820,11 @@ func (ga *GPUAgentGPUClient) initPrometheusMetrics() {
 		gpuAvgPkgPower: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "gpu_average_package_power",
 			Help: "Average socket power in Watts",
+		},
+			labels),
+		gpuUbbPower: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "gpu_ubb_power",
+			Help: "UBB (node) power in Watts; node-wide value, do not sum across GPUs",
 		},
 			labels),
 		gpuEdgeTemp: *prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -1898,7 +1908,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 		return fmt.Errorf("%v", resp.ApiStatus)
 	}
 	ga.initGPUMetadata(resp.Response)
-	wls, err := ga.gpuHandler.ListWorkloads()
+	wls, err := ga.currentWorkloads()
 	if err != nil {
 		logger.Log.Printf("Error listing workloads: %v", err)
 	}
@@ -1911,9 +1921,7 @@ func (ga *GPUAgentGPUClient) UpdateStaticMetrics(ctx context.Context) error {
 	podInfo, _ := ga.FetchPodInfoForNode()
 	// Guard the write: populateLabelsFromGPU reads k8PodInfoMap under
 	// labelMapMu.RLock from the concurrent high-res workload-label ticker.
-	ga.labelMapMu.Lock()
-	ga.k8PodInfoMap = podInfo
-	ga.labelMapMu.Unlock()
+	ga.setK8PodInfoMap(podInfo)
 	nonGpuLabels := ga.populateLabelsFromGPU(nil, nil, nil)
 	ga.metrics.gpuNodesTotal.With(nonGpuLabels).Set(float64(len(resp.Response)))
 	// do this only once as the health monitoring thread will
@@ -2298,6 +2306,11 @@ func (ga *GPUAgentGPUClient) updateGPUInfoToMetrics(
 	}
 	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuAvgPkgPower, exportermetrics.GPUMetricField_GPU_AVERAGE_PACKAGE_POWER.String(),
 		labels, stats.AvgPackagePower)
+	if !utils.IsNonZeroValue(stats.UbbPower) {
+		ga.fl.markUnsupportedFields(gpuid, exportermetrics.GPUMetricField_GPU_UBB_POWER.String())
+	}
+	ga.fl.logWithValidateAndExport(gpuid, ga.metrics.gpuUbbPower, exportermetrics.GPUMetricField_GPU_UBB_POWER.String(),
+		labels, stats.UbbPower)
 
 	// gpu temp stats
 	tempStats := stats.Temperature
