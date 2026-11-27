@@ -1430,18 +1430,21 @@ func (s *E2ESuite) Test029MonitorCgroup(c *C) {
 	if !s.restartExporter(c, nil) {
 		return
 	}
-	baseline := s.stableGPUFields(c)
+	// the mock gpuagent can enumerate a different GPU set on each start, so
+	// compare the GPUs both containers report
+	baseline := s.agentGPUFields(c)
 	if !s.restartExporter(c, []string{"-monitor-cgroup=true"}) {
 		return
 	}
-	var gpus map[string][]string
-	if !assert.Eventually(c, func() bool {
-		gpus = s.gpuFields()
-		return reflect.DeepEqual(gpus, baseline)
-	}, 90*time.Second, 3*time.Second, "GPU metrics should be the same with -monitor-cgroup") {
-		log.Printf("GPU ids without -monitor-cgroup: %v; with it: %v; gpuagent reports: %v",
-			sortedKeys(baseline), sortedKeys(gpus), s.agentGPUIndexes())
+	gpus := s.agentGPUFields(c)
+	common := 0
+	for id, fields := range gpus {
+		if want, ok := baseline[id]; ok {
+			common++
+			assert.Equal(c, want, fields, "GPU %v metrics should be the same with -monitor-cgroup", id)
+		}
 	}
+	assert.NotZero(c, common, "no GPU reported both without and with -monitor-cgroup")
 
 	response, err := s.getExporterResponse()
 	assert.Nil(c, err)
@@ -1522,14 +1525,21 @@ func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
 	assert.Eventually(c, func() bool {
 		return jobsMatch(s.jobIDsByGPU(), map[string]string{gpuA: "742"})
 	}, 60*time.Second, 2*time.Second, "job 742 labels after the gpuagent restart")
+	// the restarted mock agent can enumerate a different GPU set: take the
+	// second GPU from the ones it reports now
+	ids := unquotedIDs(s.agentGPUFields(c))
+	for i := len(ids) - 1; i >= 0; i-- {
+		if ids[i] != gpuA {
+			gpuB = ids[i]
+			break
+		}
+	}
 
 	want := map[string]string{gpuA: "742", gpuB: "743"}
 	s.copySlurmJob(c, "743", gpuB)
-	if !assert.Eventually(c, func() bool {
+	assert.Eventually(c, func() bool {
 		return jobsMatch(s.jobIDsByGPU(), want)
-	}, 15*time.Second, 1*time.Second, "job 743 written after the restart not picked up") {
-		log.Printf("gpuagent reports GPUs %v after the restart", s.agentGPUIndexes())
-	}
+	}, 15*time.Second, 1*time.Second, "job 743 written after the restart not picked up")
 
 	s.removeSlurmJobs()
 	assert.Eventually(c, func() bool {
@@ -1730,8 +1740,7 @@ func (s *E2ESuite) gpuFields() map[string][]string {
 	return fields
 }
 
-// agentGPUIndexes lists the GPU indexes gpuagent itself reports (/gpumetrics),
-// to tell a GPU the agent never enumerated from one the exporter dropped.
+// agentGPUIndexes lists the GPU indexes gpuagent itself reports (/gpumetrics).
 func (s *E2ESuite) agentGPUIndexes() []string {
 	var body struct {
 		Response []struct {
@@ -1755,16 +1764,30 @@ func (s *E2ESuite) agentGPUIndexes() []string {
 	return ids
 }
 
-// stableGPUFields waits until two scrapes in a row report the same GPUs and fields.
-func (s *E2ESuite) stableGPUFields(c *C) map[string][]string {
+// agentGPUFields waits until two scrapes in a row report the same fields for
+// exactly the GPUs gpuagent reports, and returns them.
+func (s *E2ESuite) agentGPUFields(c *C) map[string][]string {
 	var prev map[string][]string
-	assert.Eventually(c, func() bool {
+	if !assert.Eventually(c, func() bool {
 		cur := s.gpuFields()
-		stable := len(cur) > 0 && reflect.DeepEqual(cur, prev)
+		ok := len(cur) > 0 && reflect.DeepEqual(cur, prev) &&
+			reflect.DeepEqual(unquotedIDs(cur), s.agentGPUIndexes())
 		prev = cur
-		return stable
-	}, 90*time.Second, 3*time.Second, "GPU metrics should settle after a restart")
+		return ok
+	}, 90*time.Second, 3*time.Second, "exported GPUs should settle on the GPUs gpuagent reports") {
+		log.Printf("exported GPUs %v; gpuagent reports %v", unquotedIDs(prev), s.agentGPUIndexes())
+	}
 	return prev
+}
+
+// unquotedIDs returns the sorted GPU ids of m without the label quotes.
+func unquotedIDs(m map[string][]string) []string {
+	ids := sortedKeys(m)
+	for i, id := range ids {
+		ids[i] = strings.Trim(id, "\"")
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 func sortedKeys(m map[string][]string) []string {
