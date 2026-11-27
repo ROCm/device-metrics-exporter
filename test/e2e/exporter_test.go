@@ -1439,7 +1439,8 @@ func (s *E2ESuite) Test029MonitorCgroup(c *C) {
 		gpus = s.gpuFields()
 		return reflect.DeepEqual(gpus, baseline)
 	}, 90*time.Second, 3*time.Second, "GPU metrics should be the same with -monitor-cgroup") {
-		log.Printf("GPU ids without -monitor-cgroup: %v; with it: %v", sortedKeys(baseline), sortedKeys(gpus))
+		log.Printf("GPU ids without -monitor-cgroup: %v; with it: %v; gpuagent reports: %v",
+			sortedKeys(baseline), sortedKeys(gpus), s.agentGPUIndexes())
 	}
 
 	response, err := s.getExporterResponse()
@@ -1524,9 +1525,11 @@ func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
 
 	want := map[string]string{gpuA: "742", gpuB: "743"}
 	s.copySlurmJob(c, "743", gpuB)
-	assert.Eventually(c, func() bool {
+	if !assert.Eventually(c, func() bool {
 		return jobsMatch(s.jobIDsByGPU(), want)
-	}, 15*time.Second, 1*time.Second, "job 743 written after the restart not picked up")
+	}, 15*time.Second, 1*time.Second, "job 743 written after the restart not picked up") {
+		log.Printf("gpuagent reports GPUs %v after the restart", s.agentGPUIndexes())
+	}
 
 	s.removeSlurmJobs()
 	assert.Eventually(c, func() bool {
@@ -1725,6 +1728,31 @@ func (s *E2ESuite) gpuFields() map[string][]string {
 		fields[id] = fieldNames(gpu)
 	}
 	return fields
+}
+
+// agentGPUIndexes lists the GPU indexes gpuagent itself reports (/gpumetrics),
+// to tell a GPU the agent never enumerated from one the exporter dropped.
+func (s *E2ESuite) agentGPUIndexes() []string {
+	var body struct {
+		Response []struct {
+			Status struct{ Index uint32 }
+		}
+	}
+	url := strings.TrimSuffix(s.GetExporterURL(), "/metrics") + "/gpumetrics"
+	resp, err := s.exporterClient.Get(url)
+	if err != nil {
+		return []string{err.Error()}
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return []string{err.Error()}
+	}
+	ids := make([]string, 0, len(body.Response))
+	for _, gpu := range body.Response {
+		ids = append(ids, strconv.Itoa(int(gpu.Status.Index)))
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // stableGPUFields waits until two scrapes in a row report the same GPUs and fields.
