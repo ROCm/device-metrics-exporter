@@ -1486,11 +1486,8 @@ func (s *E2ESuite) Test029MonitorCgroup(c *C) {
 	}
 }
 
-// Test030SlurmLabelsSurviveGpuagentRestart: in pull mode a slurm job's labels
-// are on its GPU's workload-labelled series and on no other GPU; they survive
-// a gpuagent restart (the exporter reconnects and re-creates its slurm
-// client), a job written after the restart is picked up, and removing the job
-// files clears the labels.
+// Test030SlurmLabelsSurviveGpuagentRestart: in pull mode slurm job labels
+// follow their GPU across a gpuagent restart and clear on job removal.
 func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
 	if len(discoveredGpuIds) < 2 {
 		c.Skip("needs two GPUs discovered in Test001FirstDeplymentDefaults")
@@ -1537,10 +1534,9 @@ func (s *E2ESuite) Test030SlurmLabelsSurviveGpuagentRestart(c *C) {
 	}, 15*time.Second, 1*time.Second, "job labels not cleared after the job files were removed")
 }
 
-// Test031HighResSlurmLabels: with high-resolution store serving at 100 ms, the
-// power series of a slurm job's GPU carry the job labels, and lose them when
-// the job file is removed. Skipped when the mock gpuagent has no GPUWatch
-// watcher.
+// Test031HighResSlurmLabels: at 100 ms high-res, a slurm job's GPU power
+// series carry the job labels until the job is removed. Skipped without a
+// GPUWatch-capable mock.
 func (s *E2ESuite) Test031HighResSlurmLabels(c *C) {
 	if !assert.NotEmpty(c, discoveredGpuIds, "expecting GPU IDs discovered in Test001FirstDeplymentDefaults") {
 		return
@@ -1617,9 +1613,8 @@ func (s *E2ESuite) copySlurmJob(c *C, id, gpu string) {
 		"job file for GPU %v not copied", gpu)
 }
 
-// clearSlurmJobs drops every slurm job entry, including one written by an
-// earlier test as a single file for all GPUs: the slurm client removes entries
-// by file name, so each GPU first gets its own job file, then all are removed.
+// clearSlurmJobs drops every slurm job entry; entries are removed by file
+// name, so each GPU first gets its own job file.
 func (s *E2ESuite) clearSlurmJobs(c *C) {
 	for _, gpu := range discoveredGpuIds {
 		s.copySlurmJob(c, "0", gpu)
@@ -1668,9 +1663,8 @@ func (s *E2ESuite) jobIDsByGPU() map[string]map[string]bool {
 	return out
 }
 
-// jobsMatch reports whether the series of each GPU in want carry that job id
-// and no other, and the series of the other GPUs carry no job id. Series
-// without workload labels are ignored.
+// jobsMatch reports whether each GPU in want carries only its job id and the
+// other GPUs none; series without workload labels are ignored.
 func jobsMatch(got map[string]map[string]bool, want map[string]string) bool {
 	if got == nil {
 		return false

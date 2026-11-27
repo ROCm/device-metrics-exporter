@@ -16,9 +16,8 @@
 
 package gpuagent
 
-// Workload-source test helpers: deterministic GPU and workload fixtures, a
-// scheduler fake, a ChangeNotifier fake with injection hooks, a fake kubelet
-// PodResources server, and source/high-res setup over a mocked GPU client.
+// Workload-source test helpers: fixtures, scheduler and kubelet fakes, and
+// source setup over a mocked GPU client.
 
 import (
 	"bytes"
@@ -69,9 +68,8 @@ var errKubeletUnavailable = errors.New("rpc error: code = Unavailable desc = con
 	"desc = \"transport: Error while dialing: dial unix /var/lib/kubelet/pod-resources/kubelet.sock: " +
 	"connect: no such file or directory\"")
 
-// fakeSched is a hand-written SchedulerClient fake (gomock's Close().Times(1)
-// does not fit reconnect scenarios). Settable map and error; counts calls.
-// It does not implement scheduler.ChangeNotifier.
+// fakeSched is a SchedulerClient fake with a settable map and error; it does
+// not implement scheduler.ChangeNotifier.
 type fakeSched struct {
 	mu     sync.Mutex
 	typ    scheduler.SchedulerType
@@ -200,9 +198,8 @@ type workloadEnv struct {
 	slurm *fakeSched
 }
 
-// newWorkloadEnv builds a GPU client over deterministic mocks with the given
-// schedulers wired the way the exporter does (k8s injected, slurm created by
-// Init; here both are fakes set on the agent fields).
+// newWorkloadEnv builds a GPU client over deterministic mocks with fake k8s
+// and slurm schedulers.
 func newWorkloadEnv(t testing.TB, cfg string, fx workloadFixture) *workloadEnv {
 	t.Helper()
 	logger.Init(true)
@@ -291,10 +288,8 @@ func (e *workloadEnv) renderPull(t *testing.T) string {
 	return e.encode(t, mfs)
 }
 
-// notifySched is a slurm-like SchedulerClient that implements
-// scheduler.ChangeNotifier. hook (if set) runs at "changed" (after Changed()
-// picked its channel), "version" (after Version() read the value) and "list"
-// (after ListWorkloads copied), so tests can inject a bump at those points.
+// notifySched is a slurm-like ChangeNotifier; hook runs at "changed",
+// "version" and "list" so tests can inject a bump there.
 type notifySched struct {
 	mu      sync.Mutex
 	wls     map[string]scheduler.Workload
@@ -442,11 +437,8 @@ func runningSource(t testing.TB, e *workloadEnv, interval time.Duration) *worklo
 	return s
 }
 
-// startHRSource mirrors StartHighRes' store-serving label setup on the
-// post-change code: metadata, snapshot, shared source, seed from
-// currentWorkloads, then the hr label cache (not started; tests drive it).
-// interval <= 0 installs a manual source (no goroutine) for tests that call
-// refresh themselves; refresh is refresher-owned and must not run twice at once.
+// startHRSource mirrors StartHighRes' label setup; interval <= 0 installs a
+// manual source the test refreshes itself (never concurrently).
 func (e *workloadEnv) startHRSource(t testing.TB, interval time.Duration) (*workloadLabelCache, *workloadSource) {
 	t.Helper()
 	ga := e.gpu

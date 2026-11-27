@@ -201,22 +201,17 @@ type GPUAgentGPUClient struct {
 	// reconnect loop; each (re)connect replaces the workload-label cache, so the
 	// prior one is cancelled first to avoid a goroutine leak / duplicate refresher.
 	hrWLCancel context.CancelFunc
-	// wlSource is the shared workload source (the only scheduler caller once
-	// it exists); created on first use, lives for the process. wlInterval
-	// overrides its poll interval (0: default; tests shorten it).
+	// wlSource is the shared workload source, created on first use;
+	// wlInterval overrides its poll interval (0: default).
 	wlSource   atomic.Pointer[workloadSource]
 	wlInterval time.Duration
-	// labelInputGen bumps on every change of a non-workload label input
-	// (config label maps, k8PodInfoMap), always under labelMapMu, so the label
-	// caches can skip rebuilds when nothing changed.
+	// labelInputGen bumps (under labelMapMu) when a non-workload label input
+	// changes, so the label caches can skip rebuilds.
 	labelInputGen atomic.Uint64
 	// hrHotRebuilds counts rebuildHot calls (test observability).
 	hrHotRebuilds atomic.Int64
-	// pullWLSource is set to wlSource once the non-high-res pull path reads its
-	// workload map from the source's last good snapshot (off the scrape hot
-	// path); only set in flag-on non-high-res store-serving mode, so flag-off
-	// pull labels stay per-scrape-fresh and unchanged. atomic.Pointer because
-	// StartMonitor publishes it concurrently with scrape-path reads.
+	// pullWLSource is set only in non-high-res store-serving mode, where the
+	// pull path reads workloads from the source's last snapshot.
 	pullWLSource atomic.Pointer[workloadSource]
 
 	// hrMu guards hrCancel. hrCancel cancels the high-resolution GPUWatch consumer
@@ -232,25 +227,19 @@ type GPUAgentGPUClient struct {
 	// high-res connection state) is fully stopped before a subsequent enable spawns
 	// a new one — no two reconnect goroutines ever touch that state concurrently.
 	hrDone chan struct{}
-	// hrPeriodsRunning is the (fastMs, slowSecs) pair the running feed was
-	// started with; reconcileHighRes restarts the feed when the config's
-	// effective periods differ. Guarded by hrMu.
+	// hrPeriodsRunning is the running feed's (fastMs, slowSecs); guarded by
+	// hrMu.
 	hrPeriodsRunning [2]uint32
-	// hrFastMs is the fast period gpuagent accepted for the current watch
-	// (1000 after a sub-second rejection); written by the feed goroutine, read
-	// by the sub-second power-frame handling.
+	// hrFastMs is the fast period gpuagent accepted (1000 after a sub-second
+	// rejection).
 	hrFastMs atomic.Uint32
-	// hrTierMs is the accepted fast period last announced by
-	// signalHighResTier (0: high-res off); the diagnostic-tier log and event
-	// fire only when it changes. Written by the feed goroutine, and by
-	// reconcileHighRes under hrMu once that goroutine has exited.
+	// hrTierMs is the period last announced by signalHighResTier (0: off);
+	// the diagnostic-tier log and event fire only on a change.
 	hrTierMs uint32
 	// hrEvents overrides the events singleton for the diagnostic-tier event
 	// (tests); nil uses events.EmitWarning.
 	hrEvents events.EventEmitter
-	// hrHot is the per-GPU state cache of the frame-apply pipeline, used by
-	// both GPUWatch frame kinds. Owned by the high-res feed goroutine; nil on
-	// feed (re)start and exit.
+	// hrHot is the per-GPU frame-apply cache, owned by the feed goroutine.
 	hrHot *hrHotCache
 	// exportFieldGen is bumped by initFieldConfig so the frame-apply pipeline
 	// re-reads the field allowlist after a config reload.

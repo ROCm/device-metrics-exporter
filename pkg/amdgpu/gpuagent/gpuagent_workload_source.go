@@ -29,24 +29,19 @@ import (
 // workloadSourceInterval is the k8s poll / safety tick of the workload source.
 const workloadSourceInterval = hrWorkloadLabelRefreshInterval
 
-// workloadSourceCoalesce is how long a slurm job event waits before the source
-// reads, so a burst of job-file writes becomes one refresh.
+// workloadSourceCoalesce batches a burst of slurm job-file writes.
 const workloadSourceCoalesce = time.Millisecond
 
-// workloadSnap is one published workload state. It is immutable once published:
-// wls is never mutated. err != nil marks a "fetch failed" snapshot whose wls is
-// exactly what GPUAgentClient.ListWorkloads returns for that failure.
+// workloadSnap is one published, immutable workload state; err != nil marks a
+// failed fetch, with wls as ListWorkloads would return it.
 type workloadSnap struct {
 	wls map[string]scheduler.Workload
 	err error
 	gen uint64 // bumps only on a content change or an ok<->failed change
 }
 
-// workloadSource is the single owner of scheduler calls for a GPU client. It
-// polls k8s on a ticker, refreshes slurm on job events, and publishes a
-// snapshot plus a close-and-replace change broadcast. It lives for the process
-// (GPUAgentClient.Close also runs on every gpuagent reconnect, so it must not
-// stop the source).
+// workloadSource is the single owner of scheduler calls for a GPU client and
+// lives for the process (Close also runs on every gpuagent reconnect).
 type workloadSource struct {
 	ga       *GPUAgentClient
 	snap     atomic.Pointer[workloadSnap]
@@ -86,16 +81,15 @@ func (s *workloadSource) load() *workloadSnap {
 	return s.snap.Load()
 }
 
-// Changed returns a channel closed on the next gen bump after the call. Obtain
-// it before reading the snapshot it guards, so a bump in between is not lost.
+// Changed returns a channel closed on the next gen bump; obtain it before
+// reading the snapshot so a bump in between is not lost.
 func (s *workloadSource) Changed() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.changed
 }
 
-// notifier returns the current slurm client and its change channel (nil when
-// the client is absent or does not implement scheduler.ChangeNotifier).
+// notifier returns the current slurm client and its change channel, if any.
 func (s *workloadSource) notifier() (scheduler.SchedulerClient, <-chan struct{}) {
 	_, _, slurm := s.ga.schedulers()
 	if n, ok := slurm.(scheduler.ChangeNotifier); ok {
@@ -104,9 +98,8 @@ func (s *workloadSource) notifier() (scheduler.SchedulerClient, <-chan struct{})
 	return slurm, nil
 }
 
-// run refreshes on slurm events and on the ticker until ctx is done. Each wake
-// re-arms the slurm channel before it refreshes (obtain-then-read), so a change
-// racing the refresh closes the new channel and is not lost.
+// run refreshes on slurm events and on the ticker until ctx is done; the slurm
+// channel is re-armed before each refresh so a racing change is not lost.
 func (s *workloadSource) run(ctx context.Context, evCl scheduler.SchedulerClient, ev <-chan struct{}) {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
@@ -136,8 +129,7 @@ func (s *workloadSource) run(ctx context.Context, evCl scheduler.SchedulerClient
 	}
 }
 
-// refresh reads the schedulers (k8s only when poll) and publishes a new
-// snapshot when the merged result or its ok/failed state changed.
+// refresh publishes a new snapshot only when the merged result changed.
 func (s *workloadSource) refresh(poll bool) {
 	k8sOn, k8s, slurm := s.ga.schedulers()
 	k8sUse := k8sOn && k8s != nil
@@ -153,7 +145,6 @@ func (s *workloadSource) refresh(poll bool) {
 		m, err := k8s.ListWorkloads()
 		switch {
 		case err != nil:
-			// k8sPart keeps its value but is unused while k8sErr is set.
 			if s.k8sErr == nil {
 				dirty = true
 			}
@@ -172,8 +163,7 @@ func (s *workloadSource) refresh(poll bool) {
 	} else if s.slurmStale(slurm) {
 		var v uint64
 		if n, ok := slurm.(scheduler.ChangeNotifier); ok {
-			// Read the version before the copy: a bump racing the copy is
-			// caught on the next wake.
+			// read the version first, a racing bump is caught next wake
 			v = n.Version()
 		}
 		s.slurmListing.Add(1)
@@ -198,8 +188,7 @@ func (s *workloadSource) refresh(poll bool) {
 	var wls map[string]scheduler.Workload
 	var err error
 	switch {
-	// A single successful part is published as is (it is never mutated and
-	// equals the merge result), saving the merge copy on a change.
+	// a single successful part is published as is, saving the merge copy
 	case k8sUse && slurm == nil && s.k8sErr == nil && s.k8sPart != nil:
 		wls = s.k8sPart
 	case !k8sUse && slurm != nil && s.slurmErr == nil && s.slurmPart != nil:
@@ -224,9 +213,7 @@ func (s *workloadSource) refresh(poll bool) {
 	s.mu.Unlock()
 }
 
-// slurmStale reports whether the slurm part must be re-read: always for a client
-// that does not track changes, otherwise on a new client, a new version or
-// after a failed read.
+// slurmStale reports whether the slurm part must be re-read.
 func (s *workloadSource) slurmStale(slurm scheduler.SchedulerClient) bool {
 	n, ok := slurm.(scheduler.ChangeNotifier)
 	if !ok || slurm != s.slurmCl || s.slurmErr != nil {
@@ -235,9 +222,8 @@ func (s *workloadSource) slurmStale(slurm scheduler.SchedulerClient) bool {
 	return n.Version() != s.slurmVer
 }
 
-// lastGood returns the last successfully fetched workload map without
-// locking. ok is false until a fetch has succeeded, so the caller falls back to
-// a synchronous fetch; a later failed fetch keeps the last good map.
+// lastGood returns the last successfully fetched workload map, lock free; ok is
+// false until a fetch has succeeded.
 func (s *workloadSource) lastGood() (map[string]scheduler.Workload, bool) {
 	ws := s.lastOK.Load()
 	if ws == nil {
@@ -246,18 +232,15 @@ func (s *workloadSource) lastGood() (map[string]scheduler.Workload, bool) {
 	return ws.wls, true
 }
 
-// stop cancels the source goroutine (tests only; the source lives for the
-// process). Idempotent.
+// stop cancels the source goroutine. Tests only.
 func (s *workloadSource) stop() {
 	if s.cancel != nil {
 		s.cancel()
 	}
 }
 
-// mergeWorkloads is GPUAgentClient.ListWorkloads' merge with the fetches lifted
-// out, and returns exactly what it returns: on a k8s error an empty map and the
-// error (slurm is not merged); on a slurm error the k8s-only map and the error;
-// otherwise k8s first and slurm overwriting the same key. Never returns nil.
+// mergeWorkloads mirrors ListWorkloads' merge, including its error results;
+// slurm overwrites k8s on the same key. Never returns nil.
 func mergeWorkloads(k8sOn bool, k8s map[string]scheduler.Workload, k8sErr error,
 	slurmOn bool, slurm map[string]scheduler.Workload, slurmErr error,
 ) (map[string]scheduler.Workload, error) {
@@ -282,11 +265,9 @@ func mergeWorkloads(k8sOn bool, k8s map[string]scheduler.Workload, k8sErr error,
 	return wls, nil
 }
 
-// ensureWorkloadSource returns the client's workload source, creating, seeding
-// and starting it on first use. The seed refresh is synchronous, so the first
-// read is workload-aware; it always publishes gen 1 (ok or failed). Its context
-// derives from context.Background(): a gpuagent reconnect cancels the handler
-// context and nothing would restart the source.
+// ensureWorkloadSource returns the client's workload source, seeding it
+// synchronously on first use. Its context is not tied to the gpuagent
+// connection, since nothing would restart it after a reconnect.
 func (ga *GPUAgentGPUClient) ensureWorkloadSource() *workloadSource {
 	if s := ga.wlSource.Load(); s != nil {
 		return s
@@ -311,8 +292,8 @@ func (ga *GPUAgentGPUClient) stopWorkloadSource() {
 	}
 }
 
-// currentWorkloads returns the shared snapshot's (wls, err) once a source runs,
-// otherwise today's synchronous ListWorkloads (including its error).
+// currentWorkloads returns the shared snapshot once a source runs, else a
+// synchronous ListWorkloads.
 func (ga *GPUAgentGPUClient) currentWorkloads() (map[string]scheduler.Workload, error) {
 	if s := ga.wlSource.Load(); s != nil {
 		if ws := s.load(); ws != nil {
@@ -322,13 +303,9 @@ func (ga *GPUAgentGPUClient) currentWorkloads() (map[string]scheduler.Workload, 
 	return ga.gpuHandler.ListWorkloads()
 }
 
-// startPullWorkloadCache publishes the shared source as the non-high-res pull
-// path's workload cache once, gated to flag-on non-high-res store-serving mode
-// (useSnapshotStoreServing already encodes enabled && !high-res), so the
-// scheduler fetch stays off the /metrics scrape hot path. No-op in
-// flag-off/legacy and high-res, where getMetricsAll keeps the synchronous
-// per-scrape ListWorkloads, so flag-off /metrics stays byte-identical.
-// Idempotent. The source outlives a gpuagent reconnect.
+// startPullWorkloadCache keeps the scheduler fetch off the /metrics scrape path
+// in non-high-res store-serving mode; elsewhere scrapes keep the synchronous
+// ListWorkloads. Idempotent.
 func (ga *GPUAgentGPUClient) startPullWorkloadCache(_ context.Context) {
 	if !ga.useSnapshotStoreServing() {
 		return

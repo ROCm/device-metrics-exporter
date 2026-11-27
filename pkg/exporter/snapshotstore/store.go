@@ -38,8 +38,7 @@ type deviceSlot struct {
 type Store struct {
 	growMu  sync.Mutex
 	devices atomic.Pointer[map[string]*deviceSlot]
-	// epoch is bumped whenever registered hot cells may have been orphaned
-	// (see Epoch).
+	// epoch is bumped when registered hot cells may be orphaned (see Epoch)
 	epoch atomic.Uint64
 }
 
@@ -134,24 +133,16 @@ func (s *Store) acquireSlot(uuid string) *deviceSlot {
 	}
 }
 
-// Epoch returns a counter bumped by Reset, by DropFields when it removes a
-// field, by ReplaceOwned, and by Update/UpdateIfChanged when a delta replaces a
-// hot sample with a plain one. A changed epoch tells the hot-cell writer that
-// its cells may be orphaned and must be re-registered. RegisterHot and
-// HotCell.Set never bump it. The writer must read Epoch before (re)registering
-// its cells and keep that value: the bump follows the store swap, so a
-// registration racing a Reset/DropFields/ReplaceOwned is always followed by a
-// newer epoch. Lock-free.
+// Epoch returns a counter bumped whenever hot cells may be orphaned (Reset,
+// DropFields, ReplaceOwned, or a hot sample replaced by a plain one); the
+// hot-cell writer must then re-register. Read it before registering: the bump
+// follows the store swap, so a racing registration sees a newer epoch.
 func (s *Store) Epoch() uint64 {
 	return s.epoch.Load()
 }
 
-// RegisterHot creates a hot cell holding (v, tsUs) and publishes
-// Sample{Labels: labels} backed by it for field on deviceKey, through the
-// normal copy-on-write path (one snapshot copy per registration). Other fields
-// on the device are kept; an existing sample for field (hot or not) is
-// replaced. Call it from the goroutine that will Set the returned cell (the
-// cell has a single writer); readers see new values through Get/Range.
+// RegisterHot publishes a hot-cell-backed sample for field on deviceKey (one
+// snapshot copy) and returns the cell. Call it from the cell's single writer.
 func (s *Store) RegisterHot(deviceKey, field string, labels prometheus.Labels, v float64, tsUs int64) *HotCell {
 	cell := &HotCell{}
 	cell.Set(v, tsUs)
@@ -161,9 +152,8 @@ func (s *Store) RegisterHot(deviceKey, field string, labels prometheus.Labels, v
 
 // Update builds a new snapshot = current + deltas and atomically swaps it in.
 // Writers serialize per device on the slot mutex; readers are never blocked and
-// only ever observe a complete snapshot. Hot samples not named in deltas are
-// carried over with their cell; replacing a hot sample with a plain one bumps
-// Epoch (a re-registration through RegisterHot does not).
+// only ever observe a complete snapshot. Replacing a hot sample with a plain
+// one bumps Epoch.
 func (s *Store) Update(uuid string, deltas map[string]Sample) {
 	slot := s.acquireSlot(uuid)
 	defer slot.writeMu.Unlock()

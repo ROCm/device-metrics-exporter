@@ -27,9 +27,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// One writer Sets (v, ts=v) with v strictly increasing while readers Get and
-// Range the hot sample through the store. A reader must never see a torn pair
-// (ts != value) or a value going backwards. Must pass under -race.
+// A writer Sets (v, ts=v) while readers Get and Range: no torn pair and no
+// value going backwards. Must pass under -race.
 func TestHotCellConcurrent(t *testing.T) {
 	const (
 		nReaders = 8
@@ -96,9 +95,8 @@ func TestHotCellConcurrent(t *testing.T) {
 	}
 }
 
-// Get and Range resolve a hot sample to its cell's current value and return a
-// plain sample; RegisterHot keeps other fields; a COW Update of another field
-// keeps the cell.
+// Get and Range resolve a hot sample to its cell's current value; other
+// fields and COW updates keep the cell.
 func TestHotCellResolve(t *testing.T) {
 	st := New()
 	lbl := prometheus.Labels{"gpu_id": "0"}
@@ -280,9 +278,8 @@ func collectSingle(c prometheus.Collector) (*dto.Metric, error) {
 	return out[0], nil
 }
 
-// A writer Setting as fast as it can never blocks a scraper, and a scrape never
-// waits for a store writer: even with the device's write mutex held, Get and
-// Collect complete and show the hot cell's newest value.
+// Writers and scrapers never block each other, even with the device's write
+// mutex held.
 func TestHotCellScrapeNotBlocked(t *testing.T) {
 	st := New()
 	lbl := prometheus.Labels{"gpu_id": "0"}

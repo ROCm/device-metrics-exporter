@@ -102,9 +102,7 @@ func NewSlurmClient(ctx context.Context) (SchedulerClient, error) {
 	return cl, nil
 }
 
-// NewSlurmClientForDir creates a slurm scheduler client watching dir.
-// Production uses NewSlurmClient; tests in other packages use this with a temp
-// dir.
+// NewSlurmClientForDir creates a slurm scheduler client watching dir (tests).
 func NewSlurmClientForDir(ctx context.Context, dir string) (SchedulerClient, error) {
 	cl, err := newSlurmClient(ctx, dir)
 	if err != nil {
@@ -237,8 +235,8 @@ func (cl *client) processSlurm(op fsnotify.Op, name string, buff []byte) {
 	}
 }
 
-// bumpLocked records a GpuJobs content change: it bumps the version and wakes
-// every Changed() waiter (close-and-replace, never blocks). Caller holds the lock.
+// bumpLocked bumps the version and wakes Changed() waiters without blocking.
+// Caller holds the lock.
 func (cl *client) bumpLocked() {
 	cl.version++
 	close(cl.changed)

@@ -131,9 +131,8 @@ var onePodResp = &kube.ListPodResourcesResponse{PodResources: []*kube.PodResourc
 
 var onePodWant = map[string]Workload{"0000:01:00.0": podWl("pod0", "ns0", "ctr0")}
 
-// TestK8sListWorkloadsFakeServer: the map built from plugin and DRA
-// responses is unchanged: device ids lower-cased, non-AMD resources ignored,
-// and the first matching mode (plugin or DRA) locks out the other.
+// TestK8sListWorkloadsFakeServer: plugin and DRA maps lower-case ids, ignore
+// non-AMD resources, and the first mode found locks out the other.
 func TestK8sListWorkloadsFakeServer(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -144,7 +143,7 @@ func TestK8sListWorkloadsFakeServer(t *testing.T) {
 			name: "plugin",
 			resp: []*kube.PodResources{
 				pluginPod("pod0", "ns0", "ctr0", "amd.com/gpu", "0000:0A:00.0", "0000:0b:00.0"),
-				pluginPod("pod1", "ns1", "ctr1", "nvidia.com/gpu", "0000:0c:00.0"),
+				pluginPod("pod1", "ns1", "ctr1", "other.com/gpu", "0000:0c:00.0"),
 			},
 			want: map[string]Workload{
 				"0000:0a:00.0": podWl("pod0", "ns0", "ctr0"),
@@ -255,11 +254,8 @@ func TestK8sClientRecreatesClosedConn(t *testing.T) {
 	}
 }
 
-// TestK8sClientConcurrentReconnect: two borrowers (gpuagent workload source
-// and nicagent) share one client. Each time the connection is closed under
-// them (Close, as a gpuagent reconnect used to do), the concurrent failures
-// re-dial exactly once on the next List and both get the right map. Run
-// with -race: clientConn is never written unsynchronized.
+// TestK8sClientConcurrentReconnect: borrowers sharing one client re-dial
+// once after the connection is closed; run with -race.
 func TestK8sClientConcurrentReconnect(t *testing.T) {
 	dials := countDials(t)
 	k := newFakeKubelet(t, onePodResp)
@@ -306,8 +302,8 @@ func TestK8sClientConcurrentReconnect(t *testing.T) {
 	}
 }
 
-// TestK8sIsConnectionError: the closed-connection error is now a connection
-// error (re-created), others are unchanged.
+// TestK8sIsConnectionError: a closed connection is a connection error; other
+// errors keep their classification.
 func TestK8sIsConnectionError(t *testing.T) {
 	cl := &podResourcesClient{}
 	for msg, want := range map[string]bool{

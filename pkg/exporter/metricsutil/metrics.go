@@ -248,9 +248,8 @@ func (mh *MetricsHandler) GetHighResPeriods() (uint32, uint32) {
 	return mh.runConf.GetHighResPeriods()
 }
 
-// GetHighResWatchPeriods returns the GPUWatch fast period in milliseconds and
-// the slow period in seconds, as fed to the gpuagent watch spec. The config
-// handler applies the FastPeriodMs > FastPeriodSecs > default precedence.
+// GetHighResWatchPeriods returns the GPUWatch fast period (ms) and slow period
+// (s) for the gpuagent watch spec.
 func (mh *MetricsHandler) GetHighResWatchPeriods() (uint32, uint32) {
 	return mh.runConf.GetHighResWatchPeriods()
 }

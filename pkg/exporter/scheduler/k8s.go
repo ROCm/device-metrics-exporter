@@ -39,9 +39,8 @@ var KubernetesLabels = map[string]bool{
 	exportermetrics.MetricLabel_CONTAINER.String(): true,
 }
 
-// podResourcesClient is created once by the exporter and shared by the gpu and
-// nic agents, so it is safe for concurrent use: mu guards clientConn, which is
-// re-created (re-dialing socket) when the connection is broken or closed.
+// podResourcesClient is shared by the gpu and nic agents; mu guards
+// clientConn, which is re-dialed when broken.
 type podResourcesClient struct {
 	mu         sync.Mutex
 	clientConn *grpc.ClientConn
@@ -65,8 +64,7 @@ func NewKubernetesClient(ctx context.Context) (SchedulerClient, error) {
 }
 
 // NewKubernetesClientForSocket creates a kubernetes scheduler client for the
-// PodResources socket at socket. Production uses NewKubernetesClient; tests in
-// other packages use this with a fake kubelet on a temp socket.
+// given PodResources socket (tests use a fake kubelet).
 func NewKubernetesClientForSocket(ctx context.Context, socket string) (SchedulerClient, error) {
 	cl, err := newKubernetesClient(ctx, socket)
 	if err != nil {
@@ -197,10 +195,8 @@ func (cl *podResourcesClient) Type() SchedulerType {
 	return Kubernetes
 }
 
-// reconnect replaces the broken connection old with a new one and returns it.
-// If another caller already replaced old, the current connection is reused,
-// so concurrent callers failing on the same connection dial once. A failed
-// dial keeps the old connection, so the next call tries again.
+// reconnect replaces the broken connection old and returns the new one;
+// concurrent callers failing on the same connection dial once.
 func (cl *podResourcesClient) reconnect(old *grpc.ClientConn) (*grpc.ClientConn, error) {
 	cl.mu.Lock()
 	defer cl.mu.Unlock()
@@ -222,8 +218,8 @@ func (cl *podResourcesClient) reconnect(old *grpc.ClientConn) (*grpc.ClientConn,
 }
 
 // isConnectionError checks if the error is related to connection issues,
-// including a connection that was closed under the client (the message of
-// grpc.ErrClientConnClosing, matched by text as that variable is deprecated).
+// including a closed connection (matched by text, ErrClientConnClosing is
+// deprecated).
 func (cl *podResourcesClient) isConnectionError(err error) bool {
 	return strings.Contains(err.Error(), "connection refused") ||
 		strings.Contains(err.Error(), "connection reset") ||

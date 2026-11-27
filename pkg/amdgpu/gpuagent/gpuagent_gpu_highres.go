@@ -66,18 +66,16 @@ type hrTier uint8
 const (
 	// hrTierFull attributes arrive in full frames only.
 	hrTierFull hrTier = iota
-	// hrTierPower is the power family gpuagent refreshes every power tick at
-	// sub-second periods and streams in partial frames; full frames omit it
-	// at those periods and carry it at 1000 ms and above.
+	// hrTierPower arrives in partial frames at sub-second periods, in full
+	// frames at 1000 ms and above.
 	hrTierPower
 )
 
 // hrAttrMeta is the frame-apply pipeline's per-attribute metadata.
 type hrAttrMeta struct {
 	tier hrTier
-	// indexLabel is the per-element index label of an array-valued attribute,
-	// whose value rides GPUWatchAttrVal.IndexedVal and fans out one sample per
-	// element; empty for a scalar
+	// indexLabel is the per-element label of an array-valued attribute;
+	// empty for a scalar
 	indexLabel string
 	// hasSubType: the element's SubType feeds a clock_type label
 	hasSubType bool
@@ -259,9 +257,7 @@ var highResWatchMetrics = []highResWatchMetric{
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VIOLATION_HBM_THERMAL_RESIDENCY_PCT, "gpu_violation_hbm_thermal_residency_percentage", scalarAttr},
 
 	// array-valued (indexed) attributes: the value rides GPUWatchAttrVal.IndexedVal
-	// and the frame-apply pipeline fans out one sample per element, adding the
-	// family's *_index label (see indexedAttr). Names equal the pull-path
-	// GaugeVec names so the series are identical whether scraped or streamed.
+	// and fans out one sample per element; names match the pull path.
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_HBM_TEMP, "gpu_hbm_temperature", indexedAttr("hbm_index")},
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_VCN_ACTIVITY, "gpu_vcn_activity", indexedAttr("vcn_index")},
 	{amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_JPEG_ACTIVITY, "gpu_jpeg_activity", indexedAttr("jpeg_index")},
@@ -297,8 +293,7 @@ var hrPackagePowerField = exportermetrics.GPUMetricField_GPU_PACKAGE_POWER.Strin
 // from it.
 type hrAttrInfo struct {
 	highResWatchMetric
-	// field is the upper-cased name: the ga.fl and allowlist key, shared with
-	// the pull path so a field unsupported in one path is unsupported in both
+	// field is the upper-cased name, the ga.fl and allowlist key
 	field string
 	// aliasedBy is the attribute whose alias feeds this one's metric
 	aliasedBy amdgpu.GPUWatchAttrId
@@ -410,9 +405,7 @@ func (ga *GPUAgentGPUClient) reconcileHighRes() {
 	if desired {
 		periods[0], periods[1] = ga.gpuHandler.mh.GetHighResWatchPeriods()
 	}
-	// Periods are create-time only on the gpuagent watch, so a change of the
-	// effective periods restarts the feed (teardown deletes the watch, the new
-	// session recreates it with the new spec).
+	// watch periods are create-time only, so a change restarts the feed
 	if desired && running && periods != ga.hrPeriodsRunning {
 		logger.Log.Printf("high-res: watch periods changed %dms/%ds -> %dms/%ds, restarting GPUWatch feed",
 			ga.hrPeriodsRunning[0], ga.hrPeriodsRunning[1], periods[0], periods[1])
@@ -447,9 +440,8 @@ const highResReconnectBackoff = 5 * time.Second
 // rejects a sub-second FastPeriodMs (a gpuagent without millisecond support).
 const highResFallbackFastPeriodMs uint32 = 1000
 
-// highResPeriodRejected reports whether a GPUWatchCreate status is how gpuagent
-// rejects a sub-second period: OPERATION_NOT_SUPPORTED (no millisecond support
-// on this platform) or INVALID_ARG (a gpuagent that only takes 1-60 s).
+// highResPeriodRejected reports whether gpuagent rejected a sub-second period
+// (unsupported platform or an older gpuagent).
 func highResPeriodRejected(st amdgpu.ApiStatus) bool {
 	return st == amdgpu.ApiStatus_API_STATUS_OPERATION_NOT_SUPPORTED ||
 		st == amdgpu.ApiStatus_API_STATUS_INVALID_ARG
@@ -462,9 +454,7 @@ const highResMissedTicksLogInterval = time.Minute
 // highResCadenceLogInterval rate-limits the frames/s debug line.
 const highResCadenceLogInterval = 10 * time.Second
 
-// highResDiagnosticPeriodMs bounds the diagnostic tiers: an accepted fast
-// period below it (10 ms, 1 ms) is opt-in, diagnostic only, and announced by
-// signalHighResTier.
+// highResDiagnosticPeriodMs: accepted periods below it are diagnostic tiers.
 const highResDiagnosticPeriodMs uint32 = 100
 
 // highResDiagnosticTierMsg is the log and K8s event text for an accepted
@@ -479,13 +469,8 @@ func highResDiagnosticTierMsg(ms uint32) string {
 	return msg
 }
 
-// signalHighResTier announces a change of the accepted fast period acceptedMs
-// (0: high-res off) into or out of the diagnostic tiers: entering one, or
-// moving between 10 ms and 1 ms, logs a warning and emits a K8s Warning event
-// (a no-op off-cluster); leaving them logs that the tier ended. Only a change
-// of the accepted period fires, so a reconnect or a config reload at the same
-// period stays silent, and a period gpuagent rejected (fallback to 1000 ms)
-// never announces a diagnostic tier.
+// signalHighResTier warns (log and K8s event) when the accepted period
+// enters a diagnostic tier and logs when it leaves; silent if unchanged.
 func (ga *GPUAgentGPUClient) signalHighResTier(ctx context.Context, acceptedMs uint32) {
 	prev := ga.hrTierMs
 	ga.hrTierMs = acceptedMs
@@ -496,8 +481,7 @@ func (ga *GPUAgentGPUClient) signalHighResTier(ctx context.Context, acceptedMs u
 	switch {
 	case isDiag(acceptedMs):
 		msg := highResDiagnosticTierMsg(acceptedMs)
-		// the embedded logrus logger: EnhancedLogger.Warnf drops warnings
-		// at the default Info level
+		// EnhancedLogger.Warnf drops warnings at the default Info level
 		logger.Log.Logger.Warnf("high-res: %s", msg)
 		if ga.hrEvents != nil {
 			ga.hrEvents.EmitWarning(ctx, events.HighResDiagnosticTier, msg)
@@ -615,8 +599,8 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	// while high-res is active — it happens here with the watcher not yet started).
 	// The label caches reuse it so they never issue a concurrent getGPUs that would
 	// race the watcher's amd-smi access.
-	// Metadata first: a label cache woken between the two must not record the new
-	// snapshot pointer while building against the old gpuIDMap.
+	// metadata before the snapshot, so a label cache never pairs the new
+	// snapshot with the old gpuIDMap
 	ga.initGPUMetadata(getResp.GetResponse())
 	ga.hrSnapshot.Store(&hrGPUSnap{gpus: getResp.GetResponse(), partitionMap: partitionMap})
 	ga.hrLabelsByUUID = make(map[string]prometheus.Labels)
@@ -690,9 +674,7 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 		if spec.FastPeriodMs >= highResFallbackFastPeriodMs || !highResPeriodRejected(st) {
 			return fmt.Errorf("GPUWatchCreate: %v", st)
 		}
-		// A gpuagent without sub-second support rejects the period: fall back
-		// to 1000 ms for this session. Not sticky; the next (re)connect tries
-		// the configured period again.
+		// fall back to 1000 ms for this session; reconnects retry the period
 		logger.Log.Printf("high-res: gpuagent rejected FastPeriodMs=%d (%v); recreating GPUWatch at %d ms",
 			spec.FastPeriodMs, st, highResFallbackFastPeriodMs)
 		ga.deleteHighResWatch(ctx)
@@ -708,8 +690,7 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	}
 	ga.hrFastMs.Store(spec.FastPeriodMs)
 	ga.signalHighResTier(ctx, spec.FastPeriodMs)
-	// new session: labels, GPU set and period may differ, so the first frame
-	// rebuilds the per-GPU state cache (and the gpu_package_power state)
+	// new session: the first frame rebuilds the per-GPU state cache
 	ga.hrHot = nil
 	stream, err := ga.watchclient.GPUWatchSubscribe(ctx,
 		&amdgpu.GPUWatchSubscribeRequest{Id: [][]byte{watchID[:]}})
@@ -725,12 +706,8 @@ func (ga *GPUAgentGPUClient) StartHighRes(ctx context.Context) error {
 	return nil
 }
 
-// consumeWatchStream reads GPUWatch frames until the stream errors or ctx is
-// cancelled, applying each to the store, and logging the observed frame rate
-// so the achievable high-resolution rate can be measured on hardware. A
-// partial frame (Spec without Attribute: the power attrs of one sub-second
-// tick) takes the allocation-free applyPowerFrame path; a full frame takes
-// applyWatchSnapshot.
+// consumeWatchStream applies GPUWatch frames to the store until the stream
+// ends. Partial frames (Spec without Attribute) take applyPowerFrame.
 func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	stream amdgpu.GPUWatchSvc_GPUWatchSubscribeClient) {
 	var winStart, missedLogged time.Time
@@ -743,8 +720,7 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 			return
 		}
 		now := time.Now()
-		// MissedTicks counts power ticks that never reached this subscriber
-		// (gpuagent sampler overruns plus frames dropped for us); not exported.
+		// MissedTicks counts power ticks, not frames; logged only
 		if m := w.GetStatus().GetMissedTicks(); m > missed {
 			if now.Sub(missedLogged) >= highResMissedTicksLogInterval {
 				logger.Log.Debugf("high-res: GPUWatch missed ticks %d (+%d)", m, m-missed)
@@ -752,8 +728,7 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 			}
 			missed = m
 		}
-		// Cadence trace at debug only, time-based: at 1 ms a per-frame-count
-		// trigger would log many times per second.
+		// time-based cadence trace; a per-frame trigger would flood at 1 ms
 		winFrames++
 		if winStart.IsZero() {
 			winStart = now
@@ -765,8 +740,7 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 			arrivals.reset()
 			winStart, winFrames = now, 0
 		}
-		// partial frames exist only at sub-second periods; at 1000 ms and
-		// above every frame keeps today's path
+		// partial frames exist only at sub-second periods
 		if ga.hrSubSecond() && len(w.GetSpec().GetAttribute()) == 0 {
 			arrivals.record(w, now)
 			ga.applyPowerFrame(w)
@@ -776,14 +750,11 @@ func (ga *GPUAgentGPUClient) consumeWatchStream(ctx context.Context,
 	}
 }
 
-// hrArrivalRing is the number of per-GPU partial-frame arrival intervals kept
-// per cadence window; the percentiles cover the most recent ones when more
-// arrive in a window.
+// hrArrivalRing is the per-GPU arrival intervals kept for percentiles.
 const hrArrivalRing = 4096
 
-// hrArrivalGPU is one GPU's partial-frame arrival intervals over the current
-// cadence window. count, sum, sumSq and max cover every interval in the
-// window; ring holds the most recent hrArrivalRing of them.
+// hrArrivalGPU is one GPU's arrival intervals in the current window; ring
+// holds only the most recent ones.
 type hrArrivalGPU struct {
 	name   string
 	last   time.Time
@@ -795,9 +766,8 @@ type hrArrivalGPU struct {
 	ring   [hrArrivalRing]uint32 // microseconds
 }
 
-// hrArrivals is the exporter-side evidence of the per-GPU partial-frame
-// cadence, reported in the frames/s debug line. It is touched only by the
-// feed goroutine, and record does not allocate once a GPU has been seen.
+// hrArrivals tracks per-GPU partial-frame cadence for the debug line; feed
+// goroutine only.
 type hrArrivals struct {
 	names   map[string]string // GPU UUID -> gpu_id, for the summary
 	byGPU   map[[16]byte]*hrArrivalGPU
@@ -838,7 +808,7 @@ func (a *hrArrivals) record(w *amdgpu.GPUWatch, now time.Time) {
 	}
 }
 
-// add starts tracking GPU b (slow path, once per GPU per feed session).
+// add starts tracking GPU b.
 func (a *hrArrivals) add(b []byte) *hrArrivalGPU {
 	u := utils.UUIDToString(b)
 	name := a.names[u]
@@ -851,17 +821,15 @@ func (a *hrArrivals) add(b []byte) *hrArrivalGPU {
 	return g
 }
 
-// reset starts a new window; the last arrival is kept so the first interval
-// of the next window is measured too.
+// reset starts a new window, keeping the last arrival.
 func (a *hrArrivals) reset() {
 	for _, g := range a.order {
 		g.frames, g.count, g.maxUs, g.sum, g.sumSq = 0, 0, 0, 0, 0
 	}
 }
 
-// summary formats, per GPU, the window's partial frames/s and arrival
-// interval p50, p99, max and jitter (standard deviation), d being the window
-// length. Empty when no partial frame arrived (1000 ms and above).
+// summary formats per-GPU frames/s and interval p50/p99/max/stddev over d;
+// empty when no partial frame arrived.
 func (a *hrArrivals) summary(d time.Duration) string {
 	var sb strings.Builder
 	for _, g := range a.order {
@@ -897,22 +865,18 @@ type hrHotField struct {
 	naSeen    bool                   // first N/A already logged
 }
 
-// hrHotGPU is the per-GPU (or partition) state both frame kinds apply
-// against.
+// hrHotGPU is the per-GPU (or partition) state of both frame kinds.
 type hrHotGPU struct {
-	// labels is shared, not cloned: hrLabelsByUUID and the workload-label
-	// cache maps are never mutated once published
+	// labels is shared, not cloned: published label maps are immutable
 	labels    prometheus.Labels
 	deviceKey string
 	gpuID     string // ga.fl key
 	fields    [hrMaxAttrID]hrHotField
-	// pkgFrom126 is true while attr 126 last arrived valid with its alias
-	// gate open (see packagePowerRule)
+	// pkgFrom126: attr 126 currently feeds gpu_package_power
 	pkgFrom126 bool
 }
 
-// cell returns the hot cell slot a value of attr id is written through: the
-// alias cell of the attribute feeding id's metric, else id's own cell.
+// cell returns the hot cell attr id is written through (its alias's, if any).
 func (g *hrHotGPU) cell(id amdgpu.GPUWatchAttrId) **snapshotstore.HotCell {
 	if src := hrAttrTable[id].aliasedBy; src != amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_INVALID {
 		return &g.fields[src].alias
@@ -920,14 +884,10 @@ func (g *hrHotGPU) cell(id amdgpu.GPUWatchAttrId) **snapshotstore.HotCell {
 	return &g.fields[id].cell
 }
 
-// packagePowerRule is the gpu_package_power rule. At sub-second periods (the
-// alias gate of 126 is open, see rebuildHot) a valid 126
-// (current_socket_power) feeds gpu_package_power, and POWER_USAGE (5), the
-// metric's own attribute, is not written while it does; an N/A 126 hands
-// gpu_package_power back to 5. At 1000 ms and above 126 never feeds it. For a
-// value of attr id (valid false: N/A) it updates g and reports whether the
-// value must not be written, and whether its N/A must not mark the field
-// unsupported (an N/A 5 while 126 may feed the metric).
+// packagePowerRule: at sub-second periods a valid 126 (current_socket_power)
+// feeds gpu_package_power instead of POWER_USAGE (5); an N/A 126 hands it
+// back to 5. Reports whether to skip the write and whether an N/A must not
+// mark the field unsupported.
 func (g *hrHotGPU) packagePowerRule(id amdgpu.GPUWatchAttrId, valid bool) (drop, keepSupported bool) {
 	src := &g.fields[hrAttrGPUPowerUsage]
 	switch id {
@@ -939,8 +899,7 @@ func (g *hrHotGPU) packagePowerRule(id amdgpu.GPUWatchAttrId, valid bool) (drop,
 	return false, false
 }
 
-// hrHotCache is the per-GPU state cache with the inputs it was built from; a
-// change in any of them triggers a rebuild on the next frame.
+// hrHotCache is the per-GPU state cache, rebuilt when an input changes.
 type hrHotCache struct {
 	epoch    uint64                        // store.Epoch() read before (re)building
 	wlLabels *map[string]prometheus.Labels // hrWLCache map seen
@@ -949,22 +908,18 @@ type hrHotCache struct {
 	partial  hrPartialSink // reused by every partial frame (no allocation)
 }
 
-// hrSampleSink receives the values the frame-apply pipeline produces. The
-// two GPUWatch frame kinds differ only in their sink.
+// hrSampleSink receives frame-apply output; the frame kinds differ only here.
 type hrSampleSink interface {
 	// carries reports whether the frame applies attributes of tier t.
 	carries(t hrTier) bool
-	// scalar writes v under name for g, through *cell where the sink uses
-	// hot cells.
+	// scalar writes v for g, through *cell where the sink uses hot cells.
 	scalar(g *hrHotGPU, cell **snapshotstore.HotCell, name string, v float64)
-	// element stages one element of an array-valued attribute; the sink owns
-	// labels.
+	// element stages one array element; the sink owns labels.
 	element(name string, labels prometheus.Labels, v float64)
 }
 
-// hrPartialSink applies a partial (power) frame: the power tier only, written
-// through per-(GPU, field) hot cells registered on first use, so a frame
-// costs no lock, no allocation and no logging in steady state.
+// hrPartialSink writes the power tier through per-(GPU, field) hot cells: no
+// lock or allocation in steady state.
 type hrPartialSink struct {
 	st   snapshotstore.StoreWriter
 	tsUs int64
@@ -985,11 +940,8 @@ func (s *hrPartialSink) scalar(g *hrHotGPU, cell **snapshotstore.HotCell, name s
 // element is never reached: no array-valued attribute is in the power tier.
 func (s *hrPartialSink) element(string, prometheus.Labels, float64) {}
 
-// hrFullSink applies a full frame: one plain sample per (GPU/partition,
-// attribute) staged as per-device deltas, except that a field with a
-// registered hot cell is written through the cell, since a plain delta would
-// orphan it and bump the store epoch. At sub-second periods partial frames
-// own the power tier, so a full frame skips it.
+// hrFullSink stages full-frame samples as per-device deltas; fields with a
+// hot cell go through it. Skips the power tier at sub-second periods.
 type hrFullSink struct {
 	sub    bool
 	tsUs   int64
@@ -1013,15 +965,13 @@ func (s *hrFullSink) element(name string, labels prometheus.Labels, v float64) {
 	addHRStoreSample(s.deltas, name, labels, v, s.tsUs, s.skip)
 }
 
-// hrSubSecond reports whether the accepted watch period is below 1000 ms. Zero
-// (no watch created yet) is not sub-second.
+// hrSubSecond reports an accepted watch period below 1000 ms (0 is not).
 func (ga *GPUAgentGPUClient) hrSubSecond() bool {
 	ms := ga.hrFastMs.Load()
 	return ms != 0 && ms < highResFallbackFastPeriodMs
 }
 
-// hrWorkloadLabels returns the workload-label cache's current map pointer, nil
-// when no cache runs.
+// hrWorkloadLabels returns the workload-label cache's map, nil if none.
 func (ga *GPUAgentGPUClient) hrWorkloadLabels() *map[string]prometheus.Labels {
 	if ga.hrWLCache == nil {
 		return nil
@@ -1029,8 +979,7 @@ func (ga *GPUAgentGPUClient) hrWorkloadLabels() *map[string]prometheus.Labels {
 	return ga.hrWLCache.labels.Load()
 }
 
-// hrState returns the per-GPU state cache for st, rebuilding it when an input
-// changed.
+// hrState returns the per-GPU state cache, rebuilt if stale.
 func (ga *GPUAgentGPUClient) hrState(st snapshotstore.StoreWriter) *hrHotCache {
 	c := ga.hrHot
 	if wl := ga.hrWorkloadLabels(); c == nil || st.Epoch() != c.epoch ||
@@ -1040,9 +989,7 @@ func (ga *GPUAgentGPUClient) hrState(st snapshotstore.StoreWriter) *hrHotCache {
 	return c
 }
 
-// applyPowerFrame applies one partial (power) frame through the hot cells.
-// Only the attributes present are written; N/A is never written (and never
-// 0).
+// applyPowerFrame applies a partial frame; N/A is never written (nor as 0).
 func (ga *GPUAgentGPUClient) applyPowerFrame(w *amdgpu.GPUWatch) {
 	st := ga.gpuHandler.mh.GetStore()
 	if st == nil || w == nil {
@@ -1079,19 +1026,15 @@ func (ga *GPUAgentGPUClient) applyWatchSnapshot(w *amdgpu.GPUWatch) map[string]m
 	if len(sink.deltas) == 0 {
 		return nil
 	}
-	// Apply per-device deltas, keyed by the stable label set (same as the pull-path
-	// store writer) so indexed families stay distinct and a workload change reuses
-	// the slot.
+	// key deltas by the stable label set, as the pull path does
 	for key, fields := range sink.deltas {
 		st.Update(key, fields)
 	}
 	return sink.deltas
 }
 
-// applyFrame is the frame-apply pipeline shared by both frame kinds: one pass
-// over the frame's (GPU, attribute) values, driven by hrAttrTable and the
-// per-GPU state in c, writing to sink. The first N/A per (GPU, attr) is logged
-// once through ga.fl, which the pull path shares.
+// applyFrame is the pipeline shared by both frame kinds; the first N/A per
+// (GPU, attr) is logged once via ga.fl, shared with the pull path.
 func (ga *GPUAgentGPUClient) applyFrame(w *amdgpu.GPUWatch, c *hrHotCache, sink hrSampleSink) {
 	carries := [...]bool{sink.carries(hrTierFull), sink.carries(hrTierPower)}
 	for _, perGPU := range w.GetStats().GetGPUWatchAttr() {
@@ -1138,10 +1081,8 @@ func (ga *GPUAgentGPUClient) applyFrame(w *amdgpu.GPUWatch, c *hrHotCache, sink 
 	}
 }
 
-// applyIndexed fans an array-valued attribute out to one sample per element,
-// adding the family's *_index label (and clock_type for clocks). An attribute
-// with no applicable element is unsupported on this GPU, recorded as for a
-// scalar N/A.
+// applyIndexed fans an array-valued attribute out to one sample per element;
+// no applicable element counts as N/A.
 func (ga *GPUAgentGPUClient) applyIndexed(g *hrHotGPU, f *hrHotField, m *hrAttrInfo,
 	val *amdgpu.GPUWatchAttrVal, sink hrSampleSink) {
 	applicable := false
@@ -1151,8 +1092,7 @@ func (ga *GPUAgentGPUClient) applyIndexed(g *hrHotGPU, f *hrHotField, m *hrAttrI
 			continue
 		}
 		applicable = true
-		// Clone per element: labels aliases the shared cache entry, and the
-		// index (and clock_type) key must not leak across samples.
+		// clone: labels is the shared cache entry
 		lbl := maps.Clone(g.labels)
 		lbl[m.indexLabel] = strconv.FormatUint(uint64(e.GetIndex()), 10)
 		if m.hasSubType {
@@ -1180,11 +1120,8 @@ func (ga *GPUAgentGPUClient) hrMarkNA(g *hrHotGPU, f *hrHotField, field string) 
 	}
 }
 
-// rebuildHot rebuilds the per-GPU state cache (slow path: feed start, store
-// epoch bump, workload-label swap, field-config reload). The store epoch is
-// read first, so a store change racing the rebuild is seen on the next frame.
-// Cells are kept when the epoch and a GPU's labels are unchanged; otherwise
-// they are re-registered lazily on the GPU's next valid value.
+// rebuildHot rebuilds the per-GPU state cache (slow path). The store epoch is
+// read first so a racing store change is seen on the next frame.
 func (ga *GPUAgentGPUClient) rebuildHot(st snapshotstore.StoreWriter) *hrHotCache {
 	ga.hrHotRebuilds.Add(1)
 	epoch := st.Epoch()
@@ -1222,8 +1159,7 @@ func (ga *GPUAgentGPUClient) rebuildHot(st snapshotstore.StoreWriter) *hrHotCach
 		}
 		gpuID := ga.hrGPUIDByUUID[uuidStr]
 		if gpuID == "" {
-			// fall back to the UUID so the unsupported-field log/dedup key is
-			// distinct per GPU instead of an empty string shared across all
+			// UUID keeps the unsupported-field dedup key distinct per GPU
 			gpuID = uuidStr
 		}
 		g := &hrHotGPU{
@@ -1247,8 +1183,7 @@ func (ga *GPUAgentGPUClient) rebuildHot(st snapshotstore.StoreWriter) *hrHotCach
 			unsupported := ga.fl.checkUnsupportedFields(gpuID, hrAttrTable[m.id].field)
 			f := &g.fields[m.id]
 			f.skip = !enabled[m.id] || unsupported
-			// the alias metric's own unsupported mark comes from its own
-			// attribute (5, average power), so it must not stop 126 feeding it
+			// the alias metric's own N/A mark must not stop 126 feeding it
 			if m.alias != amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_INVALID {
 				f.aliasSkip = !sub || !enabled[m.alias] || unsupported
 			}

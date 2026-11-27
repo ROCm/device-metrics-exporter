@@ -16,9 +16,8 @@
 
 package gpuagent
 
-// Workload label cache (one cache, keyed by labelCacheKey): rebuild only on
-// change, per-GPU map reuse, hot cache, label-input generation, start loop,
-// StartHighRes seed, failure handling and concurrency.
+// Workload label cache: rebuild on change only, reuse, start loop and
+// concurrency.
 
 import (
 	"context"
@@ -84,9 +83,8 @@ func TestRebuildLabelMapReuse(t *testing.T) {
 	}
 }
 
-// TestLabelCacheNoRebuildWhenUnchanged: get misses before the first refresh;
-// unchanged refreshes keep the pointer with 0 rebuilds and 0 allocs, and
-// partial power frames rebuild the hot cache 0 times.
+// TestLabelCacheNoRebuildWhenUnchanged: unchanged refreshes keep the pointer
+// with no rebuilds or allocations.
 func TestLabelCacheNoRebuildWhenUnchanged(t *testing.T) {
 	for _, key := range labelCacheKeys {
 		t.Run(fmt.Sprintf("%T", key), func(t *testing.T) {
@@ -171,9 +169,7 @@ func TestLabelCacheOneGPUChange(t *testing.T) {
 	assert.Equal(t, kept, testGPUCount-1, "unaffected GPUs must keep their hot cells")
 }
 
-// TestLabelCacheNoLostWakeup: with 1h cache tickers only the source's Changed
-// wakes the caches; changes at random offsets around the refresh are never
-// lost.
+// TestLabelCacheNoLostWakeup: changes around a refresh are never lost.
 func TestLabelCacheNoLostWakeup(t *testing.T) {
 	const iters = 200
 	seed := time.Now().UnixNano()
@@ -236,9 +232,8 @@ func TestLabelInputGenConfigReload(t *testing.T) {
 	}
 }
 
-// TestLabelInputGenPodInfo: identical pod info on every scrape does not bump
-// labelInputGen; a changed pod label bumps it once, both caches rebuild once,
-// the hot cache rebuilds once and the hot sample carries the new label.
+// TestLabelInputGenPodInfo: identical pod info does not bump labelInputGen; a
+// changed label bumps it and rebuilds each cache once.
 func TestLabelInputGenPodInfo(t *testing.T) {
 	e := newWorkloadEnv(t, hrTestConfig, fixtureByName("k8s"))
 	e.gpu.InitPodExtraLabels(&exportermetrics.GPUMetricConfig{ExtraPodLabels: map[string]string{"APP": "app"}})
@@ -295,9 +290,8 @@ func (k tickHookKey) tick(ga *GPUAgentGPUClient) {
 	k.labelCacheKey.tick(ga)
 }
 
-// TestLabelCacheStartLoop: start seeds synchronously, wakes on a source change
-// with a 1h ticker, runs the key's tick upkeep on its ticker and stops on
-// cancel.
+// TestLabelCacheStartLoop: start seeds synchronously, wakes on a source
+// change, runs tick upkeep and stops on cancel.
 func TestLabelCacheStartLoop(t *testing.T) {
 	for _, key := range labelCacheKeys {
 		t.Run(fmt.Sprintf("%T", key), func(t *testing.T) {
@@ -388,10 +382,8 @@ func TestStartHighResSeedsFromSource(t *testing.T) {
 	assert.Equal(t, pods, 2)
 }
 
-// TestLabelCacheFailedThenOK: before a snapshot the cache stays nil; a failed
-// snapshot builds the empty-map labels (one hot cache rebuild for the drop);
-// the next ok snapshot restores labels equal to a fresh pull-path build (one
-// hot cache rebuild for the restore).
+// TestLabelCacheFailedThenOK: a failed snapshot drops workload labels; the
+// next ok snapshot restores them.
 func TestLabelCacheFailedThenOK(t *testing.T) {
 	fx := fixtureByName("k8s")
 	e := newWorkloadEnv(t, hrTestConfig, fx)

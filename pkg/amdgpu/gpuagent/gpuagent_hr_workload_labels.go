@@ -28,12 +28,9 @@ import (
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 )
 
-// workloadLabelCache keeps a stream's per-GPU label set 1-1 with the pull
-// path, including the dynamic pod/slurm workload labels, keyed by what the
-// stream's samples carry (see labelCacheKey). It rebuilds the full set off the
-// stream's hot path from the shared workload source, and only when an input
-// changed. The high-res stream caches a static label set once at subscribe
-// (wls=nil); this cache keeps its workload labels fresh.
+// workloadLabelCache keeps a stream's per-GPU labels, workload labels
+// included, in sync with the pull path; it rebuilds off the stream's hot path
+// and only when an input changed.
 type workloadLabelCache struct {
 	ga       *GPUAgentGPUClient
 	keys     labelCacheKey
@@ -43,8 +40,7 @@ type workloadLabelCache struct {
 	rebuilds atomic.Int64 // published rebuilds (test observability)
 }
 
-// labelCacheKey is what a workloadLabelCache is keyed by, plus the stream's
-// per-tick upkeep.
+// labelCacheKey is a workloadLabelCache's key and per-tick upkeep.
 type labelCacheKey interface {
 	// key returns gpu's cache key; "" leaves the GPU out.
 	key(gpu *amdgpu.GPU) string
@@ -52,8 +48,7 @@ type labelCacheKey interface {
 	tick(ga *GPUAgentGPUClient)
 }
 
-// gpuUUIDKey keys the high-res GPUWatch stream's labels by GPU UUID, which a
-// GPUWatch frame carries.
+// gpuUUIDKey keys the high-res GPUWatch stream's labels by GPU UUID.
 type gpuUUIDKey struct{}
 
 func (gpuUUIDKey) key(gpu *amdgpu.GPU) string {
@@ -62,17 +57,14 @@ func (gpuUUIDKey) key(gpu *amdgpu.GPU) string {
 
 func (gpuUUIDKey) tick(*GPUAgentGPUClient) {}
 
-// renderIDKey keys the profiler stream's labels by DRM render id, which a
-// decoded profiler sample carries.
+// renderIDKey keys the profiler stream's labels by DRM render id.
 type renderIDKey struct{}
 
 func (renderIDKey) key(gpu *amdgpu.GPU) string {
 	return getGPURenderId(gpu)
 }
 
-// tick clears stale profiler fields once the stream hit the failure-disable
-// threshold, so a terminally-disabled profiler stops serving last-known
-// gpu_prof_* values instead of leaving them frozen.
+// tick clears stale gpu_prof_* values once the profiler is disabled.
 func (renderIDKey) tick(ga *GPUAgentGPUClient) {
 	ga.dropProfilerFieldsIfDisabled()
 }
@@ -81,29 +73,25 @@ func (renderIDKey) tick(ga *GPUAgentGPUClient) {
 // workload labels cannot be fresher than the scheduler data they derive from.
 const hrWorkloadLabelRefreshInterval = 3 * time.Second
 
-// newHRWorkloadLabelCache returns the high-res stream's cache, keyed by GPU
-// UUID.
+// newHRWorkloadLabelCache returns the high-res stream's cache.
 func newHRWorkloadLabelCache(ga *GPUAgentGPUClient) *workloadLabelCache {
 	return &workloadLabelCache{ga: ga, keys: gpuUUIDKey{}, interval: hrWorkloadLabelRefreshInterval}
 }
 
-// newProfilerLabelCache returns the profiler stream's cache, keyed by DRM
-// render id.
+// newProfilerLabelCache returns the profiler stream's cache.
 func newProfilerLabelCache(ga *GPUAgentGPUClient) *workloadLabelCache {
 	return &workloadLabelCache{ga: ga, keys: renderIDKey{}, interval: hrWorkloadLabelRefreshInterval}
 }
 
-// labelInputs are the inputs a label cache was built from. Equal inputs mean
-// the labels are current.
+// labelInputs are the inputs a label cache was built from.
 type labelInputs struct {
 	wlGen    uint64     // workloadSnap.gen (0 = no snapshot yet)
 	snap     *hrGPUSnap // ga.hrSnapshot.Load()
 	labelGen uint64     // ga.labelInputGen.Load()
 }
 
-// labelSourceInputs reads a label cache's inputs: labelInputGen first, then the
-// workload snapshot, so a concurrent config write is seen on the next wake
-// rather than lost.
+// labelSourceInputs reads labelInputGen before the snapshot, so a concurrent
+// config write is seen on the next wake.
 func (ga *GPUAgentGPUClient) labelSourceInputs(snap *hrGPUSnap) (labelInputs, *workloadSnap) {
 	in := labelInputs{snap: snap, labelGen: ga.labelInputGen.Load()}
 	ws := ga.ensureWorkloadSource().load()
@@ -111,10 +99,8 @@ func (ga *GPUAgentGPUClient) labelSourceInputs(snap *hrGPUSnap) (labelInputs, *w
 	return in, ws
 }
 
-// rebuildLabelMap builds key -> labels for gpus and reuses each prev entry
-// that is maps.Equal to the new one. It returns prev itself when no entry
-// changed and the key set is the same, so readers comparing pointers see no
-// change.
+// rebuildLabelMap builds key -> labels, returning prev itself when nothing
+// changed so pointer comparisons see no change.
 func (ga *GPUAgentGPUClient) rebuildLabelMap(prev *map[string]prometheus.Labels,
 	gpus []*amdgpu.GPU, pm map[string]*amdgpu.GPU, wls map[string]scheduler.Workload,
 	keys labelCacheKey,
@@ -142,9 +128,8 @@ func (ga *GPUAgentGPUClient) rebuildLabelMap(prev *map[string]prometheus.Labels,
 	return &next
 }
 
-// refreshOnce rebuilds the label map (same inputs as the pull path) when an
-// input changed, and swaps it in only if some GPU's labels changed. Published
-// maps are never mutated, so get() is lock-free and never observes a torn map.
+// refreshOnce rebuilds the label map when an input changed. Published maps are
+// never mutated, so get() is lock free.
 func (c *workloadLabelCache) refreshOnce() {
 	// Reuse the subscribe-time snapshot (sole-amd-smi-caller invariant); only the
 	// scheduler-sourced workload labels change at runtime.
@@ -165,11 +150,8 @@ func (c *workloadLabelCache) refreshOnce() {
 	c.built = in
 }
 
-// start seeds the cache synchronously, then refreshes on a source change or on
-// the ticker (config / snapshot changes) until ctx is done, running the key's
-// tick upkeep on each ticker wake. The change channel is obtained before each
-// refresh, so a change racing it is not lost. The synchronous seed makes the
-// first streamed sample workload-aware; run start in its own goroutine.
+// start seeds the cache synchronously, then refreshes on source changes and on
+// the ticker until ctx is done. Run it in its own goroutine.
 func (c *workloadLabelCache) start(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
 		interval = c.interval

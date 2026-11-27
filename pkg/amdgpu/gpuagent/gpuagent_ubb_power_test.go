@@ -140,8 +140,8 @@ func TestUbbPowerPullExported(t *testing.T) {
 	}
 }
 
-// TestUbbPowerPullPartition0Only: partition 0 carries the value, children carry N/A; only partition 0
-// exports, with no exporter-side partition check.
+// TestUbbPowerPullPartition0Only: only partition 0 exports, children carry
+// N/A.
 func TestUbbPowerPullPartition0Only(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)
@@ -161,8 +161,7 @@ func TestUbbPowerPullPartition0Only(t *testing.T) {
 	assert.Equal(t, len(gaugeSeries(t, &gc.metrics.gpuPackagePower)), 3)
 }
 
-// TestUbbPowerPullNA: the N/A sentinel is never exported (not as 0 either) and is recorded
-// as unsupported once.
+// TestUbbPowerPullNA: N/A is never exported and is recorded unsupported once.
 func TestUbbPowerPullNA(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)
@@ -179,9 +178,7 @@ func TestUbbPowerPullNA(t *testing.T) {
 }
 
 // TestUbbPowerPullZeroFilterPass: 0 in the filter pass marks the field
-// unsupported for that gpuid; it stays absent after the value turns non-zero,
-// exactly like GPU_PACKAGE_POWER, and the two fields gate independently in
-// both directions. A config re-init (InitConfigs) clears the state.
+// unsupported like GPU_PACKAGE_POWER, independently; InitConfigs clears it.
 func TestUbbPowerPullZeroFilterPass(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)
@@ -220,9 +217,8 @@ func TestUbbPowerPullZeroFilterPass(t *testing.T) {
 	assert.Equal(t, ubb[0].GetGauge().GetValue(), float64(1500))
 }
 
-// TestUbbPowerHighResSample: high-res subscribes attr 140 as a scalar and
-// writes gpu_ubb_power (also above uint32) to the store with the GPU labels;
-// the proto ids are pinned (attr 140, field 142).
+// TestUbbPowerHighResSample: high-res writes gpu_ubb_power (also above
+// uint32) with the GPU labels; pins proto attr 140 and field 142.
 func TestUbbPowerHighResSample(t *testing.T) {
 	assert.Equal(t, int32(amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_UBB_POWER), int32(140))
 	assert.Equal(t, int32(exportermetrics.GPUMetricField_GPU_UBB_POWER), int32(142))
@@ -248,7 +244,7 @@ func TestUbbPowerHighResSample(t *testing.T) {
 	}
 }
 
-// TestUbbPowerHighResChildNA: partition 0 publishes, the child partition (N/A) does not.
+// TestUbbPowerHighResChildNA: partition 0 publishes, the N/A child does not.
 func TestUbbPowerHighResChildNA(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)
@@ -277,8 +273,8 @@ func TestUbbPowerHighResChildNA(t *testing.T) {
 	assert.Equal(t, n, 1)
 }
 
-// TestUbbPowerHighResZero pins a design decision: the high-res path has no
-// zero gate, so a raw 0 publishes. The gpuagent producer never sends 0.
+// TestUbbPowerHighResZero: the high-res path has no zero gate, a raw 0
+// publishes (gpuagent never sends 0).
 func TestUbbPowerHighResZero(t *testing.T) {
 	tcase := setupTest(t)
 	defer tcase(t)

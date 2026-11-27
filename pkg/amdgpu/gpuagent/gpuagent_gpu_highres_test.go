@@ -579,9 +579,8 @@ func TestHighResSeedCarriesWorkloadLabelKeys(t *testing.T) {
 	}
 }
 
-// TestHighResFrameApply: below 1000 ms a partial frame (no Spec.Attribute)
-// updates hot cells; a full frame, and any frame at 1000 ms, takes the full
-// write and registers no hot cell.
+// TestHighResFrameApply: sub-second partial frames update hot cells; full
+// frames, and any frame at 1000 ms, take the full write.
 func TestHighResFrameApply(t *testing.T) {
 	temp := amdgpu.GPUWatchAttrId_GPU_WATCH_ATTR_ID_GPU_TEMP
 	for _, tc := range []struct {
@@ -618,10 +617,8 @@ func TestHighResFrameApply(t *testing.T) {
 	}
 }
 
-// TestHighResNAHandling: N/A is never stored and never written as 0, and is
-// recorded unsupported once. On a partial frame a valid value that later goes
-// N/A keeps the prior value; on a full frame UBB valid -> N/A -> valid stays
-// suppressed, like gpu_package_power.
+// TestHighResNAHandling: N/A is never stored or written as 0; a partial frame
+// keeps the prior value, a full frame keeps UBB suppressed.
 func TestHighResNAHandling(t *testing.T) {
 	t.Run("partial frame", func(t *testing.T) {
 		ga, gpus := newHRFastClient(t, 1, 10)
@@ -672,9 +669,7 @@ func TestHighResPackagePowerRule(t *testing.T) {
 		name string
 		run  func(t *testing.T)
 	}{
-		// per GPU, a valid 126 drives gpu_package_power and suppresses the full
-		// frame's 5; an N/A 126 hands it back to 5 through the alias cell with
-		// no epoch bump; a valid 126 takes over again.
+		// a valid 126 drives gpu_package_power over 5; an N/A 126 hands it back
 		{"126 drives, N/A hands back to 5", func(t *testing.T) {
 			ga, gpus := newHRFastClient(t, 2, 10)
 			st := ga.gpuHandler.mh.GetStore()
@@ -722,8 +717,7 @@ func TestHighResPackagePowerRule(t *testing.T) {
 			ga.applyWatchSnapshot(hrFull(gpus, hrAttr(hrAttrPowerUsage, 450)))
 			assert.Equal(t, hrMustGet(t, ga, gpus[0], "gpu_package_power"), 450.0)
 		}},
-		// at sub-second periods a full frame writes no power-family name; at
-		// 1000 ms it writes them.
+		// sub-second full frames write no power-family name; 1000 ms ones do
 		{"full frame power names by period", func(t *testing.T) {
 			attrs := append(hrPowerTick(7), hrAttr(temp, 50))
 			ga, gpus := newHRFastClient(t, 1, 10)
@@ -738,9 +732,7 @@ func TestHighResPackagePowerRule(t *testing.T) {
 				}
 			}
 		}},
-		// 126 keeps feeding gpu_package_power when 5 is N/A or already marked
-		// unsupported, across cache rebuilds; an N/A 5 does not mark
-		// GPU_PACKAGE_POWER unsupported once the 126 alias is live.
+		// 126 keeps feeding gpu_package_power when 5 is N/A or unsupported
 		{"126 when 5 is N/A or unsupported", func(t *testing.T) {
 			ga, gpus := newHRFastClient(t, 2, 10)
 			a, b := gpus[0], gpus[1]
@@ -754,9 +746,7 @@ func TestHighResPackagePowerRule(t *testing.T) {
 			assert.Equal(t, hrMustGet(t, ga, a, "gpu_package_power"), 510.0)
 			assert.Equal(t, hrMustGet(t, ga, b, "gpu_package_power"), 510.0)
 		}},
-		// alternating partial and full frames: the rule holds through the
-		// sequence, and after round 1 the store epoch and the alias cell are
-		// unchanged (full frames never replace hot samples).
+		// alternating partial and full frames keep the rule and the store epoch
 		{"alternating frames do not churn", func(t *testing.T) {
 			ga, gpus := newHRFastClient(t, 1, 1)
 			st := ga.gpuHandler.mh.GetStore()
@@ -844,10 +834,8 @@ func TestHighResAllowlist(t *testing.T) {
 	}
 }
 
-// TestHighResFrameMalformed: unknown GPU bytes, GPU bytes of length != 16, an
-// attr id >= 256, a GPU entry with no Attr, an empty frame, a nil Value and an
-// attr outside the power family write nothing on a partial frame; on a full
-// frame an absent or nil UBB attr writes no UBB sample and does not panic.
+// TestHighResFrameMalformed: malformed or out-of-family frame content writes
+// nothing and never panics.
 func TestHighResFrameMalformed(t *testing.T) {
 	t.Run("partial frame", func(t *testing.T) {
 		ga, gpus := newHRFastClient(t, 1, 10)
@@ -877,9 +865,8 @@ func TestHighResFrameMalformed(t *testing.T) {
 	})
 }
 
-// TestHighResPartialFrameUpdatesOnlyPresent: a partial frame writes only the
-// attrs it carries, in place: other fields, the field count and the store
-// epoch are unchanged once the cells are registered.
+// TestHighResPartialFrameUpdatesOnlyPresent: a partial frame writes only its
+// attrs in place; other fields and the store epoch are unchanged.
 func TestHighResPartialFrameUpdatesOnlyPresent(t *testing.T) {
 	ga, gpus := newHRFastClient(t, 1, 10)
 	st := ga.gpuHandler.mh.GetStore()
@@ -907,9 +894,8 @@ func TestHighResPartialFrameUpdatesOnlyPresent(t *testing.T) {
 	assert.Assert(t, s2.TsUs > s1.TsUs)
 }
 
-// TestHighResHotCacheInvalidation: a store epoch bump, a workload-label swap
-// and a field-config reload rebuild the cache; cells are re-registered when
-// the epoch or the labels changed, kept otherwise; values continue.
+// TestHighResHotCacheInvalidation: epoch bumps, label swaps and field reloads
+// rebuild the cache; cells are re-registered only when needed.
 func TestHighResHotCacheInvalidation(t *testing.T) {
 	ga, gpus := newHRFastClient(t, 1, 10)
 	st := ga.gpuHandler.mh.GetStore()
@@ -995,9 +981,8 @@ func TestApplyPowerFrameNoAlloc(t *testing.T) {
 	assert.Equal(t, allocs, 0.0)
 }
 
-// TestHighResPowerFrameNoHotPathLogging: 10 000 partial frames with 126 N/A
-// log exactly one unsupported-field line (never for GPU_PACKAGE_POWER);
-// 10 000 valid frames log nothing.
+// TestHighResPowerFrameNoHotPathLogging: repeated N/A logs once, valid frames
+// log nothing.
 func TestHighResPowerFrameNoHotPathLogging(t *testing.T) {
 	ga, gpus := newHRFastClient(t, 1, 10)
 	buf := captureExporterLog(t, logrus.DebugLevel)
@@ -1024,10 +1009,8 @@ const hrNA = math.MaxUint64
 
 var hrLoggerOnce sync.Once
 
-// newHRFastClient builds a minimal high-res GPU client (metrics handler with a
-// store, field allowlist, fieldLogger, label caches for n synthetic GPUs) so
-// applyPowerFrame/applyWatchSnapshot can be driven directly without gRPC
-// mocks. fastMs is the accepted watch period.
+// newHRFastClient builds a minimal high-res GPU client to drive the frame
+// apply paths without gRPC mocks.
 func newHRFastClient(tb testing.TB, n int, fastMs uint32, fields ...string) (*GPUAgentGPUClient, [][]byte) {
 	tb.Helper()
 	hrLoggerOnce.Do(func() { logger.Init(true) })
@@ -1133,10 +1116,8 @@ func hrStoreFields(ga *GPUAgentGPUClient) []string {
 	return out
 }
 
-// TestHighResArrivalIntervalStats: per-GPU partial-frame arrival intervals of
-// 1..100 ms give p50 50 ms, p99 99 ms, max 100 ms and a population standard
-// deviation of sqrt((100^2-1)/12) ms; recording a known GPU does not allocate,
-// and a new window starts empty.
+// TestHighResArrivalIntervalStats: arrival intervals of 1..100 ms give the
+// expected p50/p99/max/stddev without allocating.
 func TestHighResArrivalIntervalStats(t *testing.T) {
 	ga, gpus := newHRFastClient(t, 2, 10)
 	a := newHRArrivals(ga.hrGPUIDByUUID)

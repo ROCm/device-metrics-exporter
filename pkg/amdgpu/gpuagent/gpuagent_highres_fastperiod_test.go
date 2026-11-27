@@ -281,9 +281,8 @@ func TestHighResCreateRejectedErrors(t *testing.T) {
 	}
 }
 
-// blockingStream is a GPUWatch subscription that yields the queued frames, then
-// blocks until its context is cancelled. drained (optional) is closed on the
-// first Recv after the last frame, that is once every frame was applied.
+// blockingStream yields the queued frames, then blocks until cancelled;
+// drained is closed once every frame was applied.
 type blockingStream struct {
 	grpc.ClientStream
 	ctx     context.Context

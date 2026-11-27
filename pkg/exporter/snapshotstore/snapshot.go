@@ -31,12 +31,9 @@ import (
 // yielding the processor.
 const hotLoadSpins = 16
 
-// HotCell is a single-writer, multi-reader value slot for high-rate fields. A
-// snapshot Sample registered with Store.RegisterHot points at a cell, and the
-// writer updates the value in place with Set: no lock, no allocation, no
-// snapshot copy. Set must be called by one goroutine only; readers never take
-// a lock or wait for a store writer, never see a torn value/ts pair (seqlock
-// over atomics), and retry only while a Set is in flight.
+// HotCell is a single-writer, multi-reader value slot for high-rate fields,
+// updated in place without lock, allocation or snapshot copy; a seqlock over
+// atomics keeps readers from seeing a torn value/ts pair.
 type HotCell struct {
 	seq atomic.Uint64 // odd while a Set is in progress
 	val atomic.Uint64 // math.Float64bits(value)
@@ -51,8 +48,8 @@ func (c *HotCell) Set(v float64, tsUs int64) {
 	c.seq.Add(1)
 }
 
-// Load returns the latest value and sample time. It retries only while a Set
-// is in flight (a few ns), yielding after hotLoadSpins attempts.
+// Load returns the latest value and sample time, retrying only while a Set is
+// in flight.
 func (c *HotCell) Load() (v float64, tsUs int64) {
 	for spins := 0; ; spins++ {
 		s1 := c.seq.Load()
@@ -80,8 +77,7 @@ type Sample struct {
 	hot *HotCell
 }
 
-// resolve returns s with Value/TsUs read from its hot cell, if any. The copy
-// handed to readers is a plain sample (hot cleared).
+// resolve returns s as a plain sample, with Value/TsUs from its hot cell.
 func (s Sample) resolve() Sample {
 	if s.hot != nil {
 		s.Value, s.TsUs = s.hot.Load()
@@ -120,8 +116,7 @@ func (d *DeviceSnapshot) Len() int {
 }
 
 // Range calls fn for every field, stopping early if fn returns false. Hot
-// samples are resolved as in Get, each loaded independently, so two hot fields
-// of one device may come from different writer updates.
+// fields are loaded independently, so they may come from different updates.
 func (d *DeviceSnapshot) Range(fn func(field string, s Sample) bool) {
 	if d == nil {
 		return

@@ -39,9 +39,8 @@ import (
 
 type GPUAgentClient struct {
 	sync.Mutex
-	// schedMu guards k8sScheduler, slurmScheduler and isKubernetes. Lock order:
-	// the embedded mutex may be held when taking schedMu, never the reverse. No
-	// scheduler call is made while holding it.
+	// schedMu guards the scheduler fields; take it after the embedded mutex,
+	// never call a scheduler while holding it.
 	schedMu              sync.RWMutex
 	conn                 *grpc.ClientConn
 	mh                   *metricsutil.MetricsHandler
@@ -298,13 +297,11 @@ func (ga *GPUAgentClient) InitConfigs() error {
 	return nil
 }
 
-// newSlurmScheduler creates the slurm client; a variable so tests can watch a
-// temp dir (tests that swap it must not run in parallel).
+// newSlurmScheduler is a variable so tests can swap it.
 var newSlurmScheduler = scheduler.NewSlurmClient
 
-// initalizeScheduler creates the slurm client when enabled and none exists, so
-// at most one slurm watcher runs. The k8s client is injected by the exporter
-// and never created or closed here.
+// initalizeScheduler creates at most one slurm client; the k8s client is
+// injected by the exporter.
 func (ga *GPUAgentClient) initalizeScheduler() error {
 	if !ga.enableSlurmScl {
 		return nil
@@ -599,10 +596,7 @@ func (ga *GPUAgentClient) Close() {
 		ga.conn.Close()
 		ga.conn = nil
 	}
-	// The k8s scheduler client is created and owned by the exporter and shared
-	// with nicagent: it is not closed here (Close also runs on every gpuagent
-	// reconnect), so k8s workload labels survive a reconnect. It re-creates its
-	// own connection when broken.
+	// the k8s client is owned by the exporter, so it survives a reconnect
 	ga.schedMu.Lock()
 	slurm := ga.slurmScheduler
 	ga.slurmScheduler = nil

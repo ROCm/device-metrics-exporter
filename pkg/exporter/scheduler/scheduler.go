@@ -39,11 +39,8 @@ type SchedulerClient interface {
 }
 
 // ChangeNotifier is implemented by scheduler clients that track their own
-// workload changes (slurm). It is deliberately not part of SchedulerClient, so
-// callers use a type assertion and clients without it are polled. Version
-// increases on every workload content change. Changed returns a channel that
-// is closed on the first change after the call; obtain it before reading the
-// state it guards, so a change in between is not missed.
+// workload changes (slurm); clients without it are polled. Obtain Changed()
+// before reading the state it guards, so a change in between is not missed.
 type ChangeNotifier interface {
 	Version() uint64
 	Changed() <-chan struct{}

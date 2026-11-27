@@ -126,8 +126,7 @@ func TestMergeWorkloadsMatchesReference(t *testing.T) {
 }
 
 // TestWorkloadSourceUnchangedSamePointer: unchanged refreshes keep the
-// published snapshot and never close Changed; with a real kubelet client every
-// List comes from the source and a pod move bumps gen once.
+// snapshot and never close Changed; a pod move bumps gen once.
 func TestWorkloadSourceUnchangedSamePointer(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -230,8 +229,7 @@ func TestWorkloadSourceGenBump(t *testing.T) {
 }
 
 // TestWorkloadSourceK8sErrorDropsWorkloadLabels: a kubelet failure publishes
-// the reference ListWorkloads result (empty, non-nil, same error) and both
-// label caches drop the pod labels exactly as a fresh build with no workloads.
+// the reference result and both caches drop the pod labels.
 func TestWorkloadSourceK8sErrorDropsWorkloadLabels(t *testing.T) {
 	fx := fixtureByName("k8s")
 	e := newWorkloadEnv(t, hrTestConfig, fx)
@@ -260,8 +258,7 @@ func TestWorkloadSourceK8sErrorDropsWorkloadLabels(t *testing.T) {
 }
 
 // TestWorkloadSourceSlurmErrorMatchesReference: a slurm failure publishes the
-// k8s-only map with the reference error; failed -> failed does not bump and
-// recovery does.
+// k8s-only map; only the transitions bump.
 func TestWorkloadSourceSlurmErrorMatchesReference(t *testing.T) {
 	fx := fixtureByName("mixed")
 	e := newWorkloadEnv(t, pullTestConfig, fx)
@@ -299,9 +296,8 @@ func TestWorkloadSourceSeedFailure(t *testing.T) {
 	assert.Assert(t, src.load().err == nil)
 }
 
-// TestWorkloadSourceNonNotifier: a scheduler that does not implement
-// ChangeNotifier is listed on every refresh and compared; the run loop is
-// tick-only.
+// TestWorkloadSourceNonNotifier: a non-ChangeNotifier scheduler is listed on
+// every refresh and the run loop is tick-only.
 func TestWorkloadSourceNonNotifier(t *testing.T) {
 	fx := fixtureByName("slurm")
 	e := newWorkloadEnv(t, pullTestConfig, fx)
@@ -377,8 +373,7 @@ func TestWorkloadSourceSchedulerRecreated(t *testing.T) {
 }
 
 // TestWorkloadSourceErrorRecovery: one bump at the first failure, none while
-// failing (notifier events cause no kubelet call and no republish), one at
-// recovery, also when the recovered map is empty.
+// failing, one at recovery.
 func TestWorkloadSourceErrorRecovery(t *testing.T) {
 	fx := fixtureByName("mixed")
 	e := newWorkloadEnv(t, pullTestConfig, fx)
@@ -419,10 +414,8 @@ func TestWorkloadSourceErrorRecovery(t *testing.T) {
 	assert.Assert(t, zs.load().err == nil && len(zs.load().wls) == 0)
 }
 
-// TestWorkloadSourceLastGood: the pull path's last-good map misses before the
-// first success, keeps the last good map (and the pod labels on /metrics)
-// across failures and updates on the next success. Starting the pull gate is
-// idempotent and a no-op in high-res mode.
+// TestWorkloadSourceLastGood: the pull path keeps the last good map across
+// failures and updates on the next success.
 func TestWorkloadSourceLastGood(t *testing.T) {
 	fx := fixtureByName("k8s")
 	e := newWorkloadEnv(t, pullTestConfig, fx)
@@ -458,9 +451,8 @@ func TestWorkloadSourceLastGood(t *testing.T) {
 	assert.Assert(t, h.gpu.pullWLSource.Load() == nil, "pull gate started in high-res mode")
 }
 
-// TestGetMetricsAllUsesPullCache: a pull scrape reads workloads from the
-// source's last-good map and makes no scheduler call; through pod start,
-// change and end the gated /metrics equals the per-scrape ListWorkloads path.
+// TestGetMetricsAllUsesPullCache: a pull scrape reads the last-good map, makes
+// no scheduler call and matches the per-scrape path.
 func TestGetMetricsAllUsesPullCache(t *testing.T) {
 	t.Run("sentinel", func(t *testing.T) {
 		e := newWorkloadEnv(t, pullTestConfig, fixtureByName("k8s"))
@@ -506,9 +498,8 @@ func TestGetMetricsAllUsesPullCache(t *testing.T) {
 	})
 }
 
-// TestCurrentWorkloadsFallback: with no source, currentWorkloads is the
-// synchronous reference ListWorkloads and starts no source; with a source it
-// returns the source's snapshot.
+// TestCurrentWorkloadsFallback: without a source currentWorkloads lists
+// synchronously; with one it returns the source's snapshot.
 func TestCurrentWorkloadsFallback(t *testing.T) {
 	fx := fixtureByName("mixed")
 	e := newWorkloadEnv(t, pullTestConfig, fx)
@@ -528,9 +519,8 @@ func TestCurrentWorkloadsFallback(t *testing.T) {
 	assert.Equal(t, len(got), 4)
 }
 
-// TestWorkloadConsumersMakeNoSchedulerCalls: with a source installed, health,
-// the hr and profiler label caches and the pull gate make no kubelet call;
-// without one, health lists synchronously and does not start a source.
+// TestWorkloadConsumersMakeNoSchedulerCalls: with a source installed no
+// consumer calls the kubelet.
 func TestWorkloadConsumersMakeNoSchedulerCalls(t *testing.T) {
 	fx := fixtureByName("k8s")
 	e := newWorkloadEnv(t, hrTestConfig, fx)
@@ -583,9 +573,8 @@ func TestWorkloadSourceEventCoalescing(t *testing.T) {
 	assert.Equal(t, src.k8sCalls.Load(), calls, "notifier events called the kubelet")
 }
 
-// TestWorkloadSourceNoLostWakeup: interval 1h, so only Changed() can wake the
-// source. A bump is injected at each point of the obtain-then-read sequence;
-// every one must be visible within wakeBound.
+// TestWorkloadSourceNoLostWakeup: a bump injected at each point of the
+// obtain-then-read sequence is seen within wakeBound.
 func TestWorkloadSourceNoLostWakeup(t *testing.T) {
 	const iters = 100
 	seed := time.Now().UnixNano()
@@ -767,9 +756,8 @@ func (b *blockingSched) ListWorkloads() (map[string]scheduler.Workload, error) {
 	return b.fakeSched.ListWorkloads()
 }
 
-// TestSchedMuRace: slurm pointer writes (Init/Close) race the readers; no
-// scheduler call runs under schedMu (a blocked List does not block Close);
-// Close never writes the k8s pointer.
+// TestSchedMuRace: slurm pointer writes race readers; no scheduler call runs
+// under schedMu.
 func TestSchedMuRace(t *testing.T) {
 	useSlurmDir(t, t.TempDir())
 	e := newWorkloadEnv(t, pullTestConfig, fixtureByName("k8s"))
@@ -821,9 +809,8 @@ func TestSchedMuRace(t *testing.T) {
 	close(b.release)
 }
 
-// TestWorkloadSourceConcurrentReaders: readers of the snapshot and the
-// last-good map run against a stream of changes and a stop mid-run; every
-// snapshot is consistent.
+// TestWorkloadSourceConcurrentReaders: readers racing changes and a stop
+// always see a consistent snapshot.
 func TestWorkloadSourceConcurrentReaders(t *testing.T) {
 	e := newWorkloadEnv(t, pullTestConfig, workloadFixture{name: "none"})
 	f := newNotifySched(map[string]scheduler.Workload{})
@@ -867,11 +854,8 @@ func TestWorkloadSourceConcurrentReaders(t *testing.T) {
 	assert.Equal(t, bad.Load(), int64(0))
 }
 
-// TestWorkloadSourceSurvivesReconnect: across gpuagent reconnects the
-// exporter-owned k8s client is neither closed nor replaced, exactly one source
-// goroutine runs, polls keep listing with no gen bump, and the hr labels and
-// pull /metrics keep the pod; after the reconnects the source still publishes
-// a change.
+// TestWorkloadSourceSurvivesReconnect: gpuagent reconnects keep the k8s
+// client, one source goroutine and the pod labels.
 func TestWorkloadSourceSurvivesReconnect(t *testing.T) {
 	e := newWorkloadEnv(t, hrTestConfig, fixtureByName("k8s"))
 	hc, src := e.startHRSource(t, 20*time.Millisecond)

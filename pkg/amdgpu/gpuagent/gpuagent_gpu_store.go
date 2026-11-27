@@ -503,9 +503,8 @@ func (ga *GPUAgentClient) NeedsPerScrapePull() bool {
 // (Approach 1 singleflight), then mirrors the populated GaugeVecs into the store.
 func (ga *GPUAgentGPUClient) fetchMetricsOnce(ctx context.Context) error {
 	return gpuPullDeduper.FetchOnce(gpuFetchKey, func() error {
-		// Reset before refill, as UpdateMetrics does: a GaugeVec keeps every
-		// label set it has seen, so a finished slurm job or pod would stay on
-		// its GPU's series and keep winning that device's store slot.
+		// reset before refill: a GaugeVec keeps old label sets, so a finished
+		// job would stay on its GPU's series
 		_ = ga.ResetMetrics()
 		if err := ga.getMetricsAll(ctx); err != nil {
 			// GPUGet failed: drop stale device telemetry so /metrics serves only

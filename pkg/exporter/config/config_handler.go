@@ -49,8 +49,7 @@ type ConfigHandler struct {
 	configPath  string
 	// running config can change keep updating states
 	runningConfig *Config
-	// last high-res (FastPeriodMs, FastPeriodSecs, SlowPeriodSecs) tuple seen by
-	// GetHighResWatchPeriods; its log lines fire only when the tuple changes
+	// last high-res periods logged, to log only on change
 	hrLogKey    [3]uint32
 	hrLogKeySet bool
 }
@@ -238,8 +237,7 @@ const (
 	highResMaxFastPeriodMs     uint32 = 60000
 )
 
-// highResFastPeriodMsValid mirrors gpuagent's aga_gpu_watch_fast_period_ms_valid:
-// 1, 10, 100, or a multiple of 1000 up to 60000.
+// highResFastPeriodMsValid mirrors gpuagent's fast period check.
 func highResFastPeriodMsValid(ms uint32) bool {
 	switch ms {
 	case 1, 10, 100:
@@ -248,11 +246,9 @@ func highResFastPeriodMsValid(ms uint32) bool {
 	return ms != 0 && ms%1000 == 0 && ms <= highResMaxFastPeriodMs
 }
 
-// GetHighResWatchPeriods returns the GPUWatch fast period in milliseconds and
-// the slow period in seconds. Precedence for the fast period: FastPeriodMs if
-// set, else FastPeriodSecs*1000, else 1000 ms. Any invalid combination falls
-// back to the defaults (1000 ms / 5 s), so a sub-second period is never chosen
-// by accident. With high-res disabled or unconfigured the defaults are returned.
+// GetHighResWatchPeriods returns the GPUWatch fast period (ms) and slow period
+// (s). FastPeriodMs wins over FastPeriodSecs; any invalid combination falls
+// back to the defaults, so a sub-second period is never chosen by accident.
 func (c *ConfigHandler) GetHighResWatchPeriods() (uint32, uint32) {
 	c.Lock()
 	defer c.Unlock()
@@ -302,9 +298,8 @@ func (c *ConfigHandler) GetHighResWatchPeriods() (uint32, uint32) {
 	return fastMs, slow
 }
 
-// GetHighResPeriods returns the fast/slow sampling periods in seconds for the
-// consumers that never run below 1 s (cgroup sampler, profiler stream): the
-// GetHighResWatchPeriods fast period floored at 1 s.
+// GetHighResPeriods returns the fast/slow periods in seconds, fast floored at
+// 1 s, for consumers that never run sub-second.
 func (c *ConfigHandler) GetHighResPeriods() (uint32, uint32) {
 	fastMs, slow := c.GetHighResWatchPeriods()
 	return max(1, fastMs/1000), slow

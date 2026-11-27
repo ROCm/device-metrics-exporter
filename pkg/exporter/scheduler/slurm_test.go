@@ -199,9 +199,8 @@ func isClosed(ch <-chan struct{}) bool {
 	}
 }
 
-// TestSlurmVersionBump: Version starts at 0 and bumps once per
-// content change: a create, a two-GPU file (one bump), a remove.
-// ListWorkloads still returns a copy.
+// TestSlurmVersionBump: Version bumps once per content change and
+// ListWorkloads returns a copy.
 func TestSlurmVersionBump(t *testing.T) {
 	cl, dir := newTestSlurm(t)
 	var _ ChangeNotifier = cl
@@ -228,11 +227,8 @@ func TestSlurmVersionBump(t *testing.T) {
 	expectSlurm(t, cl, 3, map[string]JobInfo{"1": jobOf("11"), "2": jobOf("11")})
 }
 
-// TestSlurmChangedBroadcast: Changed closes on the first change after the
-// call, wakes every waiter and is replaced after each bump. Two latencies: bump-to-wake (< 100 ms) and
-// job-file-write-to-wake through inotify (< 1 s, well under the 3 s label
-// tick; the file path includes inotify delivery and -race overhead). Readers
-// run concurrently for -race.
+// TestSlurmChangedBroadcast: Changed closes on the next change and wakes
+// every waiter, on a direct bump and through inotify.
 func TestSlurmChangedBroadcast(t *testing.T) {
 	cl, dir := newTestSlurm(t)
 	ch := cl.Changed()
@@ -302,9 +298,8 @@ func TestSlurmChangedBroadcast(t *testing.T) {
 	}
 	waitSlurm(t, cl, 2, map[string]JobInfo{"0": jobOf("12")})
 
-	// bump-to-wake: processSlurm is what the watcher runs per event. Use a
-	// client with no watcher goroutine so the direct call has no writer to
-	// race (a single file write can deliver several inotify events).
+	// bump-to-wake: a client with no watcher goroutine, so the direct
+	// processSlurm call does not race
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	bare := &client{GpuJobs: map[string]JobInfo{}, ctx: ctx, cancel: cancel, changed: make(chan struct{})}
@@ -316,10 +311,8 @@ func TestSlurmChangedBroadcast(t *testing.T) {
 	}
 }
 
-// TestSlurmNoBumpOnNoop: an empty or truncated job file, an identical
-// rewrite, a parse failure and the remove of a key never stored do not bump
-// and leave the watcher alive; the full content then lands with one bump, and
-// a changed field bumps.
+// TestSlurmNoBumpOnNoop: no-op file events do not bump and keep the watcher
+// alive; real content changes bump once.
 func TestSlurmNoBumpOnNoop(t *testing.T) {
 	cl, dir := newTestSlurm(t)
 	writeJobFile(t, dir, "5", "")
@@ -354,9 +347,8 @@ func TestSlurmNoBumpOnNoop(t *testing.T) {
 	}
 }
 
-// TestSlurmWatcherRename: a job file renamed into place (new, and
-// over an existing file) is read once per content change; the temp name is
-// skipped.
+// TestSlurmWatcherRename: a job file renamed into place is read once per
+// content change; the temp name is skipped.
 func TestSlurmWatcherRename(t *testing.T) {
 	cl, dir := newTestSlurm(t)
 	tmp := filepath.Join(dir, ".job.tmp")
@@ -377,9 +369,8 @@ func TestSlurmWatcherRename(t *testing.T) {
 	expectSlurm(t, cl, 2, map[string]JobInfo{"4": jobOf("41")})
 }
 
-// TestSlurmWatcherFsnotifyError: a watcher error is logged without a
-// bump and the loop keeps serving events; a closed Events or Errors channel
-// ends the loop (no spin); the last state stays readable.
+// TestSlurmWatcherFsnotifyError: watcher errors are logged without a bump;
+// closed channels end the loop.
 func TestSlurmWatcherFsnotifyError(t *testing.T) {
 	logger.Init(true)
 	dir := t.TempDir()
