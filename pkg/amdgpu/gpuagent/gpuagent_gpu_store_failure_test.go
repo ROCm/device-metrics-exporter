@@ -28,6 +28,7 @@ import (
 	"gotest.tools/assert"
 
 	"github.com/ROCm/device-metrics-exporter/pkg/amdgpu/mock_gen"
+	"github.com/ROCm/device-metrics-exporter/pkg/exporter/scheduler"
 	"github.com/ROCm/device-metrics-exporter/pkg/exporter/snapshotstore"
 )
 
@@ -168,4 +169,77 @@ func TestGPUStoreDropsTelemetryOnFetchFailure(t *testing.T) {
 	assert.NilError(t, gpu.UpdateMetricsStats(ctx))
 	assert.DeepEqual(t, gpuStoreFields(), storeBefore)
 	assert.DeepEqual(t, gpuScrapedFields(t, gpu), scrapeBefore)
+}
+
+// gpuStoreLabelValues returns the sorted distinct values of label across every
+// sample of every device slot in the store.
+func gpuStoreLabelValues(label string) []string {
+	set := map[string]struct{}{}
+	for _, snap := range mh.GetStore().Snapshots() {
+		snap.Range(func(_ string, s snapshotstore.Sample) bool {
+			if v, ok := s.Labels[label]; ok {
+				set[v] = struct{}{}
+			}
+			return true
+		})
+	}
+	return sortedKeys(set)
+}
+
+// TestGPUStoreDropsWorkloadLabelsWhenJobEnds reproduces stale workload labels in
+// the pull-mode store writer: a GPU runs a Slurm job, the job ends, and the next
+// scrape must no longer carry the job's labels.
+//
+// A GaugeVec keeps the row with the old label values. Unless the GaugeVecs are
+// reset before the fetch, that row is mirrored into the same store slot as the
+// fresh row and can win.
+func TestGPUStoreDropsWorkloadLabelsWhenJobEnds(t *testing.T) {
+	teardown := setupTest(t)
+	defer teardown(t)
+
+	ga := getNewAgent(t)
+	defer ga.Close()
+	assert.NilError(t, ga.InitConfigs())
+
+	// Replace the file-watching Slurm client with the fixture's mock, which
+	// reports one job per GPU.
+	if ga.slurmScheduler != nil {
+		_ = ga.slurmScheduler.Close()
+	}
+	ga.slurmScheduler = newSlurmMockClient()
+
+	gpu := gpuClientFrom(t, ga)
+	gpu.gpuGetCacheTTL = 0
+	ctx := context.Background()
+
+	// Seed the GPU metadata that maps scheduler workloads to GPUs (the exporter
+	// does this in UpdateStaticMetrics before the first scrape).
+	getResp, _, err := gpu.getGPUs(gpu.gCache.gpuGetFilter, &gpu.gCache.metricsCache)
+	assert.NilError(t, err)
+	gpu.initGPUMetadata(getResp.GetResponse())
+
+	// 1. Jobs are running.
+	assert.NilError(t, gpu.UpdateMetricsStats(ctx))
+	withJobs := gpuStoreLabelValues("job_id")
+	t.Logf("jobs running: job_id values in store %q", withJobs)
+	assert.Assert(t, strings.Contains(strings.Join(withJobs, ","), "SLURM_JOB_ID"),
+		"fixture exported no job_id label; nothing to go stale")
+
+	// 2. The jobs end: the scheduler reports no workloads.
+	idle := mock_gen.NewMockSchedulerClient(mockCtl)
+	idle.EXPECT().ListWorkloads().Return(map[string]scheduler.Workload{}, nil).AnyTimes()
+	idle.EXPECT().CheckExportLabels(gomock.Any()).Return(true).AnyTimes()
+	idle.EXPECT().Type().Return(scheduler.Slurm).AnyTimes()
+	idle.EXPECT().Close().Return(nil).AnyTimes()
+	_ = ga.slurmScheduler.Close()
+	ga.slurmScheduler = idle
+
+	// Gather order between the stale and the fresh row is not fixed, so one
+	// scrape could pass by luck; several must all be clean.
+	for i := 0; i < 5; i++ {
+		assert.NilError(t, gpu.UpdateMetricsStats(ctx))
+		assert.DeepEqual(t, gpuStoreLabelValues("job_id"), []string{""})
+		assert.DeepEqual(t, gpuStoreLabelValues("job_user"), []string{""})
+		assert.DeepEqual(t, gpuStoreLabelValues("job_partition"), []string{""})
+	}
 }
