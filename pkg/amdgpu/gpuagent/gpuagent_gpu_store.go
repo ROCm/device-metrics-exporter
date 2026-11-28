@@ -28,6 +28,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -171,31 +172,65 @@ var gpuNodesTotalField = strings.ToLower(exportermetrics.GPUMetricField_GPU_NODE
 // is always present, gpu_nodes_total only when GPU_NODES_TOTAL is enabled.
 var gpuHealthField = strings.ToLower(exportermetrics.GPUMetricField_GPU_HEALTH.String())
 
+// gpuMirroredFields is the set of GPU field names the last
+// mirrorGPUFamiliesToStore call wrote into the store. dropStaleGPUTelemetry needs
+// it because the GaugeVecs cannot tell which fields the store holds once they
+// have been reset: an empty GaugeVec gathers no family. Package-scoped for the
+// same reason as gpuPullDeduper (one GPU client per process).
+var gpuMirroredFields atomic.Pointer[map[string]struct{}]
+
 // dropStaleGPUTelemetry evicts the GPU telemetry fields from the store on a
 // GPUGet failure so /metrics serves only the signal fields (the node
 // gpu_nodes_total slot, when enabled, and per-GPU gpu_health) instead of
-// last-known clocks, temps, etc. The drop set is the current GPU GaugeVec
-// family names minus the two signal fields — scoped to GPU field names, so
-// NIC/IFOE slots are untouched. The next successful getMetricsAll + publish
-// merges the full set back (reconnect).
+// last-known clocks, temps, etc. The drop set is the GPU field names last
+// mirrored into the store, unioned with the current GPU GaugeVec family names,
+// minus the two signal fields — scoped to GPU field names, so NIC/IFOE slots are
+// untouched. The mirrored set keeps the drop working when the GaugeVecs were
+// reset before the failed fetch and so hold no rows; for the same reason the
+// gpu_health GaugeVec is refilled from the store afterwards. The next successful
+// getMetricsAll + publish merges the full set back (reconnect).
 func (ga *GPUAgentGPUClient) dropStaleGPUTelemetry() {
 	store := ga.gpuHandler.mh.GetStore()
 	if store == nil {
 		return
 	}
-	fams, err := ga.gatherGPUFamilies()
-	if err != nil {
-		return
-	}
-	drop := make(map[string]struct{}, len(fams))
-	for _, mf := range fams {
-		name := mf.GetName()
-		if name == gpuHealthField || name == gpuNodesTotalField {
-			continue
+	drop := map[string]struct{}{}
+	if mirrored := gpuMirroredFields.Load(); mirrored != nil {
+		for name := range *mirrored {
+			drop[name] = struct{}{}
 		}
-		drop[name] = struct{}{}
 	}
+	// A gather error only loses the GaugeVec half of the union.
+	if fams, err := ga.gatherGPUFamilies(); err == nil {
+		for _, mf := range fams {
+			drop[mf.GetName()] = struct{}{}
+		}
+	}
+	delete(drop, gpuHealthField)
+	delete(drop, gpuNodesTotalField)
 	store.DropFields(drop)
+	ga.restoreGPUHealthGauge(store)
+}
+
+// restoreGPUHealthGauge refills the gpu_health GaugeVec from the gpu_health
+// samples retained in the store. /metrics descriptors are derived from the
+// populated GaugeVecs (gpuStoreFieldDescs), so after a ResetMetrics followed by
+// a failed fetch the retained gpu_health samples would have no descriptor and
+// would not be served. Values are the last published ones, as before the reset
+// was introduced.
+func (ga *GPUAgentGPUClient) restoreGPUHealthGauge(store *snapshotstore.Store) {
+	for _, snap := range store.Snapshots() {
+		snap.Range(func(field string, sample snapshotstore.Sample) bool {
+			if field != gpuHealthField {
+				return true
+			}
+			// A label set that no longer matches the GaugeVec is skipped.
+			if g, err := ga.metrics.gpuHealth.GetMetricWith(sample.Labels); err == nil {
+				g.Set(sample.Value)
+			}
+			return false
+		})
+	}
 }
 
 // gpuPullDeduper collapses concurrent pull-path scrapes onto one getMetricsAll
@@ -446,6 +481,7 @@ func (ga *GPUAgentGPUClient) mirrorGPUFamiliesToStore(store snapshotstore.StoreW
 	}
 	workloadSkip := ga.workloadLabelKeys()
 	byDevice := map[string]map[string]snapshotstore.Sample{}
+	mirrored := map[string]struct{}{}
 	for _, mf := range fams {
 		field := mf.GetName()
 		if field == gpuNodesTotalField {
@@ -468,11 +504,21 @@ func (ga *GPUAgentGPUClient) mirrorGPUFamiliesToStore(store snapshotstore.StoreW
 				Value:  m.GetGauge().GetValue(),
 				Labels: labels,
 			}
+			mirrored[field] = struct{}{}
 		}
 	}
 	for key, fields := range byDevice {
 		store.Update(key, fields)
 	}
+	// Remember what the store now holds from this client (see gpuMirroredFields).
+	// Store.Update merges, so fields mirrored earlier stay in the store: keep them
+	// in the set until dropStaleGPUTelemetry or a store reset removes them.
+	if prev := gpuMirroredFields.Load(); prev != nil {
+		for name := range *prev {
+			mirrored[name] = struct{}{}
+		}
+	}
+	gpuMirroredFields.Store(&mirrored)
 	return nil
 }
 
@@ -503,6 +549,13 @@ func (ga *GPUAgentClient) NeedsPerScrapePull() bool {
 // (Approach 1 singleflight), then mirrors the populated GaugeVecs into the store.
 func (ga *GPUAgentGPUClient) fetchMetricsOnce(ctx context.Context) error {
 	return gpuPullDeduper.FetchOnce(gpuFetchKey, func() error {
+		// A GaugeVec keeps its children forever. When a workload label changes
+		// (kfd_process_id, job_id, pod, ...) the row with the old label value stays
+		// behind with its last values. mirrorGPUFamiliesToStore collapses both rows
+		// onto one store slot and the last row in Gather order wins, so the stale
+		// row can overwrite the fresh one on every scrape. Clear the GaugeVecs so
+		// only the rows of this fetch are mirrored (same as the legacy pull path).
+		_ = ga.ResetMetrics()
 		if err := ga.getMetricsAll(ctx); err != nil {
 			// GPUGet failed: drop stale device telemetry so /metrics serves only
 			// gpu_nodes_total + gpu_health until the agent reconnects and the next
