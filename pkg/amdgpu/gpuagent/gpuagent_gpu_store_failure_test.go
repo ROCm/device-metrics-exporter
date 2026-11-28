@@ -119,6 +119,9 @@ func TestGPUStoreDropsTelemetryOnFetchFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Healthy scrape: telemetry and the signal fields are stored and served.
+	// The health poller computes the per-GPU state that gpu_health is exported
+	// from; in the exporter it runs in the background (StartMonitor).
+	assert.NilError(t, gpu.processHealthValidation())
 	assert.NilError(t, gpu.UpdateMetricsStats(ctx))
 	storeBefore := gpuStoreFields()
 	scrapeBefore := gpuScrapedFields(t, gpu)
@@ -128,6 +131,8 @@ func TestGPUStoreDropsTelemetryOnFetchFailure(t *testing.T) {
 	signalStoreBefore := signalOnly(storeBefore)
 	signalScrapeBefore := signalOnly(scrapeBefore)
 	assert.Assert(t, len(signalScrapeBefore) > 0, "fixture served neither gpu_health nor gpu_nodes_total")
+	// gpu_health must be part of the healthy scrape, or its survival is not tested.
+	assert.DeepEqual(t, signalScrapeBefore, []string{gpuHealthField, gpuNodesTotalField})
 
 	// 2. gpuagent goes away: GPUGet fails.
 	healthyClient := gpu.gpuclient
