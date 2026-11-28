@@ -503,6 +503,13 @@ func (ga *GPUAgentClient) NeedsPerScrapePull() bool {
 // (Approach 1 singleflight), then mirrors the populated GaugeVecs into the store.
 func (ga *GPUAgentGPUClient) fetchMetricsOnce(ctx context.Context) error {
 	return gpuPullDeduper.FetchOnce(gpuFetchKey, func() error {
+		// A GaugeVec keeps its children forever. When a workload label changes
+		// (kfd_process_id, job_id, pod, ...) the row with the old label value stays
+		// behind with its last values. mirrorGPUFamiliesToStore collapses both rows
+		// onto one store slot and the last row in Gather order wins, so the stale
+		// row can overwrite the fresh one on every scrape. Clear the GaugeVecs so
+		// only the rows of this fetch are mirrored (same as the legacy pull path).
+		_ = ga.ResetMetrics()
 		if err := ga.getMetricsAll(ctx); err != nil {
 			// GPUGet failed: drop stale device telemetry so /metrics serves only
 			// gpu_nodes_total + gpu_health until the agent reconnects and the next
